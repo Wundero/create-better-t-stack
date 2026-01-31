@@ -333,6 +333,22 @@ export function validateAddonCompatibility(
     }
   }
 
+  // Docker Compose specific compatibility checks
+  if (addon === "docker-compose") {
+    if (backend === "convex") {
+      return {
+        isCompatible: false,
+        reason: "docker-compose is not compatible with Convex backend (managed service)",
+      };
+    }
+    if (runtime === "workers") {
+      return {
+        isCompatible: false,
+        reason: "docker-compose is not compatible with Cloudflare Workers runtime",
+      };
+    }
+  }
+
   return { isCompatible: true };
 }
 
@@ -375,7 +391,7 @@ export function validateAddonsAgainstFrontends(
       runtime,
     );
     if (!isCompatible) {
-      return validationErr(`Incompatible addon/frontend combination: ${reason}`);
+      return validationErr(`Incompatible addon combination: ${reason}`);
     }
   }
   return Result.ok(undefined);

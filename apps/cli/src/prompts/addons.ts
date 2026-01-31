@@ -92,6 +92,10 @@ function getAddonDisplay(addon: Addons): { label: string; hint: string } {
       label = "MCP";
       hint = "Install MCP servers, including Better T Stack, via add-mcp";
       break;
+    case "docker-compose":
+      label = "Docker Compose";
+      hint = "Containerize your app for deployment";
+      break;
     case "evlog":
       label = "evlog";
       hint = "Request logging with Better Auth context and AI SDK telemetry";
@@ -108,7 +112,7 @@ const ADDON_GROUPS = {
   "Monorepo & Tasks": ["turborepo", "nx"],
   "Code Quality": ["biome", "oxc", "ultracite", "husky", "lefthook"],
   Documentation: ["starlight", "fumadocs"],
-  "Platform Extensions": ["pwa", "tauri", "electrobun", "opentui", "wxt"],
+  "Platform Extensions": ["pwa", "tauri", "electrobun", "opentui", "wxt", "docker-compose"],
   Observability: ["evlog"],
   "AI & Agent Tools": ["skills", "mcp"],
 };

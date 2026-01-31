@@ -66,6 +66,7 @@ export const ADDON_COMPATIBILITY = {
   fumadocs: [],
   opentui: [],
   wxt: [],
+  "docker-compose": [],
   skills: [],
   evlog: [],
   none: [],
