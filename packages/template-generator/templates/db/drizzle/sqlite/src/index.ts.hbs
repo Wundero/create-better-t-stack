@@ -7,8 +7,8 @@ import type {} from "@{{projectName}}/env/server";
 import { env } from "@{{projectName}}/env/server";
 {{/if}}
 
-export function createDb({{#if (and (eq backend "self") (eq webDeploy "cloudflare") (includes frontend "svelte"))}}env: Env{{/if}}) {
-	return drizzle(env.DB, { schema });
+export function createDb({{#if (and (eq backend "self") (eq webDeploy "cloudflare") (includes frontend "svelte"))}}env: Env{{else}}runtimeEnv = env{{/if}}) {
+	return drizzle({{#if (and (eq backend "self") (eq webDeploy "cloudflare") (includes frontend "svelte"))}}env{{else}}runtimeEnv{{/if}}.DB, { schema });
 }
 {{else if (or (eq runtime "bun") (eq runtime "node") (eq runtime "none"))}}
 {{#if (and (eq backend "self") (eq webDeploy "cloudflare") (includes frontend "svelte"))}}
@@ -40,11 +40,11 @@ import { drizzle } from "drizzle-orm/libsql";
 import { env } from "@{{projectName}}/env/server";
 import { createClient } from "@libsql/client";
 
-export function createDb() {
+export function createDb(runtimeEnv = env) {
 	const client = createClient({
-		url: env.DATABASE_URL || "",
+		url: runtimeEnv.DATABASE_URL || "",
 {{#if (eq dbSetup "turso")}}
-		authToken: env.DATABASE_AUTH_TOKEN,
+		authToken: runtimeEnv.DATABASE_AUTH_TOKEN,
 {{/if}}
 	});
 
