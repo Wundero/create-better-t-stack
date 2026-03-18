@@ -1108,7 +1108,7 @@ describe("Addon Configurations", () => {
       "husky",
       "turborepo",
       "nx",
-      "oxlint",
+      "oxc",
       "evlog",
       // Note: starlight, ultracite, fumadocs are prompt-controlled only
     ];

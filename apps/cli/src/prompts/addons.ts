@@ -52,8 +52,8 @@ function getAddonDisplay(addon: Addons): { label: string; hint: string } {
       label = "Biome";
       hint = "Format, lint, and more";
       break;
-    case "oxlint":
-      label = "Oxlint";
+    case "oxc":
+      label = "Oxc";
       hint = "Oxlint + Oxfmt (linting & formatting)";
       break;
     case "ultracite":
@@ -106,7 +106,7 @@ function getAddonDisplay(addon: Addons): { label: string; hint: string } {
 
 const ADDON_GROUPS = {
   "Monorepo & Tasks": ["turborepo", "nx"],
-  "Code Quality": ["biome", "oxlint", "ultracite", "husky", "lefthook"],
+  "Code Quality": ["biome", "oxc", "ultracite", "husky", "lefthook"],
   Documentation: ["starlight", "fumadocs"],
   "Platform Extensions": ["pwa", "tauri", "electrobun", "opentui", "wxt"],
   Observability: ["evlog"],

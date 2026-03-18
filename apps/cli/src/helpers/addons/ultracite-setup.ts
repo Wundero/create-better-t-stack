@@ -11,7 +11,7 @@ import { shouldSkipExternalCommands } from "../../utils/external-commands";
 import { getPackageRunnerPrefix } from "../../utils/package-runner";
 import { cliLog, createSpinner } from "../../utils/terminal-output";
 
-type UltraciteLinter = "biome" | "eslint" | "oxlint";
+type UltraciteLinter = "biome" | "eslint" | "oxc";
 
 type UltraciteEditor =
   | "vscode"
@@ -85,7 +85,7 @@ type UltraciteInitArgsInput = {
 const LINTERS = {
   biome: { label: "Biome (Recommended)" },
   eslint: { label: "ESLint + Prettier + Stylelint" },
-  oxlint: { label: "Oxlint + Oxfmt" },
+  oxc: { label: "Oxc + Oxfmt" },
 } as const;
 
 const AGENTS = {
