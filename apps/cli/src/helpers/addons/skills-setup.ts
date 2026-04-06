@@ -128,7 +128,8 @@ function hasReactBasedFrontend(frontend: ProjectConfig["frontend"]): boolean {
     frontend.includes("react-router") ||
     frontend.includes("tanstack-router") ||
     frontend.includes("tanstack-start") ||
-    frontend.includes("next")
+    frontend.includes("next") ||
+    frontend.includes("vinext")
   );
 }
 
@@ -149,7 +150,7 @@ function getRecommendedSourceKeys(config: ProjectConfig): SourceKey[] {
     sources.push("shadcn/ui");
   }
 
-  if (frontend.includes("next")) {
+  if (frontend.includes("next") || frontend.includes("vinext")) {
     sources.push("vercel-labs/next-skills");
   }
 
@@ -254,7 +255,7 @@ const CURATED_SKILLS_BY_SOURCE: Record<SourceKey, (config: ProjectConfig) => str
       "clerk-orgs",
     ];
 
-    if (config.frontend.includes("next")) {
+    if (config.frontend.includes("next") || config.frontend.includes("vinext")) {
       skills.push("clerk-nextjs-patterns");
     }
 

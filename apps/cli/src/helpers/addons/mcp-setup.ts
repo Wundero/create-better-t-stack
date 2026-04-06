@@ -64,7 +64,8 @@ function hasReactBasedFrontend(frontend: ProjectConfig["frontend"]): boolean {
     frontend.includes("react-router") ||
     frontend.includes("tanstack-router") ||
     frontend.includes("tanstack-start") ||
-    frontend.includes("next")
+    frontend.includes("next") ||
+    frontend.includes("vinext")
   );
 }
 
@@ -217,7 +218,7 @@ export function getRecommendedMcpServers(
     recommendedServerKeys.push("shadcn");
   }
 
-  if (config.frontend.includes("next")) {
+  if (config.frontend.includes("next") || config.frontend.includes("vinext")) {
     recommendedServerKeys.push("next-devtools");
   }
 
