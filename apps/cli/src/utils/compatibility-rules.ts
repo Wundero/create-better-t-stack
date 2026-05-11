@@ -32,6 +32,7 @@ export const CONVEX_BETTER_AUTH_SUPPORTED_FRONTENDS = [
   "react-router",
   "tanstack-start",
   "next",
+  "vinext",
   "native-bare",
   "native-uniwind",
   "native-unistyles",
@@ -60,7 +61,7 @@ export function ensureSingleWebAndNative(frontends: Frontend[]): ValidationResul
   const { web, native } = splitFrontends(frontends);
   if (web.length > 1) {
     return validationErr(
-      "Cannot select multiple web frameworks. Choose only one of: tanstack-router, tanstack-start, react-router, next, nuxt, svelte, solid, astro",
+      "Cannot select multiple web frameworks. Choose only one of: tanstack-router, tanstack-start, react-router, next, vinext, nuxt, svelte, solid, astro",
     );
   }
   if (native.length > 1) {
@@ -74,6 +75,7 @@ export function ensureSingleWebAndNative(frontends: Frontend[]): ValidationResul
 // Frontends that support backend="self" (fullstack mode with built-in server routes)
 const FULLSTACK_FRONTENDS: readonly Frontend[] = [
   "next",
+  "vinext",
   "tanstack-start",
   "nuxt",
   "svelte",
@@ -84,7 +86,7 @@ const EVLOG_SERVER_BACKENDS: readonly Backend[] = ["hono", "express", "fastify",
 const EVLOG_FULLSTACK_FRONTENDS: readonly Frontend[] = FULLSTACK_FRONTENDS;
 
 const evlogCompatibilityMessage =
-  "evlog addon supports Hono, Express, Fastify, Elysia, or backend self with Next.js, TanStack Start, Nuxt, SvelteKit, or Astro. Convex and backend none are not supported yet.";
+  "evlog addon supports Hono, Express, Fastify, Elysia, or backend self with Next.js, Vinext, TanStack Start, Nuxt, SvelteKit, or Astro. Convex and backend none are not supported yet.";
 
 export function supportsEvlogAddon(
   frontend: Frontend[] = [],
@@ -119,7 +121,7 @@ export function validateSelfBackendCompatibility(
 
     if (!hasSupportedWeb) {
       return validationErr(
-        "Backend 'self' (fullstack) currently only supports Next.js, TanStack Start, Nuxt, SvelteKit, and Astro frontends. Please use --frontend next, --frontend tanstack-start, --frontend nuxt, --frontend svelte, or --frontend astro.",
+        "Backend 'self' (fullstack) currently only supports Next.js, Vinext, TanStack Start, Nuxt, SvelteKit, and Astro frontends. Please use --frontend next, --frontend vinext, --frontend tanstack-start, --frontend nuxt, --frontend svelte, or --frontend astro.",
       );
     }
 
@@ -133,7 +135,7 @@ export function validateSelfBackendCompatibility(
   const hasFullstackFrontend = frontends.some((f) => FULLSTACK_FRONTENDS.includes(f));
   if (providedFlags.has("backend") && !hasFullstackFrontend && backend === "self") {
     return validationErr(
-      "Backend 'self' (fullstack) currently only supports Next.js, TanStack Start, Nuxt, SvelteKit, and Astro frontends. Please use --frontend next, --frontend tanstack-start, --frontend nuxt, --frontend svelte, --frontend astro, or choose a different backend.",
+      "Backend 'self' (fullstack) currently only supports Next.js, Vinext, TanStack Start, Nuxt, SvelteKit, and Astro frontends. Please use --frontend next, --frontend vinext, --frontend tanstack-start, --frontend nuxt, --frontend svelte, --frontend astro, or choose a different backend.",
     );
   }
 
@@ -225,7 +227,7 @@ export function isFrontendAllowedWithBackend(
   }
 
   if (auth === "clerk") {
-    const incompatibleFrontends = ["nuxt", "svelte", "solid", "astro"];
+    const incompatibleFrontends = ["nuxt", "svelte", "solid", "astro", "vinext"];
     if (incompatibleFrontends.includes(frontend)) return false;
   }
 
