@@ -467,6 +467,7 @@ describe("MCP server", () => {
       args: [cliEntrypoint, "mcp"],
       cwd: cliRoot,
       env: {
+        ...process.env,
         BTS_SKIP_EXTERNAL_COMMANDS: "1",
         BTS_TEST_MODE: "1",
       },

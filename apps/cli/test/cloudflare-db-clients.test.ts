@@ -41,7 +41,9 @@ describe("Cloudflare DB client generation", () => {
     const contextFile = files.get("packages/api/src/context.ts");
     const todoRouterFile = files.get("packages/api/src/routers/todo.ts");
 
-    expect(dbFile).toContain("export function createDb()");
+    expect(dbFile).toContain("export function createDb(runtimeEnv = env)");
+    expect(dbFile).toContain("url: runtimeEnv.DATABASE_URL");
+    expect(dbFile).toContain("authToken: runtimeEnv.DATABASE_AUTH_TOKEN");
     expect(dbFile).not.toContain("export const db = createDb();");
     expect(authFile).toContain("export function createAuth()");
     expect(authFile).not.toContain("export const auth = createAuth();");
@@ -170,7 +172,8 @@ describe("Cloudflare DB client generation", () => {
       const todoRouterFile = files.get("packages/api/src/routers/todo.ts");
 
       expect(dbFile).toContain('import { drizzle } from "drizzle-orm/d1";');
-      expect(dbFile).toContain("return drizzle(env.DB, { schema });");
+      expect(dbFile).toContain("export function createDb(runtimeEnv = env)");
+      expect(dbFile).toContain("return drizzle(runtimeEnv.DB, { schema });");
       expect(dbFile).not.toContain('import { drizzle } from "drizzle-orm/libsql";');
       expect(dbFile).not.toContain("export const db = createDb();");
       expect(authFile).toContain("export function createAuth()");

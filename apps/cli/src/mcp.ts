@@ -391,4 +391,5 @@ export async function startBtsMcpServer() {
   const server = createBtsMcpServer();
   const transport = new StdioServerTransport();
   await server.connect(transport);
+  process.stdin.resume();
 }

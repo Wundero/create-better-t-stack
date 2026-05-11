@@ -51,7 +51,7 @@ export const DEFAULT_CONFIG = getDefaultConfig();
 export { desktopWebFrontends };
 
 export const ADDON_COMPATIBILITY = {
-  pwa: ["tanstack-router", "react-router", "solid", "next"],
+  pwa: ["tanstack-router", "react-router", "solid", "next", "vinext"],
   tauri: desktopWebFrontends,
   electrobun: desktopWebFrontends,
   biome: [],

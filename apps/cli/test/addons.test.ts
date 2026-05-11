@@ -155,7 +155,7 @@ describe("Addon Configurations", () => {
           const result = await runTRPCTest(config);
           expectError(
             result,
-            "pwa addon requires one of these frontends: tanstack-router, react-router, solid, next",
+            "pwa addon requires one of these frontends: tanstack-router, react-router, solid, next, vinext",
           );
         });
       }
