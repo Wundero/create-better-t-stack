@@ -6,8 +6,10 @@ import { BatchHandlerPlugin } from "@orpc/server/plugins";
 import { ZodToJsonSchemaConverter } from "@orpc/zod/zod4";
 import { appRouter } from "{{packageScope}}/api/routers/index";
 import { createContext } from "{{packageScope}}/api/context";
+import { customJsonSerializers } from "{{packageScope}}/api/serialization";
 
 const rpcHandler = new RPCHandler(appRouter, {
+  customJsonSerializers,
   interceptors: [
     onError((error) => {
       console.error(error);

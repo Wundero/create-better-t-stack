@@ -159,6 +159,9 @@ export default function AIPage() {
 
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
+{{#unless (eq api "none")}}
+import { createDevalueFetch } from "{{packageScope}}/api/serialization";
+{{/unless}}
 import { Send } from "lucide-react";
 {{#if (eq webDeploy "cloudflare")}}
 import dynamic from "next/dynamic";
@@ -187,6 +190,9 @@ export default function AIPage() {
   const [input, setInput] = useState("");
   const { messages, sendMessage, status } = useChat({
     transport: new DefaultChatTransport({
+{{#unless (eq api "none")}}
+      fetch: createDevalueFetch(),
+{{/unless}}
       api: {{#if (eq backend "self")}}"/api/ai"{{else}}`${env.NEXT_PUBLIC_SERVER_URL}/ai`{{/if}},
     }),
   });

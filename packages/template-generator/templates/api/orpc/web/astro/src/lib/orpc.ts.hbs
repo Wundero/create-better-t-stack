@@ -1,4 +1,5 @@
 import type { AppRouterClient } from "{{packageScope}}/api/routers/index";
+import { customJsonSerializers } from "{{packageScope}}/api/serialization";
 
 import { createORPCClient } from "@orpc/client";
 import { RPCLink } from "@orpc/client/fetch";
@@ -6,12 +7,14 @@ import { RPCLink } from "@orpc/client/fetch";
 {{#if (eq backend "self")}}
 export const link = new RPCLink({
   url: `${window.location.origin}/rpc`,
+  customJsonSerializers,
 });
 {{else}}
 import { PUBLIC_SERVER_URL } from "astro:env/client";
 
 export const link = new RPCLink({
   url: `${PUBLIC_SERVER_URL}/rpc`,
+  customJsonSerializers,
 {{#if (eq auth "better-auth")}}
   fetch(url, options) {
     return fetch(url, {

@@ -8,9 +8,11 @@ import { OpenAPIReferencePlugin } from "@orpc/openapi/plugins";
 import { ZodToJsonSchemaConverter } from "@orpc/zod/zod4";
 import { onError } from "@orpc/server";
 import { RPCHandler } from "@orpc/server/fetch";
+import { customJsonSerializers } from "{{packageScope}}/api/serialization";
 import type { RequestHandler } from "@sveltejs/kit";
 
 const rpcHandler = new RPCHandler(appRouter, {
+	customJsonSerializers,
 	interceptors: [
 		onError((error) => {
 			console.error(error);

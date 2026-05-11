@@ -142,6 +142,9 @@ export default AI;
 import React, { useRef, useEffect, useState, type FormEvent } from "react";
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
+{{#unless (eq api "none")}}
+import { createDevalueFetch } from "{{packageScope}}/api/serialization";
+{{/unless}}
 import { Send } from "lucide-react";
 import { Streamdown } from "streamdown";
 import { env } from "{{packageScope}}/env/web";
@@ -153,6 +156,9 @@ const AI: React.FC = () => {
   const [input, setInput] = useState("");
   const { messages, sendMessage, status } = useChat({
     transport: new DefaultChatTransport({
+{{#unless (eq api "none")}}
+      fetch: createDevalueFetch(),
+{{/unless}}
       api: `${env.VITE_SERVER_URL}/ai`,
     }),
   });

@@ -3,6 +3,7 @@ import { RPCLink } from "@orpc/client/fetch";
 import { createTanstackQueryUtils } from "@orpc/tanstack-query";
 import { QueryCache, QueryClient } from "@tanstack/react-query";
 import type { AppRouterClient } from "{{packageScope}}/api/routers/index";
+import { customJsonSerializers } from "{{packageScope}}/api/serialization";
 import { env } from "{{packageScope}}/env/native";
 {{#if (eq auth "better-auth")}}
 import { authClient } from "@/lib/auth-client";
@@ -29,6 +30,7 @@ export const link = new RPCLink({
 {{else}}
 	url: `${env.EXPO_PUBLIC_SERVER_URL}/rpc`,
 {{/if}}
+	customJsonSerializers,
 {{#if (eq auth "better-auth")}}
 	fetch:
 		function (url, options) {

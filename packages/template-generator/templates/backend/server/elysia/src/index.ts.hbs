@@ -22,13 +22,18 @@ import { RPCHandler } from "@orpc/server/fetch";
 import { onError } from "@orpc/server";
 import { appRouter } from "{{packageScope}}/api/routers/index";
 import { createContext } from "{{packageScope}}/api/context";
+import { customJsonSerializers } from "{{packageScope}}/api/serialization";
 {{/if}}
 {{#if (eq auth "better-auth")}}
 import { auth } from "{{packageScope}}/auth";
 {{/if}}
+{{#if (and (includes examples "ai") (ne api "none"))}}
+import { readApiRequest } from "{{packageScope}}/api/serialization";
+{{/if}}
 
 {{#if (eq api "orpc")}}
 const rpcHandler = new RPCHandler(appRouter, {
+	customJsonSerializers,
 	interceptors: [
 		onError((error) => {
 			console.error(error);
@@ -116,7 +121,11 @@ new Elysia()
 {{/if}}
 {{#if (includes examples "ai")}}
 	.post("/ai", async (context) => {
+{{#if (ne api "none")}}
+		const body = await readApiRequest<{ messages?: UIMessage[] }>(context.request);
+{{else}}
 		const body = (await context.request.json()) as { messages?: UIMessage[] };
+{{/if}}
 		const uiMessages = body.messages || [];
 		const model = wrapLanguageModel({
 			model: google("gemini-2.5-flash"),

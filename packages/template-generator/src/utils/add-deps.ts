@@ -72,6 +72,8 @@ export const dependencyVersionMap = {
 
   "@types/bun": "^1.3.4",
 
+  devalue: "5.8.0",
+
   "@elysiajs/node": "^1.4.5",
 
   "@elysiajs/cors": "^1.4.1",

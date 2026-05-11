@@ -1,9 +1,17 @@
 import { devToolsMiddleware } from "@ai-sdk/devtools";
 import { google } from "@ai-sdk/google";
-import { streamText, convertToModelMessages, wrapLanguageModel } from "ai";
+import { streamText, convertToModelMessages, type UIMessage, wrapLanguageModel } from "ai";
+{{#unless (eq api "none")}}
+import { parseApiData } from "{{packageScope}}/api/serialization";
+{{/unless}}
 
 export default defineEventHandler(async (event) => {
-  const body = await readBody(event);
+  {{#unless (eq api "none")}}
+  const rawBody = await readRawBody(event, "utf8");
+  const body = rawBody ? parseApiData<{ messages?: UIMessage[] }>(rawBody) : {};
+  {{else}}
+  const body = await readBody<{ messages?: UIMessage[] }>(event);
+  {{/unless}}
   const uiMessages = body.messages || [];
 
   const model = wrapLanguageModel({

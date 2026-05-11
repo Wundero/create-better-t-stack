@@ -1,0 +1,74 @@
+import { parse, stringify } from "devalue";
+import type { TRPCDataTransformer } from "@trpc/server";
+
+export const API_CONTENT_TYPE = "application/x-devalue";
+
+export const transformer: TRPCDataTransformer = {
+	deserialize: (object) => parse(String(object)),
+	serialize: (object) => stringify(object),
+};
+
+export function serializeApiData(value: unknown): string {
+	return stringify(value);
+}
+
+export function parseApiData<T = unknown>(text: string): T {
+	try {
+		return parse(text) as T;
+	} catch (error) {
+		try {
+			return JSON.parse(text) as T;
+		} catch {
+			throw error;
+		}
+	}
+}
+
+export async function readApiRequest<T = unknown>(request: Request): Promise<T> {
+	const text = await request.text();
+	if (!text) return undefined as T;
+	return parseApiData<T>(text);
+}
+
+export function acceptsDevalue(request: Request): boolean {
+	return request.headers.get("accept")?.includes(API_CONTENT_TYPE) ?? false;
+}
+
+export function createApiResponse(value: unknown, init?: ResponseInit): Response {
+	const headers = new Headers(init?.headers);
+	if (!headers.has("content-type")) {
+		headers.set("content-type", API_CONTENT_TYPE);
+	}
+	return new Response(serializeApiData(value), {
+		...init,
+		headers,
+	});
+}
+
+export function createDevalueFetch(fetcher: typeof fetch = fetch): typeof fetch {
+	return async (input, init) => {
+		if (!init?.body || typeof init.body !== "string") {
+			return fetcher(input, init);
+		}
+
+		const headers = new Headers(init.headers);
+		const contentType = headers.get("content-type");
+		if (contentType && !contentType.includes("application/json")) {
+			return fetcher(input, init);
+		}
+
+		try {
+			const value = JSON.parse(init.body);
+			headers.set("content-type", API_CONTENT_TYPE);
+			headers.set("accept", API_CONTENT_TYPE);
+
+			return fetcher(input, {
+				...init,
+				body: serializeApiData(value),
+				headers,
+			});
+		} catch {
+			return fetcher(input, init);
+		}
+	};
+}

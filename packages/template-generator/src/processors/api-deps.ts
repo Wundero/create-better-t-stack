@@ -60,13 +60,20 @@ function addApiPackageDeps(
     addPackageDependency({
       vfs,
       packagePath: pkgPath,
-      dependencies: ["@trpc/server", "@trpc/client", "zod"],
+      dependencies: ["@trpc/server", "@trpc/client", "devalue", "zod"],
     });
   } else if (api === "orpc") {
     addPackageDependency({
       vfs,
       packagePath: pkgPath,
-      dependencies: ["@orpc/server", "@orpc/client", "@orpc/openapi", "@orpc/zod", "zod"],
+      dependencies: [
+        "@orpc/server",
+        "@orpc/client",
+        "@orpc/openapi",
+        "@orpc/zod",
+        "devalue",
+        "zod",
+      ],
     });
   }
 

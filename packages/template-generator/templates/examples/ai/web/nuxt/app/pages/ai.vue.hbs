@@ -3,6 +3,9 @@ import { Chat } from '@ai-sdk/vue'
 import type { UIMessage } from 'ai'
 import { getTextFromMessage } from '@nuxt/ui/utils/ai'
 import { DefaultChatTransport } from 'ai'
+{{#unless (eq api "none")}}
+import { createDevalueFetch } from "{{packageScope}}/api/serialization";
+{{/unless}}
 import { computed, ref } from 'vue'
 
 const SUGGESTIONS = [
@@ -31,6 +34,9 @@ const aiApiUrl = {{#if (eq backend "self")}}'/api/ai'{{else}}`${useRuntimeConfig
 const chat = new Chat({
   messages,
   transport: new DefaultChatTransport({
+    {{#unless (eq api "none")}}
+    fetch: createDevalueFetch(),
+    {{/unless}}
     api: aiApiUrl,
   }),
   onError(error) {

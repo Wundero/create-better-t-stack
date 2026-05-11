@@ -6,6 +6,7 @@ import { RPCLink } from "@orpc/client/fetch";
 import { createTanstackQueryUtils } from "@orpc/tanstack-query";
 import { QueryCache, QueryClient } from "@tanstack/svelte-query";
 import type { AppRouterClient } from "{{packageScope}}/api/routers/index";
+import { customJsonSerializers } from "{{packageScope}}/api/serialization";
 
 export const queryClient = new QueryClient({
 	queryCache: new QueryCache({
@@ -27,6 +28,7 @@ export const link = new RPCLink({
 	{{else}}
 	url: `${PUBLIC_SERVER_URL}/rpc`,
 	{{/if}}
+	customJsonSerializers,
 	{{#if (eq auth "better-auth")}}
 	fetch(url, options) {
 		return fetch(url, {

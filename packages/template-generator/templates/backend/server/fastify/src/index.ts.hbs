@@ -16,12 +16,16 @@ import { RPCHandler } from "@orpc/server/fastify";
 import { onError } from "@orpc/server";
 import { createContext } from "{{packageScope}}/api/context";
 import { appRouter } from "{{packageScope}}/api/routers/index";
+import { customJsonSerializers } from "{{packageScope}}/api/serialization";
 {{/if}}
 
 {{#if (includes examples "ai")}}
 import { streamText, type UIMessage, convertToModelMessages, wrapLanguageModel } from "ai";
 import { google } from "@ai-sdk/google";
 import { devToolsMiddleware } from "@ai-sdk/devtools";
+{{/if}}
+{{#if (and (includes examples "ai") (ne api "none"))}}
+import { API_CONTENT_TYPE, parseApiData } from "{{packageScope}}/api/serialization";
 {{/if}}
 
 {{#if (eq auth "better-auth")}}
@@ -45,6 +49,7 @@ const baseCorsConfig = {
 
 {{#if (eq api "orpc")}}
 const rpcHandler = new RPCHandler(appRouter, {
+	customJsonSerializers,
 	interceptors: [
 		onError((error) => {
 			console.error(error);
@@ -75,6 +80,19 @@ const fastify = Fastify({
 {{/if}}
 
 fastify.register(fastifyCors, baseCorsConfig);
+{{#if (and (includes examples "ai") (ne api "none"))}}
+fastify.addContentTypeParser(
+	API_CONTENT_TYPE,
+	{ parseAs: "string" },
+	(_request, body, done) => {
+		try {
+			done(null, parseApiData(String(body)));
+		} catch (error) {
+			done(error as Error, undefined);
+		}
+	}
+);
+{{/if}}
 {{#if (eq auth "clerk")}}
 fastify.register(clerkPlugin);
 {{/if}}

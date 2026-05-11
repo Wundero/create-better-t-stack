@@ -145,6 +145,9 @@ function RouteComponent() {
 import { createFileRoute } from "@tanstack/react-router";
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
+{{#unless (eq api "none")}}
+import { createDevalueFetch } from "{{packageScope}}/api/serialization";
+{{/unless}}
 import { Send } from "lucide-react";
 import { useRef, useEffect, useState, type FormEvent } from "react";
 import { Streamdown } from "streamdown";
@@ -163,6 +166,9 @@ function RouteComponent() {
   const [input, setInput] = useState("");
   const { messages, sendMessage, status } = useChat({
     transport: new DefaultChatTransport({
+{{#unless (eq api "none")}}
+      fetch: createDevalueFetch(),
+{{/unless}}
       api: {{#if (eq backend "self")}}"/api/ai"{{else}}`${env.VITE_SERVER_URL}/ai`{{/if}},
     }),
   });

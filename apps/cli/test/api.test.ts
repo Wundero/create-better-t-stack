@@ -540,6 +540,146 @@ describe("API Configurations", () => {
   });
 
   describe("API Edge Cases", () => {
+    it("should wire devalue serialization for generated tRPC projects", async () => {
+      const result = await createVirtual({
+        projectName: "trpc-devalue-serialization",
+        api: "trpc",
+        frontend: ["next", "native-bare"],
+        backend: "hono",
+        runtime: "bun",
+        database: "sqlite",
+        orm: "drizzle",
+        auth: "none",
+        addons: ["none"],
+        examples: ["none"],
+        dbSetup: "none",
+        webDeploy: "none",
+        serverDeploy: "none",
+        install: false,
+        git: false,
+        packageManager: "bun",
+        payments: "none",
+      });
+
+      if (result.isErr()) {
+        throw result.error;
+      }
+
+      const files = collectFiles(result.value.root, result.value.root.path);
+      const apiPackage = JSON.parse(files.get("packages/api/package.json") ?? "{}") as {
+        dependencies?: Record<string, string>;
+      };
+      const serializationFile = files.get("packages/api/src/serialization.ts") ?? "";
+      const apiIndex = files.get("packages/api/src/index.ts") ?? "";
+      const webClient = files.get("apps/web/src/utils/trpc.ts") ?? "";
+      const nativeClient = files.get("apps/native/utils/trpc.ts") ?? "";
+
+      expect(apiPackage.dependencies?.devalue).toBe("5.8.0");
+      expect(serializationFile).toContain('import { parse, stringify } from "devalue";');
+      expect(serializationFile).toContain("export const transformer");
+      expect(serializationFile).toContain(
+        'export const API_CONTENT_TYPE = "application/x-devalue";',
+      );
+      expect(apiIndex).toContain("create({\n  transformer,");
+      expect(webClient).toContain(
+        'import { transformer } from "@trpc-devalue-serialization/api/serialization";',
+      );
+      expect(webClient).toContain("transformer,");
+      expect(nativeClient).toContain(
+        'import { transformer } from "@trpc-devalue-serialization/api/serialization";',
+      );
+      expect(nativeClient).toContain("transformer,");
+    });
+
+    it("should wire devalue serialization for generated oRPC projects without changing OpenAPI handlers", async () => {
+      const result = await createVirtual({
+        projectName: "orpc-devalue-serialization",
+        api: "orpc",
+        frontend: ["tanstack-router"],
+        backend: "hono",
+        runtime: "bun",
+        database: "sqlite",
+        orm: "drizzle",
+        auth: "none",
+        addons: ["none"],
+        examples: ["none"],
+        dbSetup: "none",
+        webDeploy: "none",
+        serverDeploy: "none",
+        install: false,
+        git: false,
+        packageManager: "bun",
+        payments: "none",
+      });
+
+      if (result.isErr()) {
+        throw result.error;
+      }
+
+      const files = collectFiles(result.value.root, result.value.root.path);
+      const apiPackage = JSON.parse(files.get("packages/api/package.json") ?? "{}") as {
+        dependencies?: Record<string, string>;
+      };
+      const serializationFile = files.get("packages/api/src/serialization.ts") ?? "";
+      const serverFile = files.get("apps/server/src/index.ts") ?? "";
+      const webClient = files.get("apps/web/src/utils/orpc.ts") ?? "";
+
+      expect(apiPackage.dependencies?.devalue).toBe("5.8.0");
+      expect(serializationFile).toContain("customJsonSerializers");
+      expect(serializationFile).toContain("type: 21");
+      expect(serverFile).toContain(
+        "const rpcHandler = new RPCHandler(appRouter, {\n\tcustomJsonSerializers,",
+      );
+      expect(serverFile).toContain("const apiHandler = new OpenAPIHandler(appRouter, {");
+      expect(serverFile).not.toContain(
+        "const apiHandler = new OpenAPIHandler(appRouter, {\n\tcustomJsonSerializers,",
+      );
+      expect(webClient).toContain(
+        'import { customJsonSerializers } from "@orpc-devalue-serialization/api/serialization";',
+      );
+      expect(webClient).toContain("customJsonSerializers,");
+    });
+
+    it("should use generated devalue helpers for AI HTTP examples when an API package exists", async () => {
+      const result = await createVirtual({
+        projectName: "ai-devalue-serialization",
+        api: "trpc",
+        frontend: ["next"],
+        backend: "self",
+        runtime: "none",
+        database: "sqlite",
+        orm: "drizzle",
+        auth: "none",
+        addons: ["none"],
+        examples: ["ai"],
+        dbSetup: "none",
+        webDeploy: "none",
+        serverDeploy: "none",
+        install: false,
+        git: false,
+        packageManager: "bun",
+        payments: "none",
+      });
+
+      if (result.isErr()) {
+        throw result.error;
+      }
+
+      const files = collectFiles(result.value.root, result.value.root.path);
+      const aiRoute = files.get("apps/web/src/app/api/ai/route.ts") ?? "";
+      const aiPage = files.get("apps/web/src/app/ai/page.tsx") ?? "";
+
+      expect(aiRoute).toContain(
+        'import { readApiRequest } from "@ai-devalue-serialization/api/serialization";',
+      );
+      expect(aiRoute).toContain("await readApiRequest(req)");
+      expect(aiRoute).not.toContain("await req.json()");
+      expect(aiPage).toContain(
+        'import { createDevalueFetch } from "@ai-devalue-serialization/api/serialization";',
+      );
+      expect(aiPage).toContain("fetch: createDevalueFetch(),");
+    });
+
     it("should scaffold Fastify oRPC context with matching request shapes", async () => {
       const result = await createVirtual({
         projectName: "fastify-orpc-request-shape",

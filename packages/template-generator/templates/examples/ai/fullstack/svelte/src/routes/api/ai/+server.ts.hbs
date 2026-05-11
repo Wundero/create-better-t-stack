@@ -2,9 +2,16 @@ import { devToolsMiddleware } from "@ai-sdk/devtools";
 import { google } from "@ai-sdk/google";
 import { convertToModelMessages, streamText, type UIMessage, wrapLanguageModel } from "ai";
 import type { RequestHandler } from "@sveltejs/kit";
+{{#unless (eq api "none")}}
+import { readApiRequest } from "{{packageScope}}/api/serialization";
+{{/unless}}
 
 export const POST: RequestHandler = async ({ request }) => {
+{{#unless (eq api "none")}}
+	const { messages }: { messages: UIMessage[] } = await readApiRequest(request);
+{{else}}
 	const { messages }: { messages: UIMessage[] } = await request.json();
+{{/unless}}
 
 	const model = wrapLanguageModel({
 		model: google("gemini-2.5-flash"),

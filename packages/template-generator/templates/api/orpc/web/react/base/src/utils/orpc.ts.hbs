@@ -3,6 +3,7 @@ import { RPCLink } from "@orpc/client/fetch";
 import { createTanstackQueryUtils } from "@orpc/tanstack-query";
 import { QueryCache, QueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { customJsonSerializers } from "{{packageScope}}/api/serialization";
 {{#if (and (includes frontend "tanstack-start") (eq backend "self"))}}
 import { createRouterClient } from "@orpc/server";
 import type { RouterClient } from "@orpc/server";
@@ -49,9 +50,10 @@ const getORPCClient = createIsomorphicFn()
 			},
 		}),
 	)
-	.client((): RouterClient<typeof appRouter> => {
+		.client((): RouterClient<typeof appRouter> => {
 			const link = new RPCLink({
 			url: `${window.location.origin}/api/rpc`,
+			customJsonSerializers,
 {{#if (eq auth "better-auth")}}
 			fetch(url, options) {
 				return fetch(url, {
@@ -69,6 +71,7 @@ export const client: RouterClient<typeof appRouter> = getORPCClient();
 {{else if (includes frontend "tanstack-start")}}
 const link = new RPCLink({
 	url: `${env.VITE_SERVER_URL}/rpc`,
+	customJsonSerializers,
 {{#if (eq auth "clerk")}}
 	headers: async () => {
 		const token = await getClerkAuthToken();
@@ -99,6 +102,7 @@ export const link = new RPCLink({
 {{else}}
 	url: `${env.VITE_SERVER_URL}/rpc`,
 {{/if}}
+	customJsonSerializers,
 {{#if (eq auth "clerk")}}
 	headers: async () => {
 		{{#if (includes frontend "next")}}

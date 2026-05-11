@@ -2,10 +2,12 @@ import type { AppRouterClient } from "{{packageScope}}/api/routers/index";
 import { createORPCClient } from "@orpc/client";
 import { RPCLink } from "@orpc/client/fetch";
 import { createTanstackQueryUtils } from "@orpc/tanstack-query";
+import { customJsonSerializers } from "{{packageScope}}/api/serialization";
 
 export default defineNuxtPlugin(() => {
   const rpcLink = new RPCLink({
     url: `${window.location.origin}/rpc`,
+    customJsonSerializers,
     {{#if (eq auth "better-auth")}}
     fetch(url, options) {
         return fetch(url, {

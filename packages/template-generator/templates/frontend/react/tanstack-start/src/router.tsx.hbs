@@ -19,6 +19,7 @@ import { createTRPCClient, httpBatchLink } from "@trpc/client";
 import { createTRPCOptionsProxy } from "@trpc/tanstack-react-query";
 import { toast } from "sonner";
 import type { AppRouter } from "{{packageScope}}/api/routers/index";
+import { transformer } from "{{packageScope}}/api/serialization";
 import { TRPCProvider } from "./utils/trpc";
 {{#unless (eq backend "self")}}
 import { env } from "{{packageScope}}/env/web";
@@ -86,6 +87,7 @@ const trpcClient = createTRPCClient<AppRouter>({
 	links: [
 		httpBatchLink({
 			url: {{#if (eq backend "self")}}"/api/trpc"{{else}}`${env.VITE_SERVER_URL}/trpc`{{/if}},
+			transformer,
 {{#if (eq auth "clerk")}}
 			headers: async () => {
 				const token = await getClerkAuthToken();

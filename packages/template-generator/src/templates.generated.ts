@@ -688,8 +688,10 @@ import { RPCHandler } from "@orpc/server/fetch";
 import { onError } from "@orpc/server";
 import { appRouter } from "{{packageScope}}/api/routers/index";
 import { createContext } from "{{packageScope}}/api/context";
+import { customJsonSerializers } from "{{packageScope}}/api/serialization";
 
 const handler = new RPCHandler(appRouter, {
+  customJsonSerializers,
   interceptors: [
     onError((error) => {
       console.error(error);
@@ -737,9 +739,11 @@ import { OpenAPIReferencePlugin } from "@orpc/openapi/plugins";
 import { ZodToJsonSchemaConverter } from "@orpc/zod/zod4";
 import { RPCHandler } from "@orpc/server/fetch";
 import { onError } from "@orpc/server";
+import { customJsonSerializers } from "{{packageScope}}/api/serialization";
 import { NextRequest } from "next/server";
 
 const rpcHandler = new RPCHandler(appRouter, {
+	customJsonSerializers,
 	interceptors: [
 		onError((error) => {
 			console.error(error);
@@ -779,15 +783,18 @@ export const GET = handleRequest;
 export const POST = handleRequest;
 export const PUT = handleRequest;
 export const PATCH = handleRequest;
-export const DELETE = handleRequest;`],
+export const DELETE = handleRequest;
+`],
   ["api/orpc/fullstack/nuxt/app/plugins/orpc.client.ts.hbs", `import type { AppRouterClient } from "{{packageScope}}/api/routers/index";
 import { createORPCClient } from "@orpc/client";
 import { RPCLink } from "@orpc/client/fetch";
 import { createTanstackQueryUtils } from "@orpc/tanstack-query";
+import { customJsonSerializers } from "{{packageScope}}/api/serialization";
 
 export default defineNuxtPlugin(() => {
   const rpcLink = new RPCLink({
     url: \`\${window.location.origin}/rpc\`,
+    customJsonSerializers,
     {{#if (eq auth "better-auth")}}
     fetch(url, options) {
         return fetch(url, {
@@ -841,8 +848,10 @@ import { BatchHandlerPlugin } from "@orpc/server/plugins";
 import { ZodToJsonSchemaConverter } from "@orpc/zod/zod4";
 import { appRouter } from "{{packageScope}}/api/routers/index";
 import { createContext } from "{{packageScope}}/api/context";
+import { customJsonSerializers } from "{{packageScope}}/api/serialization";
 
 const rpcHandler = new RPCHandler(appRouter, {
+  customJsonSerializers,
   interceptors: [
     onError((error) => {
       console.error(error);
@@ -928,9 +937,11 @@ import { OpenAPIReferencePlugin } from "@orpc/openapi/plugins";
 import { ZodToJsonSchemaConverter } from "@orpc/zod/zod4";
 import { onError } from "@orpc/server";
 import { RPCHandler } from "@orpc/server/fetch";
+import { customJsonSerializers } from "{{packageScope}}/api/serialization";
 import type { RequestHandler } from "@sveltejs/kit";
 
 const rpcHandler = new RPCHandler(appRouter, {
+	customJsonSerializers,
 	interceptors: [
 		onError((error) => {
 			console.error(error);
@@ -992,9 +1003,11 @@ import { OpenAPIReferencePlugin } from "@orpc/openapi/plugins";
 import { ZodToJsonSchemaConverter } from "@orpc/zod/zod4";
 import { RPCHandler } from "@orpc/server/fetch";
 import { onError } from "@orpc/server";
+import { customJsonSerializers } from "{{packageScope}}/api/serialization";
 import { createFileRoute } from "@tanstack/react-router";
 
 const rpcHandler = new RPCHandler(appRouter, {
+	customJsonSerializers,
 	interceptors: [
 		onError((error) => {
 			console.error(error);
@@ -1042,12 +1055,14 @@ export const Route = createFileRoute('/api/rpc/$')({
       DELETE: handle,
     },
   },
-})`],
+})
+`],
   ["api/orpc/native/utils/orpc.ts.hbs", `import { createORPCClient } from "@orpc/client";
 import { RPCLink } from "@orpc/client/fetch";
 import { createTanstackQueryUtils } from "@orpc/tanstack-query";
 import { QueryCache, QueryClient } from "@tanstack/react-query";
 import type { AppRouterClient } from "{{packageScope}}/api/routers/index";
+import { customJsonSerializers } from "{{packageScope}}/api/serialization";
 import { env } from "{{packageScope}}/env/native";
 {{#if (eq auth "better-auth")}}
 import { authClient } from "@/lib/auth-client";
@@ -1074,6 +1089,7 @@ export const link = new RPCLink({
 {{else}}
 	url: \`\${env.EXPO_PUBLIC_SERVER_URL}/rpc\`,
 {{/if}}
+	customJsonSerializers,
 {{#if (eq auth "better-auth")}}
 	fetch:
 		function (url, options) {
@@ -1652,6 +1668,89 @@ export const appRouter = {};
 export type AppRouter = typeof appRouter;
 {{/if}}
 `],
+  ["api/orpc/server/src/serialization.ts.hbs", `import { parse, stringify } from "devalue";
+import type { StandardRPCCustomJsonSerializer } from "@orpc/client/standard";
+
+export const API_CONTENT_TYPE = "application/x-devalue";
+
+export const devalueJsonSerializer: StandardRPCCustomJsonSerializer = {
+	type: 21,
+	condition: (data) =>
+		data === null ||
+		typeof data === "object" ||
+		typeof data === "bigint" ||
+		typeof data === "undefined",
+	serialize: (data) => stringify(data),
+	deserialize: (data) => parseApiData(String(data)),
+};
+
+export const customJsonSerializers = [devalueJsonSerializer];
+
+export function serializeApiData(value: unknown): string {
+	return stringify(value);
+}
+
+export function parseApiData<T = unknown>(text: string): T {
+	try {
+		return parse(text) as T;
+	} catch (error) {
+		try {
+			return JSON.parse(text) as T;
+		} catch {
+			throw error;
+		}
+	}
+}
+
+export async function readApiRequest<T = unknown>(request: Request): Promise<T> {
+	const text = await request.text();
+	if (!text) return undefined as T;
+	return parseApiData<T>(text);
+}
+
+export function acceptsDevalue(request: Request): boolean {
+	return request.headers.get("accept")?.includes(API_CONTENT_TYPE) ?? false;
+}
+
+export function createApiResponse(value: unknown, init?: ResponseInit): Response {
+	const headers = new Headers(init?.headers);
+	if (!headers.has("content-type")) {
+		headers.set("content-type", API_CONTENT_TYPE);
+	}
+	return new Response(serializeApiData(value), {
+		...init,
+		headers,
+	});
+}
+
+export function createDevalueFetch(fetcher: typeof fetch = fetch): typeof fetch {
+	return async (input, init) => {
+		if (!init?.body || typeof init.body !== "string") {
+			return fetcher(input, init);
+		}
+
+		const headers = new Headers(init.headers);
+		const contentType = headers.get("content-type");
+		if (contentType && !contentType.includes("application/json")) {
+			return fetcher(input, init);
+		}
+
+		try {
+			const value = JSON.parse(init.body);
+			headers.set("content-type", API_CONTENT_TYPE);
+			headers.set("accept", API_CONTENT_TYPE);
+
+			return fetcher(input, {
+				...init,
+				body: serializeApiData(value),
+				headers,
+			});
+		} catch {
+			return fetcher(input, init);
+		}
+	};
+}
+`],
   ["api/orpc/server/tsconfig.json.hbs", `{
   "extends": "{{packageScope}}/config/tsconfig.base.json",
   "compilerOptions": {
@@ -1663,6 +1762,7 @@ export type AppRouter = typeof appRouter;
   }
 }`],
   ["api/orpc/web/astro/src/lib/orpc.ts.hbs", `import type { AppRouterClient } from "{{packageScope}}/api/routers/index";
+import { customJsonSerializers } from "{{packageScope}}/api/serialization";
 
 import { createORPCClient } from "@orpc/client";
 import { RPCLink } from "@orpc/client/fetch";
@@ -1670,12 +1770,14 @@ import { RPCLink } from "@orpc/client/fetch";
 {{#if (eq backend "self")}}
 export const link = new RPCLink({
   url: \`\${window.location.origin}/rpc\`,
+  customJsonSerializers,
 });
 {{else}}
 import { PUBLIC_SERVER_URL } from "astro:env/client";
 
 export const link = new RPCLink({
   url: \`\${PUBLIC_SERVER_URL}/rpc\`,
+  customJsonSerializers,
 {{#if (eq auth "better-auth")}}
   fetch(url, options) {
     return fetch(url, {
@@ -1694,6 +1796,7 @@ import type { AppRouterClient } from "{{packageScope}}/api/routers/index";
 import { createORPCClient } from '@orpc/client'
 import { RPCLink } from '@orpc/client/fetch'
 import { createTanstackQueryUtils } from "@orpc/tanstack-query";
+import { customJsonSerializers } from "{{packageScope}}/api/serialization";
 
 export default defineNuxtPlugin(() => {
   const config = useRuntimeConfig();
@@ -1701,6 +1804,7 @@ export default defineNuxtPlugin(() => {
 
   const rpcLink = new RPCLink({
     url: rpcUrl,
+    customJsonSerializers,
     {{#if (eq auth "better-auth")}}
     fetch(url, options) {
         return fetch(url, {
@@ -1777,6 +1881,7 @@ import { RPCLink } from "@orpc/client/fetch";
 import { createTanstackQueryUtils } from "@orpc/tanstack-query";
 import { QueryCache, QueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { customJsonSerializers } from "{{packageScope}}/api/serialization";
 {{#if (and (includes frontend "tanstack-start") (eq backend "self"))}}
 import { createRouterClient } from "@orpc/server";
 import type { RouterClient } from "@orpc/server";
@@ -1823,9 +1928,10 @@ const getORPCClient = createIsomorphicFn()
 			},
 		}),
 	)
-	.client((): RouterClient<typeof appRouter> => {
+		.client((): RouterClient<typeof appRouter> => {
 			const link = new RPCLink({
 			url: \`\${window.location.origin}/api/rpc\`,
+			customJsonSerializers,
 {{#if (eq auth "better-auth")}}
 			fetch(url, options) {
 				return fetch(url, {
@@ -1843,6 +1949,7 @@ export const client: RouterClient<typeof appRouter> = getORPCClient();
 {{else if (includes frontend "tanstack-start")}}
 const link = new RPCLink({
 	url: \`\${env.VITE_SERVER_URL}/rpc\`,
+	customJsonSerializers,
 {{#if (eq auth "clerk")}}
 	headers: async () => {
 		const token = await getClerkAuthToken();
@@ -1873,6 +1980,7 @@ export const link = new RPCLink({
 {{else}}
 	url: \`\${env.VITE_SERVER_URL}/rpc\`,
 {{/if}}
+	customJsonSerializers,
 {{#if (eq auth "clerk")}}
 	headers: async () => {
 		{{#if (includes frontend "next")}}
@@ -1922,6 +2030,7 @@ import { RPCLink } from "@orpc/client/fetch";
 import { createTanstackQueryUtils } from "@orpc/tanstack-query";
 import { QueryCache, QueryClient } from "@tanstack/solid-query";
 import type { AppRouterClient } from "{{packageScope}}/api/routers/index";
+import { customJsonSerializers } from "{{packageScope}}/api/serialization";
 import { env } from "{{packageScope}}/env/web";
 
 export const queryClient = new QueryClient({
@@ -1934,6 +2043,7 @@ export const queryClient = new QueryClient({
 
 export const link = new RPCLink({
 	url: \`\${env.VITE_SERVER_URL}/rpc\`,
+	customJsonSerializers,
 {{#if (eq auth "better-auth")}}
 	fetch(url, options) {
 		return fetch(url, {
@@ -1956,6 +2066,7 @@ import { RPCLink } from "@orpc/client/fetch";
 import { createTanstackQueryUtils } from "@orpc/tanstack-query";
 import { QueryCache, QueryClient } from "@tanstack/svelte-query";
 import type { AppRouterClient } from "{{packageScope}}/api/routers/index";
+import { customJsonSerializers } from "{{packageScope}}/api/serialization";
 
 export const queryClient = new QueryClient({
 	queryCache: new QueryCache({
@@ -1977,6 +2088,7 @@ export const link = new RPCLink({
 	{{else}}
 	url: \`\${PUBLIC_SERVER_URL}/rpc\`,
 	{{/if}}
+	customJsonSerializers,
 	{{#if (eq auth "better-auth")}}
 	fetch(url, options) {
 		return fetch(url, {
@@ -2043,6 +2155,7 @@ import { QueryClient } from "@tanstack/react-query";
 import { createTRPCClient, httpBatchLink } from "@trpc/client";
 import { createTRPCOptionsProxy } from "@trpc/tanstack-react-query";
 import type { AppRouter } from "{{packageScope}}/api/routers/index";
+import { transformer } from "{{packageScope}}/api/serialization";
 import { env } from "{{packageScope}}/env/native";
 
 export const queryClient = new QueryClient();
@@ -2055,6 +2168,7 @@ const trpcClient = createTRPCClient<AppRouter>({
 {{else}}
 			url: \`\${env.EXPO_PUBLIC_SERVER_URL}/trpc\`,
 {{/if}}
+			transformer,
 {{#if (eq auth "better-auth")}}
 			fetch:
 				function (url, options) {
@@ -2395,8 +2509,11 @@ export type Context = Awaited<ReturnType<typeof createContext>>;
 `],
   ["api/trpc/server/src/index.ts.hbs", `import { initTRPC, TRPCError } from "@trpc/server";
 import type { Context } from "./context";
+import { transformer } from "./serialization";
 
-export const t = initTRPC.context<Context>().create();
+export const t = initTRPC.context<Context>().create({
+  transformer,
+});
 
 export const router = t.router;
 
@@ -2539,6 +2656,81 @@ export const appRouter = {};
 export type AppRouter = typeof appRouter;
 {{/if}}
 `],
+  ["api/trpc/server/src/serialization.ts.hbs", `import { parse, stringify } from "devalue";
+import type { TRPCDataTransformer } from "@trpc/server";
+
+export const API_CONTENT_TYPE = "application/x-devalue";
+
+export const transformer: TRPCDataTransformer = {
+	deserialize: (object) => parse(String(object)),
+	serialize: (object) => stringify(object),
+};
+
+export function serializeApiData(value: unknown): string {
+	return stringify(value);
+}
+
+export function parseApiData<T = unknown>(text: string): T {
+	try {
+		return parse(text) as T;
+	} catch (error) {
+		try {
+			return JSON.parse(text) as T;
+		} catch {
+			throw error;
+		}
+	}
+}
+
+export async function readApiRequest<T = unknown>(request: Request): Promise<T> {
+	const text = await request.text();
+	if (!text) return undefined as T;
+	return parseApiData<T>(text);
+}
+
+export function acceptsDevalue(request: Request): boolean {
+	return request.headers.get("accept")?.includes(API_CONTENT_TYPE) ?? false;
+}
+
+export function createApiResponse(value: unknown, init?: ResponseInit): Response {
+	const headers = new Headers(init?.headers);
+	if (!headers.has("content-type")) {
+		headers.set("content-type", API_CONTENT_TYPE);
+	}
+	return new Response(serializeApiData(value), {
+		...init,
+		headers,
+	});
+}
+
+export function createDevalueFetch(fetcher: typeof fetch = fetch): typeof fetch {
+	return async (input, init) => {
+		if (!init?.body || typeof init.body !== "string") {
+			return fetcher(input, init);
+		}
+
+		const headers = new Headers(init.headers);
+		const contentType = headers.get("content-type");
+		if (contentType && !contentType.includes("application/json")) {
+			return fetcher(input, init);
+		}
+
+		try {
+			const value = JSON.parse(init.body);
+			headers.set("content-type", API_CONTENT_TYPE);
+			headers.set("accept", API_CONTENT_TYPE);
+
+			return fetcher(input, {
+				...init,
+				body: serializeApiData(value),
+				headers,
+			});
+		} catch {
+			return fetcher(input, init);
+		}
+	};
+}
+`],
   ["api/trpc/server/tsconfig.json.hbs", `{
   "extends": "{{packageScope}}/config/tsconfig.base.json",
   "compilerOptions": {
@@ -2554,6 +2746,7 @@ import { QueryCache, QueryClient } from '@tanstack/react-query';
 import { createTRPCClient, httpBatchLink } from '@trpc/client';
 import { createTRPCOptionsProxy } from '@trpc/tanstack-react-query';
 import type { AppRouter } from "{{packageScope}}/api/routers/index";
+import { transformer } from "{{packageScope}}/api/serialization";
 import { toast } from 'sonner';
 {{#unless (eq backend "self")}}
 import { env } from "{{packageScope}}/env/web";
@@ -2583,6 +2776,7 @@ const trpcClient = createTRPCClient<AppRouter>({
 {{else}}
 			url: \`\${env.NEXT_PUBLIC_SERVER_URL}/trpc\`,
 {{/if}}
+			transformer,
 {{#if (eq auth "clerk")}}
 			headers: async () => {
 				if (typeof window !== "undefined") {
@@ -2626,6 +2820,7 @@ import type { AppRouter } from "{{packageScope}}/api/routers/index";
 import { QueryCache, QueryClient } from "@tanstack/react-query";
 import { createTRPCClient, httpBatchLink } from "@trpc/client";
 import { createTRPCOptionsProxy } from "@trpc/tanstack-react-query";
+import { transformer } from "{{packageScope}}/api/serialization";
 import { toast } from "sonner";
 import { env } from "{{packageScope}}/env/web";
 {{#if (eq auth "clerk")}}
@@ -2649,6 +2844,7 @@ export const trpcClient = createTRPCClient<AppRouter>({
 	links: [
 		httpBatchLink({
 			url: \`\${env.VITE_SERVER_URL}/trpc\`,
+			transformer,
 {{#if (eq auth "clerk")}}
 			headers: async () => {
 				const token = await getClerkAuthToken();
@@ -14108,13 +14304,18 @@ import { RPCHandler } from "@orpc/server/fetch";
 import { onError } from "@orpc/server";
 import { appRouter } from "{{packageScope}}/api/routers/index";
 import { createContext } from "{{packageScope}}/api/context";
+import { customJsonSerializers } from "{{packageScope}}/api/serialization";
 {{/if}}
 {{#if (eq auth "better-auth")}}
 import { auth } from "{{packageScope}}/auth";
 {{/if}}
+{{#if (and (includes examples "ai") (ne api "none"))}}
+import { readApiRequest } from "{{packageScope}}/api/serialization";
+{{/if}}
 
 {{#if (eq api "orpc")}}
 const rpcHandler = new RPCHandler(appRouter, {
+	customJsonSerializers,
 	interceptors: [
 		onError((error) => {
 			console.error(error);
@@ -14202,7 +14403,11 @@ new Elysia()
 {{/if}}
 {{#if (includes examples "ai")}}
 	.post("/ai", async (context) => {
+{{#if (ne api "none")}}
+		const body = await readApiRequest<{ messages?: UIMessage[] }>(context.request);
+{{else}}
 		const body = (await context.request.json()) as { messages?: UIMessage[] };
+{{/if}}
 		const uiMessages = body.messages || [];
 		const model = wrapLanguageModel({
 			model: google("gemini-2.5-flash"),
@@ -14234,6 +14439,7 @@ import { ZodToJsonSchemaConverter } from "@orpc/zod/zod4";
 import { RPCHandler } from "@orpc/server/node";
 import { onError } from "@orpc/server";
 import { appRouter } from "{{packageScope}}/api/routers/index";
+import { customJsonSerializers } from "{{packageScope}}/api/serialization";
 {{#if (or (eq auth "better-auth") (eq auth "clerk"))}}
 import { createContext } from "{{packageScope}}/api/context";
 {{/if}}
@@ -14244,6 +14450,9 @@ import express from "express";
 import { streamText, type UIMessage, convertToModelMessages, wrapLanguageModel } from "ai";
 import { google } from "@ai-sdk/google";
 import { devToolsMiddleware } from "@ai-sdk/devtools";
+{{/if}}
+{{#if (and (includes examples "ai") (ne api "none"))}}
+import { API_CONTENT_TYPE, parseApiData } from "{{packageScope}}/api/serialization";
 {{/if}}
 {{#if (eq auth "better-auth")}}
 import { auth } from "{{packageScope}}/auth";
@@ -14288,6 +14497,7 @@ app.use(
 
 {{#if (eq api "orpc")}}
 const rpcHandler = new RPCHandler(appRouter, {
+	customJsonSerializers,
 	interceptors: [
 		onError((error) => {
 			console.error(error);
@@ -14333,10 +14543,21 @@ app.use(async (req, res, next) => {
 {{/if}}
 
 app.use(express.json());
+{{#if (and (includes examples "ai") (ne api "none"))}}
+app.use(express.text({ type: API_CONTENT_TYPE }));
+{{/if}}
 
 {{#if (includes examples "ai")}}
 app.post("/ai", async (req, res) => {
+{{#if (ne api "none")}}
+	const body =
+		typeof req.body === "string"
+			? parseApiData<{ messages?: UIMessage[] }>(req.body)
+			: ((req.body || {}) as { messages?: UIMessage[] });
+	const { messages = [] } = body;
+{{else}}
 	const { messages = [] } = (req.body || {}) as { messages: UIMessage[] };
+{{/if}}
 	const model = wrapLanguageModel({
 		model: google("gemini-2.5-flash"),
 		middleware: devToolsMiddleware(),
@@ -14375,12 +14596,16 @@ import { RPCHandler } from "@orpc/server/fastify";
 import { onError } from "@orpc/server";
 import { createContext } from "{{packageScope}}/api/context";
 import { appRouter } from "{{packageScope}}/api/routers/index";
+import { customJsonSerializers } from "{{packageScope}}/api/serialization";
 {{/if}}
 
 {{#if (includes examples "ai")}}
 import { streamText, type UIMessage, convertToModelMessages, wrapLanguageModel } from "ai";
 import { google } from "@ai-sdk/google";
 import { devToolsMiddleware } from "@ai-sdk/devtools";
+{{/if}}
+{{#if (and (includes examples "ai") (ne api "none"))}}
+import { API_CONTENT_TYPE, parseApiData } from "{{packageScope}}/api/serialization";
 {{/if}}
 
 {{#if (eq auth "better-auth")}}
@@ -14404,6 +14629,7 @@ const baseCorsConfig = {
 
 {{#if (eq api "orpc")}}
 const rpcHandler = new RPCHandler(appRouter, {
+	customJsonSerializers,
 	interceptors: [
 		onError((error) => {
 			console.error(error);
@@ -14434,6 +14660,19 @@ const fastify = Fastify({
 {{/if}}
 
 fastify.register(fastifyCors, baseCorsConfig);
+{{#if (and (includes examples "ai") (ne api "none"))}}
+fastify.addContentTypeParser(
+	API_CONTENT_TYPE,
+	{ parseAs: "string" },
+	(_request, body, done) => {
+		try {
+			done(null, parseApiData(String(body)));
+		} catch (error) {
+			done(error as Error, undefined);
+		}
+	}
+);
+{{/if}}
 {{#if (eq auth "clerk")}}
 fastify.register(clerkPlugin);
 {{/if}}
@@ -14555,6 +14794,7 @@ import { RPCHandler } from "@orpc/server/fetch";
 import { onError } from "@orpc/server";
 import { createContext } from "{{packageScope}}/api/context";
 import { appRouter } from "{{packageScope}}/api/routers/index";
+import { customJsonSerializers } from "{{packageScope}}/api/serialization";
 {{/if}}
 {{#if (eq api "trpc")}}
 import { trpcServer } from "@hono/trpc-server";
@@ -14575,14 +14815,17 @@ export { AppDurableObject } from "{{packageScope}}/cloudflare/durable-object";
 import { cors } from "hono/cors";
 import { logger } from "hono/logger";
 {{#if (and (includes examples "ai") (or (eq runtime "bun") (eq runtime "node")))}}
-import { streamText, convertToModelMessages, wrapLanguageModel } from "ai";
+import { streamText, convertToModelMessages, type UIMessage, wrapLanguageModel } from "ai";
 import { google } from "@ai-sdk/google";
 import { devToolsMiddleware } from "@ai-sdk/devtools";
 {{/if}}
 {{#if (and (includes examples "ai") (eq runtime "workers"))}}
-import { streamText, convertToModelMessages, wrapLanguageModel } from "ai";
+import { streamText, convertToModelMessages, type UIMessage, wrapLanguageModel } from "ai";
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { devToolsMiddleware } from "@ai-sdk/devtools";
+{{/if}}
+{{#if (and (includes examples "ai") (ne api "none"))}}
+import { readApiRequest } from "{{packageScope}}/api/serialization";
 {{/if}}
 
 const app = new Hono{{#if (or (eq runtime "workers") (eq serverDeploy "cloudflare") (and (eq backend "self") (eq webDeploy "cloudflare")))}}<{ Bindings: Env }>{{/if}}();
@@ -14630,6 +14873,7 @@ export const apiHandler = new OpenAPIHandler(appRouter, {
 });
 
 export const rpcHandler = new RPCHandler(appRouter, {
+	customJsonSerializers,
 	interceptors: [
 		onError((error) => {
 			console.error(error);
@@ -14676,7 +14920,11 @@ app.use(
 
 {{#if (and (includes examples "ai") (or (eq runtime "bun") (eq runtime "node")))}}
 app.post("/ai", async (c) => {
+{{#if (ne api "none")}}
+	const body = await readApiRequest<{ messages?: UIMessage[] }>(c.req.raw);
+{{else}}
 	const body = await c.req.json();
+{{/if}}
 	const uiMessages = body.messages || [];
 	const model = wrapLanguageModel({
 		model: google("gemini-2.5-flash"),
@@ -14693,7 +14941,11 @@ app.post("/ai", async (c) => {
 
 {{#if (and (includes examples "ai") (eq runtime "workers"))}}
 app.post("/ai", async (c) => {
+{{#if (ne api "none")}}
+	const body = await readApiRequest<{ messages?: UIMessage[] }>(c.req.raw);
+{{else}}
 	const body = await c.req.json();
+{{/if}}
 	const uiMessages = body.messages || [];
 	const google = createGoogleGenerativeAI({
 		apiKey: env.GOOGLE_GENERATIVE_AI_API_KEY,
@@ -15688,11 +15940,18 @@ export const generateResponseAsync = internalAction({
   ["examples/ai/fullstack/next/src/app/api/ai/route.ts.hbs", `import { google } from "@ai-sdk/google";
 import { streamText, type UIMessage, convertToModelMessages, wrapLanguageModel } from "ai";
 import { devToolsMiddleware } from "@ai-sdk/devtools";
+{{#unless (eq api "none")}}
+import { readApiRequest } from "{{packageScope}}/api/serialization";
+{{/unless}}
 
 export const maxDuration = 30;
 
 export async function POST(req: Request) {
+{{#unless (eq api "none")}}
+	const { messages }: { messages: UIMessage[] } = await readApiRequest(req);
+{{else}}
 	const { messages }: { messages: UIMessage[] } = await req.json();
+{{/unless}}
 
 	const model = wrapLanguageModel({
 		model: google("gemini-2.5-flash"),
@@ -15708,10 +15967,18 @@ export async function POST(req: Request) {
 `],
   ["examples/ai/fullstack/nuxt/server/api/ai.post.ts.hbs", `import { devToolsMiddleware } from "@ai-sdk/devtools";
 import { google } from "@ai-sdk/google";
-import { streamText, convertToModelMessages, wrapLanguageModel } from "ai";
+import { streamText, convertToModelMessages, type UIMessage, wrapLanguageModel } from "ai";
+{{#unless (eq api "none")}}
+import { parseApiData } from "{{packageScope}}/api/serialization";
+{{/unless}}
 
 export default defineEventHandler(async (event) => {
-  const body = await readBody(event);
+  {{#unless (eq api "none")}}
+  const rawBody = await readRawBody(event, "utf8");
+  const body = rawBody ? parseApiData<{ messages?: UIMessage[] }>(rawBody) : {};
+  {{else}}
+  const body = await readBody<{ messages?: UIMessage[] }>(event);
+  {{/unless}}
   const uiMessages = body.messages || [];
 
   const model = wrapLanguageModel({
@@ -15731,9 +15998,16 @@ export default defineEventHandler(async (event) => {
 import { google } from "@ai-sdk/google";
 import { convertToModelMessages, streamText, type UIMessage, wrapLanguageModel } from "ai";
 import type { RequestHandler } from "@sveltejs/kit";
+{{#unless (eq api "none")}}
+import { readApiRequest } from "{{packageScope}}/api/serialization";
+{{/unless}}
 
 export const POST: RequestHandler = async ({ request }) => {
+{{#unless (eq api "none")}}
+	const { messages }: { messages: UIMessage[] } = await readApiRequest(request);
+{{else}}
 	const { messages }: { messages: UIMessage[] } = await request.json();
+{{/unless}}
 
 	const model = wrapLanguageModel({
 		model: google("gemini-2.5-flash"),
@@ -15751,13 +16025,20 @@ export const POST: RequestHandler = async ({ request }) => {
 import { google } from "@ai-sdk/google";
 import { streamText, type UIMessage, convertToModelMessages, wrapLanguageModel } from "ai";
 import { devToolsMiddleware } from "@ai-sdk/devtools";
+{{#unless (eq api "none")}}
+import { readApiRequest } from "{{packageScope}}/api/serialization";
+{{/unless}}
 
 export const Route = createFileRoute("/api/ai/$")({
   server: {
     handlers: {
       POST: async ({ request }) => {
         try {
+          {{#unless (eq api "none")}}
+          const { messages }: { messages: UIMessage[] } = await readApiRequest(request);
+          {{else}}
           const { messages }: { messages: UIMessage[] } = await request.json();
+          {{/unless}}
 
           const model = wrapLanguageModel({
             model: google("gemini-2.5-flash"),
@@ -16096,6 +16377,9 @@ import {
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
 import { fetch as expoFetch } from "expo/fetch";
+{{#unless (eq api "none")}}
+import { createDevalueFetch } from "{{packageScope}}/api/serialization";
+{{/unless}}
 import { Ionicons } from "@expo/vector-icons";
 import { Container } from "@/components/container";
 import { useColorScheme } from "@/lib/use-color-scheme";
@@ -16119,7 +16403,11 @@ export default function AIScreen() {
   const [input, setInput] = useState("");
   const { messages, error, sendMessage } = useChat({
     transport: new DefaultChatTransport({
+{{#unless (eq api "none")}}
+      fetch: createDevalueFetch(expoFetch as unknown as typeof globalThis.fetch),
+{{else}}
       fetch: expoFetch as unknown as typeof globalThis.fetch,
+{{/unless}}
       api: generateAPIUrl("/ai"),
     }),
     onError: (error) => console.error(error, "AI Chat Error"),
@@ -16701,6 +16989,9 @@ import {
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
 import { fetch as expoFetch } from "expo/fetch";
+{{#unless (eq api "none")}}
+import { createDevalueFetch } from "{{packageScope}}/api/serialization";
+{{/unless}}
 import { Ionicons } from "@expo/vector-icons";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 import { Container } from "@/components/container";
@@ -16722,7 +17013,11 @@ export default function AIScreen() {
   const [input, setInput] = useState("");
   const { messages, error, sendMessage } = useChat({
     transport: new DefaultChatTransport({
+{{#unless (eq api "none")}}
+      fetch: createDevalueFetch(expoFetch as unknown as typeof globalThis.fetch),
+{{else}}
       fetch: expoFetch as unknown as typeof globalThis.fetch,
+{{/unless}}
       api: generateAPIUrl("/ai"),
     }),
     onError: (error) => console.error(error, "AI Chat Error"),
@@ -17187,6 +17482,9 @@ import {
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
 import { fetch as expoFetch } from "expo/fetch";
+{{#unless (eq api "none")}}
+import { createDevalueFetch } from "{{packageScope}}/api/serialization";
+{{/unless}}
 import { Ionicons } from "@expo/vector-icons";
 import { Container } from "@/components/container";
 import { Button, Separator, FieldError, Spinner, Surface, Input, TextField, useThemeColor } from "heroui-native";
@@ -17207,7 +17505,11 @@ export default function AIScreen() {
   const [input, setInput] = useState("");
   const { messages, error, sendMessage, status } = useChat({
     transport: new DefaultChatTransport({
+{{#unless (eq api "none")}}
+      fetch: createDevalueFetch(expoFetch as unknown as typeof globalThis.fetch),
+{{else}}
       fetch: expoFetch as unknown as typeof globalThis.fetch,
+{{/unless}}
       api: generateAPIUrl("/ai"),
     }),
     onError: (error) => console.error(error, "AI Chat Error"),
@@ -17381,6 +17683,9 @@ import { Chat } from '@ai-sdk/vue'
 import type { UIMessage } from 'ai'
 import { getTextFromMessage } from '@nuxt/ui/utils/ai'
 import { DefaultChatTransport } from 'ai'
+{{#unless (eq api "none")}}
+import { createDevalueFetch } from "{{packageScope}}/api/serialization";
+{{/unless}}
 import { computed, ref } from 'vue'
 
 const SUGGESTIONS = [
@@ -17409,6 +17714,9 @@ const aiApiUrl = {{#if (eq backend "self")}}'/api/ai'{{else}}\`\${useRuntimeConf
 const chat = new Chat({
   messages,
   transport: new DefaultChatTransport({
+    {{#unless (eq api "none")}}
+    fetch: createDevalueFetch(),
+    {{/unless}}
     api: aiApiUrl,
   }),
   onError(error) {
@@ -17685,6 +17993,9 @@ export default function AIPage() {
 
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
+{{#unless (eq api "none")}}
+import { createDevalueFetch } from "{{packageScope}}/api/serialization";
+{{/unless}}
 import { Send } from "lucide-react";
 {{#if (eq webDeploy "cloudflare")}}
 import dynamic from "next/dynamic";
@@ -17713,6 +18024,9 @@ export default function AIPage() {
   const [input, setInput] = useState("");
   const { messages, sendMessage, status } = useChat({
     transport: new DefaultChatTransport({
+{{#unless (eq api "none")}}
+      fetch: createDevalueFetch(),
+{{/unless}}
       api: {{#if (eq backend "self")}}"/api/ai"{{else}}\`\${env.NEXT_PUBLIC_SERVER_URL}/ai\`{{/if}},
     }),
   });
@@ -17936,6 +18250,9 @@ export default AI;
 import React, { useRef, useEffect, useState, type FormEvent } from "react";
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
+{{#unless (eq api "none")}}
+import { createDevalueFetch } from "{{packageScope}}/api/serialization";
+{{/unless}}
 import { Send } from "lucide-react";
 import { Streamdown } from "streamdown";
 import { env } from "{{packageScope}}/env/web";
@@ -17947,6 +18264,9 @@ const AI: React.FC = () => {
   const [input, setInput] = useState("");
   const { messages, sendMessage, status } = useChat({
     transport: new DefaultChatTransport({
+{{#unless (eq api "none")}}
+      fetch: createDevalueFetch(),
+{{/unless}}
       api: \`\${env.VITE_SERVER_URL}/ai\`,
     }),
   });
@@ -18175,6 +18495,9 @@ function RouteComponent() {
 import { createFileRoute } from "@tanstack/react-router";
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
+{{#unless (eq api "none")}}
+import { createDevalueFetch } from "{{packageScope}}/api/serialization";
+{{/unless}}
 import { Input } from "{{packageScope}}/ui/components/input";
 import { Button } from "{{packageScope}}/ui/components/button";
 import { Send } from "lucide-react";
@@ -18192,6 +18515,9 @@ function RouteComponent() {
   const [input, setInput] = useState("");
   const { messages, sendMessage, status } = useChat({
     transport: new DefaultChatTransport({
+{{#unless (eq api "none")}}
+      fetch: createDevalueFetch(),
+{{/unless}}
       api: {{#if (eq backend "self")}}"/api/ai"{{else}}\`\${env.VITE_SERVER_URL}/ai\`{{/if}},
     }),
   });
@@ -18418,6 +18744,9 @@ function RouteComponent() {
 import { createFileRoute } from "@tanstack/react-router";
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
+{{#unless (eq api "none")}}
+import { createDevalueFetch } from "{{packageScope}}/api/serialization";
+{{/unless}}
 import { Send } from "lucide-react";
 import { useRef, useEffect, useState, type FormEvent } from "react";
 import { Streamdown } from "streamdown";
@@ -18436,6 +18765,9 @@ function RouteComponent() {
   const [input, setInput] = useState("");
   const { messages, sendMessage, status } = useChat({
     transport: new DefaultChatTransport({
+{{#unless (eq api "none")}}
+      fetch: createDevalueFetch(),
+{{/unless}}
       api: {{#if (eq backend "self")}}"/api/ai"{{else}}\`\${env.VITE_SERVER_URL}/ai\`{{/if}},
     }),
   });
@@ -18521,10 +18853,16 @@ function RouteComponent() {
 	{{/unless}}
 	import { Chat } from "@ai-sdk/svelte";
 	import { DefaultChatTransport } from "ai";
+	{{#unless (eq api "none")}}
+	import { createDevalueFetch } from "{{packageScope}}/api/serialization";
+	{{/unless}}
 
 	let input = $state("");
 	const chat = new Chat({
 		transport: new DefaultChatTransport({
+			{{#unless (eq api "none")}}
+			fetch: createDevalueFetch(),
+			{{/unless}}
 			{{#if (eq backend "self")}}
 			api: "/api/ai",
 			{{else}}
@@ -27486,6 +27824,7 @@ import { createTRPCClient, httpBatchLink } from "@trpc/client";
 import { createTRPCOptionsProxy } from "@trpc/tanstack-react-query";
 import { toast } from "sonner";
 import type { AppRouter } from "{{packageScope}}/api/routers/index";
+import { transformer } from "{{packageScope}}/api/serialization";
 import { TRPCProvider } from "./utils/trpc";
 {{#unless (eq backend "self")}}
 import { env } from "{{packageScope}}/env/web";
@@ -27553,6 +27892,7 @@ const trpcClient = createTRPCClient<AppRouter>({
 	links: [
 		httpBatchLink({
 			url: {{#if (eq backend "self")}}"/api/trpc"{{else}}\`\${env.VITE_SERVER_URL}/trpc\`{{/if}},
+			transformer,
 {{#if (eq auth "clerk")}}
 			headers: async () => {
 				const token = await getClerkAuthToken();
@@ -31280,4 +31620,4 @@ function SuccessPage() {
 `]
 ]);
 
-export const TEMPLATE_COUNT = 492;
+export const TEMPLATE_COUNT = 494;

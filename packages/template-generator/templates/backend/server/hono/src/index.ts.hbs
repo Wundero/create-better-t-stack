@@ -7,6 +7,7 @@ import { RPCHandler } from "@orpc/server/fetch";
 import { onError } from "@orpc/server";
 import { createContext } from "{{packageScope}}/api/context";
 import { appRouter } from "{{packageScope}}/api/routers/index";
+import { customJsonSerializers } from "{{packageScope}}/api/serialization";
 {{/if}}
 {{#if (eq api "trpc")}}
 import { trpcServer } from "@hono/trpc-server";
@@ -27,14 +28,17 @@ export { AppDurableObject } from "{{packageScope}}/cloudflare/durable-object";
 import { cors } from "hono/cors";
 import { logger } from "hono/logger";
 {{#if (and (includes examples "ai") (or (eq runtime "bun") (eq runtime "node")))}}
-import { streamText, convertToModelMessages, wrapLanguageModel } from "ai";
+import { streamText, convertToModelMessages, type UIMessage, wrapLanguageModel } from "ai";
 import { google } from "@ai-sdk/google";
 import { devToolsMiddleware } from "@ai-sdk/devtools";
 {{/if}}
 {{#if (and (includes examples "ai") (eq runtime "workers"))}}
-import { streamText, convertToModelMessages, wrapLanguageModel } from "ai";
+import { streamText, convertToModelMessages, type UIMessage, wrapLanguageModel } from "ai";
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { devToolsMiddleware } from "@ai-sdk/devtools";
+{{/if}}
+{{#if (and (includes examples "ai") (ne api "none"))}}
+import { readApiRequest } from "{{packageScope}}/api/serialization";
 {{/if}}
 
 const app = new Hono{{#if (or (eq runtime "workers") (eq serverDeploy "cloudflare") (and (eq backend "self") (eq webDeploy "cloudflare")))}}<{ Bindings: Env }>{{/if}}();
@@ -82,6 +86,7 @@ export const apiHandler = new OpenAPIHandler(appRouter, {
 });
 
 export const rpcHandler = new RPCHandler(appRouter, {
+	customJsonSerializers,
 	interceptors: [
 		onError((error) => {
 			console.error(error);
@@ -128,7 +133,11 @@ app.use(
 
 {{#if (and (includes examples "ai") (or (eq runtime "bun") (eq runtime "node")))}}
 app.post("/ai", async (c) => {
+{{#if (ne api "none")}}
+	const body = await readApiRequest<{ messages?: UIMessage[] }>(c.req.raw);
+{{else}}
 	const body = await c.req.json();
+{{/if}}
 	const uiMessages = body.messages || [];
 	const model = wrapLanguageModel({
 		model: google("gemini-2.5-flash"),
@@ -145,7 +154,11 @@ app.post("/ai", async (c) => {
 
 {{#if (and (includes examples "ai") (eq runtime "workers"))}}
 app.post("/ai", async (c) => {
+{{#if (ne api "none")}}
+	const body = await readApiRequest<{ messages?: UIMessage[] }>(c.req.raw);
+{{else}}
 	const body = await c.req.json();
+{{/if}}
 	const uiMessages = body.messages || [];
 	const google = createGoogleGenerativeAI({
 		apiKey: env.GOOGLE_GENERATIVE_AI_API_KEY,

@@ -6,8 +6,10 @@ import { RPCHandler } from "@orpc/server/fetch";
 import { onError } from "@orpc/server";
 import { appRouter } from "{{packageScope}}/api/routers/index";
 import { createContext } from "{{packageScope}}/api/context";
+import { customJsonSerializers } from "{{packageScope}}/api/serialization";
 
 const handler = new RPCHandler(appRouter, {
+  customJsonSerializers,
   interceptors: [
     onError((error) => {
       console.error(error);

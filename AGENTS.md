@@ -19,6 +19,8 @@ This repo is a Bun + Turborepo monorepo.
 - `bun build:cli`: build only the CLI target.
 - `bun run check`: format + lint (`oxfmt . && oxlint .`).
 - `cd apps/cli && bun run test`: run CLI tests.
+- In sandboxes, disable Git GPG signing for the CLI test process tree because the suite scaffolds projects and creates commits. Prefer an environment override rather than mutating user Git config:
+  - `GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=commit.gpgsign GIT_CONFIG_VALUE_0=false bun run test`
 
 ## Coding Style & Naming Conventions
 

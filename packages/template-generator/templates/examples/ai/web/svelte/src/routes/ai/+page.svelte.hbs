@@ -4,10 +4,16 @@
 	{{/unless}}
 	import { Chat } from "@ai-sdk/svelte";
 	import { DefaultChatTransport } from "ai";
+	{{#unless (eq api "none")}}
+	import { createDevalueFetch } from "{{packageScope}}/api/serialization";
+	{{/unless}}
 
 	let input = $state("");
 	const chat = new Chat({
 		transport: new DefaultChatTransport({
+			{{#unless (eq api "none")}}
+			fetch: createDevalueFetch(),
+			{{/unless}}
 			{{#if (eq backend "self")}}
 			api: "/api/ai",
 			{{else}}
