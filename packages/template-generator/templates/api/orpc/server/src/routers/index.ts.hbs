@@ -24,6 +24,50 @@ export const appRouter = {
   {{#if (includes examples "todo")}}
   todo: todoRouter,
   {{/if}}
+  {{#if (and (hasCfPlatform cloudflare) (eq backend "hono"))}}
+  cloudflare: {
+    health: publicProcedure.handler(({ context }) => {
+      return {
+        ok: true,
+        bindings: Object.keys(context.cloudflare ?? {}),
+      };
+    }),
+    {{#if (cfBinding cloudflare "workers-ai")}}
+    aiExample: publicProcedure.handler(async ({ context }) => {
+      return context.cloudflare.AI.run("@cf/meta/llama-3.1-8b-instruct", {
+        prompt: "Reply with OK.",
+      });
+    }),
+    {{/if}}
+    {{#if (cfBinding cloudflare "r2")}}
+    r2PutAndGet: publicProcedure.handler(async ({ context }) => {
+      await context.cloudflare.R2_BUCKET.put("example.txt", "Hello from R2");
+      const object = await context.cloudflare.R2_BUCKET.get("example.txt");
+      return { value: object ? await object.text() : null };
+    }),
+    {{/if}}
+    {{#if (cfBinding cloudflare "kv")}}
+    kvGetSet: publicProcedure.handler(async ({ context }) => {
+      await context.cloudflare.KV.put("example", "Hello from KV");
+      return context.cloudflare.KV.get("example");
+    }),
+    {{/if}}
+    {{#if (cfBinding cloudflare "queue")}}
+    queueSend: publicProcedure.handler(async ({ context }) => {
+      await context.cloudflare.QUEUE.send({ type: "example" });
+      return { queued: true };
+    }),
+    {{/if}}
+    {{#if (cfBinding cloudflare "durable-object")}}
+    durableObjectCounter: publicProcedure.handler(async ({ context }) => {
+      const id = context.cloudflare.APP_DO.idFromName("counter");
+      const stub = context.cloudflare.APP_DO.get(id);
+      const response = await stub.fetch("https://app-do/increment");
+      return response.json();
+    }),
+    {{/if}}
+  },
+  {{/if}}
 };
 export type AppRouter = typeof appRouter;
 export type AppRouterClient = RouterClient<typeof appRouter>;

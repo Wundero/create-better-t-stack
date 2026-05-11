@@ -51,6 +51,51 @@ export const appRouter = router({
   {{#if (includes examples "todo")}}
   todo: todoRouter,
   {{/if}}
+  {{#if (and (hasCfPlatform cloudflare) (eq backend "hono"))}}
+  cloudflare: router({
+    health: publicProcedure.query(({ ctx }) => {
+      return {
+        ok: true,
+        bindings: Object.keys(ctx.cloudflare ?? {}),
+      };
+    }),
+    {{#if (cfBinding cloudflare "workers-ai")}}
+    aiExample: publicProcedure.query(async ({ ctx }) => {
+      const response = await ctx.cloudflare.AI.run("@cf/meta/llama-3.1-8b-instruct", {
+        prompt: "Reply with OK.",
+      });
+      return response;
+    }),
+    {{/if}}
+    {{#if (cfBinding cloudflare "r2")}}
+    r2PutAndGet: publicProcedure.mutation(async ({ ctx }) => {
+      await ctx.cloudflare.R2_BUCKET.put("example.txt", "Hello from R2");
+      const object = await ctx.cloudflare.R2_BUCKET.get("example.txt");
+      return { value: object ? await object.text() : null };
+    }),
+    {{/if}}
+    {{#if (cfBinding cloudflare "kv")}}
+    kvGetSet: publicProcedure.mutation(async ({ ctx }) => {
+      await ctx.cloudflare.KV.put("example", "Hello from KV");
+      return ctx.cloudflare.KV.get("example");
+    }),
+    {{/if}}
+    {{#if (cfBinding cloudflare "queue")}}
+    queueSend: publicProcedure.mutation(async ({ ctx }) => {
+      await ctx.cloudflare.QUEUE.send({ type: "example" });
+      return { queued: true };
+    }),
+    {{/if}}
+    {{#if (cfBinding cloudflare "durable-object")}}
+    durableObjectCounter: publicProcedure.query(async ({ ctx }) => {
+      const id = ctx.cloudflare.APP_DO.idFromName("counter");
+      const stub = ctx.cloudflare.APP_DO.get(id);
+      const response = await stub.fetch("https://app-do/increment");
+      return response.json();
+    }),
+    {{/if}}
+  }),
+  {{/if}}
 });
 export type AppRouter = typeof appRouter;
 {{else}}

@@ -1,0 +1,23 @@
+import { DurableObject } from "cloudflare:workers";
+import type { CloudflareBindings } from "./bindings";
+
+export class AppDurableObject extends DurableObject<CloudflareBindings> {
+	private count = 0;
+
+	constructor(ctx: DurableObjectState, env: CloudflareBindings) {
+		super(ctx, env);
+	}
+
+	async fetch(request: Request) {
+		const url = new URL(request.url);
+
+		if (url.pathname.endsWith("/increment")) {
+			this.count = ((await this.ctx.storage.get<number>("count")) ?? this.count) + 1;
+			await this.ctx.storage.put("count", this.count);
+		} else {
+			this.count = (await this.ctx.storage.get<number>("count")) ?? this.count;
+		}
+
+		return Response.json({ count: this.count });
+	}
+}

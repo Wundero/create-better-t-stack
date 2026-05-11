@@ -8,9 +8,10 @@ import { neonConfig } from "@neondatabase/serverless";
 neonConfig.poolQueryViaFetch = true;
 
 export function createPrismaClient() {
+	const connectionString = {{#if (eq cloudflare.hyperdrive "postgres")}}env.HYPERDRIVE?.connectionString ?? {{/if}}env.DATABASE_URL;
 	return new PrismaClient({
 		adapter: new PrismaNeon({
-			connectionString: env.DATABASE_URL,
+			connectionString,
 		}),
 	});
 }
@@ -19,8 +20,9 @@ export function createPrismaClient() {
 import { PrismaPg } from "@prisma/adapter-pg";
 
 export function createPrismaClient() {
+	const connectionString = {{#if (eq cloudflare.hyperdrive "postgres")}}env.HYPERDRIVE?.connectionString ?? {{/if}}env.DATABASE_URL;
 	const adapter = new PrismaPg({
-		connectionString: env.DATABASE_URL,
+		connectionString,
 		maxUses: 1,
 	});
 
@@ -31,8 +33,9 @@ export function createPrismaClient() {
 import { PrismaPg } from "@prisma/adapter-pg";
 
 export function createPrismaClient() {
+	const connectionString = {{#if (eq cloudflare.hyperdrive "postgres")}}env.HYPERDRIVE?.connectionString ?? {{/if}}env.DATABASE_URL;
 	const adapter = new PrismaPg({
-		connectionString: env.DATABASE_URL,
+		connectionString,
 		maxUses: 1,
 	});
 	return new PrismaClient({ adapter });
@@ -50,8 +53,9 @@ import { env } from "{{packageScope}}/env/server";
 import { PrismaNeon } from "@prisma/adapter-neon";
 
 export function createPrismaClient({{#if (and (eq backend "self") (eq webDeploy "cloudflare") (includes frontend "svelte"))}}env: Env{{/if}}) {
+	const connectionString = {{#if (eq cloudflare.hyperdrive "postgres")}}env.HYPERDRIVE?.connectionString ?? {{/if}}env.DATABASE_URL;
 	const adapter = new PrismaNeon({
-		connectionString: env.DATABASE_URL,
+		connectionString,
 	});
 
 	return new PrismaClient({ adapter });
@@ -61,8 +65,9 @@ export function createPrismaClient({{#if (and (eq backend "self") (eq webDeploy 
 import { PrismaPg } from "@prisma/adapter-pg";
 
 export function createPrismaClient({{#if (and (eq backend "self") (eq webDeploy "cloudflare") (includes frontend "svelte"))}}env: Env{{/if}}) {
+	const connectionString = {{#if (eq cloudflare.hyperdrive "postgres")}}env.HYPERDRIVE?.connectionString ?? {{/if}}env.DATABASE_URL;
 	const adapter = new PrismaPg({
-		connectionString: env.DATABASE_URL,
+		connectionString,
 {{#if (and (eq backend "self") (eq webDeploy "cloudflare"))}}
 		maxUses: 1,
 {{/if}}
@@ -75,8 +80,9 @@ export function createPrismaClient({{#if (and (eq backend "self") (eq webDeploy 
 import { PrismaPg } from "@prisma/adapter-pg";
 
 export function createPrismaClient({{#if (and (eq backend "self") (eq webDeploy "cloudflare") (includes frontend "svelte"))}}env: Env{{/if}}) {
+	const connectionString = {{#if (eq cloudflare.hyperdrive "postgres")}}env.HYPERDRIVE?.connectionString ?? {{/if}}env.DATABASE_URL;
 	const adapter = new PrismaPg({
-		connectionString: env.DATABASE_URL,
+		connectionString,
 {{#if (and (eq backend "self") (eq webDeploy "cloudflare"))}}
 		maxUses: 1,
 {{/if}}

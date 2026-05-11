@@ -16,6 +16,7 @@ import {
   PaymentsSchema,
   WebDeploySchema,
   ServerDeploySchema,
+  CloudflareConfigSchema,
   DirectoryConflictSchema,
   TemplateSchema,
   AddonOptionsSchema,
@@ -89,6 +90,10 @@ export function getServerDeployJsonSchema() {
   return z.toJSONSchema(ServerDeploySchema);
 }
 
+export function getCloudflareConfigJsonSchema() {
+  return z.toJSONSchema(CloudflareConfigSchema);
+}
+
 export function getDirectoryConflictJsonSchema() {
   return z.toJSONSchema(DirectoryConflictSchema);
 }
@@ -147,6 +152,7 @@ export function getAllJsonSchemas() {
     payments: getPaymentsJsonSchema(),
     webDeploy: getWebDeployJsonSchema(),
     serverDeploy: getServerDeployJsonSchema(),
+    cloudflare: getCloudflareConfigJsonSchema(),
     directoryConflict: getDirectoryConflictJsonSchema(),
     template: getTemplateJsonSchema(),
     addonOptions: getAddonOptionsJsonSchema(),

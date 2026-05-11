@@ -7,6 +7,7 @@ import type {
   Auth,
   Backend,
   CLIInput,
+  DatabaseSetup,
   Frontend,
   Payments,
   ProjectConfig,
@@ -302,6 +303,59 @@ export function validateServerDeployRequiresBackend(
       "'--server-deploy' requires a backend. Please select a backend or set '--server-deploy none'.",
     );
   }
+  return Result.ok(undefined);
+}
+
+const HYPERDRIVE_POSTGRES_SETUPS: readonly DatabaseSetup[] = [
+  "neon",
+  "prisma-postgres",
+  "supabase",
+  "planetscale",
+];
+
+export function validateCloudflareConfig(config: Partial<ProjectConfig>): ValidationResult {
+  if (!config.cloudflare) {
+    return Result.ok(undefined);
+  }
+
+  if (config.webDeploy !== "cloudflare" && config.serverDeploy !== "cloudflare") {
+    return validationErr(
+      "Cloudflare configuration requires '--web-deploy cloudflare' or '--server-deploy cloudflare'.",
+    );
+  }
+
+  if (config.cloudflare.hyperdrive === "postgres") {
+    if (config.backend && config.backend !== "hono") {
+      return validationErr("Cloudflare Hyperdrive requires '--backend hono'.");
+    }
+
+    if (config.database !== "postgres") {
+      return validationErr("Cloudflare Hyperdrive requires '--database postgres'.");
+    }
+
+    if (!config.dbSetup || !HYPERDRIVE_POSTGRES_SETUPS.includes(config.dbSetup)) {
+      return validationErr(
+        "Cloudflare Hyperdrive requires a Postgres-compatible database setup: neon, prisma-postgres, supabase, or planetscale.",
+      );
+    }
+
+    if (config.runtime !== "workers") {
+      return validationErr("Cloudflare Hyperdrive requires '--runtime workers'.");
+    }
+
+    if (config.serverDeploy !== "cloudflare") {
+      return validationErr("Cloudflare Hyperdrive requires '--server-deploy cloudflare'.");
+    }
+  }
+
+  if (config.cloudflare.domains?.web && config.webDeploy !== "cloudflare") {
+    return validationErr("Cloudflare web domains require '--web-deploy cloudflare'.");
+  }
+
+  if (config.cloudflare.domains?.server && config.serverDeploy !== "cloudflare") {
+    return validationErr("Cloudflare server domains require '--server-deploy cloudflare'.");
+  }
+
   return Result.ok(undefined);
 }
 

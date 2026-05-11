@@ -16,6 +16,11 @@ import type {
   PaymentsSchema,
   WebDeploySchema,
   ServerDeploySchema,
+  CloudflareConfigSchema,
+  CloudflareHyperdriveSchema,
+  CloudflareBindingSchema,
+  CloudflareDomainsSchema,
+  CloudflareEmailSchema,
   DirectoryConflictSchema,
   TemplateSchema,
   AddonOptionsSchema,
@@ -45,6 +50,11 @@ export type Auth = z.infer<typeof AuthSchema>;
 export type Payments = z.infer<typeof PaymentsSchema>;
 export type WebDeploy = z.infer<typeof WebDeploySchema>;
 export type ServerDeploy = z.infer<typeof ServerDeploySchema>;
+export type CloudflareConfig = z.infer<typeof CloudflareConfigSchema>;
+export type CloudflareHyperdrive = z.infer<typeof CloudflareHyperdriveSchema>;
+export type CloudflareBinding = z.infer<typeof CloudflareBindingSchema>;
+export type CloudflareDomains = z.infer<typeof CloudflareDomainsSchema>;
+export type CloudflareEmail = z.infer<typeof CloudflareEmailSchema>;
 export type DirectoryConflict = z.infer<typeof DirectoryConflictSchema>;
 export type Template = z.infer<typeof TemplateSchema>;
 export type AddonOptions = z.infer<typeof AddonOptionsSchema>;

@@ -107,6 +107,10 @@ export function processFlags(options: CLIInput, projectName?: string) {
     config.serverDeploy = options.serverDeploy as ServerDeploy;
   }
 
+  if (options.cloudflare) {
+    config.cloudflare = options.cloudflare;
+  }
+
   const derivedName = deriveProjectName(projectName, options.projectDirectory);
   if (derivedName) {
     config.projectName = projectName || derivedName;

@@ -6,9 +6,11 @@ import {
 } from "../src/app/(home)/new/_components/stack-builder/use-stack-builder";
 import {
   analyzeStackCompatibility,
+  getCloudflarePlatformCompatibilityIssues,
   getDisabledReason,
 } from "../src/app/(home)/new/_components/utils";
-import { DEFAULT_STACK, type StackState } from "../src/lib/constant";
+import { CLOUDFLARE_PLATFORM_OPTIONS, DEFAULT_STACK, type StackState } from "../src/lib/constant";
+import type { CloudflarePlatformConfig } from "../src/lib/types";
 
 function createStack(overrides: Partial<StackState> = {}): StackState {
   return {
@@ -229,5 +231,154 @@ describe("stack builder D1 compatibility", () => {
 
     expect(getDisabledReason(serverStack, "addons", "evlog")).toBeNull();
     expect(getDisabledReason(fullstackStack, "addons", "evlog")).toBeNull();
+  });
+});
+
+describe("stack builder Cloudflare platform metadata", () => {
+  test("tracks planned Cloudflare platform options without adding builder categories", () => {
+    expect(CLOUDFLARE_PLATFORM_OPTIONS.hyperdrive.map((option) => option.id)).toEqual([
+      "none",
+      "postgres",
+    ]);
+    expect(CLOUDFLARE_PLATFORM_OPTIONS.bindings.map((option) => option.id)).toEqual([
+      "workers-ai",
+      "r2",
+      "kv",
+      "queue",
+      "durable-object",
+    ]);
+    expect(CLOUDFLARE_PLATFORM_OPTIONS.domainModes.map((option) => option.id)).toEqual([
+      "todo",
+      "prompted",
+    ]);
+    expect(CLOUDFLARE_PLATFORM_OPTIONS.emailSenders.map((option) => option.id)).toEqual([
+      "none",
+      "cloudflare",
+    ]);
+  });
+
+  test("allows Cloudflare bindings, domains, and email when either deployment targets Cloudflare", () => {
+    const workerStack = createStack({
+      runtime: "workers",
+      backend: "hono",
+      serverDeploy: "cloudflare",
+    });
+    const fullstackStack = createStack({
+      webFrontend: ["next"],
+      backend: "self-next",
+      runtime: "none",
+      webDeploy: "cloudflare",
+      serverDeploy: "none",
+    });
+    const cloudflare = {
+      bindings: ["workers-ai", "r2", "kv", "queue", "durable-object"],
+      domains: { web: "app.example.com", mode: "prompted" },
+      email: { sender: "cloudflare" },
+    } satisfies CloudflarePlatformConfig;
+
+    expect(getCloudflarePlatformCompatibilityIssues(workerStack, cloudflare)).toEqual([]);
+    expect(getCloudflarePlatformCompatibilityIssues(fullstackStack, cloudflare)).toEqual([]);
+  });
+
+  test("requires a Cloudflare deployment before Cloudflare platform options are valid", () => {
+    const stack = createStack({
+      webDeploy: "none",
+      serverDeploy: "none",
+    });
+
+    expect(
+      getCloudflarePlatformCompatibilityIssues(stack, {
+        bindings: ["kv"],
+        domains: { mode: "todo" },
+        email: { sender: "cloudflare" },
+      }),
+    ).toEqual([
+      {
+        field: "bindings",
+        message: "Cloudflare platform options require Cloudflare web or server deployment",
+      },
+      {
+        field: "domains",
+        message: "Cloudflare platform options require Cloudflare web or server deployment",
+      },
+      {
+        field: "email",
+        message: "Cloudflare platform options require Cloudflare web or server deployment",
+      },
+    ]);
+  });
+
+  test("allows Hyperdrive only on PostgreSQL managed setups deployed to Cloudflare Workers", () => {
+    const stack = createStack({
+      backend: "hono",
+      runtime: "workers",
+      database: "postgres",
+      orm: "drizzle",
+      dbSetup: "neon",
+      serverDeploy: "cloudflare",
+    });
+
+    expect(
+      getCloudflarePlatformCompatibilityIssues(stack, {
+        hyperdrive: "postgres",
+      }),
+    ).toEqual([]);
+  });
+
+  test("reports each invalid Hyperdrive requirement", () => {
+    const stack = createStack({
+      backend: "hono",
+      runtime: "bun",
+      database: "sqlite",
+      orm: "drizzle",
+      dbSetup: "d1",
+      serverDeploy: "none",
+    });
+
+    expect(
+      getCloudflarePlatformCompatibilityIssues(stack, {
+        hyperdrive: "postgres",
+      }),
+    ).toEqual([
+      {
+        field: "hyperdrive",
+        message: "Cloudflare platform options require Cloudflare web or server deployment",
+      },
+      {
+        field: "hyperdrive",
+        message: "Hyperdrive requires PostgreSQL",
+      },
+      {
+        field: "hyperdrive",
+        message: "Hyperdrive requires a managed PostgreSQL setup",
+      },
+      {
+        field: "hyperdrive",
+        message: "Hyperdrive requires the Workers runtime",
+      },
+      {
+        field: "hyperdrive",
+        message: "Hyperdrive requires Cloudflare server deployment",
+      },
+    ]);
+  });
+
+  test("keeps an existing Workers Cloudflare Postgres stack valid for future Hyperdrive selection", () => {
+    const stack = createStack({
+      backend: "hono",
+      runtime: "workers",
+      database: "postgres",
+      orm: "prisma",
+      dbSetup: "prisma-postgres",
+      serverDeploy: "cloudflare",
+    });
+
+    expect(analyzeStackCompatibility(stack).adjustedStack).toBeNull();
+    expect(getDisabledReason(stack, "serverDeploy", "cloudflare")).toBeNull();
+    expect(
+      getCloudflarePlatformCompatibilityIssues(stack, {
+        hyperdrive: "postgres",
+      }),
+    ).toEqual([]);
   });
 });

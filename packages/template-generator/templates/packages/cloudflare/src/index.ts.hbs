@@ -1,0 +1,4 @@
+export * from "./bindings";
+{{#if (cfBinding cloudflare "durable-object")}}
+export { AppDurableObject } from "./durable-object";
+{{/if}}

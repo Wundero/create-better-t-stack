@@ -93,6 +93,10 @@ export function displayConfig(config: Partial<ProjectConfig>) {
     configDisplay.push(`${pc.blue("Server Deployment:")} ${String(config.serverDeploy)}`);
   }
 
+  if (config.cloudflare !== undefined) {
+    configDisplay.push(`${pc.blue("Cloudflare:")} ${JSON.stringify(config.cloudflare)}`);
+  }
+
   if (configDisplay.length === 0) {
     return pc.yellow("No configuration selected.");
   }

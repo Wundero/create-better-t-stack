@@ -10,6 +10,7 @@ import {
   APISchema,
   AuthSchema,
   BackendSchema,
+  CloudflareConfigSchema,
   CreateInputSchema,
   DatabaseSchema,
   DatabaseSetupSchema,
@@ -58,6 +59,9 @@ const McpCreateProjectInputSchema = CreateInputSchema.safeExtend({
   dbSetup: DatabaseSetupSchema.describe("Explicit database setup/provisioning choice"),
   webDeploy: WebDeploySchema.describe("Explicit web deployment choice"),
   serverDeploy: ServerDeploySchema.describe("Explicit server deployment choice"),
+  cloudflare: CloudflareConfigSchema.optional().describe(
+    "Optional Cloudflare platform configuration. Omit it when no extra Cloudflare platform features are needed.",
+  ),
   addonOptions: AddonOptionsSchema.optional(),
   dbSetupOptions: DbSetupOptionsSchema.optional(),
   directoryConflict: DirectoryConflictSchema.optional(),
@@ -148,7 +152,7 @@ function getStackGuidance() {
         "webDeploy",
         "serverDeploy",
       ],
-      optionalFields: ["addonOptions", "dbSetupOptions", "directoryConflict"],
+      optionalFields: ["addonOptions", "dbSetupOptions", "cloudflare", "directoryConflict"],
       rule: "Do not call bts_plan_project or bts_create_project with a partial payload. MCP project creation requires the full explicit stack config.",
     },
     fieldNotes: {
@@ -162,6 +166,8 @@ function getStackGuidance() {
         "webDeploy is always required. Use 'none' when no web deployment target is requested.",
       serverDeploy:
         "serverDeploy is always required. Use 'none' when no server deployment target is requested.",
+      cloudflare:
+        "cloudflare is optional and should be omitted unless webDeploy or serverDeploy is 'cloudflare' and extra Cloudflare platform features are explicitly requested.",
       packageManager:
         "packageManager is always required because installation and reproducible commands depend on it.",
       install:

@@ -106,6 +106,40 @@ export const WebDeploySchema = z.enum(["cloudflare", "none"]).describe("Web depl
 
 export const ServerDeploySchema = z.enum(["cloudflare", "none"]).describe("Server deployment");
 
+export const CloudflareHyperdriveSchema = z
+  .enum(["none", "postgres"])
+  .describe("Cloudflare Hyperdrive database connection");
+
+export const CloudflareBindingSchema = z
+  .enum(["workers-ai", "r2", "kv", "queue", "durable-object"])
+  .describe("Cloudflare platform binding");
+
+export const CloudflareDomainsSchema = z
+  .strictObject({
+    web: z.string().min(1).optional().describe("Custom domain for the Cloudflare web app"),
+    server: z.string().min(1).optional().describe("Custom domain for the Cloudflare server"),
+    mode: z
+      .enum(["todo", "prompted"])
+      .optional()
+      .describe("Whether Cloudflare domains are TODO placeholders or prompted values"),
+  })
+  .describe("Cloudflare custom domain configuration");
+
+export const CloudflareEmailSchema = z
+  .strictObject({
+    sender: z.enum(["none", "cloudflare"]).optional().describe("Cloudflare email sender"),
+  })
+  .describe("Cloudflare email configuration");
+
+export const CloudflareConfigSchema = z
+  .strictObject({
+    hyperdrive: CloudflareHyperdriveSchema.optional(),
+    bindings: z.array(CloudflareBindingSchema).optional().describe("Cloudflare bindings to create"),
+    domains: CloudflareDomainsSchema.optional(),
+    email: CloudflareEmailSchema.optional(),
+  })
+  .describe("Cloudflare platform configuration");
+
 export const DirectoryConflictSchema = z
   .enum(["merge", "overwrite", "increment", "error"])
   .describe("How to handle existing directory conflicts");
@@ -451,6 +485,7 @@ export const CreateInputSchema = z
     api: APISchema.optional(),
     webDeploy: WebDeploySchema.optional(),
     serverDeploy: ServerDeploySchema.optional(),
+    cloudflare: CloudflareConfigSchema.optional(),
     directoryConflict: DirectoryConflictSchema.optional(),
     renderTitle: z.boolean().optional(),
     disableAnalytics: z.boolean().optional(),
@@ -468,6 +503,7 @@ export const AddInputSchema = z
     addonOptions: AddonOptionsSchema.optional(),
     webDeploy: WebDeploySchema.optional(),
     serverDeploy: ServerDeploySchema.optional(),
+    cloudflare: CloudflareConfigSchema.optional(),
     projectDir: z.string().optional(),
     install: z.boolean().optional(),
     packageManager: PackageManagerSchema.optional(),
@@ -502,6 +538,7 @@ export const ProjectConfigSchema = z.object({
   api: APISchema,
   webDeploy: WebDeploySchema,
   serverDeploy: ServerDeploySchema,
+  cloudflare: CloudflareConfigSchema.optional(),
 });
 
 export const BetterTStackConfigSchema = z.object({
@@ -525,6 +562,7 @@ export const BetterTStackConfigSchema = z.object({
   api: APISchema,
   webDeploy: WebDeploySchema,
   serverDeploy: ServerDeploySchema,
+  cloudflare: CloudflareConfigSchema.optional(),
 });
 
 export const BetterTStackConfigFileSchema = z

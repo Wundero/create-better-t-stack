@@ -26,6 +26,27 @@ export type TechEdge = {
   animated?: boolean;
 };
 
+export type CloudflareHyperdrive = "none" | "postgres";
+
+export type CloudflareBinding = "workers-ai" | "r2" | "kv" | "queue" | "durable-object";
+
+export type CloudflareDomainMode = "todo" | "prompted";
+
+export type CloudflareEmailSender = "none" | "cloudflare";
+
+export type CloudflarePlatformConfig = {
+  hyperdrive?: CloudflareHyperdrive;
+  bindings?: CloudflareBinding[];
+  domains?: {
+    web?: string;
+    server?: string;
+    mode?: CloudflareDomainMode;
+  };
+  email?: {
+    sender?: CloudflareEmailSender;
+  };
+};
+
 export type Sponsor = {
   name: string;
   githubId: string;

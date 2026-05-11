@@ -97,6 +97,9 @@ export async function createContext({ req }: { req: Request }){{#if (eq auth "cl
 
 {{else if (eq backend 'hono')}}
 import type { Context as HonoContext } from "hono";
+{{#if (hasCfPlatform cloudflare)}}
+import { getCloudflareBindings, type CloudflareBindings } from "{{packageScope}}/cloudflare/bindings";
+{{/if}}
 {{#if (eq auth "better-auth")}}
 {{#if (or (eq runtime "workers") (eq serverDeploy "cloudflare") (and (eq backend "self") (eq webDeploy "cloudflare")))}}
 import { createAuth } from "{{packageScope}}/auth";
@@ -117,17 +120,26 @@ export async function createContext({ context }: CreateContextOptions){{#if (eq 
 	return {
 		auth: null,
 		session,
+{{#if (hasCfPlatform cloudflare)}}
+		cloudflare: getCloudflareBindings(context.env as Partial<CloudflareBindings>),
+{{/if}}
 	};
 {{else if (eq auth "clerk")}}
 	const clerkAuth = await authenticateClerkRequest(context.req.raw);
 	return {
 		auth: clerkAuth,
 		session: null,
+{{#if (hasCfPlatform cloudflare)}}
+		cloudflare: getCloudflareBindings(context.env as Partial<CloudflareBindings>),
+{{/if}}
 	};
 {{else}}
 	return {
 		auth: null,
 		session: null,
+{{#if (hasCfPlatform cloudflare)}}
+		cloudflare: getCloudflareBindings(context.env as Partial<CloudflareBindings>),
+{{/if}}
 	};
 {{/if}}
 }

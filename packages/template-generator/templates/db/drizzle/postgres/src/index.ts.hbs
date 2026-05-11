@@ -11,7 +11,8 @@ import { neon } from '@neondatabase/serverless';
 import { drizzle } from 'drizzle-orm/neon-http';
 
 export function createDb({{#if (and (eq backend "self") (eq webDeploy "cloudflare") (includes frontend "svelte"))}}env: Env{{/if}}) {
-	const sql = neon(env.DATABASE_URL);
+	const connectionString = {{#if (eq cloudflare.hyperdrive "postgres")}}env.HYPERDRIVE?.connectionString ?? {{/if}}env.DATABASE_URL;
+	const sql = neon(connectionString);
 	return drizzle(sql, { schema });
 }
 {{else}}
@@ -22,14 +23,16 @@ import { Pool } from "pg";
 
 export function createDb({{#if (and (eq backend "self") (eq webDeploy "cloudflare") (includes frontend "svelte"))}}env: Env{{/if}}) {
 {{#if (and (eq backend "self") (eq webDeploy "cloudflare"))}}
+	const connectionString = {{#if (eq cloudflare.hyperdrive "postgres")}}env.HYPERDRIVE?.connectionString ?? {{/if}}env.DATABASE_URL;
 	const pool = new Pool({
-		connectionString: env.DATABASE_URL,
+		connectionString,
 		maxUses: 1,
 	});
 
 	return drizzle({ client: pool, schema });
 {{else}}
-	return drizzle(env.DATABASE_URL, { schema });
+	const connectionString = {{#if (eq cloudflare.hyperdrive "postgres")}}env.HYPERDRIVE?.connectionString ?? {{/if}}env.DATABASE_URL;
+	return drizzle(connectionString, { schema });
 {{/if}}
 }
 {{/if}}
@@ -48,7 +51,8 @@ import { drizzle } from 'drizzle-orm/neon-http';
 import { env } from "{{packageScope}}/env/server";
 
 export function createDb() {
-	const sql = neon(env.DATABASE_URL || "");
+	const connectionString = {{#if (eq cloudflare.hyperdrive "postgres")}}(env.HYPERDRIVE?.connectionString ?? env.DATABASE_URL){{else}}env.DATABASE_URL{{/if}} || "";
+	const sql = neon(connectionString);
 	return drizzle(sql, { schema });
 }
 {{else}}
@@ -57,8 +61,9 @@ import { env } from "{{packageScope}}/env/server";
 import { Pool } from "pg";
 
 export function createDb() {
+	const connectionString = {{#if (eq cloudflare.hyperdrive "postgres")}}(env.HYPERDRIVE?.connectionString ?? env.DATABASE_URL){{else}}env.DATABASE_URL{{/if}} || "";
 	const pool = new Pool({
-		connectionString: env.DATABASE_URL || "",
+		connectionString,
 		maxUses: 1,
 	});
 

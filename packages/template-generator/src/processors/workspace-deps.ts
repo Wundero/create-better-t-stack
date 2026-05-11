@@ -27,6 +27,7 @@ export function processWorkspaceDeps(vfs: VirtualFileSystem, config: ProjectConf
     db: vfs.exists("packages/db/package.json"),
     auth: vfs.exists("packages/auth/package.json"),
     api: vfs.exists("packages/api/package.json"),
+    cloudflare: vfs.exists("packages/cloudflare/package.json"),
     ui: vfs.exists("packages/ui/package.json"),
     backend: vfs.exists("packages/backend/package.json"),
     server: vfs.exists("apps/server/package.json"),
@@ -37,6 +38,9 @@ export function processWorkspaceDeps(vfs: VirtualFileSystem, config: ProjectConf
   const configDep = packages.config ? { [`${packageScope}/config`]: workspaceVersion } : {};
   const envDep = packages.env ? { [`${packageScope}/env`]: workspaceVersion } : {};
   const uiDep = packages.ui ? { [`${packageScope}/ui`]: workspaceVersion } : {};
+  const cloudflareDep = packages.cloudflare
+    ? { [`${packageScope}/cloudflare`]: workspaceVersion }
+    : {};
   const isCloudflare = serverDeploy === "cloudflare" || webDeploy === "cloudflare";
   const runtimeDevDeps = getRuntimeDevDeps(runtime, backend);
   const commonDeps: AvailableDependencies[] = ["dotenv", "zod"];
@@ -102,7 +106,7 @@ export function processWorkspaceDeps(vfs: VirtualFileSystem, config: ProjectConf
   }
 
   if (packages.api) {
-    const apiPackageDeps: Record<string, string> = { ...envDep };
+    const apiPackageDeps: Record<string, string> = { ...envDep, ...cloudflareDep };
     if (auth !== "none" && packages.auth) {
       apiPackageDeps[`${packageScope}/auth`] = workspaceVersion;
     }
@@ -119,6 +123,15 @@ export function processWorkspaceDeps(vfs: VirtualFileSystem, config: ProjectConf
     });
   }
 
+  if (packages.cloudflare) {
+    addPackageDependency({
+      vfs,
+      packagePath: "packages/cloudflare/package.json",
+      devDependencies: ["typescript", "@cloudflare/workers-types"],
+      customDevDependencies: configDep,
+    });
+  }
+
   if (packages.backend) {
     addPackageDependency({
       vfs,
@@ -130,7 +143,7 @@ export function processWorkspaceDeps(vfs: VirtualFileSystem, config: ProjectConf
   }
 
   if (packages.server) {
-    const serverDeps: Record<string, string> = { ...envDep };
+    const serverDeps: Record<string, string> = { ...envDep, ...cloudflareDep };
     if (api !== "none" && packages.api) serverDeps[`${packageScope}/api`] = workspaceVersion;
     if (auth !== "none" && packages.auth) serverDeps[`${packageScope}/auth`] = workspaceVersion;
     if (database !== "none" && packages.db) serverDeps[`${packageScope}/db`] = workspaceVersion;

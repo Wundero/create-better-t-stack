@@ -1,6 +1,91 @@
-import type { TechCategory } from "./types";
+import type {
+  CloudflareBinding,
+  CloudflareDomainMode,
+  CloudflareEmailSender,
+  CloudflareHyperdrive,
+  TechCategory,
+} from "./types";
 
 export const ICON_BASE_URL = "https://r2.better-t-stack.dev/icons";
+
+type CloudflarePlatformOption<T extends string> = {
+  id: T;
+  name: string;
+  description: string;
+};
+
+export const CLOUDFLARE_HYPERDRIVE_POSTGRES_DB_SETUPS = [
+  "neon",
+  "prisma-postgres",
+  "supabase",
+  "planetscale",
+] as const;
+
+export const CLOUDFLARE_PLATFORM_OPTIONS = {
+  hyperdrive: [
+    {
+      id: "none",
+      name: "No Hyperdrive",
+      description: "Use the standard database connection path",
+    },
+    {
+      id: "postgres",
+      name: "Hyperdrive for PostgreSQL",
+      description: "Connect Cloudflare Workers to a PostgreSQL database through Hyperdrive",
+    },
+  ] satisfies CloudflarePlatformOption<CloudflareHyperdrive>[],
+  bindings: [
+    {
+      id: "workers-ai",
+      name: "Workers AI",
+      description: "Bind Cloudflare Workers AI as AI",
+    },
+    {
+      id: "r2",
+      name: "R2",
+      description: "Bind an R2 bucket as R2_BUCKET",
+    },
+    {
+      id: "kv",
+      name: "KV",
+      description: "Bind a KV namespace as KV",
+    },
+    {
+      id: "queue",
+      name: "Queues",
+      description: "Bind a Cloudflare Queue as QUEUE",
+    },
+    {
+      id: "durable-object",
+      name: "Durable Object",
+      description: "Bind an app Durable Object namespace as APP_DO",
+    },
+  ] satisfies CloudflarePlatformOption<CloudflareBinding>[],
+  domainModes: [
+    {
+      id: "todo",
+      name: "TODO domains",
+      description: "Generate TODO placeholders for custom domains",
+    },
+    {
+      id: "prompted",
+      name: "Prompted domains",
+      description: "Use user-provided Cloudflare custom domains",
+    },
+  ] satisfies CloudflarePlatformOption<CloudflareDomainMode>[],
+  emailSenders: [
+    {
+      id: "none",
+      name: "No Cloudflare Email",
+      description: "Skip Cloudflare Email Sending setup",
+    },
+    {
+      id: "cloudflare",
+      name: "Cloudflare Email Sending",
+      description: "Configure Cloudflare Email Sending for outbound mail",
+    },
+  ] satisfies CloudflarePlatformOption<CloudflareEmailSender>[],
+} as const;
 
 export const TECH_OPTIONS: Record<
   TechCategory,

@@ -1,7 +1,13 @@
 import { desktopWebFrontends } from "@wundero/create-better-t-stack-types";
 
-import { DEFAULT_STACK, type StackState, type TECH_OPTIONS } from "@/lib/constant";
+import {
+  CLOUDFLARE_HYPERDRIVE_POSTGRES_DB_SETUPS,
+  DEFAULT_STACK,
+  type StackState,
+  type TECH_OPTIONS,
+} from "@/lib/constant";
 import { CATEGORY_ORDER } from "@/lib/stack-utils";
+import type { CloudflarePlatformConfig } from "@/lib/types";
 
 export function validateProjectName(name: string): string | undefined {
   const INVALID_CHARS = ["<", ">", ":", '"', "|", "?", "*"];
@@ -115,6 +121,90 @@ interface CompatibilityResult {
   adjustedStack: StackState | null;
   notes: Record<string, { notes: string[]; hasIssue: boolean }>;
   changes: Array<{ category: string; message: string }>;
+}
+
+type CloudflarePlatformCompatibilityIssue = {
+  field: "hyperdrive" | "bindings" | "domains" | "email";
+  message: string;
+};
+
+const hasCloudflareDeployment = (stack: Pick<StackState, "webDeploy" | "serverDeploy">) =>
+  stack.webDeploy === "cloudflare" || stack.serverDeploy === "cloudflare";
+
+const hasConfiguredCloudflareDomains = (cloudflare: CloudflarePlatformConfig) =>
+  Boolean(cloudflare.domains?.web || cloudflare.domains?.server || cloudflare.domains?.mode);
+
+export function getCloudflarePlatformCompatibilityIssues(
+  stack: StackState,
+  cloudflare: CloudflarePlatformConfig | undefined,
+): CloudflarePlatformCompatibilityIssue[] {
+  if (!cloudflare) {
+    return [];
+  }
+
+  const issues: CloudflarePlatformCompatibilityIssue[] = [];
+  const usesCloudflareDeployment = hasCloudflareDeployment(stack);
+  const selectedBindings = cloudflare.bindings ?? [];
+  const selectedHyperdrive = cloudflare.hyperdrive ?? "none";
+  const selectedEmailSender = cloudflare.email?.sender ?? "none";
+
+  if (!usesCloudflareDeployment && selectedBindings.length > 0) {
+    issues.push({
+      field: "bindings",
+      message: "Cloudflare platform options require Cloudflare web or server deployment",
+    });
+  }
+  if (!usesCloudflareDeployment && selectedHyperdrive !== "none") {
+    issues.push({
+      field: "hyperdrive",
+      message: "Cloudflare platform options require Cloudflare web or server deployment",
+    });
+  }
+  if (!usesCloudflareDeployment && hasConfiguredCloudflareDomains(cloudflare)) {
+    issues.push({
+      field: "domains",
+      message: "Cloudflare platform options require Cloudflare web or server deployment",
+    });
+  }
+  if (!usesCloudflareDeployment && selectedEmailSender !== "none") {
+    issues.push({
+      field: "email",
+      message: "Cloudflare platform options require Cloudflare web or server deployment",
+    });
+  }
+
+  if (selectedHyperdrive === "postgres") {
+    if (stack.database !== "postgres") {
+      issues.push({
+        field: "hyperdrive",
+        message: "Hyperdrive requires PostgreSQL",
+      });
+    }
+    if (
+      !CLOUDFLARE_HYPERDRIVE_POSTGRES_DB_SETUPS.includes(
+        stack.dbSetup as (typeof CLOUDFLARE_HYPERDRIVE_POSTGRES_DB_SETUPS)[number],
+      )
+    ) {
+      issues.push({
+        field: "hyperdrive",
+        message: "Hyperdrive requires a managed PostgreSQL setup",
+      });
+    }
+    if (stack.runtime !== "workers") {
+      issues.push({
+        field: "hyperdrive",
+        message: "Hyperdrive requires the Workers runtime",
+      });
+    }
+    if (stack.serverDeploy !== "cloudflare") {
+      issues.push({
+        field: "hyperdrive",
+        message: "Hyperdrive requires Cloudflare server deployment",
+      });
+    }
+  }
+
+  return issues;
 }
 
 /**

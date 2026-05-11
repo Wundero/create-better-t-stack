@@ -35,6 +35,7 @@ export function writeBtsConfigToVfs(
     api: projectConfig.api,
     webDeploy: projectConfig.webDeploy,
     serverDeploy: projectConfig.serverDeploy,
+    cloudflare: projectConfig.cloudflare,
   };
 
   const baseContent = {

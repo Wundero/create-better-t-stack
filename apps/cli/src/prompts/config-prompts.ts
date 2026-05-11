@@ -15,6 +15,7 @@ import type {
   Runtime,
   ServerDeploy,
   WebDeploy,
+  CloudflareConfig,
 } from "../types";
 import { isSilent } from "../utils/context";
 import { UserCancelledError } from "../utils/errors";
@@ -22,6 +23,7 @@ import { getAddonsChoice } from "./addons";
 import { getApiChoice } from "./api";
 import { getAuthChoice } from "./auth";
 import { getBackendFrameworkChoice } from "./backend";
+import { getCloudflareConfigChoice } from "./cloudflare";
 import { getDatabaseChoice } from "./database";
 import { getDBSetupChoice } from "./database-setup";
 import { getExamplesChoice } from "./examples";
@@ -53,6 +55,7 @@ type PromptGroupResults = {
   install: boolean;
   webDeploy: WebDeploy;
   serverDeploy: ServerDeploy;
+  cloudflare?: CloudflareConfig;
 };
 
 export async function gatherConfig(
@@ -85,6 +88,7 @@ export async function gatherConfig(
       api: flags.api ?? DEFAULT_CONFIG.api,
       webDeploy: flags.webDeploy ?? DEFAULT_CONFIG.webDeploy,
       serverDeploy: flags.serverDeploy ?? DEFAULT_CONFIG.serverDeploy,
+      cloudflare: flags.cloudflare,
     };
   }
 
@@ -147,6 +151,14 @@ export async function gatherConfig(
           results.backend,
           results.webDeploy,
         ),
+      cloudflare: ({ results }) =>
+        getCloudflareConfigChoice(flags.cloudflare, {
+          webDeploy: results.webDeploy ?? DEFAULT_CONFIG.webDeploy,
+          serverDeploy: results.serverDeploy ?? DEFAULT_CONFIG.serverDeploy,
+          runtime: results.runtime ?? DEFAULT_CONFIG.runtime,
+          database: results.database ?? DEFAULT_CONFIG.database,
+          dbSetup: results.dbSetup ?? DEFAULT_CONFIG.dbSetup,
+        }),
       git: () => getGitChoice(flags.git),
       packageManager: () => getPackageManagerChoice(flags.packageManager),
       install: () => getinstallChoice(flags.install),
@@ -181,5 +193,6 @@ export async function gatherConfig(
     api: result.api,
     webDeploy: result.webDeploy,
     serverDeploy: result.serverDeploy,
+    cloudflare: result.cloudflare,
   };
 }

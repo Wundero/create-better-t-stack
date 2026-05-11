@@ -30,6 +30,7 @@ export async function detectProjectConfig(projectDir: string) {
           api: btsConfig.api,
           webDeploy: btsConfig.webDeploy,
           serverDeploy: btsConfig.serverDeploy,
+          cloudflare: btsConfig.cloudflare,
         };
       }
 

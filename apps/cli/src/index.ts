@@ -23,6 +23,8 @@ import {
   BackendSchema,
   type BetterTStackConfig,
   type CLIInput,
+  type CloudflareConfig,
+  CloudflareConfigSchema,
   type CreateInput,
   CreateInputSchema,
   type Database,
@@ -78,6 +80,7 @@ export const SchemaNameSchema = z
     "payments",
     "webDeploy",
     "serverDeploy",
+    "cloudflare",
     "directoryConflict",
     "template",
     "addonOptions",
@@ -164,6 +167,7 @@ export const router = t.router({
           api: APISchema.optional(),
           webDeploy: WebDeploySchema.optional(),
           serverDeploy: ServerDeploySchema.optional(),
+          cloudflare: CloudflareConfigSchema.optional(),
           directoryConflict: DirectoryConflictSchema.optional(),
           renderTitle: z.boolean().optional(),
           disableAnalytics: z.boolean().optional().default(false).describe("Disable analytics"),
@@ -437,6 +441,7 @@ export async function createVirtual(
     api: options.api || "trpc",
     webDeploy: options.webDeploy || "none",
     serverDeploy: options.serverDeploy || "none",
+    cloudflare: options.cloudflare,
   };
 
   const providedFlags = new Set([
@@ -453,6 +458,7 @@ export async function createVirtual(
     "api",
     "webDeploy",
     "serverDeploy",
+    "cloudflare",
   ]);
   const validationResult = validateConfigCompatibility(
     config,
@@ -496,6 +502,7 @@ export type {
   Payments,
   WebDeploy,
   ServerDeploy,
+  CloudflareConfig,
   Template,
   DirectoryConflict,
 };

@@ -18,6 +18,7 @@ import {
   processBackendTemplates,
   processDbTemplates,
   processApiTemplates,
+  processCloudflarePackage,
   processConfigPackage,
   processEnvPackage,
   processUiPackage,
@@ -70,6 +71,7 @@ export async function generate(
       await processApiTemplates(vfs, templates, config);
       await processConfigPackage(vfs, templates, config);
       await processEnvPackage(vfs, templates, config);
+      await processCloudflarePackage(vfs, templates, config);
       await processUiPackage(vfs, templates, config);
       await processAuthTemplates(vfs, templates, config);
       await processPaymentsTemplates(vfs, templates, config);

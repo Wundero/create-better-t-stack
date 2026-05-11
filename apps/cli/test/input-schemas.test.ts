@@ -3,6 +3,7 @@ import { describe, expect, it } from "bun:test";
 import {
   AddInputSchema,
   BetterTStackConfigFileSchema,
+  CloudflareConfigSchema,
   CLIInputSchema,
   CreateInputSchema,
 } from "../../../packages/types/src/schemas";
@@ -86,6 +87,32 @@ describe("Input schemas", () => {
     });
 
     expect(result.success).toBe(false);
+  });
+
+  it("accepts valid Cloudflare config and rejects unknown Cloudflare keys", () => {
+    expect(
+      CloudflareConfigSchema.safeParse({
+        hyperdrive: "postgres",
+        bindings: ["workers-ai", "r2", "kv", "queue", "durable-object"],
+        domains: {
+          web: "app.example.com",
+          server: "api.example.com",
+          mode: "prompted",
+        },
+        email: {
+          sender: "cloudflare",
+        },
+      }).success,
+    ).toBe(true);
+
+    expect(
+      CreateInputSchema.safeParse({
+        projectName: "app",
+        cloudflare: {
+          binding: ["r2"],
+        },
+      }).success,
+    ).toBe(false);
   });
 
   it("accepts the evlog agent skills source in addon options", () => {

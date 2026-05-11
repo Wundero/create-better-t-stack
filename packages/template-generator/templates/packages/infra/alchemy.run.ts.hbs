@@ -21,6 +21,21 @@ import { Astro } from "alchemy/cloudflare";
 {{#if (eq serverDeploy "cloudflare")}}
 import { Worker } from "alchemy/cloudflare";
 {{/if}}
+{{#if (cfBinding cloudflare "workers-ai")}}
+import { Ai } from "alchemy/cloudflare";
+{{/if}}
+{{#if (cfBinding cloudflare "r2")}}
+import { R2Bucket } from "alchemy/cloudflare";
+{{/if}}
+{{#if (cfBinding cloudflare "kv")}}
+import { KVNamespace } from "alchemy/cloudflare";
+{{/if}}
+{{#if (cfBinding cloudflare "queue")}}
+import { Queue } from "alchemy/cloudflare";
+{{/if}}
+{{#if (cfBinding cloudflare "durable-object")}}
+import { DurableObjectNamespace } from "alchemy/cloudflare";
+{{/if}}
 {{#if (and (or (eq serverDeploy "cloudflare") (and (eq webDeploy "cloudflare") (eq backend "self"))) (eq dbSetup "d1"))}}
 import { D1Database } from "alchemy/cloudflare";
 {{/if}}
@@ -40,6 +55,49 @@ config({ path: "../../apps/server/.env" });
 
 const app = await alchemy("{{projectName}}");
 
+{{#if (and cloudflare.domains (eq webDeploy "cloudflare") (or cloudflare.domains.web (eq cloudflare.domains.mode "todo")))}}
+const webDomains = [
+  {{#if cloudflare.domains.web}}
+  "{{cloudflare.domains.web}}",
+  {{else}}
+  // TODO: replace with "app.example.com"
+  {{/if}}
+];
+{{/if}}
+
+{{#if (eq cloudflare.hyperdrive "postgres")}}
+// TODO: Create a Cloudflare Hyperdrive config and add the Worker binding manually.
+// Alchemy does not currently expose a first-class Hyperdrive resource in this template.
+// Wrangler shape:
+// hyperdrive = [{ binding = "HYPERDRIVE", id = "<hyperdrive-id>" }]
+{{/if}}
+{{#if (eq cloudflare.email.sender "cloudflare")}}
+// TODO: Add a Cloudflare Email Routing/Email Sending binding once the sender address is configured.
+{{/if}}
+{{#if (cfBinding cloudflare "workers-ai")}}
+const ai = Ai();
+{{/if}}
+{{#if (cfBinding cloudflare "r2")}}
+const r2Bucket = await R2Bucket("r2-bucket", {
+	name: "{{projectName}}-r2-bucket",
+});
+{{/if}}
+{{#if (cfBinding cloudflare "kv")}}
+const kv = await KVNamespace("kv", {
+	title: "{{projectName}}-kv",
+});
+{{/if}}
+{{#if (cfBinding cloudflare "queue")}}
+const queue = await Queue("queue", {
+	name: "{{projectName}}-queue",
+});
+{{/if}}
+{{#if (cfBinding cloudflare "durable-object")}}
+const appDurableObject = DurableObjectNamespace("app-do", {
+	className: "AppDurableObject",
+});
+{{/if}}
+
 {{#if (and (or (eq serverDeploy "cloudflare") (and (eq webDeploy "cloudflare") (eq backend "self"))) (eq dbSetup "d1"))}}
 const db = await D1Database("database", {
 	{{#if (eq orm "prisma")}}
@@ -54,7 +112,25 @@ const db = await D1Database("database", {
 {{#if (includes frontend "next")}}
 export const web = await Nextjs("web", {
   cwd: "../../apps/web",
+  {{#if (and cloudflare.domains (or cloudflare.domains.web (eq cloudflare.domains.mode "todo")))}}
+  domains: webDomains,
+  {{/if}}
   bindings: {
+    {{#if (cfBinding cloudflare "workers-ai")}}
+    AI: ai,
+    {{/if}}
+    {{#if (cfBinding cloudflare "r2")}}
+    R2_BUCKET: r2Bucket,
+    {{/if}}
+    {{#if (cfBinding cloudflare "kv")}}
+    KV: kv,
+    {{/if}}
+    {{#if (cfBinding cloudflare "queue")}}
+    QUEUE: queue,
+    {{/if}}
+    {{#if (cfBinding cloudflare "durable-object")}}
+    APP_DO: appDurableObject,
+    {{/if}}
     {{#if (eq backend "convex")}}
     NEXT_PUBLIC_CONVEX_URL: alchemy.env.NEXT_PUBLIC_CONVEX_URL!,
     {{#if (eq auth "better-auth")}}
@@ -108,7 +184,25 @@ export const web = await Nextjs("web", {
 {{else if (includes frontend "nuxt")}}
 export const web = await Nuxt("web", {
   cwd: "../../apps/web",
+  {{#if (and cloudflare.domains (or cloudflare.domains.web (eq cloudflare.domains.mode "todo")))}}
+  domains: webDomains,
+  {{/if}}
   bindings: {
+    {{#if (cfBinding cloudflare "workers-ai")}}
+    AI: ai,
+    {{/if}}
+    {{#if (cfBinding cloudflare "r2")}}
+    R2_BUCKET: r2Bucket,
+    {{/if}}
+    {{#if (cfBinding cloudflare "kv")}}
+    KV: kv,
+    {{/if}}
+    {{#if (cfBinding cloudflare "queue")}}
+    QUEUE: queue,
+    {{/if}}
+    {{#if (cfBinding cloudflare "durable-object")}}
+    APP_DO: appDurableObject,
+    {{/if}}
     {{#if (eq backend "convex")}}
     NUXT_PUBLIC_CONVEX_URL: alchemy.env.NUXT_PUBLIC_CONVEX_URL!,
     {{#if (eq auth "better-auth")}}
@@ -159,7 +253,25 @@ export const web = await Nuxt("web", {
 {{else if (includes frontend "svelte")}}
 export const web = await SvelteKit("web", {
   cwd: "../../apps/web",
+  {{#if (and cloudflare.domains (or cloudflare.domains.web (eq cloudflare.domains.mode "todo")))}}
+  domains: webDomains,
+  {{/if}}
   bindings: {
+    {{#if (cfBinding cloudflare "workers-ai")}}
+    AI: ai,
+    {{/if}}
+    {{#if (cfBinding cloudflare "r2")}}
+    R2_BUCKET: r2Bucket,
+    {{/if}}
+    {{#if (cfBinding cloudflare "kv")}}
+    KV: kv,
+    {{/if}}
+    {{#if (cfBinding cloudflare "queue")}}
+    QUEUE: queue,
+    {{/if}}
+    {{#if (cfBinding cloudflare "durable-object")}}
+    APP_DO: appDurableObject,
+    {{/if}}
     {{#if (eq backend "convex")}}
     PUBLIC_CONVEX_URL: alchemy.env.PUBLIC_CONVEX_URL!,
     {{#if (eq auth "better-auth")}}
@@ -205,7 +317,25 @@ export const web = await SvelteKit("web", {
 {{else if (includes frontend "tanstack-start")}}
 export const web = await TanStackStart("web", {
   cwd: "../../apps/web",
+  {{#if (and cloudflare.domains (or cloudflare.domains.web (eq cloudflare.domains.mode "todo")))}}
+  domains: webDomains,
+  {{/if}}
   bindings: {
+    {{#if (cfBinding cloudflare "workers-ai")}}
+    AI: ai,
+    {{/if}}
+    {{#if (cfBinding cloudflare "r2")}}
+    R2_BUCKET: r2Bucket,
+    {{/if}}
+    {{#if (cfBinding cloudflare "kv")}}
+    KV: kv,
+    {{/if}}
+    {{#if (cfBinding cloudflare "queue")}}
+    QUEUE: queue,
+    {{/if}}
+    {{#if (cfBinding cloudflare "durable-object")}}
+    APP_DO: appDurableObject,
+    {{/if}}
     {{#if (eq backend "convex")}}
     VITE_CONVEX_URL: alchemy.env.VITE_CONVEX_URL!,
     {{#if (eq auth "better-auth")}}
@@ -255,7 +385,25 @@ export const web = await TanStackStart("web", {
 export const web = await Vite("web", {
   cwd: "../../apps/web",
   assets: "dist",
+  {{#if (and cloudflare.domains (or cloudflare.domains.web (eq cloudflare.domains.mode "todo")))}}
+  domains: webDomains,
+  {{/if}}
   bindings: {
+    {{#if (cfBinding cloudflare "workers-ai")}}
+    AI: ai,
+    {{/if}}
+    {{#if (cfBinding cloudflare "r2")}}
+    R2_BUCKET: r2Bucket,
+    {{/if}}
+    {{#if (cfBinding cloudflare "kv")}}
+    KV: kv,
+    {{/if}}
+    {{#if (cfBinding cloudflare "queue")}}
+    QUEUE: queue,
+    {{/if}}
+    {{#if (cfBinding cloudflare "durable-object")}}
+    APP_DO: appDurableObject,
+    {{/if}}
     {{#if (eq backend "convex")}}
     VITE_CONVEX_URL: alchemy.env.VITE_CONVEX_URL!,
     {{#if (eq auth "better-auth")}}
@@ -269,7 +417,25 @@ export const web = await Vite("web", {
 {{else if (includes frontend "react-router")}}
 export const web = await ReactRouter("web", {
   cwd: "../../apps/web",
+  {{#if (and cloudflare.domains (or cloudflare.domains.web (eq cloudflare.domains.mode "todo")))}}
+  domains: webDomains,
+  {{/if}}
   bindings: {
+    {{#if (cfBinding cloudflare "workers-ai")}}
+    AI: ai,
+    {{/if}}
+    {{#if (cfBinding cloudflare "r2")}}
+    R2_BUCKET: r2Bucket,
+    {{/if}}
+    {{#if (cfBinding cloudflare "kv")}}
+    KV: kv,
+    {{/if}}
+    {{#if (cfBinding cloudflare "queue")}}
+    QUEUE: queue,
+    {{/if}}
+    {{#if (cfBinding cloudflare "durable-object")}}
+    APP_DO: appDurableObject,
+    {{/if}}
     {{#if (eq backend "convex")}}
     VITE_CONVEX_URL: alchemy.env.VITE_CONVEX_URL!,
     {{#if (eq auth "better-auth")}}
@@ -284,7 +450,25 @@ export const web = await ReactRouter("web", {
 export const web = await Vite("web", {
   cwd: "../../apps/web",
   assets: "dist",
+  {{#if (and cloudflare.domains (or cloudflare.domains.web (eq cloudflare.domains.mode "todo")))}}
+  domains: webDomains,
+  {{/if}}
   bindings: {
+    {{#if (cfBinding cloudflare "workers-ai")}}
+    AI: ai,
+    {{/if}}
+    {{#if (cfBinding cloudflare "r2")}}
+    R2_BUCKET: r2Bucket,
+    {{/if}}
+    {{#if (cfBinding cloudflare "kv")}}
+    KV: kv,
+    {{/if}}
+    {{#if (cfBinding cloudflare "queue")}}
+    QUEUE: queue,
+    {{/if}}
+    {{#if (cfBinding cloudflare "durable-object")}}
+    APP_DO: appDurableObject,
+    {{/if}}
     {{#if (eq backend "convex")}}
     VITE_CONVEX_URL: alchemy.env.VITE_CONVEX_URL!,
     {{#if (eq auth "better-auth")}}
@@ -300,10 +484,28 @@ export const web = await Astro("web", {
   cwd: "../../apps/web",
   entrypoint: "dist/server/entry.mjs",
   assets: "dist/client",
+  {{#if (and cloudflare.domains (or cloudflare.domains.web (eq cloudflare.domains.mode "todo")))}}
+  domains: webDomains,
+  {{/if}}
   {{#if (eq backend "self")}}
   compatibility: "node",
   {{/if}}
   bindings: {
+    {{#if (cfBinding cloudflare "workers-ai")}}
+    AI: ai,
+    {{/if}}
+    {{#if (cfBinding cloudflare "r2")}}
+    R2_BUCKET: r2Bucket,
+    {{/if}}
+    {{#if (cfBinding cloudflare "kv")}}
+    KV: kv,
+    {{/if}}
+    {{#if (cfBinding cloudflare "queue")}}
+    QUEUE: queue,
+    {{/if}}
+    {{#if (cfBinding cloudflare "durable-object")}}
+    APP_DO: appDurableObject,
+    {{/if}}
     {{#if (ne backend "self")}}
     PUBLIC_SERVER_URL: alchemy.env.PUBLIC_SERVER_URL!,
     {{/if}}
@@ -349,6 +551,21 @@ export const server = await Worker("server", {
     {{else if (ne database "none")}}
     DATABASE_URL: alchemy.secret.env.DATABASE_URL!,
     {{/if}}
+    {{#if (cfBinding cloudflare "workers-ai")}}
+    AI: ai,
+    {{/if}}
+    {{#if (cfBinding cloudflare "r2")}}
+    R2_BUCKET: r2Bucket,
+    {{/if}}
+    {{#if (cfBinding cloudflare "kv")}}
+    KV: kv,
+    {{/if}}
+    {{#if (cfBinding cloudflare "queue")}}
+    QUEUE: queue,
+    {{/if}}
+    {{#if (cfBinding cloudflare "durable-object")}}
+    APP_DO: appDurableObject,
+    {{/if}}
     CORS_ORIGIN: alchemy.env.CORS_ORIGIN!,
     {{#if (eq auth "better-auth")}}
     BETTER_AUTH_SECRET: alchemy.secret.env.BETTER_AUTH_SECRET!,
@@ -381,6 +598,13 @@ export const server = await Worker("server", {
   dev: {
 		port: 3000,
 	},
+  {{#if cloudflare.domains.server}}
+  domains: ["{{cloudflare.domains.server}}"],
+  {{else if (eq cloudflare.domains.mode "todo")}}
+  domains: [
+    // TODO: replace with "api.example.com"
+  ],
+  {{/if}}
 });
 {{/if}}
 

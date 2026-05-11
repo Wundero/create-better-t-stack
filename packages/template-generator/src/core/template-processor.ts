@@ -7,6 +7,17 @@ Handlebars.registerHelper("ne", (a, b) => a !== b);
 Handlebars.registerHelper("and", (...args) => args.slice(0, -1).every(Boolean));
 Handlebars.registerHelper("or", (...args) => args.slice(0, -1).some(Boolean));
 Handlebars.registerHelper("includes", (arr, val) => Array.isArray(arr) && arr.includes(val));
+Handlebars.registerHelper("cfBinding", (cloudflare, binding) => {
+  return Array.isArray(cloudflare?.bindings) && cloudflare.bindings.includes(binding);
+});
+Handlebars.registerHelper("hasCfPlatform", (cloudflare) => {
+  return Boolean(
+    cloudflare &&
+    (cloudflare.hyperdrive === "postgres" ||
+      (Array.isArray(cloudflare.bindings) && cloudflare.bindings.length > 0) ||
+      cloudflare.email?.sender === "cloudflare"),
+  );
+});
 
 export function processTemplateString(content: string, context: ProjectConfig): string {
   return Handlebars.compile(content)(context);

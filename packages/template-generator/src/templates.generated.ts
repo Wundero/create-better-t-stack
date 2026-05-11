@@ -1354,6 +1354,9 @@ export async function createContext({ headers }: CreateContextOptions) {
 
 {{else if (eq backend 'hono')}}
 import type { Context as HonoContext } from "hono";
+{{#if (hasCfPlatform cloudflare)}}
+import { getCloudflareBindings, type CloudflareBindings } from "{{packageScope}}/cloudflare/bindings";
+{{/if}}
 {{#if (eq auth "better-auth")}}
 {{#if (or (eq runtime "workers") (eq serverDeploy "cloudflare") (and (eq backend "self") (eq webDeploy "cloudflare")))}}
 import { createAuth } from "{{packageScope}}/auth";
@@ -1374,17 +1377,26 @@ export async function createContext({ context }: CreateContextOptions){{#if (eq 
 	return {
 		auth: null,
 		session,
+{{#if (hasCfPlatform cloudflare)}}
+		cloudflare: getCloudflareBindings(context.env as Partial<CloudflareBindings>),
+{{/if}}
 	};
 {{else if (eq auth "clerk")}}
 	const clerkAuth = await authenticateClerkRequest(context.req.raw);
 	return {
 		auth: clerkAuth,
 		session: null,
+{{#if (hasCfPlatform cloudflare)}}
+		cloudflare: getCloudflareBindings(context.env as Partial<CloudflareBindings>),
+{{/if}}
 	};
 {{else}}
 	return {
 		auth: null,
 		session: null,
+{{#if (hasCfPlatform cloudflare)}}
+		cloudflare: getCloudflareBindings(context.env as Partial<CloudflareBindings>),
+{{/if}}
 	};
 {{/if}}
 }
@@ -1561,6 +1573,50 @@ export const appRouter = {
   {{/if}}
   {{#if (includes examples "todo")}}
   todo: todoRouter,
+  {{/if}}
+  {{#if (and (hasCfPlatform cloudflare) (eq backend "hono"))}}
+  cloudflare: {
+    health: publicProcedure.handler(({ context }) => {
+      return {
+        ok: true,
+        bindings: Object.keys(context.cloudflare ?? {}),
+      };
+    }),
+    {{#if (cfBinding cloudflare "workers-ai")}}
+    aiExample: publicProcedure.handler(async ({ context }) => {
+      return context.cloudflare.AI.run("@cf/meta/llama-3.1-8b-instruct", {
+        prompt: "Reply with OK.",
+      });
+    }),
+    {{/if}}
+    {{#if (cfBinding cloudflare "r2")}}
+    r2PutAndGet: publicProcedure.handler(async ({ context }) => {
+      await context.cloudflare.R2_BUCKET.put("example.txt", "Hello from R2");
+      const object = await context.cloudflare.R2_BUCKET.get("example.txt");
+      return { value: object ? await object.text() : null };
+    }),
+    {{/if}}
+    {{#if (cfBinding cloudflare "kv")}}
+    kvGetSet: publicProcedure.handler(async ({ context }) => {
+      await context.cloudflare.KV.put("example", "Hello from KV");
+      return context.cloudflare.KV.get("example");
+    }),
+    {{/if}}
+    {{#if (cfBinding cloudflare "queue")}}
+    queueSend: publicProcedure.handler(async ({ context }) => {
+      await context.cloudflare.QUEUE.send({ type: "example" });
+      return { queued: true };
+    }),
+    {{/if}}
+    {{#if (cfBinding cloudflare "durable-object")}}
+    durableObjectCounter: publicProcedure.handler(async ({ context }) => {
+      const id = context.cloudflare.APP_DO.idFromName("counter");
+      const stub = context.cloudflare.APP_DO.get(id);
+      const response = await stub.fetch("https://app-do/increment");
+      return response.json();
+    }),
+    {{/if}}
+  },
   {{/if}}
 };
 export type AppRouter = typeof appRouter;
@@ -2182,6 +2238,9 @@ export async function createContext({ req }: { req: Request }){{#if (eq auth "cl
 
 {{else if (eq backend 'hono')}}
 import type { Context as HonoContext } from "hono";
+{{#if (hasCfPlatform cloudflare)}}
+import { getCloudflareBindings, type CloudflareBindings } from "{{packageScope}}/cloudflare/bindings";
+{{/if}}
 {{#if (eq auth "better-auth")}}
 {{#if (or (eq runtime "workers") (eq serverDeploy "cloudflare") (and (eq backend "self") (eq webDeploy "cloudflare")))}}
 import { createAuth } from "{{packageScope}}/auth";
@@ -2202,17 +2261,26 @@ export async function createContext({ context }: CreateContextOptions){{#if (eq 
 	return {
 		auth: null,
 		session,
+{{#if (hasCfPlatform cloudflare)}}
+		cloudflare: getCloudflareBindings(context.env as Partial<CloudflareBindings>),
+{{/if}}
 	};
 {{else if (eq auth "clerk")}}
 	const clerkAuth = await authenticateClerkRequest(context.req.raw);
 	return {
 		auth: clerkAuth,
 		session: null,
+{{#if (hasCfPlatform cloudflare)}}
+		cloudflare: getCloudflareBindings(context.env as Partial<CloudflareBindings>),
+{{/if}}
 	};
 {{else}}
 	return {
 		auth: null,
 		session: null,
+{{#if (hasCfPlatform cloudflare)}}
+		cloudflare: getCloudflareBindings(context.env as Partial<CloudflareBindings>),
+{{/if}}
 	};
 {{/if}}
 }
@@ -2418,6 +2486,51 @@ export const appRouter = router({
   {{/if}}
   {{#if (includes examples "todo")}}
   todo: todoRouter,
+  {{/if}}
+  {{#if (and (hasCfPlatform cloudflare) (eq backend "hono"))}}
+  cloudflare: router({
+    health: publicProcedure.query(({ ctx }) => {
+      return {
+        ok: true,
+        bindings: Object.keys(ctx.cloudflare ?? {}),
+      };
+    }),
+    {{#if (cfBinding cloudflare "workers-ai")}}
+    aiExample: publicProcedure.query(async ({ ctx }) => {
+      const response = await ctx.cloudflare.AI.run("@cf/meta/llama-3.1-8b-instruct", {
+        prompt: "Reply with OK.",
+      });
+      return response;
+    }),
+    {{/if}}
+    {{#if (cfBinding cloudflare "r2")}}
+    r2PutAndGet: publicProcedure.mutation(async ({ ctx }) => {
+      await ctx.cloudflare.R2_BUCKET.put("example.txt", "Hello from R2");
+      const object = await ctx.cloudflare.R2_BUCKET.get("example.txt");
+      return { value: object ? await object.text() : null };
+    }),
+    {{/if}}
+    {{#if (cfBinding cloudflare "kv")}}
+    kvGetSet: publicProcedure.mutation(async ({ ctx }) => {
+      await ctx.cloudflare.KV.put("example", "Hello from KV");
+      return ctx.cloudflare.KV.get("example");
+    }),
+    {{/if}}
+    {{#if (cfBinding cloudflare "queue")}}
+    queueSend: publicProcedure.mutation(async ({ ctx }) => {
+      await ctx.cloudflare.QUEUE.send({ type: "example" });
+      return { queued: true };
+    }),
+    {{/if}}
+    {{#if (cfBinding cloudflare "durable-object")}}
+    durableObjectCounter: publicProcedure.query(async ({ ctx }) => {
+      const id = ctx.cloudflare.APP_DO.idFromName("counter");
+      const stub = ctx.cloudflare.APP_DO.get(id);
+      const response = await stub.fetch("https://app-do/increment");
+      return response.json();
+    }),
+    {{/if}}
+  }),
   {{/if}}
 });
 export type AppRouter = typeof appRouter;
@@ -14456,6 +14569,9 @@ import { auth } from "{{packageScope}}/auth";
 {{/if}}
 {{/if}}
 import { Hono } from "hono";
+{{#if (cfBinding cloudflare "durable-object")}}
+export { AppDurableObject } from "{{packageScope}}/cloudflare/durable-object";
+{{/if}}
 import { cors } from "hono/cors";
 import { logger } from "hono/logger";
 {{#if (and (includes examples "ai") (or (eq runtime "bun") (eq runtime "node")))}}
@@ -14469,7 +14585,7 @@ import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { devToolsMiddleware } from "@ai-sdk/devtools";
 {{/if}}
 
-const app = new Hono();
+const app = new Hono{{#if (or (eq runtime "workers") (eq serverDeploy "cloudflare") (and (eq backend "self") (eq webDeploy "cloudflare")))}}<{ Bindings: Env }>{{/if}}();
 
 app.use(logger());
 app.use(
@@ -14948,7 +15064,8 @@ import { neon } from '@neondatabase/serverless';
 import { drizzle } from 'drizzle-orm/neon-http';
 
 export function createDb({{#if (and (eq backend "self") (eq webDeploy "cloudflare") (includes frontend "svelte"))}}env: Env{{/if}}) {
-	const sql = neon(env.DATABASE_URL);
+	const connectionString = {{#if (eq cloudflare.hyperdrive "postgres")}}env.HYPERDRIVE?.connectionString ?? {{/if}}env.DATABASE_URL;
+	const sql = neon(connectionString);
 	return drizzle(sql, { schema });
 }
 {{else}}
@@ -14959,14 +15076,16 @@ import { Pool } from "pg";
 
 export function createDb({{#if (and (eq backend "self") (eq webDeploy "cloudflare") (includes frontend "svelte"))}}env: Env{{/if}}) {
 {{#if (and (eq backend "self") (eq webDeploy "cloudflare"))}}
+	const connectionString = {{#if (eq cloudflare.hyperdrive "postgres")}}env.HYPERDRIVE?.connectionString ?? {{/if}}env.DATABASE_URL;
 	const pool = new Pool({
-		connectionString: env.DATABASE_URL,
+		connectionString,
 		maxUses: 1,
 	});
 
 	return drizzle({ client: pool, schema });
 {{else}}
-	return drizzle(env.DATABASE_URL, { schema });
+	const connectionString = {{#if (eq cloudflare.hyperdrive "postgres")}}env.HYPERDRIVE?.connectionString ?? {{/if}}env.DATABASE_URL;
+	return drizzle(connectionString, { schema });
 {{/if}}
 }
 {{/if}}
@@ -14985,7 +15104,8 @@ import { drizzle } from 'drizzle-orm/neon-http';
 import { env } from "{{packageScope}}/env/server";
 
 export function createDb() {
-	const sql = neon(env.DATABASE_URL || "");
+	const connectionString = {{#if (eq cloudflare.hyperdrive "postgres")}}(env.HYPERDRIVE?.connectionString ?? env.DATABASE_URL){{else}}env.DATABASE_URL{{/if}} || "";
+	const sql = neon(connectionString);
 	return drizzle(sql, { schema });
 }
 {{else}}
@@ -14994,8 +15114,9 @@ import { env } from "{{packageScope}}/env/server";
 import { Pool } from "pg";
 
 export function createDb() {
+	const connectionString = {{#if (eq cloudflare.hyperdrive "postgres")}}(env.HYPERDRIVE?.connectionString ?? env.DATABASE_URL){{else}}env.DATABASE_URL{{/if}} || "";
 	const pool = new Pool({
-		connectionString: env.DATABASE_URL || "",
+		connectionString,
 		maxUses: 1,
 	});
 
@@ -15309,9 +15430,10 @@ import { neonConfig } from "@neondatabase/serverless";
 neonConfig.poolQueryViaFetch = true;
 
 export function createPrismaClient() {
+	const connectionString = {{#if (eq cloudflare.hyperdrive "postgres")}}env.HYPERDRIVE?.connectionString ?? {{/if}}env.DATABASE_URL;
 	return new PrismaClient({
 		adapter: new PrismaNeon({
-			connectionString: env.DATABASE_URL,
+			connectionString,
 		}),
 	});
 }
@@ -15320,8 +15442,9 @@ export function createPrismaClient() {
 import { PrismaPg } from "@prisma/adapter-pg";
 
 export function createPrismaClient() {
+	const connectionString = {{#if (eq cloudflare.hyperdrive "postgres")}}env.HYPERDRIVE?.connectionString ?? {{/if}}env.DATABASE_URL;
 	const adapter = new PrismaPg({
-		connectionString: env.DATABASE_URL,
+		connectionString,
 		maxUses: 1,
 	});
 
@@ -15332,8 +15455,9 @@ export function createPrismaClient() {
 import { PrismaPg } from "@prisma/adapter-pg";
 
 export function createPrismaClient() {
+	const connectionString = {{#if (eq cloudflare.hyperdrive "postgres")}}env.HYPERDRIVE?.connectionString ?? {{/if}}env.DATABASE_URL;
 	const adapter = new PrismaPg({
-		connectionString: env.DATABASE_URL,
+		connectionString,
 		maxUses: 1,
 	});
 	return new PrismaClient({ adapter });
@@ -15351,8 +15475,9 @@ import { env } from "{{packageScope}}/env/server";
 import { PrismaNeon } from "@prisma/adapter-neon";
 
 export function createPrismaClient({{#if (and (eq backend "self") (eq webDeploy "cloudflare") (includes frontend "svelte"))}}env: Env{{/if}}) {
+	const connectionString = {{#if (eq cloudflare.hyperdrive "postgres")}}env.HYPERDRIVE?.connectionString ?? {{/if}}env.DATABASE_URL;
 	const adapter = new PrismaNeon({
-		connectionString: env.DATABASE_URL,
+		connectionString,
 	});
 
 	return new PrismaClient({ adapter });
@@ -15362,8 +15487,9 @@ export function createPrismaClient({{#if (and (eq backend "self") (eq webDeploy 
 import { PrismaPg } from "@prisma/adapter-pg";
 
 export function createPrismaClient({{#if (and (eq backend "self") (eq webDeploy "cloudflare") (includes frontend "svelte"))}}env: Env{{/if}}) {
+	const connectionString = {{#if (eq cloudflare.hyperdrive "postgres")}}env.HYPERDRIVE?.connectionString ?? {{/if}}env.DATABASE_URL;
 	const adapter = new PrismaPg({
-		connectionString: env.DATABASE_URL,
+		connectionString,
 {{#if (and (eq backend "self") (eq webDeploy "cloudflare"))}}
 		maxUses: 1,
 {{/if}}
@@ -15376,8 +15502,9 @@ export function createPrismaClient({{#if (and (eq backend "self") (eq webDeploy 
 import { PrismaPg } from "@prisma/adapter-pg";
 
 export function createPrismaClient({{#if (and (eq backend "self") (eq webDeploy "cloudflare") (includes frontend "svelte"))}}env: Env{{/if}}) {
+	const connectionString = {{#if (eq cloudflare.hyperdrive "postgres")}}env.HYPERDRIVE?.connectionString ?? {{/if}}env.DATABASE_URL;
 	const adapter = new PrismaPg({
-		connectionString: env.DATABASE_URL,
+		connectionString,
 {{#if (and (eq backend "self") (eq webDeploy "cloudflare"))}}
 		maxUses: 1,
 {{/if}}
@@ -21965,7 +22092,9 @@ import { type web as server } from "{{packageScope}}/infra/alchemy.run";
 // This file infers types for the cloudflare:workers environment from your Alchemy Worker.
 // @see https://alchemy.run/concepts/bindings/#type-safe-bindings
 
-export type CloudflareEnv = typeof server.Env;
+export type CloudflareEnv = typeof server.Env{{#if (eq cloudflare.hyperdrive "postgres")}} & {
+  HYPERDRIVE?: Hyperdrive;
+}{{/if}};
 
 declare global {
   type Env = CloudflareEnv;
@@ -29128,6 +29257,95 @@ export default defineConfig({
   plugins: [tailwindcss(), sveltekit()],
 });
 `],
+  ["packages/cloudflare/package.json.hbs", `{
+	"name": "{{packageScope}}/cloudflare",
+	"version": "0.0.0",
+	"private": true,
+	"type": "module",
+	"exports": {
+		".": "./src/index.ts",
+		"./bindings": "./src/bindings.ts",
+		{{#if (cfBinding cloudflare "durable-object")}}
+		"./durable-object": "./src/durable-object.ts",
+		{{/if}}
+		"./*": "./src/*.ts"
+	},
+	"dependencies": {},
+	"devDependencies": {}
+}
+`],
+  ["packages/cloudflare/src/bindings.ts.hbs", `export type CloudflareBindings = {
+{{#if (eq cloudflare.hyperdrive "postgres")}}
+	HYPERDRIVE?: Hyperdrive;
+{{/if}}
+{{#if (cfBinding cloudflare "workers-ai")}}
+	AI: Ai;
+{{/if}}
+{{#if (cfBinding cloudflare "r2")}}
+	R2_BUCKET: R2Bucket;
+{{/if}}
+{{#if (cfBinding cloudflare "kv")}}
+	KV: KVNamespace;
+{{/if}}
+{{#if (cfBinding cloudflare "queue")}}
+	QUEUE: Queue;
+{{/if}}
+{{#if (cfBinding cloudflare "durable-object")}}
+	APP_DO: DurableObjectNamespace;
+{{/if}}
+};
+
+export type CloudflareContext = {
+	cloudflare: CloudflareBindings;
+};
+
+export function getCloudflareBindings(env: Partial<CloudflareBindings>): CloudflareBindings {
+	return env as CloudflareBindings;
+}
+
+export function hasCloudflareBindings(value: unknown): value is CloudflareBindings {
+	return typeof value === "object" && value !== null;
+}
+`],
+  ["packages/cloudflare/src/durable-object.ts.hbs", `import { DurableObject } from "cloudflare:workers";
+import type { CloudflareBindings } from "./bindings";
+
+export class AppDurableObject extends DurableObject<CloudflareBindings> {
+	private count = 0;
+
+	constructor(ctx: DurableObjectState, env: CloudflareBindings) {
+		super(ctx, env);
+	}
+
+	async fetch(request: Request) {
+		const url = new URL(request.url);
+
+		if (url.pathname.endsWith("/increment")) {
+			this.count = ((await this.ctx.storage.get<number>("count")) ?? this.count) + 1;
+			await this.ctx.storage.put("count", this.count);
+		} else {
+			this.count = (await this.ctx.storage.get<number>("count")) ?? this.count;
+		}
+
+		return Response.json({ count: this.count });
+	}
+}
+`],
+  ["packages/cloudflare/src/index.ts.hbs", `export * from "./bindings";
+{{#if (cfBinding cloudflare "durable-object")}}
+export { AppDurableObject } from "./durable-object";
+{{/if}}
+`],
+  ["packages/cloudflare/tsconfig.json.hbs", `{
+	"extends": "{{packageScope}}/config/tsconfig.base.json",
+	"compilerOptions": {
+		"composite": true,
+		"outDir": "dist",
+		"types": ["@cloudflare/workers-types"]
+	},
+	"include": ["src"]
+}
+`],
   ["packages/config/package.json.hbs", `{
   "name": "{{packageScope}}/config",
   "version": "0.0.0",
@@ -29510,6 +29728,21 @@ import { Astro } from "alchemy/cloudflare";
 {{#if (eq serverDeploy "cloudflare")}}
 import { Worker } from "alchemy/cloudflare";
 {{/if}}
+{{#if (cfBinding cloudflare "workers-ai")}}
+import { Ai } from "alchemy/cloudflare";
+{{/if}}
+{{#if (cfBinding cloudflare "r2")}}
+import { R2Bucket } from "alchemy/cloudflare";
+{{/if}}
+{{#if (cfBinding cloudflare "kv")}}
+import { KVNamespace } from "alchemy/cloudflare";
+{{/if}}
+{{#if (cfBinding cloudflare "queue")}}
+import { Queue } from "alchemy/cloudflare";
+{{/if}}
+{{#if (cfBinding cloudflare "durable-object")}}
+import { DurableObjectNamespace } from "alchemy/cloudflare";
+{{/if}}
 {{#if (and (or (eq serverDeploy "cloudflare") (and (eq webDeploy "cloudflare") (eq backend "self"))) (eq dbSetup "d1"))}}
 import { D1Database } from "alchemy/cloudflare";
 {{/if}}
@@ -29529,6 +29762,49 @@ config({ path: "../../apps/server/.env" });
 
 const app = await alchemy("{{projectName}}");
 
+{{#if (and cloudflare.domains (eq webDeploy "cloudflare") (or cloudflare.domains.web (eq cloudflare.domains.mode "todo")))}}
+const webDomains = [
+  {{#if cloudflare.domains.web}}
+  "{{cloudflare.domains.web}}",
+  {{else}}
+  // TODO: replace with "app.example.com"
+  {{/if}}
+];
+{{/if}}
+
+{{#if (eq cloudflare.hyperdrive "postgres")}}
+// TODO: Create a Cloudflare Hyperdrive config and add the Worker binding manually.
+// Alchemy does not currently expose a first-class Hyperdrive resource in this template.
+// Wrangler shape:
+// hyperdrive = [{ binding = "HYPERDRIVE", id = "<hyperdrive-id>" }]
+{{/if}}
+{{#if (eq cloudflare.email.sender "cloudflare")}}
+// TODO: Add a Cloudflare Email Routing/Email Sending binding once the sender address is configured.
+{{/if}}
+{{#if (cfBinding cloudflare "workers-ai")}}
+const ai = Ai();
+{{/if}}
+{{#if (cfBinding cloudflare "r2")}}
+const r2Bucket = await R2Bucket("r2-bucket", {
+	name: "{{projectName}}-r2-bucket",
+});
+{{/if}}
+{{#if (cfBinding cloudflare "kv")}}
+const kv = await KVNamespace("kv", {
+	title: "{{projectName}}-kv",
+});
+{{/if}}
+{{#if (cfBinding cloudflare "queue")}}
+const queue = await Queue("queue", {
+	name: "{{projectName}}-queue",
+});
+{{/if}}
+{{#if (cfBinding cloudflare "durable-object")}}
+const appDurableObject = DurableObjectNamespace("app-do", {
+	className: "AppDurableObject",
+});
+{{/if}}
+
 {{#if (and (or (eq serverDeploy "cloudflare") (and (eq webDeploy "cloudflare") (eq backend "self"))) (eq dbSetup "d1"))}}
 const db = await D1Database("database", {
 	{{#if (eq orm "prisma")}}
@@ -29543,7 +29819,25 @@ const db = await D1Database("database", {
 {{#if (includes frontend "next")}}
 export const web = await Nextjs("web", {
   cwd: "../../apps/web",
+  {{#if (and cloudflare.domains (or cloudflare.domains.web (eq cloudflare.domains.mode "todo")))}}
+  domains: webDomains,
+  {{/if}}
   bindings: {
+    {{#if (cfBinding cloudflare "workers-ai")}}
+    AI: ai,
+    {{/if}}
+    {{#if (cfBinding cloudflare "r2")}}
+    R2_BUCKET: r2Bucket,
+    {{/if}}
+    {{#if (cfBinding cloudflare "kv")}}
+    KV: kv,
+    {{/if}}
+    {{#if (cfBinding cloudflare "queue")}}
+    QUEUE: queue,
+    {{/if}}
+    {{#if (cfBinding cloudflare "durable-object")}}
+    APP_DO: appDurableObject,
+    {{/if}}
     {{#if (eq backend "convex")}}
     NEXT_PUBLIC_CONVEX_URL: alchemy.env.NEXT_PUBLIC_CONVEX_URL!,
     {{#if (eq auth "better-auth")}}
@@ -29597,7 +29891,25 @@ export const web = await Nextjs("web", {
 {{else if (includes frontend "nuxt")}}
 export const web = await Nuxt("web", {
   cwd: "../../apps/web",
+  {{#if (and cloudflare.domains (or cloudflare.domains.web (eq cloudflare.domains.mode "todo")))}}
+  domains: webDomains,
+  {{/if}}
   bindings: {
+    {{#if (cfBinding cloudflare "workers-ai")}}
+    AI: ai,
+    {{/if}}
+    {{#if (cfBinding cloudflare "r2")}}
+    R2_BUCKET: r2Bucket,
+    {{/if}}
+    {{#if (cfBinding cloudflare "kv")}}
+    KV: kv,
+    {{/if}}
+    {{#if (cfBinding cloudflare "queue")}}
+    QUEUE: queue,
+    {{/if}}
+    {{#if (cfBinding cloudflare "durable-object")}}
+    APP_DO: appDurableObject,
+    {{/if}}
     {{#if (eq backend "convex")}}
     NUXT_PUBLIC_CONVEX_URL: alchemy.env.NUXT_PUBLIC_CONVEX_URL!,
     {{#if (eq auth "better-auth")}}
@@ -29648,7 +29960,25 @@ export const web = await Nuxt("web", {
 {{else if (includes frontend "svelte")}}
 export const web = await SvelteKit("web", {
   cwd: "../../apps/web",
+  {{#if (and cloudflare.domains (or cloudflare.domains.web (eq cloudflare.domains.mode "todo")))}}
+  domains: webDomains,
+  {{/if}}
   bindings: {
+    {{#if (cfBinding cloudflare "workers-ai")}}
+    AI: ai,
+    {{/if}}
+    {{#if (cfBinding cloudflare "r2")}}
+    R2_BUCKET: r2Bucket,
+    {{/if}}
+    {{#if (cfBinding cloudflare "kv")}}
+    KV: kv,
+    {{/if}}
+    {{#if (cfBinding cloudflare "queue")}}
+    QUEUE: queue,
+    {{/if}}
+    {{#if (cfBinding cloudflare "durable-object")}}
+    APP_DO: appDurableObject,
+    {{/if}}
     {{#if (eq backend "convex")}}
     PUBLIC_CONVEX_URL: alchemy.env.PUBLIC_CONVEX_URL!,
     {{#if (eq auth "better-auth")}}
@@ -29694,7 +30024,25 @@ export const web = await SvelteKit("web", {
 {{else if (includes frontend "tanstack-start")}}
 export const web = await TanStackStart("web", {
   cwd: "../../apps/web",
+  {{#if (and cloudflare.domains (or cloudflare.domains.web (eq cloudflare.domains.mode "todo")))}}
+  domains: webDomains,
+  {{/if}}
   bindings: {
+    {{#if (cfBinding cloudflare "workers-ai")}}
+    AI: ai,
+    {{/if}}
+    {{#if (cfBinding cloudflare "r2")}}
+    R2_BUCKET: r2Bucket,
+    {{/if}}
+    {{#if (cfBinding cloudflare "kv")}}
+    KV: kv,
+    {{/if}}
+    {{#if (cfBinding cloudflare "queue")}}
+    QUEUE: queue,
+    {{/if}}
+    {{#if (cfBinding cloudflare "durable-object")}}
+    APP_DO: appDurableObject,
+    {{/if}}
     {{#if (eq backend "convex")}}
     VITE_CONVEX_URL: alchemy.env.VITE_CONVEX_URL!,
     {{#if (eq auth "better-auth")}}
@@ -29744,7 +30092,25 @@ export const web = await TanStackStart("web", {
 export const web = await Vite("web", {
   cwd: "../../apps/web",
   assets: "dist",
+  {{#if (and cloudflare.domains (or cloudflare.domains.web (eq cloudflare.domains.mode "todo")))}}
+  domains: webDomains,
+  {{/if}}
   bindings: {
+    {{#if (cfBinding cloudflare "workers-ai")}}
+    AI: ai,
+    {{/if}}
+    {{#if (cfBinding cloudflare "r2")}}
+    R2_BUCKET: r2Bucket,
+    {{/if}}
+    {{#if (cfBinding cloudflare "kv")}}
+    KV: kv,
+    {{/if}}
+    {{#if (cfBinding cloudflare "queue")}}
+    QUEUE: queue,
+    {{/if}}
+    {{#if (cfBinding cloudflare "durable-object")}}
+    APP_DO: appDurableObject,
+    {{/if}}
     {{#if (eq backend "convex")}}
     VITE_CONVEX_URL: alchemy.env.VITE_CONVEX_URL!,
     {{#if (eq auth "better-auth")}}
@@ -29758,7 +30124,25 @@ export const web = await Vite("web", {
 {{else if (includes frontend "react-router")}}
 export const web = await ReactRouter("web", {
   cwd: "../../apps/web",
+  {{#if (and cloudflare.domains (or cloudflare.domains.web (eq cloudflare.domains.mode "todo")))}}
+  domains: webDomains,
+  {{/if}}
   bindings: {
+    {{#if (cfBinding cloudflare "workers-ai")}}
+    AI: ai,
+    {{/if}}
+    {{#if (cfBinding cloudflare "r2")}}
+    R2_BUCKET: r2Bucket,
+    {{/if}}
+    {{#if (cfBinding cloudflare "kv")}}
+    KV: kv,
+    {{/if}}
+    {{#if (cfBinding cloudflare "queue")}}
+    QUEUE: queue,
+    {{/if}}
+    {{#if (cfBinding cloudflare "durable-object")}}
+    APP_DO: appDurableObject,
+    {{/if}}
     {{#if (eq backend "convex")}}
     VITE_CONVEX_URL: alchemy.env.VITE_CONVEX_URL!,
     {{#if (eq auth "better-auth")}}
@@ -29773,7 +30157,25 @@ export const web = await ReactRouter("web", {
 export const web = await Vite("web", {
   cwd: "../../apps/web",
   assets: "dist",
+  {{#if (and cloudflare.domains (or cloudflare.domains.web (eq cloudflare.domains.mode "todo")))}}
+  domains: webDomains,
+  {{/if}}
   bindings: {
+    {{#if (cfBinding cloudflare "workers-ai")}}
+    AI: ai,
+    {{/if}}
+    {{#if (cfBinding cloudflare "r2")}}
+    R2_BUCKET: r2Bucket,
+    {{/if}}
+    {{#if (cfBinding cloudflare "kv")}}
+    KV: kv,
+    {{/if}}
+    {{#if (cfBinding cloudflare "queue")}}
+    QUEUE: queue,
+    {{/if}}
+    {{#if (cfBinding cloudflare "durable-object")}}
+    APP_DO: appDurableObject,
+    {{/if}}
     {{#if (eq backend "convex")}}
     VITE_CONVEX_URL: alchemy.env.VITE_CONVEX_URL!,
     {{#if (eq auth "better-auth")}}
@@ -29789,10 +30191,28 @@ export const web = await Astro("web", {
   cwd: "../../apps/web",
   entrypoint: "dist/server/entry.mjs",
   assets: "dist/client",
+  {{#if (and cloudflare.domains (or cloudflare.domains.web (eq cloudflare.domains.mode "todo")))}}
+  domains: webDomains,
+  {{/if}}
   {{#if (eq backend "self")}}
   compatibility: "node",
   {{/if}}
   bindings: {
+    {{#if (cfBinding cloudflare "workers-ai")}}
+    AI: ai,
+    {{/if}}
+    {{#if (cfBinding cloudflare "r2")}}
+    R2_BUCKET: r2Bucket,
+    {{/if}}
+    {{#if (cfBinding cloudflare "kv")}}
+    KV: kv,
+    {{/if}}
+    {{#if (cfBinding cloudflare "queue")}}
+    QUEUE: queue,
+    {{/if}}
+    {{#if (cfBinding cloudflare "durable-object")}}
+    APP_DO: appDurableObject,
+    {{/if}}
     {{#if (ne backend "self")}}
     PUBLIC_SERVER_URL: alchemy.env.PUBLIC_SERVER_URL!,
     {{/if}}
@@ -29838,6 +30258,21 @@ export const server = await Worker("server", {
     {{else if (ne database "none")}}
     DATABASE_URL: alchemy.secret.env.DATABASE_URL!,
     {{/if}}
+    {{#if (cfBinding cloudflare "workers-ai")}}
+    AI: ai,
+    {{/if}}
+    {{#if (cfBinding cloudflare "r2")}}
+    R2_BUCKET: r2Bucket,
+    {{/if}}
+    {{#if (cfBinding cloudflare "kv")}}
+    KV: kv,
+    {{/if}}
+    {{#if (cfBinding cloudflare "queue")}}
+    QUEUE: queue,
+    {{/if}}
+    {{#if (cfBinding cloudflare "durable-object")}}
+    APP_DO: appDurableObject,
+    {{/if}}
     CORS_ORIGIN: alchemy.env.CORS_ORIGIN!,
     {{#if (eq auth "better-auth")}}
     BETTER_AUTH_SECRET: alchemy.secret.env.BETTER_AUTH_SECRET!,
@@ -29870,6 +30305,13 @@ export const server = await Worker("server", {
   dev: {
 		port: 3000,
 	},
+  {{#if cloudflare.domains.server}}
+  domains: ["{{cloudflare.domains.server}}"],
+  {{else if (eq cloudflare.domains.mode "todo")}}
+  domains: [
+    // TODO: replace with "api.example.com"
+  ],
+  {{/if}}
 });
 {{/if}}
 
@@ -30838,4 +31280,4 @@ function SuccessPage() {
 `]
 ]);
 
-export const TEMPLATE_COUNT = 487;
+export const TEMPLATE_COUNT = 492;

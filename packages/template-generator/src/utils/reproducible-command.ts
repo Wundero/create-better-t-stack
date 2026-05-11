@@ -25,6 +25,10 @@ function getBaseCommand(packageManager: ProjectConfig["packageManager"]): string
   return "npx @wundero/create-better-t-stack@latest";
 }
 
+function shellQuote(value: string): string {
+  return `'${value.replaceAll("'", "'\\''")}'`;
+}
+
 export function generateReproducibleCommand(config: ProjectConfig): string {
   const baseCommand = getBaseCommand(config.packageManager);
 
@@ -52,6 +56,9 @@ export function generateReproducibleCommand(config: ProjectConfig): string {
   }
   flags.push(`--web-deploy ${config.webDeploy}`);
   flags.push(`--server-deploy ${config.serverDeploy}`);
+  if (config.cloudflare) {
+    flags.push(`--cloudflare ${shellQuote(JSON.stringify(config.cloudflare))}`);
+  }
   flags.push(config.git ? "--git" : "--no-git");
   flags.push(`--package-manager ${config.packageManager}`);
   if (config.packageScope !== `@${config.projectName}`) {

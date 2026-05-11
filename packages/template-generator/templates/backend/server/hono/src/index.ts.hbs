@@ -21,6 +21,9 @@ import { auth } from "{{packageScope}}/auth";
 {{/if}}
 {{/if}}
 import { Hono } from "hono";
+{{#if (cfBinding cloudflare "durable-object")}}
+export { AppDurableObject } from "{{packageScope}}/cloudflare/durable-object";
+{{/if}}
 import { cors } from "hono/cors";
 import { logger } from "hono/logger";
 {{#if (and (includes examples "ai") (or (eq runtime "bun") (eq runtime "node")))}}
@@ -34,7 +37,7 @@ import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { devToolsMiddleware } from "@ai-sdk/devtools";
 {{/if}}
 
-const app = new Hono();
+const app = new Hono{{#if (or (eq runtime "workers") (eq serverDeploy "cloudflare") (and (eq backend "self") (eq webDeploy "cloudflare")))}}<{ Bindings: Env }>{{/if}}();
 
 app.use(logger());
 app.use(

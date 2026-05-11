@@ -1,0 +1,32 @@
+export type CloudflareBindings = {
+{{#if (eq cloudflare.hyperdrive "postgres")}}
+	HYPERDRIVE?: Hyperdrive;
+{{/if}}
+{{#if (cfBinding cloudflare "workers-ai")}}
+	AI: Ai;
+{{/if}}
+{{#if (cfBinding cloudflare "r2")}}
+	R2_BUCKET: R2Bucket;
+{{/if}}
+{{#if (cfBinding cloudflare "kv")}}
+	KV: KVNamespace;
+{{/if}}
+{{#if (cfBinding cloudflare "queue")}}
+	QUEUE: Queue;
+{{/if}}
+{{#if (cfBinding cloudflare "durable-object")}}
+	APP_DO: DurableObjectNamespace;
+{{/if}}
+};
+
+export type CloudflareContext = {
+	cloudflare: CloudflareBindings;
+};
+
+export function getCloudflareBindings(env: Partial<CloudflareBindings>): CloudflareBindings {
+	return env as CloudflareBindings;
+}
+
+export function hasCloudflareBindings(value: unknown): value is CloudflareBindings {
+	return typeof value === "object" && value !== null;
+}

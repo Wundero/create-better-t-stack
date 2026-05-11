@@ -9,6 +9,7 @@ import {
   supportsConvexBetterAuth,
   validateAddonsAgainstFrontends,
   validateApiFrontendCompatibility,
+  validateCloudflareConfig,
   validateExamplesCompatibility,
   validatePaymentsCompatibility,
   validateSelfBackendCompatibility,
@@ -499,6 +500,7 @@ export function validateFullConfig(
     yield* validateApiConstraints(config, options);
 
     yield* validateServerDeployRequiresBackend(config.serverDeploy, config.backend);
+    yield* validateCloudflareConfig(config);
 
     yield* validateSelfBackendCompatibility(providedFlags, options, config);
     yield* validateWorkersCompatibility(providedFlags, options, config);
@@ -544,6 +546,8 @@ export function validateFullConfig(
       config.backend,
       config.frontend ?? [],
     );
+
+    yield* validateCloudflareConfig(config);
 
     return Result.ok(undefined);
   });

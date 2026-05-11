@@ -1,0 +1,16 @@
+{
+	"name": "{{packageScope}}/cloudflare",
+	"version": "0.0.0",
+	"private": true,
+	"type": "module",
+	"exports": {
+		".": "./src/index.ts",
+		"./bindings": "./src/bindings.ts",
+		{{#if (cfBinding cloudflare "durable-object")}}
+		"./durable-object": "./src/durable-object.ts",
+		{{/if}}
+		"./*": "./src/*.ts"
+	},
+	"dependencies": {},
+	"devDependencies": {}
+}

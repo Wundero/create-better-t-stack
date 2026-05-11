@@ -1,0 +1,9 @@
+{
+	"extends": "{{packageScope}}/config/tsconfig.base.json",
+	"compilerOptions": {
+		"composite": true,
+		"outDir": "dist",
+		"types": ["@cloudflare/workers-types"]
+	},
+	"include": ["src"]
+}

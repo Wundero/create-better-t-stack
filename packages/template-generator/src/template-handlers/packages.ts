@@ -3,6 +3,23 @@ import type { ProjectConfig } from "@wundero/create-better-t-stack-types";
 import type { VirtualFileSystem } from "../core/virtual-fs";
 import { type TemplateData, processTemplatesFromPrefix, processSingleTemplate } from "./utils";
 
+type CloudflareConfig = {
+  hyperdrive?: "none" | "postgres";
+  bindings?: Array<"workers-ai" | "r2" | "kv" | "queue" | "durable-object">;
+  email?: { sender?: "none" | "cloudflare" };
+};
+
+function hasCloudflarePlatformConfig(config: ProjectConfig): boolean {
+  const cloudflare = (config as ProjectConfig & { cloudflare?: CloudflareConfig }).cloudflare;
+
+  return Boolean(
+    cloudflare &&
+    (cloudflare.hyperdrive === "postgres" ||
+      (cloudflare.bindings?.length ?? 0) > 0 ||
+      cloudflare.email?.sender === "cloudflare"),
+  );
+}
+
 export async function processConfigPackage(
   vfs: VirtualFileSystem,
   templates: TemplateData,
@@ -96,6 +113,16 @@ export async function processEnvPackage(
       );
     }
   }
+}
+
+export async function processCloudflarePackage(
+  vfs: VirtualFileSystem,
+  templates: TemplateData,
+  config: ProjectConfig,
+): Promise<void> {
+  if (!hasCloudflarePlatformConfig(config)) return;
+
+  processTemplatesFromPrefix(vfs, templates, "packages/cloudflare", "packages/cloudflare", config);
 }
 
 export async function processUiPackage(

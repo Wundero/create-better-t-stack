@@ -28,6 +28,23 @@ type PackageManagerConfig = {
 
 type DesktopWebScript = "build" | "dev" | "generate";
 
+type CloudflareConfig = {
+  hyperdrive?: "none" | "postgres";
+  bindings?: Array<"workers-ai" | "r2" | "kv" | "queue" | "durable-object">;
+  email?: { sender?: "none" | "cloudflare" };
+};
+
+function hasCloudflarePlatformConfig(config: ProjectConfig): boolean {
+  const cloudflare = (config as ProjectConfig & { cloudflare?: CloudflareConfig }).cloudflare;
+
+  return Boolean(
+    cloudflare &&
+    (cloudflare.hyperdrive === "postgres" ||
+      (cloudflare.bindings?.length ?? 0) > 0 ||
+      cloudflare.email?.sender === "cloudflare"),
+  );
+}
+
 /**
  * Update all package.json files with proper names, scripts, and workspaces
  */
@@ -35,6 +52,7 @@ export function processPackageConfigs(vfs: VirtualFileSystem, config: ProjectCon
   updateRootPackageJson(vfs, config);
   updateConfigPackageJson(vfs, config);
   updateEnvPackageJson(vfs, config);
+  updateCloudflarePackageJson(vfs, config);
   updateUiPackageJson(vfs, config);
   updateInfraPackageJson(vfs, config);
   updateDesktopPackageJson(vfs, config);
@@ -400,6 +418,19 @@ function updateEnvPackageJson(vfs: VirtualFileSystem, config: ProjectConfig): vo
   pkgJson.exports = exports;
 
   vfs.writeJson("packages/env/package.json", pkgJson);
+}
+
+function updateCloudflarePackageJson(vfs: VirtualFileSystem, config: ProjectConfig): void {
+  const pkgJson = vfs.readJson<PackageJson>("packages/cloudflare/package.json");
+  if (!pkgJson) return;
+
+  pkgJson.name = `${config.packageScope}/cloudflare`;
+
+  if (!hasCloudflarePlatformConfig(config)) {
+    return;
+  }
+
+  vfs.writeJson("packages/cloudflare/package.json", pkgJson);
 }
 
 function updateUiPackageJson(vfs: VirtualFileSystem, config: ProjectConfig): void {
