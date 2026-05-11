@@ -1,7 +1,7 @@
 import path from "node:path";
 
-import { generateReproducibleCommand } from "@better-t-stack/template-generator";
 import { intro, log, outro } from "@clack/prompts";
+import { generateReproducibleCommand } from "@wundero/create-better-t-stack-template-generator";
 import { Result, UnhandledException } from "better-result";
 import fs from "fs-extra";
 import pc from "picocolors";
@@ -12,6 +12,7 @@ import { getProjectName } from "../../prompts/project-name";
 import type { CreateInput, DirectoryConflict, ProjectConfig } from "../../types";
 import { trackProjectCreation } from "../../utils/analytics";
 import { validateAddonsAgainstFrontends } from "../../utils/compatibility-rules";
+import { derivePackageScope } from "../../utils/config-processing";
 import { isSilent, runWithContextAsync } from "../../utils/context";
 import { displayConfig } from "../../utils/display-config";
 import {
@@ -70,6 +71,7 @@ function createEmptyResult(
       projectName: "",
       projectDir: "",
       relativePath: "",
+      packageScope: "@my-better-t-app",
       database: "none",
       orm: "none",
       backend: "none",
@@ -284,6 +286,7 @@ async function createProjectHandlerInternal(
         projectName: finalBaseName,
         projectDir: finalResolvedPath,
         relativePath: finalPathInput,
+        packageScope: flagConfig.packageScope ?? derivePackageScope(finalBaseName),
       };
 
       // Validate config compatibility

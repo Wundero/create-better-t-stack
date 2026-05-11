@@ -26,13 +26,13 @@ A modern CLI tool for scaffolding end-to-end type-safe TypeScript projects with 
 
 ```bash
 # Using bun (recommended)
-bun create better-t-stack@latest
+bunx @wundero/create-better-t-stack@latest
 
 # Using pnpm
-pnpm create better-t-stack@latest
+pnpm dlx @wundero/create-better-t-stack@latest
 
 # Using npm
-npx create-better-t-stack@latest
+npx @wundero/create-better-t-stack@latest
 ```
 
 ## Features

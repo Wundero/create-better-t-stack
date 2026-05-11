@@ -1,23 +1,23 @@
-import { env } from "@{{projectName}}/env/server";
+import { env } from "{{packageScope}}/env/server";
 {{#if (eq api "orpc")}}
 import { OpenAPIHandler } from "@orpc/openapi/fetch";
 import { OpenAPIReferencePlugin } from "@orpc/openapi/plugins";
 import { ZodToJsonSchemaConverter } from "@orpc/zod/zod4";
 import { RPCHandler } from "@orpc/server/fetch";
 import { onError } from "@orpc/server";
-import { createContext } from "@{{projectName}}/api/context";
-import { appRouter } from "@{{projectName}}/api/routers/index";
+import { createContext } from "{{packageScope}}/api/context";
+import { appRouter } from "{{packageScope}}/api/routers/index";
 {{/if}}
 {{#if (eq api "trpc")}}
 import { trpcServer } from "@hono/trpc-server";
-import { createContext } from "@{{projectName}}/api/context";
-import { appRouter } from "@{{projectName}}/api/routers/index";
+import { createContext } from "{{packageScope}}/api/context";
+import { appRouter } from "{{packageScope}}/api/routers/index";
 {{/if}}
 {{#if (eq auth "better-auth")}}
 {{#if (or (eq runtime "workers") (eq serverDeploy "cloudflare") (and (eq backend "self") (eq webDeploy "cloudflare")))}}
-import { createAuth } from "@{{projectName}}/auth";
+import { createAuth } from "{{packageScope}}/auth";
 {{else}}
-import { auth } from "@{{projectName}}/auth";
+import { auth } from "{{packageScope}}/auth";
 {{/if}}
 {{/if}}
 import { Hono } from "hono";

@@ -22,7 +22,7 @@
     ],
     "paths": {
       "@/*": ["./src/*"],
-      "@{{projectName}}/ui/*": ["../../packages/ui/src/*"]
+      "{{packageScope}}/ui/*": ["../../packages/ui/src/*"]
     }{{#if (or (eq serverDeploy "cloudflare") (eq webDeploy "cloudflare"))}},
     "types": [
       "@cloudflare/workers-types"

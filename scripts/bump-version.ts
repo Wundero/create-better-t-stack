@@ -105,7 +105,7 @@ async function main(): Promise<void> {
   // Update alias package version
   const aliasPackageJson = JSON.parse(await readFile(ALIAS_PACKAGE_JSON_PATH, "utf-8"));
   aliasPackageJson.version = newVersion;
-  aliasPackageJson.dependencies["create-better-t-stack"] = `^${newVersion}`;
+  aliasPackageJson.dependencies["@wundero/create-better-t-stack"] = `^${newVersion}`;
   await writeFile(ALIAS_PACKAGE_JSON_PATH, `${JSON.stringify(aliasPackageJson, null, 2)}\n`);
 
   // Update types package version
@@ -118,7 +118,8 @@ async function main(): Promise<void> {
     await readFile(TEMPLATE_GENERATOR_PACKAGE_JSON_PATH, "utf-8"),
   );
   templateGeneratorPackageJson.version = newVersion;
-  templateGeneratorPackageJson.dependencies["@better-t-stack/types"] = `^${newVersion}`;
+  templateGeneratorPackageJson.dependencies["@wundero/create-better-t-stack-types"] =
+    `^${newVersion}`;
   await writeFile(
     TEMPLATE_GENERATOR_PACKAGE_JSON_PATH,
     `${JSON.stringify(templateGeneratorPackageJson, null, 2)}\n`,
@@ -141,10 +142,10 @@ async function main(): Promise<void> {
 This PR bumps the version to \`${newVersion}\`.
 
 ### Changes
-- Updated \`create-better-t-stack\` to v${newVersion}
+- Updated \`@wundero/create-better-t-stack\` to v${newVersion}
 - Updated \`create-bts\` to v${newVersion}
-- Updated \`@better-t-stack/types\` to v${newVersion}
-- Updated \`@better-t-stack/template-generator\` to v${newVersion}
+- Updated \`@wundero/create-better-t-stack-types\` to v${newVersion}
+- Updated \`@wundero/create-better-t-stack-template-generator\` to v${newVersion}
 
 ### Preview Release
 A preview release will be published automatically and posted as a PR comment.

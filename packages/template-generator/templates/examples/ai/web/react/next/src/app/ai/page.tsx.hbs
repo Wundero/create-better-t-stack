@@ -1,7 +1,7 @@
 {{#if (eq backend "convex")}}
 "use client";
 
-import { api } from "@{{projectName}}/backend/convex/_generated/api";
+import { api } from "{{packageScope}}/backend/convex/_generated/api";
 import {
   useUIMessages,
   useSmoothText,
@@ -28,8 +28,8 @@ import { Streamdown } from "streamdown";
 {{/if}}
 import { useEffect, useRef, useState, type FormEvent } from "react";
 
-import { Button } from "@{{projectName}}/ui/components/button";
-import { Input } from "@{{projectName}}/ui/components/input";
+import { Button } from "{{packageScope}}/ui/components/button";
+import { Input } from "{{packageScope}}/ui/components/input";
 
 function MessageContent({
   text,
@@ -179,9 +179,9 @@ import { Streamdown } from "streamdown";
 {{/if}}
 import { useEffect, useRef, useState, type FormEvent } from "react";
 
-import { Button } from "@{{projectName}}/ui/components/button";
-import { Input } from "@{{projectName}}/ui/components/input";
-import { env } from "@{{projectName}}/env/web";
+import { Button } from "{{packageScope}}/ui/components/button";
+import { Input } from "{{packageScope}}/ui/components/input";
+import { env } from "{{packageScope}}/env/web";
 
 export default function AIPage() {
   const [input, setInput] = useState("");

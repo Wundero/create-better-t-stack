@@ -1,5 +1,5 @@
-import { getAllJsonSchemas } from "@better-t-stack/types/json-schema";
 import { initTRPC } from "@trpc/server";
+import { getAllJsonSchemas } from "@wundero/create-better-t-stack-types/json-schema";
 import { Result } from "better-result";
 import { createCli, type TrpcCliMeta } from "trpc-cli";
 import z from "zod";
@@ -40,6 +40,8 @@ import {
   ORMSchema,
   type PackageManager,
   PackageManagerSchema,
+  type PackageScope,
+  PackageScopeSchema,
   type Payments,
   PaymentsSchema,
   type ProjectConfig,
@@ -69,6 +71,7 @@ export const SchemaNameSchema = z
     "addons",
     "examples",
     "packageManager",
+    "packageScope",
     "databaseSetup",
     "api",
     "auth",
@@ -151,6 +154,9 @@ export const router = t.router({
           examples: z.array(ExamplesSchema).optional(),
           git: z.boolean().optional(),
           packageManager: PackageManagerSchema.optional(),
+          packageScope: PackageScopeSchema.optional().describe(
+            "Generated workspace package scope, e.g. @acme",
+          ),
           install: z.boolean().optional(),
           dbSetup: DatabaseSetupSchema.optional(),
           backend: BackendSchema.optional(),
@@ -290,7 +296,7 @@ export type CreateError = UserCancelledError | CLIError | ProjectCreationError;
  *
  * @example
  * ```typescript
- * import { create, Result } from "create-better-t-stack";
+ * import { create, Result } from "@wundero/create-better-t-stack";
  *
  * const result = await create("my-app", {
  *   frontend: ["tanstack-router"],
@@ -372,7 +378,7 @@ export {
   generate,
   EMBEDDED_TEMPLATES,
   TEMPLATE_COUNT,
-} from "@better-t-stack/template-generator";
+} from "@wundero/create-better-t-stack-template-generator";
 
 // Import for createVirtual
 import {
@@ -380,7 +386,7 @@ import {
   GeneratorError,
   type VirtualFileTree,
   EMBEDDED_TEMPLATES,
-} from "@better-t-stack/template-generator";
+} from "@wundero/create-better-t-stack-template-generator";
 
 /**
  * Programmatic API to generate a project in-memory (virtual filesystem).
@@ -389,7 +395,7 @@ import {
  *
  * @example
  * ```typescript
- * import { createVirtual, EMBEDDED_TEMPLATES, Result } from "create-better-t-stack";
+ * import { createVirtual, EMBEDDED_TEMPLATES, Result } from "@wundero/create-better-t-stack";
  *
  * const result = await createVirtual({
  *   frontend: ["tanstack-router"],
@@ -412,6 +418,7 @@ export async function createVirtual(
     projectName: options.projectName || "my-project",
     projectDir: "/virtual",
     relativePath: "./virtual",
+    packageScope: options.packageScope || `@${options.projectName || "my-project"}`,
     addonOptions: options.addonOptions,
     dbSetupOptions: options.dbSetupOptions,
     database: options.database || "none",
@@ -482,6 +489,7 @@ export type {
   DbSetupOptions,
   Examples,
   PackageManager,
+  PackageScope,
   DatabaseSetup,
   API,
   Auth,
@@ -499,7 +507,7 @@ export type { AddResult };
  *
  * @example
  * ```typescript
- * import { add } from "create-better-t-stack";
+ * import { add } from "@wundero/create-better-t-stack";
  *
  * const result = await add({
  *   addons: ["biome", "husky"],

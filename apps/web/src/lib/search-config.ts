@@ -32,7 +32,7 @@ export const customSearchItems: CustomSearchItem[] = [
   },
   {
     title: "NPM Package",
-    url: "https://www.npmjs.com/package/create-better-t-stack",
+    url: "https://www.npmjs.com/package/@wundero/create-better-t-stack",
     content: "NPM",
     tags: ["npm", "package", "install", "cli", "tool"],
   },

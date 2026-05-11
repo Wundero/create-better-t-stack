@@ -1,1 +1,1 @@
-export * from "@better-t-stack/types";
+export * from "@wundero/create-better-t-stack-types";

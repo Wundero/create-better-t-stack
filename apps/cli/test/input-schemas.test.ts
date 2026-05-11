@@ -51,6 +51,7 @@ describe("Input schemas", () => {
       auth: "none",
       payments: "none",
       packageManager: "bun",
+      packageScope: "@app",
       dbSetup: "none",
       api: "trpc",
       webDeploy: "none",
@@ -115,6 +116,21 @@ describe("Input schemas", () => {
     expect(result.success).toBe(true);
   });
 
+  it("accepts valid package scopes and rejects malformed ones", () => {
+    expect(
+      CreateInputSchema.safeParse({ projectName: "app", packageScope: "@wundero" }).success,
+    ).toBe(true);
+    expect(
+      CreateInputSchema.safeParse({ projectName: "app", packageScope: "wundero" }).success,
+    ).toBe(false);
+    expect(
+      CreateInputSchema.safeParse({ projectName: "app", packageScope: "@Wundero" }).success,
+    ).toBe(false);
+    expect(
+      CreateInputSchema.safeParse({ projectName: "app", packageScope: "@wundero/" }).success,
+    ).toBe(false);
+  });
+
   it("imports the MCP module without schema-construction crashes", async () => {
     const module = await import("../src/mcp");
 
@@ -127,6 +143,15 @@ describe("Input schemas", () => {
     expect(schemaName.success).toBe(true);
     expect(getSchemaResult("betterTStackConfigFile")).toMatchObject({
       type: "object",
+    });
+  });
+
+  it("exposes the package scope JSON schema by name", () => {
+    const schemaName = SchemaNameSchema.safeParse("packageScope");
+
+    expect(schemaName.success).toBe(true);
+    expect(getSchemaResult("packageScope")).toMatchObject({
+      type: "string",
     });
   });
 });

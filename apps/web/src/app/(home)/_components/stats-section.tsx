@@ -1,7 +1,7 @@
 "use client";
-import { api } from "@better-t-stack/backend/convex/_generated/api";
 import { useNpmDownloadCounter } from "@erquhart/convex-oss-stats/react";
 import NumberFlow, { continuous } from "@number-flow/react";
+import { api } from "@wundero/create-better-t-stack-backend/convex/_generated/api";
 import { useQuery } from "convex/react";
 import { BarChart3, Package, Star, Terminal, TrendingUp, Users } from "lucide-react";
 import Link from "next/link";
@@ -14,7 +14,7 @@ export default function StatsSection() {
     name: "AmanVarshney01/create-better-t-stack",
   });
   const npmPackages = useQuery(api.stats.getNpmPackages, {
-    names: ["create-better-t-stack"],
+    names: ["@wundero/create-better-t-stack"],
   });
 
   const liveNpmDownloadCount = useNpmDownloadCounter(npmPackages);
@@ -136,7 +136,7 @@ export default function StatsSection() {
       </Link>
 
       <Link
-        href="https://www.npmjs.com/package/create-better-t-stack"
+        href="https://www.npmjs.com/package/@wundero/create-better-t-stack"
         target="_blank"
         rel="noopener noreferrer"
       >
@@ -183,7 +183,9 @@ export default function StatsSection() {
             <div className="rounded-lg bg-muted/15 px-2.5 py-2">
               <div className="flex items-center justify-between gap-2 text-xs">
                 <span className="font-mono text-muted-foreground">Package</span>
-                <span className="truncate font-mono text-accent">create-better-t-stack</span>
+                <span className="truncate font-mono text-accent">
+                  @wundero/create-better-t-stack
+                </span>
               </div>
             </div>
           </div>

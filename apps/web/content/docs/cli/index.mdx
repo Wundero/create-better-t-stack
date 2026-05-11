@@ -26,6 +26,7 @@ create-better-t-stack [project-directory] [options]
 - `--verbose`: Show detailed result information as JSON
 - `--yolo`: Bypass validations and compatibility checks
 - `--package-manager <pm>`: `npm`, `pnpm`, `bun`
+- `--package-scope <scope>`: generated workspace package scope (defaults to `@<project-directory>`)
 - `--install / --no-install`: Install dependencies after creation
 - `--git / --no-git`: Initialize Git repository
 - `--frontend <types...>`: Web and/or native frameworks (see [Options](/docs/cli/options#frontend))
@@ -235,7 +236,7 @@ create-better-t-stack history --limit 20
 For advanced use cases, automation, or integration with other tools, you can use the [Programmatic API](/docs/cli/programmatic-api) to create projects from Node.js code:
 
 ```typescript
-import { create } from "create-better-t-stack";
+import { create } from "@wundero/create-better-t-stack";
 
 const result = await create("my-app", {
   frontend: ["tanstack-router"],

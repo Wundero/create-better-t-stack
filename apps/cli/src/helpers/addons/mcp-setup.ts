@@ -83,7 +83,10 @@ function getAllMcpServers(config: ProjectConfig): McpServerDef[] {
       key: "better-t-stack",
       label: "Better T Stack",
       name: "better-t-stack",
-      target: getPackageExecutionCommand(config.packageManager, "create-better-t-stack@latest mcp"),
+      target: getPackageExecutionCommand(
+        config.packageManager,
+        "@wundero/create-better-t-stack@latest mcp",
+      ),
     },
     {
       key: "context7",

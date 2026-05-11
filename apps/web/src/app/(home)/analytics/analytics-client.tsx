@@ -1,6 +1,6 @@
 "use client";
 
-import { api } from "@better-t-stack/backend/convex/_generated/api";
+import { api } from "@wundero/create-better-t-stack-backend/convex/_generated/api";
 import { type Preloaded, useConvexConnectionState, usePreloadedQuery } from "convex/react";
 import { useEffect, useState } from "react";
 

@@ -71,6 +71,15 @@ export const ExamplesSchema = z
 
 export const PackageManagerSchema = z.enum(["npm", "pnpm", "bun"]).describe("Package manager");
 
+export const PackageScopeSchema = z
+  .string()
+  .min(2, "Package scope must include a leading @ and a scope name")
+  .regex(
+    /^@[a-z0-9][a-z0-9._-]*$/,
+    "Package scope must start with @ and contain only lowercase letters, numbers, dots, underscores, or hyphens",
+  )
+  .describe("Generated workspace package scope");
+
 export const DatabaseSetupSchema = z
   .enum([
     "turso",
@@ -434,6 +443,7 @@ export const CreateInputSchema = z
     examples: z.array(ExamplesSchema).optional(),
     git: z.boolean().optional(),
     packageManager: PackageManagerSchema.optional(),
+    packageScope: PackageScopeSchema.optional(),
     install: z.boolean().optional(),
     dbSetup: DatabaseSetupSchema.optional(),
     backend: BackendSchema.optional(),
@@ -486,6 +496,7 @@ export const ProjectConfigSchema = z.object({
   payments: PaymentsSchema,
   git: z.boolean(),
   packageManager: PackageManagerSchema,
+  packageScope: PackageScopeSchema,
   install: z.boolean(),
   dbSetup: DatabaseSetupSchema,
   api: APISchema,
@@ -509,6 +520,7 @@ export const BetterTStackConfigSchema = z.object({
   auth: AuthSchema,
   payments: PaymentsSchema,
   packageManager: PackageManagerSchema,
+  packageScope: PackageScopeSchema.optional(),
   dbSetup: DatabaseSetupSchema,
   api: APISchema,
   webDeploy: WebDeploySchema,

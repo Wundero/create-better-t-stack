@@ -1,6 +1,6 @@
-import { generate, type VirtualNode } from "@better-t-stack/template-generator";
-import { EMBEDDED_TEMPLATES } from "@better-t-stack/template-generator";
-import type { ProjectConfig } from "@better-t-stack/types";
+import { generate, type VirtualNode } from "@wundero/create-better-t-stack-template-generator";
+import { EMBEDDED_TEMPLATES } from "@wundero/create-better-t-stack-template-generator";
+import type { ProjectConfig } from "@wundero/create-better-t-stack-types";
 import { NextResponse } from "next/server";
 
 import type { StackState } from "@/lib/constant";
@@ -98,10 +98,13 @@ function stackStateToConfig(state: StackState): ProjectConfig {
 
   const git = normalizeBoolean(state.git, false);
 
+  const projectName = state.projectName || "my-better-t-app";
+
   return {
-    projectName: state.projectName || "my-better-t-app",
+    projectName,
     projectDir: "/virtual",
     relativePath: "./virtual",
+    packageScope: `@${projectName}`,
     database: (state.database || "none") as ProjectConfig["database"],
     orm: (state.orm || "none") as ProjectConfig["orm"],
     backend,

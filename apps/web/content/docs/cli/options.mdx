@@ -51,6 +51,14 @@ Choose package manager: `npm`, `pnpm`, or `bun`.
 create-better-t-stack --package-manager bun
 ```
 
+### `--package-scope <scope>`
+
+Set the generated workspace package scope. By default, generated packages use `@<project-name>`, such as `@my-app/api`.
+
+```bash
+create-better-t-stack my-app --package-scope @wundero
+```
+
 ### `--install / --no-install`
 
 Control dependency installation after project creation.
@@ -429,6 +437,7 @@ create-better-t-stack \
   --addons pwa biome \
   --examples todo \
   --package-manager bun \
+  --package-scope @wundero \
   --web-deploy cloudflare \
   --server-deploy cloudflare \
   --install

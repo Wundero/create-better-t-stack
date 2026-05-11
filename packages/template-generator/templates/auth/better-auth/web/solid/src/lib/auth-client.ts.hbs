@@ -2,7 +2,7 @@ import { createAuthClient } from "better-auth/solid";
 {{#if (eq payments "polar")}}
 import { polarClient } from "@polar-sh/better-auth";
 {{/if}}
-import { env } from "@{{projectName}}/env/web";
+import { env } from "{{packageScope}}/env/web";
 
 export const authClient = createAuthClient({
 	baseURL: env.VITE_SERVER_URL,

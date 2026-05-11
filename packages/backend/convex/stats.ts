@@ -5,7 +5,7 @@ import { components } from "./_generated/api";
 export const ossStats = new OssStats(components.ossStats, {
   githubOwners: ["AmanVarshney01"],
   githubRepos: ["AmanVarshney01/create-better-t-stack"],
-  npmPackages: ["create-better-t-stack"],
+  npmPackages: ["@wundero/create-better-t-stack"],
 });
 
 export const {

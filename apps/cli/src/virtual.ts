@@ -1,6 +1,6 @@
 /**
  * Virtual filesystem export for web preview
- * Re-exports from @better-t-stack/template-generator for browser-compatible usage
+ * Re-exports from @wundero/create-better-t-stack-template-generator for browser-compatible usage
  */
 
 // Re-export everything from template-generator for web/programmatic usage
@@ -20,7 +20,7 @@ export {
   // Embedded templates for browser usage
   EMBEDDED_TEMPLATES,
   TEMPLATE_COUNT,
-} from "@better-t-stack/template-generator";
+} from "@wundero/create-better-t-stack-template-generator";
 
 export { Result } from "better-result";
 
@@ -34,6 +34,7 @@ export type {
   Addons,
   Examples,
   PackageManager,
+  PackageScope,
   DatabaseSetup,
   API,
   Auth,
@@ -41,4 +42,4 @@ export type {
   WebDeploy,
   ServerDeploy,
   ProjectConfig,
-} from "@better-t-stack/types";
+} from "@wundero/create-better-t-stack-types";

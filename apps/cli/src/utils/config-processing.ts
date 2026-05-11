@@ -11,6 +11,7 @@ import type {
   DatabaseSetup,
   ORM,
   PackageManager,
+  PackageScope,
   Payments,
   ProjectConfig,
   Runtime,
@@ -33,6 +34,10 @@ export function deriveProjectName(projectName?: string, projectDirectory?: strin
     return path.basename(path.resolve(process.cwd(), projectDirectory));
   }
   return "";
+}
+
+export function derivePackageScope(projectName: string) {
+  return `@${projectName}`;
 }
 
 export function processFlags(options: CLIInput, projectName?: string) {
@@ -88,6 +93,10 @@ export function processFlags(options: CLIInput, projectName?: string) {
 
   if (options.packageManager) {
     config.packageManager = options.packageManager as PackageManager;
+  }
+
+  if (options.packageScope) {
+    config.packageScope = options.packageScope as PackageScope;
   }
 
   if (options.webDeploy) {

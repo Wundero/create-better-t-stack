@@ -3,7 +3,7 @@
  * Deduplicates dependencies across packages using pnpm/bun catalogs
  */
 
-import type { ProjectConfig } from "@better-t-stack/types";
+import type { ProjectConfig } from "@wundero/create-better-t-stack-types";
 import yaml from "yaml";
 
 import type { VirtualFileSystem } from "../core/virtual-fs";
@@ -68,7 +68,7 @@ export function processCatalogs(vfs: VirtualFileSystem, config: ProjectConfig): 
     }
   }
 
-  const catalog = findDuplicateDependencies(packagesInfo, config.projectName);
+  const catalog = findDuplicateDependencies(packagesInfo, config.packageScope);
 
   if (Object.keys(catalog).length === 0) return;
 
@@ -83,10 +83,10 @@ export function processCatalogs(vfs: VirtualFileSystem, config: ProjectConfig): 
 
 function findDuplicateDependencies(
   packagesInfo: PackageInfo[],
-  projectName: string,
+  packageScope: string,
 ): Record<string, string> {
   const depCount = new Map<string, CatalogEntry>();
-  const projectScope = `@${projectName}/`;
+  const projectScope = `${packageScope}/`;
 
   for (const pkg of packagesInfo) {
     const allDeps = { ...pkg.dependencies, ...pkg.devDependencies };

@@ -3,7 +3,7 @@
  * Updates package names, scripts, and workspaces after template generation
  */
 
-import { desktopWebFrontends, type ProjectConfig } from "@better-t-stack/types";
+import { desktopWebFrontends, type ProjectConfig } from "@wundero/create-better-t-stack-types";
 
 import type { VirtualFileSystem } from "../core/virtual-fs";
 import { getDbScriptSupport } from "../utils/db-scripts";
@@ -70,7 +70,8 @@ function updateRootPackageJson(vfs: VirtualFileSystem, config: ProjectConfig): v
   pkgJson.workspaces = workspaces;
 
   const scripts = pkgJson.scripts;
-  const { projectName, packageManager, backend, database, orm, dbSetup, addons, frontend } = config;
+  const { packageScope, packageManager, backend, database, orm, dbSetup, addons, frontend } =
+    config;
   const hasWebApp = frontend.some((item) =>
     (desktopWebFrontends as readonly string[]).includes(item),
   );
@@ -78,8 +79,8 @@ function updateRootPackageJson(vfs: VirtualFileSystem, config: ProjectConfig): v
     ["native-bare", "native-uniwind", "native-unistyles"].includes(item),
   );
 
-  const backendPackageName = backend === "convex" ? `@${projectName}/backend` : "server";
-  const dbPackageName = `@${projectName}/db`;
+  const backendPackageName = backend === "convex" ? `${packageScope}/backend` : "server";
+  const dbPackageName = `${packageScope}/db`;
   const hasTurborepo = addons.includes("turborepo");
   const hasNx = addons.includes("nx");
 
@@ -149,7 +150,7 @@ function updateRootPackageJson(vfs: VirtualFileSystem, config: ProjectConfig): v
   }
 
   // Add deploy/destroy scripts when using alchemy (cloudflare deployment)
-  const infraPackageName = `@${projectName}/infra`;
+  const infraPackageName = `${packageScope}/infra`;
   if (config.webDeploy === "cloudflare" || config.serverDeploy === "cloudflare") {
     scripts.deploy = pmConfig.filter(infraPackageName, "deploy");
     scripts.destroy = pmConfig.filter(infraPackageName, "destroy");
@@ -305,7 +306,7 @@ function updateDbPackageJson(vfs: VirtualFileSystem, config: ProjectConfig): voi
   const pkgJson = vfs.readJson<PackageJson>("packages/db/package.json");
   if (!pkgJson) return;
 
-  pkgJson.name = `@${config.projectName}/db`;
+  pkgJson.name = `${config.packageScope}/db`;
   pkgJson.scripts = pkgJson.scripts || {};
 
   const scripts = pkgJson.scripts;
@@ -349,7 +350,7 @@ function updateAuthPackageJson(vfs: VirtualFileSystem, config: ProjectConfig): v
   const pkgJson = vfs.readJson<PackageJson>("packages/auth/package.json");
   if (!pkgJson) return;
 
-  pkgJson.name = `@${config.projectName}/auth`;
+  pkgJson.name = `${config.packageScope}/auth`;
   vfs.writeJson("packages/auth/package.json", pkgJson);
 }
 
@@ -357,7 +358,7 @@ function updateApiPackageJson(vfs: VirtualFileSystem, config: ProjectConfig): vo
   const pkgJson = vfs.readJson<PackageJson>("packages/api/package.json");
   if (!pkgJson) return;
 
-  pkgJson.name = `@${config.projectName}/api`;
+  pkgJson.name = `${config.packageScope}/api`;
   vfs.writeJson("packages/api/package.json", pkgJson);
 }
 
@@ -365,7 +366,7 @@ function updateConfigPackageJson(vfs: VirtualFileSystem, config: ProjectConfig):
   const pkgJson = vfs.readJson<PackageJson>("packages/config/package.json");
   if (!pkgJson) return;
 
-  pkgJson.name = `@${config.projectName}/config`;
+  pkgJson.name = `${config.packageScope}/config`;
   vfs.writeJson("packages/config/package.json", pkgJson);
 }
 
@@ -373,7 +374,7 @@ function updateEnvPackageJson(vfs: VirtualFileSystem, config: ProjectConfig): vo
   const pkgJson = vfs.readJson<PackageJson>("packages/env/package.json");
   if (!pkgJson) return;
 
-  pkgJson.name = `@${config.projectName}/env`;
+  pkgJson.name = `${config.packageScope}/env`;
 
   // Set exports based on which env files exist
   const hasWebFrontend = config.frontend.some((f: string) =>
@@ -405,7 +406,7 @@ function updateUiPackageJson(vfs: VirtualFileSystem, config: ProjectConfig): voi
   const pkgJson = vfs.readJson<PackageJson>("packages/ui/package.json");
   if (!pkgJson) return;
 
-  pkgJson.name = `@${config.projectName}/ui`;
+  pkgJson.name = `${config.packageScope}/ui`;
   vfs.writeJson("packages/ui/package.json", pkgJson);
 }
 
@@ -413,7 +414,7 @@ function updateInfraPackageJson(vfs: VirtualFileSystem, config: ProjectConfig): 
   const pkgJson = vfs.readJson<PackageJson>("packages/infra/package.json");
   if (!pkgJson) return;
 
-  pkgJson.name = `@${config.projectName}/infra`;
+  pkgJson.name = `${config.packageScope}/infra`;
   vfs.writeJson("packages/infra/package.json", pkgJson);
 }
 
@@ -421,7 +422,7 @@ function updateConvexPackageJson(vfs: VirtualFileSystem, config: ProjectConfig):
   const pkgJson = vfs.readJson<PackageJson>("packages/backend/package.json");
   if (!pkgJson) return;
 
-  pkgJson.name = `@${config.projectName}/backend`;
+  pkgJson.name = `${config.packageScope}/backend`;
   pkgJson.scripts = pkgJson.scripts || {};
   vfs.writeJson("packages/backend/package.json", pkgJson);
 }

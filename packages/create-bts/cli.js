@@ -1,2 +1,2 @@
 #!/usr/bin/env node
-import("create-better-t-stack/cli");
+import("@wundero/create-better-t-stack/cli");

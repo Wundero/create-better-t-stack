@@ -109,8 +109,8 @@ function usesCreateAuthFactory(config: ProjectConfig) {
 
 function getAuthImportLine(config: ProjectConfig) {
   return usesCreateAuthFactory(config)
-    ? `import { createAuth } from "@${config.projectName}/auth";`
-    : `import { auth } from "@${config.projectName}/auth";`;
+    ? `import { createAuth } from "${config.packageScope}/auth";`
+    : `import { auth } from "${config.packageScope}/auth";`;
 }
 
 function getAuthExpression(config: ProjectConfig) {
@@ -592,16 +592,16 @@ function addSvelteBetterAuthEvlogSetup(content: string, config: ProjectConfig) {
     "createAuthMiddleware",
     "type BetterAuthInstance",
   ]);
-  if (!nextContent.includes(`@${config.projectName}/auth`)) {
+  if (!nextContent.includes(`${config.packageScope}/auth`)) {
     nextContent = prependMissingImports(nextContent, [getAuthImportLine(config)]);
   }
   if (
     usesCreateAuthFactory(config) &&
     config.webDeploy === "cloudflare" &&
-    !nextContent.includes(`@${config.projectName}/env/server`)
+    !nextContent.includes(`${config.packageScope}/env/server`)
   ) {
     nextContent = prependMissingImports(nextContent, [
-      `import { env as localEnv } from "@${config.projectName}/env/server";`,
+      `import { env as localEnv } from "${config.packageScope}/env/server";`,
     ]);
   }
   const authExpression = getAuthExpression(config);
@@ -636,7 +636,7 @@ function addAstroBetterAuthEvlogSetup(content: string, config: ProjectConfig) {
     "createAuthMiddleware",
     "type BetterAuthInstance",
   ]);
-  if (!nextContent.includes(`@${config.projectName}/auth`)) {
+  if (!nextContent.includes(`${config.packageScope}/auth`)) {
     nextContent = prependMissingImports(nextContent, [getAuthImportLine(config)]);
   }
   const authExpression = getAuthExpression(config);

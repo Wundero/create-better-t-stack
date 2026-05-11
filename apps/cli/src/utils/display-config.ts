@@ -67,6 +67,10 @@ export function displayConfig(config: Partial<ProjectConfig>) {
     configDisplay.push(`${pc.blue("Package Manager:")} ${String(config.packageManager)}`);
   }
 
+  if (config.packageScope !== undefined) {
+    configDisplay.push(`${pc.blue("Package Scope:")} ${String(config.packageScope)}`);
+  }
+
   if (config.install !== undefined) {
     const installText =
       typeof config.install === "boolean"

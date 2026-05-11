@@ -16,13 +16,13 @@ Run without installing globally:
 
 ```bash
 # Using bun (recommended)
-bun create better-t-stack@latest
+bunx @wundero/create-better-t-stack@latest
 
 # Using pnpm
-pnpm create better-t-stack@latest
+pnpm dlx @wundero/create-better-t-stack@latest
 
 # Using npm
-npx create-better-t-stack@latest
+npx @wundero/create-better-t-stack@latest
 ```
 
 Follow the prompts to configure your project or use the `--yes` flag for defaults.
@@ -65,6 +65,7 @@ Options:
   --git                           Initialize git repository
   --no-git                        Skip git initialization
   --package-manager <pm>          Package manager (npm, pnpm, bun)
+  --package-scope <scope>         Generated workspace package scope (default: @<project-name>)
   --install                       Install dependencies
   --no-install                    Skip installing dependencies
   --db-setup <setup>              Database setup (turso, d1, neon, supabase, prisma-postgres, planetscale, mongodb-atlas, docker, none)
@@ -95,16 +96,16 @@ create-better-t-stack schema --name dbSetupOptions
 create-better-t-stack schema --name cli
 
 # Local stdio MCP server
-npx create-better-t-stack@latest mcp
+npx @wundero/create-better-t-stack@latest mcp
 ```
 
 To install Better T Stack into supported agent configs with `add-mcp` and avoid relying on a global CLI install:
 
 ```bash
-npx -y add-mcp@latest "npx -y create-better-t-stack@latest mcp"
+npx -y add-mcp@latest "npx -y @wundero/create-better-t-stack@latest mcp"
 ```
 
-When you scaffold with the `mcp` addon, Better T Stack itself can also be installed into supported agent configs through `add-mcp` using a package runner command instead of assuming a global CLI install. For Bun projects, the generated config uses the equivalent `bunx create-better-t-stack@latest mcp` server command inside `add-mcp`.
+When you scaffold with the `mcp` addon, Better T Stack itself can also be installed into supported agent configs through `add-mcp` using a package runner command instead of assuming a global CLI install. For Bun projects, the generated config uses the equivalent `bunx @wundero/create-better-t-stack@latest mcp` server command inside `add-mcp`.
 
 For MCP project creation, prefer `install: false`. Long dependency installs can exceed common MCP client request timeouts, so the safest flow is to scaffold first and run your package manager install command afterward in the project directory.
 
@@ -125,7 +126,7 @@ You can disable telemetry by setting the `BTS_TELEMETRY_DISABLED` environment va
 
 ```bash
 # Disable telemetry for a single run
-BTS_TELEMETRY_DISABLED=1 npx create-better-t-stack
+BTS_TELEMETRY_DISABLED=1 npx @wundero/create-better-t-stack@latest
 
 # Disable telemetry globally in your shell profile (.bashrc, .zshrc, etc.)
 export BTS_TELEMETRY_DISABLED=1
@@ -136,97 +137,97 @@ export BTS_TELEMETRY_DISABLED=1
 Create a project with default configuration:
 
 ```bash
-npx create-better-t-stack --yes
+npx @wundero/create-better-t-stack@latest --yes
 ```
 
 Validate a command without writing files:
 
 ```bash
-npx create-better-t-stack --yes --dry-run
+npx @wundero/create-better-t-stack@latest --yes --dry-run
 ```
 
 Create a project with specific options:
 
 ```bash
-npx create-better-t-stack --database postgres --orm drizzle --auth better-auth --addons pwa biome
+npx @wundero/create-better-t-stack@latest --database postgres --orm drizzle --auth better-auth --addons pwa biome
 ```
 
 Create a project with Elysia backend and Node.js runtime:
 
 ```bash
-npx create-better-t-stack --backend elysia --runtime node
+npx @wundero/create-better-t-stack@latest --backend elysia --runtime node
 ```
 
 Create a project with multiple frontend options (one web + one native):
 
 ```bash
-npx create-better-t-stack --frontend tanstack-router native-bare
+npx @wundero/create-better-t-stack@latest --frontend tanstack-router native-bare
 ```
 
 Create a project with examples:
 
 ```bash
-npx create-better-t-stack --examples todo ai
+npx @wundero/create-better-t-stack@latest --examples todo ai
 ```
 
 Create a project with Turso database setup:
 
 ```bash
-npx create-better-t-stack --database sqlite --orm drizzle --db-setup turso
+npx @wundero/create-better-t-stack@latest --database sqlite --orm drizzle --db-setup turso
 ```
 
 Create a project with Supabase PostgreSQL setup:
 
 ```bash
-npx create-better-t-stack --database postgres --orm drizzle --db-setup supabase --auth better-auth
+npx @wundero/create-better-t-stack@latest --database postgres --orm drizzle --db-setup supabase --auth better-auth
 ```
 
 Create a project with Convex backend:
 
 ```bash
-npx create-better-t-stack --backend convex --frontend tanstack-router
+npx @wundero/create-better-t-stack@latest --backend convex --frontend tanstack-router
 ```
 
 Create a project with documentation site:
 
 ```bash
-npx create-better-t-stack --addons starlight
+npx @wundero/create-better-t-stack@latest --addons starlight
 ```
 
 Create a minimal TypeScript project with no backend:
 
 ```bash
-npx create-better-t-stack --backend none --frontend tanstack-router
+npx @wundero/create-better-t-stack@latest --backend none --frontend tanstack-router
 ```
 
 Create a backend-only project with no frontend:
 
 ```bash
-npx create-better-t-stack --frontend none --backend hono --database postgres --orm drizzle
+npx @wundero/create-better-t-stack@latest --frontend none --backend hono --database postgres --orm drizzle
 ```
 
 Create a simple frontend-only project:
 
 ```bash
-npx create-better-t-stack --backend none --frontend next --addons none --examples none
+npx @wundero/create-better-t-stack@latest --backend none --frontend next --addons none --examples none
 ```
 
 Create a Cloudflare Workers project:
 
 ```bash
-npx create-better-t-stack --backend hono --runtime workers --database sqlite --orm drizzle --db-setup d1
+npx @wundero/create-better-t-stack@latest --backend hono --runtime workers --database sqlite --orm drizzle --db-setup d1
 ```
 
 Create a self-hosted fullstack project on Cloudflare with D1:
 
 ```bash
-npx create-better-t-stack --backend self --frontend next --api trpc --database sqlite --orm drizzle --db-setup d1 --web-deploy cloudflare
+npx @wundero/create-better-t-stack@latest --backend self --frontend next --api trpc --database sqlite --orm drizzle --db-setup d1 --web-deploy cloudflare
 ```
 
 Create a minimal API-only project:
 
 ```bash
-npx create-better-t-stack --frontend none --backend hono --api trpc --database none --addons none
+npx @wundero/create-better-t-stack@latest --frontend none --backend hono --api trpc --database none --addons none
 ```
 
 ## Compatibility Notes

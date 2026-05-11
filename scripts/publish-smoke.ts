@@ -27,12 +27,15 @@ type Publishable = {
 };
 
 const PUBLISHABLES: Publishable[] = [
-  { name: "@better-t-stack/types", dir: "packages/types" },
-  { name: "@better-t-stack/template-generator", dir: "packages/template-generator" },
+  { name: "@wundero/create-better-t-stack-types", dir: "packages/types" },
+  { name: "@wundero/create-better-t-stack-template-generator", dir: "packages/template-generator" },
   {
-    name: "create-better-t-stack",
+    name: "@wundero/create-better-t-stack",
     dir: "apps/cli",
-    rewriteWorkspaceDeps: ["@better-t-stack/types", "@better-t-stack/template-generator"],
+    rewriteWorkspaceDeps: [
+      "@wundero/create-better-t-stack-types",
+      "@wundero/create-better-t-stack-template-generator",
+    ],
   },
 ];
 
@@ -84,14 +87,16 @@ async function installAndRun(
   mkdirSync(dir, { recursive: true });
 
   const overrides = {
-    "@better-t-stack/types": `file:${tarballs["@better-t-stack/types"]}`,
-    "@better-t-stack/template-generator": `file:${tarballs["@better-t-stack/template-generator"]}`,
+    "@wundero/create-better-t-stack-types": `file:${tarballs["@wundero/create-better-t-stack-types"]}`,
+    "@wundero/create-better-t-stack-template-generator": `file:${tarballs["@wundero/create-better-t-stack-template-generator"]}`,
   };
   const fixture: Record<string, unknown> = {
     name: `smoke-${pm}`,
     private: true,
     version: "0.0.0",
-    dependencies: { "create-better-t-stack": `file:${tarballs["create-better-t-stack"]}` },
+    dependencies: {
+      "@wundero/create-better-t-stack": `file:${tarballs["@wundero/create-better-t-stack"]}`,
+    },
   };
   if (pm === "pnpm") fixture.pnpm = { overrides };
   else fixture.overrides = overrides;

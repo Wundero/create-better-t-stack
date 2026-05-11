@@ -14,6 +14,7 @@ function createProjectConfig(overrides: Partial<ProjectConfig> = {}): ProjectCon
     projectName: "test-app",
     projectDir: path.join(SMOKE_DIR, "addon-setup-regressions"),
     relativePath: ".",
+    packageScope: "@test-app",
     database: "sqlite",
     orm: "drizzle",
     backend: "hono",
@@ -94,7 +95,7 @@ describe("Addon setup regressions", () => {
     const servers = getRecommendedMcpServers(createProjectConfig(), "project");
     const betterTStackServer = servers.find((server) => server.key === "better-t-stack");
 
-    expect(betterTStackServer?.target).toBe("bunx create-better-t-stack@latest mcp");
+    expect(betterTStackServer?.target).toBe("bunx @wundero/create-better-t-stack@latest mcp");
   });
 
   it("preserves explicit empty MCP selections in silent mode", async () => {

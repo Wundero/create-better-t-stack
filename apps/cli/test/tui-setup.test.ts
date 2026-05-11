@@ -13,6 +13,7 @@ function createTuiConfig(overrides: Partial<ProjectConfig> = {}): ProjectConfig 
     projectName: "test-app",
     projectDir: SMOKE_DIR,
     relativePath: "test-app",
+    packageScope: "@test-app",
     database: "sqlite",
     orm: "drizzle",
     backend: "hono",

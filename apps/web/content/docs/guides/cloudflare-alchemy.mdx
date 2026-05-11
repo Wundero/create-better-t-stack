@@ -37,7 +37,7 @@ When creating a project:
 **Combined deployment (web + server):**
 
 ```npm
-npm create better-t-stack@latest my-app \
+npx @wundero/create-better-t-stack@latest my-app \
   --frontend tanstack-router \
   --backend hono \
   --runtime workers \
@@ -48,7 +48,7 @@ npm create better-t-stack@latest my-app \
 **Web-only (e.g., with Convex backend):**
 
 ```npm
-npm create better-t-stack@latest my-app \
+npx @wundero/create-better-t-stack@latest my-app \
   --frontend tanstack-start \
   --backend convex \
   --web-deploy cloudflare
@@ -57,7 +57,7 @@ npm create better-t-stack@latest my-app \
 **Server-only:**
 
 ```npm
-npm create better-t-stack@latest my-app \
+npx @wundero/create-better-t-stack@latest my-app \
   --frontend none \
   --backend hono \
   --runtime workers \

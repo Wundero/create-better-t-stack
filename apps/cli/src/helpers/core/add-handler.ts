@@ -1,13 +1,13 @@
 import path from "node:path";
 
+import { intro, log, outro } from "@clack/prompts";
 import {
   EMBEDDED_TEMPLATES,
   processAddonTemplates,
   processAddonsDeps,
   VirtualFileSystem,
-} from "@better-t-stack/template-generator";
-import { writeTree } from "@better-t-stack/template-generator/fs-writer";
-import { intro, log, outro } from "@clack/prompts";
+} from "@wundero/create-better-t-stack-template-generator";
+import { writeTree } from "@wundero/create-better-t-stack-template-generator/fs-writer";
 import { Result } from "better-result";
 import fs from "fs-extra";
 import pc from "picocolors";
@@ -232,6 +232,7 @@ async function addHandlerInternal(
     payments: existingConfig.payments,
     git: false,
     packageManager: input.packageManager || existingConfig.packageManager,
+    packageScope: existingConfig.packageScope,
     install: input.install ?? false,
     dbSetup: existingConfig.dbSetup,
     api: existingConfig.api,

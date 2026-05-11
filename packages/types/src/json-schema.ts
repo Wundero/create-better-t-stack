@@ -9,6 +9,7 @@ import {
   AddonsSchema,
   ExamplesSchema,
   PackageManagerSchema,
+  PackageScopeSchema,
   DatabaseSetupSchema,
   APISchema,
   AuthSchema,
@@ -58,6 +59,10 @@ export function getExamplesJsonSchema() {
 
 export function getPackageManagerJsonSchema() {
   return z.toJSONSchema(PackageManagerSchema);
+}
+
+export function getPackageScopeJsonSchema() {
+  return z.toJSONSchema(PackageScopeSchema);
 }
 
 export function getDatabaseSetupJsonSchema() {
@@ -135,6 +140,7 @@ export function getAllJsonSchemas() {
     addons: getAddonsJsonSchema(),
     examples: getExamplesJsonSchema(),
     packageManager: getPackageManagerJsonSchema(),
+    packageScope: getPackageScopeJsonSchema(),
     databaseSetup: getDatabaseSetupJsonSchema(),
     api: getAPIJsonSchema(),
     auth: getAuthJsonSchema(),

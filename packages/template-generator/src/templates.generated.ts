@@ -686,8 +686,8 @@ import { OpenAPIReferencePlugin } from "@orpc/openapi/plugins";
 import { ZodToJsonSchemaConverter } from "@orpc/zod/zod4";
 import { RPCHandler } from "@orpc/server/fetch";
 import { onError } from "@orpc/server";
-import { appRouter } from "@{{projectName}}/api/routers/index";
-import { createContext } from "@{{projectName}}/api/context";
+import { appRouter } from "{{packageScope}}/api/routers/index";
+import { createContext } from "{{packageScope}}/api/context";
 
 const handler = new RPCHandler(appRouter, {
   interceptors: [
@@ -730,8 +730,8 @@ export const ALL: APIRoute = async ({ request }) => {
   return new Response("Not found", { status: 404 });
 };
 `],
-  ["api/orpc/fullstack/next/src/app/api/rpc/[[...rest]]/route.ts.hbs", `import { createContext } from "@{{projectName}}/api/context";
-import { appRouter } from "@{{projectName}}/api/routers/index";
+  ["api/orpc/fullstack/next/src/app/api/rpc/[[...rest]]/route.ts.hbs", `import { createContext } from "{{packageScope}}/api/context";
+import { appRouter } from "{{packageScope}}/api/routers/index";
 import { OpenAPIHandler } from "@orpc/openapi/fetch";
 import { OpenAPIReferencePlugin } from "@orpc/openapi/plugins";
 import { ZodToJsonSchemaConverter } from "@orpc/zod/zod4";
@@ -780,7 +780,7 @@ export const POST = handleRequest;
 export const PUT = handleRequest;
 export const PATCH = handleRequest;
 export const DELETE = handleRequest;`],
-  ["api/orpc/fullstack/nuxt/app/plugins/orpc.client.ts.hbs", `import type { AppRouterClient } from "@{{projectName}}/api/routers/index";
+  ["api/orpc/fullstack/nuxt/app/plugins/orpc.client.ts.hbs", `import type { AppRouterClient } from "{{packageScope}}/api/routers/index";
 import { createORPCClient } from "@orpc/client";
 import { RPCLink } from "@orpc/client/fetch";
 import { createTanstackQueryUtils } from "@orpc/tanstack-query";
@@ -810,8 +810,8 @@ export default defineNuxtPlugin(() => {
 `],
   ["api/orpc/fullstack/nuxt/app/plugins/orpc.server.ts.hbs", `import { createRouterClient } from "@orpc/server";
 import { createTanstackQueryUtils } from "@orpc/tanstack-query";
-import { appRouter } from "@{{projectName}}/api/routers/index";
-import { createContext } from "@{{projectName}}/api/context";
+import { appRouter } from "{{packageScope}}/api/routers/index";
+import { createContext } from "{{packageScope}}/api/context";
 
 export default defineNuxtPlugin(async () => {
   const event = useRequestEvent();
@@ -839,8 +839,8 @@ import { OpenAPIReferencePlugin } from "@orpc/openapi/plugins";
 import { onError } from "@orpc/server";
 import { BatchHandlerPlugin } from "@orpc/server/plugins";
 import { ZodToJsonSchemaConverter } from "@orpc/zod/zod4";
-import { appRouter } from "@{{projectName}}/api/routers/index";
-import { createContext } from "@{{projectName}}/api/context";
+import { appRouter } from "{{packageScope}}/api/routers/index";
+import { createContext } from "{{packageScope}}/api/context";
 
 const rpcHandler = new RPCHandler(appRouter, {
   interceptors: [
@@ -887,10 +887,10 @@ export default defineEventHandler(async (event) => {
   ["api/orpc/fullstack/nuxt/server/routes/rpc/index.ts.hbs", `export { default } from "./[...]";
 `],
   ["api/orpc/fullstack/svelte/src/lib/orpc.server.ts.hbs", `import { getRequestEvent } from "$app/server";
-import { createContext } from "@{{projectName}}/api/context";
-import { appRouter, type AppRouterClient } from "@{{projectName}}/api/routers/index";
+import { createContext } from "{{packageScope}}/api/context";
+import { appRouter, type AppRouterClient } from "{{packageScope}}/api/routers/index";
 {{#if (eq webDeploy "cloudflare")}}
-import { env as localEnv } from "@{{projectName}}/env/server";
+import { env as localEnv } from "{{packageScope}}/env/server";
 {{/if}}
 import { createRouterClient } from "@orpc/server";
 
@@ -918,10 +918,10 @@ const serverClient: AppRouterClient = createRouterClient(appRouter, {
 // reuse the in-process server client during SSR and fall back to HTTP in the browser.
 globalThis.$client = serverClient;
 `],
-  ["api/orpc/fullstack/svelte/src/routes/rpc/[...rest]/+server.ts.hbs", `import { createContext } from "@{{projectName}}/api/context";
-import { appRouter } from "@{{projectName}}/api/routers/index";
+  ["api/orpc/fullstack/svelte/src/routes/rpc/[...rest]/+server.ts.hbs", `import { createContext } from "{{packageScope}}/api/context";
+import { appRouter } from "{{packageScope}}/api/routers/index";
 {{#if (eq webDeploy "cloudflare")}}
-import { env as localEnv } from "@{{projectName}}/env/server";
+import { env as localEnv } from "{{packageScope}}/env/server";
 {{/if}}
 import { OpenAPIHandler } from "@orpc/openapi/fetch";
 import { OpenAPIReferencePlugin } from "@orpc/openapi/plugins";
@@ -985,8 +985,8 @@ export const PUT = handle;
 export const PATCH = handle;
 export const DELETE = handle;
 `],
-  ["api/orpc/fullstack/tanstack-start/src/routes/api/rpc/$.ts.hbs", `import { createContext } from "@{{projectName}}/api/context";
-import { appRouter } from "@{{projectName}}/api/routers/index";
+  ["api/orpc/fullstack/tanstack-start/src/routes/api/rpc/$.ts.hbs", `import { createContext } from "{{packageScope}}/api/context";
+import { appRouter } from "{{packageScope}}/api/routers/index";
 import { OpenAPIHandler } from "@orpc/openapi/fetch";
 import { OpenAPIReferencePlugin } from "@orpc/openapi/plugins";
 import { ZodToJsonSchemaConverter } from "@orpc/zod/zod4";
@@ -1047,8 +1047,8 @@ export const Route = createFileRoute('/api/rpc/$')({
 import { RPCLink } from "@orpc/client/fetch";
 import { createTanstackQueryUtils } from "@orpc/tanstack-query";
 import { QueryCache, QueryClient } from "@tanstack/react-query";
-import type { AppRouterClient } from "@{{projectName}}/api/routers/index";
-import { env } from "@{{projectName}}/env/native";
+import type { AppRouterClient } from "{{packageScope}}/api/routers/index";
+import { env } from "{{packageScope}}/env/native";
 {{#if (eq auth "better-auth")}}
 import { authClient } from "@/lib/auth-client";
 import { Platform } from "react-native";
@@ -1142,7 +1142,7 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 .DS_Store
 `],
   ["api/orpc/server/package.json.hbs", `{
-  "name": "@{{projectName}}/api",
+  "name": "{{packageScope}}/api",
   "exports": {
     ".": {
       "default": "./src/index.ts"
@@ -1175,7 +1175,7 @@ function toClerkContextAuth(auth: { userId: string | null } | null): ClerkContex
 {{#if (and (eq backend "self") (eq webDeploy "cloudflare") (includes frontend "svelte"))}}
 {{else}}
 import { createClerkClient } from "@clerk/backend";
-import { env } from "@{{projectName}}/env/server";
+import { env } from "{{packageScope}}/env/server";
 
 const clerkClient = createClerkClient({
 	secretKey: env.CLERK_SECRET_KEY,
@@ -1195,9 +1195,9 @@ async function authenticateClerkRequest(request: Request): Promise<ClerkContextA
 import type { NextRequest } from "next/server";
 {{#if (eq auth "better-auth")}}
 {{#if (or (eq runtime "workers") (eq serverDeploy "cloudflare") (and (eq backend "self") (eq webDeploy "cloudflare")))}}
-import { createAuth } from "@{{projectName}}/auth";
+import { createAuth } from "{{packageScope}}/auth";
 {{else}}
-import { auth } from "@{{projectName}}/auth";
+import { auth } from "{{packageScope}}/auth";
 {{/if}}
 {{/if}}
 
@@ -1227,9 +1227,9 @@ export async function createContext(req: NextRequest){{#if (eq auth "clerk")}}: 
 {{else if (and (eq backend 'self') (includes frontend "tanstack-start"))}}
 {{#if (eq auth "better-auth")}}
 {{#if (or (eq runtime "workers") (eq serverDeploy "cloudflare") (and (eq backend "self") (eq webDeploy "cloudflare")))}}
-import { createAuth } from "@{{projectName}}/auth";
+import { createAuth } from "{{packageScope}}/auth";
 {{else}}
-import { auth } from "@{{projectName}}/auth";
+import { auth } from "{{packageScope}}/auth";
 {{/if}}
 {{/if}}
 
@@ -1259,9 +1259,9 @@ export async function createContext({ req }: { req: Request }){{#if (eq auth "cl
 {{else if (and (eq backend 'self') (includes frontend "nuxt"))}}
 {{#if (eq auth "better-auth")}}
 {{#if (or (eq runtime "workers") (eq serverDeploy "cloudflare") (and (eq backend "self") (eq webDeploy "cloudflare")))}}
-import { createAuth } from "@{{projectName}}/auth";
+import { createAuth } from "{{packageScope}}/auth";
 {{else}}
-import { auth } from "@{{projectName}}/auth";
+import { auth } from "{{packageScope}}/auth";
 {{/if}}
 {{/if}}
 
@@ -1287,13 +1287,13 @@ export async function createContext({ headers }: CreateContextOptions) {
 {{else if (and (eq backend 'self') (includes frontend "svelte"))}}
 {{#if (eq auth "better-auth")}}
 {{#if (or (eq runtime "workers") (eq serverDeploy "cloudflare") (and (eq backend "self") (eq webDeploy "cloudflare")))}}
-import { createAuth } from "@{{projectName}}/auth";
+import { createAuth } from "{{packageScope}}/auth";
 {{else}}
-import { auth } from "@{{projectName}}/auth";
+import { auth } from "{{packageScope}}/auth";
 {{/if}}
 {{/if}}
 {{#if (eq webDeploy "cloudflare")}}
-import type {} from "@{{projectName}}/env/server";
+import type {} from "{{packageScope}}/env/server";
 {{/if}}
 
 export type CreateContextOptions = {
@@ -1327,9 +1327,9 @@ export async function createContext({ headers{{#if (eq webDeploy "cloudflare")}}
 {{else if (and (eq backend 'self') (includes frontend "astro"))}}
 {{#if (eq auth "better-auth")}}
 {{#if (or (eq runtime "workers") (eq serverDeploy "cloudflare") (and (eq backend "self") (eq webDeploy "cloudflare")))}}
-import { createAuth } from "@{{projectName}}/auth";
+import { createAuth } from "{{packageScope}}/auth";
 {{else}}
-import { auth } from "@{{projectName}}/auth";
+import { auth } from "{{packageScope}}/auth";
 {{/if}}
 {{/if}}
 
@@ -1356,9 +1356,9 @@ export async function createContext({ headers }: CreateContextOptions) {
 import type { Context as HonoContext } from "hono";
 {{#if (eq auth "better-auth")}}
 {{#if (or (eq runtime "workers") (eq serverDeploy "cloudflare") (and (eq backend "self") (eq webDeploy "cloudflare")))}}
-import { createAuth } from "@{{projectName}}/auth";
+import { createAuth } from "{{packageScope}}/auth";
 {{else}}
-import { auth } from "@{{projectName}}/auth";
+import { auth } from "{{packageScope}}/auth";
 {{/if}}
 {{/if}}
 
@@ -1392,7 +1392,7 @@ export async function createContext({ context }: CreateContextOptions){{#if (eq 
 {{else if (eq backend 'elysia')}}
 import type { Context as ElysiaContext } from "elysia";
 {{#if (eq auth "better-auth")}}
-import { auth } from "@{{projectName}}/auth";
+import { auth } from "{{packageScope}}/auth";
 {{/if}}
 
 export type CreateContextOptions = {
@@ -1426,7 +1426,7 @@ export async function createContext({ context }: CreateContextOptions){{#if (eq 
 import type { Request } from "express";
 {{#if (eq auth "better-auth")}}
 import { fromNodeHeaders } from "better-auth/node";
-import { auth } from "@{{projectName}}/auth";
+import { auth } from "{{packageScope}}/auth";
 {{else if (eq auth "clerk")}}
 import { getAuth } from "@clerk/express";
 {{/if}}
@@ -1462,7 +1462,7 @@ export async function createContext(opts: CreateContextOptions){{#if (eq auth "c
 {{#if (eq auth "better-auth")}}
 import type { IncomingHttpHeaders } from "node:http";
 import { fromNodeHeaders } from "better-auth/node";
-import { auth } from "@{{projectName}}/auth";
+import { auth } from "{{packageScope}}/auth";
 {{else if (eq auth "clerk")}}
 import { getAuth } from "@clerk/fastify";
 {{else}}
@@ -1597,7 +1597,7 @@ export type AppRouter = typeof appRouter;
 {{/if}}
 `],
   ["api/orpc/server/tsconfig.json.hbs", `{
-  "extends": "@{{projectName}}/config/tsconfig.base.json",
+  "extends": "{{packageScope}}/config/tsconfig.base.json",
   "compilerOptions": {
     "declaration": true,
     "declarationMap": true,
@@ -1606,7 +1606,7 @@ export type AppRouter = typeof appRouter;
     "composite": true
   }
 }`],
-  ["api/orpc/web/astro/src/lib/orpc.ts.hbs", `import type { AppRouterClient } from "@{{projectName}}/api/routers/index";
+  ["api/orpc/web/astro/src/lib/orpc.ts.hbs", `import type { AppRouterClient } from "{{packageScope}}/api/routers/index";
 
 import { createORPCClient } from "@orpc/client";
 import { RPCLink } from "@orpc/client/fetch";
@@ -1634,7 +1634,7 @@ export const link = new RPCLink({
 export const orpc: AppRouterClient = createORPCClient(link);
 `],
   ["api/orpc/web/nuxt/app/plugins/orpc.ts.hbs", `import { defineNuxtPlugin } from '#app'
-import type { AppRouterClient } from "@{{projectName}}/api/routers/index";
+import type { AppRouterClient } from "{{packageScope}}/api/routers/index";
 import { createORPCClient } from '@orpc/client'
 import { RPCLink } from '@orpc/client/fetch'
 import { createTanstackQueryUtils } from "@orpc/tanstack-query";
@@ -1726,19 +1726,19 @@ import { createRouterClient } from "@orpc/server";
 import type { RouterClient } from "@orpc/server";
 import { createIsomorphicFn } from "@tanstack/react-start";
 import { getRequest } from "@tanstack/react-start/server";
-import { appRouter } from "@{{projectName}}/api/routers/index";
-import { createContext } from "@{{projectName}}/api/context";
+import { appRouter } from "{{packageScope}}/api/routers/index";
+import { createContext } from "{{packageScope}}/api/context";
 {{else if (includes frontend "tanstack-start")}}
 import type { RouterClient } from "@orpc/server";
-import type { AppRouter } from "@{{projectName}}/api/routers/index";
-import { env } from "@{{projectName}}/env/web";
+import type { AppRouter } from "{{packageScope}}/api/routers/index";
+import { env } from "{{packageScope}}/env/web";
 {{#if (eq auth "clerk")}}
 import { getClerkAuthToken } from "@/utils/clerk-auth";
 {{/if}}
 {{else}}
-import type { AppRouterClient } from "@{{projectName}}/api/routers/index";
+import type { AppRouterClient } from "{{packageScope}}/api/routers/index";
 {{#unless (eq backend "self")}}
-import { env } from "@{{projectName}}/env/web";
+import { env } from "{{packageScope}}/env/web";
 {{/unless}}
 {{#if (eq auth "clerk")}}
 import { getClerkAuthToken } from "@/utils/clerk-auth";
@@ -1865,8 +1865,8 @@ export const orpc = createTanstackQueryUtils(client)
 import { RPCLink } from "@orpc/client/fetch";
 import { createTanstackQueryUtils } from "@orpc/tanstack-query";
 import { QueryCache, QueryClient } from "@tanstack/solid-query";
-import type { AppRouterClient } from "@{{projectName}}/api/routers/index";
-import { env } from "@{{projectName}}/env/web";
+import type { AppRouterClient } from "{{packageScope}}/api/routers/index";
+import { env } from "{{packageScope}}/env/web";
 
 export const queryClient = new QueryClient({
 	queryCache: new QueryCache({
@@ -1899,7 +1899,7 @@ import { createORPCClient } from "@orpc/client";
 import { RPCLink } from "@orpc/client/fetch";
 import { createTanstackQueryUtils } from "@orpc/tanstack-query";
 import { QueryCache, QueryClient } from "@tanstack/svelte-query";
-import type { AppRouterClient } from "@{{projectName}}/api/routers/index";
+import type { AppRouterClient } from "{{packageScope}}/api/routers/index";
 
 export const queryClient = new QueryClient({
 	queryCache: new QueryCache({
@@ -1940,8 +1940,8 @@ export const client: AppRouterClient = createORPCClient(link);
 export const orpc = createTanstackQueryUtils(client);
 `],
   ["api/trpc/fullstack/next/src/app/api/trpc/[trpc]/route.ts.hbs", `import { fetchRequestHandler } from "@trpc/server/adapters/fetch";
-import { appRouter } from "@{{projectName}}/api/routers/index";
-import { createContext } from "@{{projectName}}/api/context";
+import { appRouter } from "{{packageScope}}/api/routers/index";
+import { createContext } from "{{packageScope}}/api/context";
 import { NextRequest } from "next/server";
 
 function handler(req: NextRequest) {
@@ -1955,8 +1955,8 @@ function handler(req: NextRequest) {
 export { handler as GET, handler as POST };
 `],
   ["api/trpc/fullstack/tanstack-start/src/routes/api/trpc/$.ts.hbs", `import { fetchRequestHandler } from '@trpc/server/adapters/fetch'
-import { appRouter } from '@{{projectName}}/api/routers/index'
-import { createContext } from '@{{projectName}}/api/context'
+import { appRouter } from '{{packageScope}}/api/routers/index'
+import { createContext } from '{{packageScope}}/api/context'
 import { createFileRoute } from '@tanstack/react-router'
 
 function handler({ request }: { request: Request }) {
@@ -1986,8 +1986,8 @@ import { getClerkAuthToken } from "@/utils/clerk-auth";
 import { QueryClient } from "@tanstack/react-query";
 import { createTRPCClient, httpBatchLink } from "@trpc/client";
 import { createTRPCOptionsProxy } from "@trpc/tanstack-react-query";
-import type { AppRouter } from "@{{projectName}}/api/routers/index";
-import { env } from "@{{projectName}}/env/native";
+import type { AppRouter } from "{{packageScope}}/api/routers/index";
+import { env } from "{{packageScope}}/env/native";
 
 export const queryClient = new QueryClient();
 
@@ -2070,7 +2070,7 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 .DS_Store
 `],
   ["api/trpc/server/package.json.hbs", `{
-  "name": "@{{projectName}}/api",
+  "name": "{{packageScope}}/api",
   "exports": {
     ".": {
       "default": "./src/index.ts"
@@ -2100,7 +2100,7 @@ function toClerkContextAuth(auth: { userId: string | null } | null): ClerkContex
 
 {{#if (and (eq auth "clerk") (or (eq backend 'self') (eq backend 'hono') (eq backend 'elysia')))}}
 import { createClerkClient } from "@clerk/backend";
-import { env } from "@{{projectName}}/env/server";
+import { env } from "{{packageScope}}/env/server";
 
 const clerkClient = createClerkClient({
 	secretKey: env.CLERK_SECRET_KEY,
@@ -2119,9 +2119,9 @@ async function authenticateClerkRequest(request: Request): Promise<ClerkContextA
 import type { NextRequest } from "next/server";
 {{#if (eq auth "better-auth")}}
 {{#if (or (eq runtime "workers") (eq serverDeploy "cloudflare") (and (eq backend "self") (eq webDeploy "cloudflare")))}}
-import { createAuth } from "@{{projectName}}/auth";
+import { createAuth } from "{{packageScope}}/auth";
 {{else}}
-import { auth } from "@{{projectName}}/auth";
+import { auth } from "{{packageScope}}/auth";
 {{/if}}
 {{/if}}
 
@@ -2151,9 +2151,9 @@ export async function createContext(req: NextRequest){{#if (eq auth "clerk")}}: 
 {{else if (and (eq backend 'self') (includes frontend "tanstack-start"))}}
 {{#if (eq auth "better-auth")}}
 {{#if (or (eq runtime "workers") (eq serverDeploy "cloudflare") (and (eq backend "self") (eq webDeploy "cloudflare")))}}
-import { createAuth } from "@{{projectName}}/auth";
+import { createAuth } from "{{packageScope}}/auth";
 {{else}}
-import { auth } from "@{{projectName}}/auth";
+import { auth } from "{{packageScope}}/auth";
 {{/if}}
 {{/if}}
 
@@ -2184,9 +2184,9 @@ export async function createContext({ req }: { req: Request }){{#if (eq auth "cl
 import type { Context as HonoContext } from "hono";
 {{#if (eq auth "better-auth")}}
 {{#if (or (eq runtime "workers") (eq serverDeploy "cloudflare") (and (eq backend "self") (eq webDeploy "cloudflare")))}}
-import { createAuth } from "@{{projectName}}/auth";
+import { createAuth } from "{{packageScope}}/auth";
 {{else}}
-import { auth } from "@{{projectName}}/auth";
+import { auth } from "{{packageScope}}/auth";
 {{/if}}
 {{/if}}
 
@@ -2220,7 +2220,7 @@ export async function createContext({ context }: CreateContextOptions){{#if (eq 
 {{else if (eq backend 'elysia')}}
 import type { Context as ElysiaContext } from "elysia";
 {{#if (eq auth "better-auth")}}
-import { auth } from "@{{projectName}}/auth";
+import { auth } from "{{packageScope}}/auth";
 {{/if}}
 
 export type CreateContextOptions = {
@@ -2254,7 +2254,7 @@ export async function createContext({ context }: CreateContextOptions){{#if (eq 
 import type { CreateExpressContextOptions } from "@trpc/server/adapters/express";
 {{#if (eq auth "better-auth")}}
 import { fromNodeHeaders } from "better-auth/node";
-import { auth } from "@{{projectName}}/auth";
+import { auth } from "{{packageScope}}/auth";
 {{else if (eq auth "clerk")}}
 import { getAuth } from "@clerk/express";
 {{/if}}
@@ -2286,7 +2286,7 @@ export async function createContext(opts: CreateExpressContextOptions){{#if (eq 
 import type { CreateFastifyContextOptions } from "@trpc/server/adapters/fastify";
 {{#if (eq auth "better-auth")}}
 import { fromNodeHeaders } from "better-auth/node";
-import { auth } from "@{{projectName}}/auth";
+import { auth } from "{{packageScope}}/auth";
 {{else if (eq auth "clerk")}}
 import { getAuth } from "@clerk/fastify";
 {{/if}}
@@ -2427,7 +2427,7 @@ export type AppRouter = typeof appRouter;
 {{/if}}
 `],
   ["api/trpc/server/tsconfig.json.hbs", `{
-  "extends": "@{{projectName}}/config/tsconfig.base.json",
+  "extends": "{{packageScope}}/config/tsconfig.base.json",
   "compilerOptions": {
     "declaration": true,
     "declarationMap": true,
@@ -2440,10 +2440,10 @@ export type AppRouter = typeof appRouter;
 import { QueryCache, QueryClient } from '@tanstack/react-query';
 import { createTRPCClient, httpBatchLink } from '@trpc/client';
 import { createTRPCOptionsProxy } from '@trpc/tanstack-react-query';
-import type { AppRouter } from "@{{projectName}}/api/routers/index";
+import type { AppRouter } from "{{packageScope}}/api/routers/index";
 import { toast } from 'sonner';
 {{#unless (eq backend "self")}}
-import { env } from "@{{projectName}}/env/web";
+import { env } from "{{packageScope}}/env/web";
 {{/unless}}
 {{#if (eq auth "clerk")}}
 import { getClerkAuthToken } from "@/utils/clerk-auth";
@@ -2503,18 +2503,18 @@ export const trpc = createTRPCOptionsProxy<AppRouter>({
 
 {{else if (includes frontend 'tanstack-start')}}
 import { createTRPCContext } from "@trpc/tanstack-react-query";
-import type { AppRouter } from "@{{projectName}}/api/routers/index";
+import type { AppRouter } from "{{packageScope}}/api/routers/index";
 
 export const { TRPCProvider, useTRPC, useTRPCClient } =
 	createTRPCContext<AppRouter>();
 
 {{else}}
-import type { AppRouter } from "@{{projectName}}/api/routers/index";
+import type { AppRouter } from "{{packageScope}}/api/routers/index";
 import { QueryCache, QueryClient } from "@tanstack/react-query";
 import { createTRPCClient, httpBatchLink } from "@trpc/client";
 import { createTRPCOptionsProxy } from "@trpc/tanstack-react-query";
 import { toast } from "sonner";
-import { env } from "@{{projectName}}/env/web";
+import { env } from "{{packageScope}}/env/web";
 {{#if (eq auth "clerk")}}
 import { getClerkAuthToken } from "@/utils/clerk-auth";
 {{/if}}
@@ -3154,7 +3154,7 @@ import { expoClient } from "@better-auth/expo/client";
 import Constants from "expo-constants";
 import * as SecureStore from "expo-secure-store";
 import { Platform } from "react-native";
-import { env } from "@{{projectName}}/env/native";
+import { env } from "{{packageScope}}/env/native";
 
 export const authClient = createAuthClient({
 	baseURL: env.EXPO_PUBLIC_CONVEX_SITE_URL,
@@ -3969,7 +3969,7 @@ export const { GET, POST } = handler;
 import SignInForm from "@/components/sign-in-form";
 import SignUpForm from "@/components/sign-up-form";
 import UserMenu from "@/components/user-menu";
-import { api } from "@{{projectName}}/backend/convex/_generated/api";
+import { api } from "{{packageScope}}/backend/convex/_generated/api";
 import {
     Authenticated,
     AuthLoading,
@@ -4009,9 +4009,9 @@ export default function DashboardPage() {
 import { useForm } from "@tanstack/react-form";
 import { toast } from "sonner";
 import z from "zod";
-import { Button } from "@{{projectName}}/ui/components/button";
-import { Input } from "@{{projectName}}/ui/components/input";
-import { Label } from "@{{projectName}}/ui/components/label";
+import { Button } from "{{packageScope}}/ui/components/button";
+import { Input } from "{{packageScope}}/ui/components/input";
+import { Label } from "{{packageScope}}/ui/components/label";
 import { useRouter } from "next/navigation";
 
 export default function SignInForm({
@@ -4139,9 +4139,9 @@ export default function SignInForm({
 import { useForm } from "@tanstack/react-form";
 import { toast } from "sonner";
 import z from "zod";
-import { Button } from "@{{projectName}}/ui/components/button";
-import { Input } from "@{{projectName}}/ui/components/input";
-import { Label } from "@{{projectName}}/ui/components/label";
+import { Button } from "{{packageScope}}/ui/components/button";
+import { Input } from "{{packageScope}}/ui/components/input";
+import { Label } from "{{packageScope}}/ui/components/label";
 import { useRouter } from "next/navigation";
 
 export default function SignUpForm({
@@ -4298,12 +4298,12 @@ export default function SignUpForm({
 	DropdownMenuLabel,
 	DropdownMenuSeparator,
 	DropdownMenuTrigger,
-} from "@{{projectName}}/ui/components/dropdown-menu";
+} from "{{packageScope}}/ui/components/dropdown-menu";
 import { authClient } from "@/lib/auth-client";
-import { Button } from "@{{projectName}}/ui/components/button";
+import { Button } from "{{packageScope}}/ui/components/button";
 import { useRouter } from "next/navigation";
 import { useQuery } from "convex/react";
-import { api } from "@{{projectName}}/backend/convex/_generated/api";
+import { api } from "{{packageScope}}/backend/convex/_generated/api";
 
 export default function UserMenu() {
 	const router = useRouter();
@@ -4347,7 +4347,7 @@ export const authClient = createAuthClient({
 });
 `],
   ["auth/better-auth/convex/web/react/next/src/lib/auth-server.ts.hbs", `import { convexBetterAuthNextJs } from "@convex-dev/better-auth/nextjs";
-import { env } from "@{{projectName}}/env/web";
+import { env } from "{{packageScope}}/env/web";
 
 export const {
 	handler,
@@ -4367,9 +4367,9 @@ import { useForm } from "@tanstack/react-form";
 import { useNavigate } from "react-router";
 import { toast } from "sonner";
 import z from "zod";
-import { Button } from "@{{projectName}}/ui/components/button";
-import { Input } from "@{{projectName}}/ui/components/input";
-import { Label } from "@{{projectName}}/ui/components/label";
+import { Button } from "{{packageScope}}/ui/components/button";
+import { Input } from "{{packageScope}}/ui/components/input";
+import { Label } from "{{packageScope}}/ui/components/label";
 
 export default function SignInForm({
   onSwitchToSignUp,
@@ -4498,9 +4498,9 @@ import { useForm } from "@tanstack/react-form";
 import { useNavigate } from "react-router";
 import { toast } from "sonner";
 import z from "zod";
-import { Button } from "@{{projectName}}/ui/components/button";
-import { Input } from "@{{projectName}}/ui/components/input";
-import { Label } from "@{{projectName}}/ui/components/label";
+import { Button } from "{{packageScope}}/ui/components/button";
+import { Input } from "{{packageScope}}/ui/components/input";
+import { Label } from "{{packageScope}}/ui/components/label";
 
 export default function SignUpForm({
   onSwitchToSignIn,
@@ -4659,12 +4659,12 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@{{projectName}}/ui/components/dropdown-menu";
+} from "{{packageScope}}/ui/components/dropdown-menu";
 import { authClient } from "@/lib/auth-client";
 import { useQuery } from "convex/react";
-import { api } from "@{{projectName}}/backend/convex/_generated/api";
+import { api } from "{{packageScope}}/backend/convex/_generated/api";
 
-import { Button } from "@{{projectName}}/ui/components/button";
+import { Button } from "{{packageScope}}/ui/components/button";
 
 export default function UserMenu() {
   const navigate = useNavigate();
@@ -4705,7 +4705,7 @@ import {
   convexClient,
   crossDomainClient,
 } from "@convex-dev/better-auth/client/plugins";
-import { env } from "@{{projectName}}/env/web";
+import { env } from "{{packageScope}}/env/web";
 
 export const authClient = createAuthClient({
   baseURL: env.VITE_CONVEX_SITE_URL,
@@ -4715,7 +4715,7 @@ export const authClient = createAuthClient({
   ["auth/better-auth/convex/web/react/react-router/src/routes/dashboard.tsx.hbs", `import SignInForm from "@/components/sign-in-form";
 import SignUpForm from "@/components/sign-up-form";
 import UserMenu from "@/components/user-menu";
-import { api } from "@{{projectName}}/backend/convex/_generated/api";
+import { api } from "{{packageScope}}/backend/convex/_generated/api";
 import {
   Authenticated,
   AuthLoading,
@@ -4763,9 +4763,9 @@ import { useForm } from "@tanstack/react-form";
 import { useNavigate } from "@tanstack/react-router";
 import { toast } from "sonner";
 import z from "zod";
-import { Button } from "@{{projectName}}/ui/components/button";
-import { Input } from "@{{projectName}}/ui/components/input";
-import { Label } from "@{{projectName}}/ui/components/label";
+import { Button } from "{{packageScope}}/ui/components/button";
+import { Input } from "{{packageScope}}/ui/components/input";
+import { Label } from "{{packageScope}}/ui/components/label";
 
 export default function SignInForm({
     onSwitchToSignUp,
@@ -4897,9 +4897,9 @@ import { useForm } from "@tanstack/react-form";
 import { useNavigate } from "@tanstack/react-router";
 import { toast } from "sonner";
 import z from "zod";
-import { Button } from "@{{projectName}}/ui/components/button";
-import { Input } from "@{{projectName}}/ui/components/input";
-import { Label } from "@{{projectName}}/ui/components/label";
+import { Button } from "{{packageScope}}/ui/components/button";
+import { Input } from "{{packageScope}}/ui/components/input";
+import { Label } from "{{packageScope}}/ui/components/label";
 
 export default function SignUpForm({
     onSwitchToSignIn,
@@ -5061,12 +5061,12 @@ import {
     DropdownMenuLabel,
     DropdownMenuSeparator,
     DropdownMenuTrigger,
-} from "@{{projectName}}/ui/components/dropdown-menu";
+} from "{{packageScope}}/ui/components/dropdown-menu";
 import { authClient } from "@/lib/auth-client";
 import { useQuery } from "convex/react";
-import { api } from "@{{projectName}}/backend/convex/_generated/api";
+import { api } from "{{packageScope}}/backend/convex/_generated/api";
 
-import { Button } from "@{{projectName}}/ui/components/button";
+import { Button } from "{{packageScope}}/ui/components/button";
 
 export default function UserMenu() {
     const navigate = useNavigate();
@@ -5109,7 +5109,7 @@ import {
 	convexClient,
 	crossDomainClient,
 } from "@convex-dev/better-auth/client/plugins";
-import { env } from "@{{projectName}}/env/web";
+import { env } from "{{packageScope}}/env/web";
 
 export const authClient = createAuthClient({
 	baseURL: env.VITE_CONVEX_SITE_URL,
@@ -5119,7 +5119,7 @@ export const authClient = createAuthClient({
   ["auth/better-auth/convex/web/react/tanstack-router/src/routes/dashboard.tsx.hbs", `import SignInForm from "@/components/sign-in-form";
 import SignUpForm from "@/components/sign-up-form";
 import UserMenu from "@/components/user-menu";
-import { api } from "@{{projectName}}/backend/convex/_generated/api";
+import { api } from "{{packageScope}}/backend/convex/_generated/api";
 import { createFileRoute } from "@tanstack/react-router";
 import {
   Authenticated,
@@ -5172,9 +5172,9 @@ import { useForm } from "@tanstack/react-form";
 import { useNavigate } from "@tanstack/react-router";
 import { toast } from "sonner";
 import z from "zod";
-import { Button } from "@{{projectName}}/ui/components/button";
-import { Input } from "@{{projectName}}/ui/components/input";
-import { Label } from "@{{projectName}}/ui/components/label";
+import { Button } from "{{packageScope}}/ui/components/button";
+import { Input } from "{{packageScope}}/ui/components/input";
+import { Label } from "{{packageScope}}/ui/components/label";
 
 export default function SignInForm({
     onSwitchToSignUp,
@@ -5306,9 +5306,9 @@ import { useForm } from "@tanstack/react-form";
 import { useNavigate } from "@tanstack/react-router";
 import { toast } from "sonner";
 import z from "zod";
-import { Button } from "@{{projectName}}/ui/components/button";
-import { Input } from "@{{projectName}}/ui/components/input";
-import { Label } from "@{{projectName}}/ui/components/label";
+import { Button } from "{{packageScope}}/ui/components/button";
+import { Input } from "{{packageScope}}/ui/components/input";
+import { Label } from "{{packageScope}}/ui/components/label";
 
 export default function SignUpForm({
     onSwitchToSignIn,
@@ -5468,12 +5468,12 @@ export default function SignUpForm({
     DropdownMenuLabel,
     DropdownMenuSeparator,
     DropdownMenuTrigger,
-} from "@{{projectName}}/ui/components/dropdown-menu";
+} from "{{packageScope}}/ui/components/dropdown-menu";
 import { authClient } from "@/lib/auth-client";
 import { useQuery } from "convex/react";
-import { api } from "@{{projectName}}/backend/convex/_generated/api";
+import { api } from "{{packageScope}}/backend/convex/_generated/api";
 
-import { Button } from "@{{projectName}}/ui/components/button";
+import { Button } from "{{packageScope}}/ui/components/button";
 
 export default function UserMenu() {
     const user = useQuery(api.auth.getCurrentUser)
@@ -5515,7 +5515,7 @@ export const authClient = createAuthClient({
   plugins: [convexClient()],
 });`],
   ["auth/better-auth/convex/web/react/tanstack-start/src/lib/auth-server.ts.hbs", `import { convexBetterAuthReactStart } from "@convex-dev/better-auth/react-start";
-import { env } from "@{{projectName}}/env/web";
+import { env } from "{{packageScope}}/env/web";
 
 export const {
 	handler,
@@ -5543,7 +5543,7 @@ export const Route = createFileRoute("/api/auth/$")({
   ["auth/better-auth/convex/web/react/tanstack-start/src/routes/dashboard.tsx.hbs", `import SignInForm from "@/components/sign-in-form";
 import SignUpForm from "@/components/sign-up-form";
 import UserMenu from "@/components/user-menu";
-import { api } from "@{{projectName}}/backend/convex/_generated/api";
+import { api } from "{{packageScope}}/backend/convex/_generated/api";
 import { createFileRoute } from "@tanstack/react-router";
 import {
   Authenticated,
@@ -5594,9 +5594,9 @@ declare namespace App {
 }
 `],
   ["auth/better-auth/fullstack/astro/src/middleware.ts.hbs", `{{#if (or (eq runtime "workers") (eq serverDeploy "cloudflare") (and (eq backend "self") (eq webDeploy "cloudflare")))}}
-import { createAuth } from "@{{projectName}}/auth";
+import { createAuth } from "{{packageScope}}/auth";
 {{else}}
-import { auth } from "@{{projectName}}/auth";
+import { auth } from "{{packageScope}}/auth";
 {{/if}}
 import { defineMiddleware } from "astro:middleware";
 
@@ -5620,9 +5620,9 @@ export const onRequest = defineMiddleware(async (context, next) => {
 });
 `],
   ["auth/better-auth/fullstack/astro/src/pages/api/auth/[...all].ts.hbs", `{{#if (or (eq runtime "workers") (eq serverDeploy "cloudflare") (and (eq backend "self") (eq webDeploy "cloudflare")))}}
-import { createAuth } from "@{{projectName}}/auth";
+import { createAuth } from "{{packageScope}}/auth";
 {{else}}
-import { auth } from "@{{projectName}}/auth";
+import { auth } from "{{packageScope}}/auth";
 {{/if}}
 import type { APIRoute } from "astro";
 
@@ -5634,9 +5634,9 @@ export const ALL: APIRoute = async (ctx) => {
 };
 `],
   ["auth/better-auth/fullstack/next/src/app/api/auth/[...all]/route.ts.hbs", `{{#if (or (eq runtime "workers") (eq serverDeploy "cloudflare") (and (eq backend "self") (eq webDeploy "cloudflare")))}}
-import { createAuth } from "@{{projectName}}/auth";
+import { createAuth } from "{{packageScope}}/auth";
 {{else}}
-import { auth } from "@{{projectName}}/auth";
+import { auth } from "{{packageScope}}/auth";
 {{/if}}
 import { toNextJsHandler } from "better-auth/next-js";
 
@@ -5653,9 +5653,9 @@ export const { GET, POST } = toNextJsHandler(auth);
 {{/if}}
 `],
   ["auth/better-auth/fullstack/nuxt/server/api/auth/[...all].ts.hbs", `{{#if (or (eq runtime "workers") (eq serverDeploy "cloudflare") (and (eq backend "self") (eq webDeploy "cloudflare")))}}
-import { createAuth } from "@{{projectName}}/auth";
+import { createAuth } from "{{packageScope}}/auth";
 {{else}}
-import { auth } from "@{{projectName}}/auth";
+import { auth } from "{{packageScope}}/auth";
 {{/if}}
 
 export default defineEventHandler((event) => {
@@ -5670,12 +5670,12 @@ import "./lib/orpc.server";
 {{/if}}
 import { building } from "$app/environment";
 {{#if (or (eq runtime "workers") (eq serverDeploy "cloudflare") (and (eq backend "self") (eq webDeploy "cloudflare")))}}
-import { createAuth } from "@{{projectName}}/auth";
+import { createAuth } from "{{packageScope}}/auth";
 {{#if (and (eq backend "self") (eq webDeploy "cloudflare"))}}
-import { env as localEnv } from "@{{projectName}}/env/server";
+import { env as localEnv } from "{{packageScope}}/env/server";
 {{/if}}
 {{else}}
-import { auth } from "@{{projectName}}/auth";
+import { auth } from "{{packageScope}}/auth";
 {{/if}}
 import { svelteKitHandler } from "better-auth/svelte-kit";
 import type { Handle } from "@sveltejs/kit";
@@ -5705,9 +5705,9 @@ export const handle: Handle = async ({ event, resolve }) => {
 };
 `],
   ["auth/better-auth/fullstack/tanstack-start/src/routes/api/auth/$.ts.hbs", `{{#if (or (eq runtime "workers") (eq serverDeploy "cloudflare") (and (eq backend "self") (eq webDeploy "cloudflare")))}}
-import { createAuth } from '@{{projectName}}/auth'
+import { createAuth } from '{{packageScope}}/auth'
 {{else}}
-import { auth } from '@{{projectName}}/auth'
+import { auth } from '{{packageScope}}/auth'
 {{/if}}
 import { createFileRoute } from '@tanstack/react-router'
 
@@ -6422,7 +6422,7 @@ export { SignUp };
 import { createAuthClient } from "better-auth/react";
 import * as SecureStore from "expo-secure-store";
 import Constants from "expo-constants";
-import { env } from "@{{projectName}}/env/native";
+import { env } from "{{packageScope}}/env/native";
 
 export const authClient = createAuthClient({
 	baseURL: env.EXPO_PUBLIC_SERVER_URL,
@@ -7622,7 +7622,7 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 .DS_Store
 `],
   ["auth/better-auth/server/base/package.json.hbs", `{
-  "name": "@{{projectName}}/auth",
+  "name": "{{packageScope}}/auth",
   "exports": {
     ".": {
       "default": "./src/index.ts"
@@ -7639,9 +7639,9 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
 {{#if (and (eq backend "self") (eq webDeploy "cloudflare") (includes frontend "svelte"))}}
-import type {} from "@{{projectName}}/env/server";
+import type {} from "{{packageScope}}/env/server";
 {{else}}
-import { env } from "@{{projectName}}/env/server";
+import { env } from "{{packageScope}}/env/server";
 {{/if}}
 {{#if (eq payments "polar")}}
 import { polar, checkout, portal } from "@polar-sh/better-auth";
@@ -7651,7 +7651,7 @@ import { createPolarClient } from "./lib/payments";
 import { polarClient } from "./lib/payments";
 {{/if}}
 {{/if}}
-import { createPrismaClient } from "@{{projectName}}/db";
+import { createPrismaClient } from "{{packageScope}}/db";
 
 export function createAuth({{#if (and (eq backend "self") (eq webDeploy "cloudflare") (includes frontend "svelte"))}}env: Env{{/if}}) {
 	const prisma = createPrismaClient({{#if (and (eq backend "self") (eq webDeploy "cloudflare") (includes frontend "svelte"))}}env{{/if}});
@@ -7727,9 +7727,9 @@ export const auth = createAuth();
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 {{#if (and (eq backend "self") (eq webDeploy "cloudflare") (includes frontend "svelte"))}}
-import type {} from "@{{projectName}}/env/server";
+import type {} from "{{packageScope}}/env/server";
 {{else}}
-import { env } from "@{{projectName}}/env/server";
+import { env } from "{{packageScope}}/env/server";
 {{/if}}
 {{#if (eq payments "polar")}}
 import { polar, checkout, portal } from "@polar-sh/better-auth";
@@ -7739,8 +7739,8 @@ import { createPolarClient } from "./lib/payments";
 import { polarClient } from "./lib/payments";
 {{/if}}
 {{/if}}
-import { createDb } from "@{{projectName}}/db";
-import * as schema from "@{{projectName}}/db/schema/auth";
+import { createDb } from "{{packageScope}}/db";
+import * as schema from "{{packageScope}}/db/schema/auth";
 
 
 export function createAuth({{#if (and (eq backend "self") (eq webDeploy "cloudflare") (includes frontend "svelte"))}}env: Env{{/if}}) {
@@ -7814,13 +7814,13 @@ export const auth = createAuth();
 {{#if (eq runtime "workers")}}
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
-import { env } from "@{{projectName}}/env/server";
+import { env } from "{{packageScope}}/env/server";
 {{#if (eq payments "polar")}}
 import { polar, checkout, portal } from "@polar-sh/better-auth";
 import { polarClient } from "./lib/payments";
 {{/if}}
-import { createDb } from "@{{projectName}}/db";
-import * as schema from "@{{projectName}}/db/schema/auth";
+import { createDb } from "{{packageScope}}/db";
+import * as schema from "{{packageScope}}/db/schema/auth";
 
 
 export function createAuth() {
@@ -7903,9 +7903,9 @@ export function createAuth() {
 import { betterAuth } from "better-auth";
 import { mongodbAdapter } from "better-auth/adapters/mongodb";
 {{#if (and (eq backend "self") (eq webDeploy "cloudflare") (includes frontend "svelte"))}}
-import type {} from "@{{projectName}}/env/server";
+import type {} from "{{packageScope}}/env/server";
 {{else}}
-import { env } from "@{{projectName}}/env/server";
+import { env } from "{{packageScope}}/env/server";
 {{/if}}
 {{#if (eq payments "polar")}}
 import { polar, checkout, portal } from "@polar-sh/better-auth";
@@ -7915,7 +7915,7 @@ import { createPolarClient } from "./lib/payments";
 import { polarClient } from "./lib/payments";
 {{/if}}
 {{/if}}
-import { client } from "@{{projectName}}/db";
+import { client } from "{{packageScope}}/db";
 
 export function createAuth({{#if (and (eq backend "self") (eq webDeploy "cloudflare") (includes frontend "svelte"))}}env: Env{{/if}}) {
 	return betterAuth({
@@ -7981,9 +7981,9 @@ export const auth = createAuth();
 {{#if (eq orm "none")}}
 import { betterAuth } from "better-auth";
 {{#if (and (eq backend "self") (eq webDeploy "cloudflare") (includes frontend "svelte"))}}
-import type {} from "@{{projectName}}/env/server";
+import type {} from "{{packageScope}}/env/server";
 {{else}}
-import { env } from "@{{projectName}}/env/server";
+import { env } from "{{packageScope}}/env/server";
 {{/if}}
 {{#if (eq payments "polar")}}
 import { polar, checkout, portal } from "@polar-sh/better-auth";
@@ -8057,7 +8057,7 @@ export const auth = createAuth();
 {{/if}}
 `],
   ["auth/better-auth/server/base/tsconfig.json.hbs", `{
-  "extends": "@{{projectName}}/config/tsconfig.base.json",
+  "extends": "{{packageScope}}/config/tsconfig.base.json",
   "compilerOptions": {
     "declaration": true,
     "declarationMap": true,
@@ -9457,7 +9457,7 @@ export default defineNuxtPlugin(() => {
 import { polarClient } from "@polar-sh/better-auth";
 {{/if}}
 {{#unless (eq backend "self")}}
-import { env } from "@{{projectName}}/env/web";
+import { env } from "{{packageScope}}/env/web";
 {{/unless}}
 
 export const authClient = createAuthClient({
@@ -9471,7 +9471,7 @@ export const authClient = createAuthClient({
 `],
   ["auth/better-auth/web/react/next/src/app/dashboard/dashboard.tsx.hbs", `"use client";
 {{#if (eq payments "polar")}}
-import { Button } from "@{{projectName}}/ui/components/button";
+import { Button } from "{{packageScope}}/ui/components/button";
 {{/if}}
 import { authClient } from "@/lib/auth-client";
 {{#if (eq api "orpc")}}
@@ -9535,9 +9535,9 @@ import Dashboard from "./dashboard";
 import { headers } from "next/headers";
 {{#if (eq backend "self")}}
 {{#if (or (eq runtime "workers") (eq serverDeploy "cloudflare") (and (eq backend "self") (eq webDeploy "cloudflare")))}}
-import { createAuth } from "@{{projectName}}/auth";
+import { createAuth } from "{{packageScope}}/auth";
 {{else}}
-import { auth } from "@{{projectName}}/auth";
+import { auth } from "{{packageScope}}/auth";
 {{/if}}
 {{/if}}
 {{#if (or (ne backend "self") (eq payments "polar"))}}
@@ -9601,9 +9601,9 @@ import { useForm } from "@tanstack/react-form";
 import { toast } from "sonner";
 import z from "zod";
 import Loader from "./loader";
-import { Button } from "@{{projectName}}/ui/components/button";
-import { Input } from "@{{projectName}}/ui/components/input";
-import { Label } from "@{{projectName}}/ui/components/label";
+import { Button } from "{{packageScope}}/ui/components/button";
+import { Input } from "{{packageScope}}/ui/components/input";
+import { Label } from "{{packageScope}}/ui/components/label";
 import { useRouter } from "next/navigation";
 
 export default function SignInForm({
@@ -9737,9 +9737,9 @@ import { useForm } from "@tanstack/react-form";
 import { toast } from "sonner";
 import z from "zod";
 import Loader from "./loader";
-import { Button } from "@{{projectName}}/ui/components/button";
-import { Input } from "@{{projectName}}/ui/components/input";
-import { Label } from "@{{projectName}}/ui/components/label";
+import { Button } from "{{packageScope}}/ui/components/button";
+import { Input } from "{{packageScope}}/ui/components/input";
+import { Label } from "{{packageScope}}/ui/components/label";
 import { useRouter } from "next/navigation";
 
 export default function SignUpForm({
@@ -9904,11 +9904,11 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@{{projectName}}/ui/components/dropdown-menu";
+} from "{{packageScope}}/ui/components/dropdown-menu";
 import { authClient } from "@/lib/auth-client";
 
-import { Button } from "@{{projectName}}/ui/components/button";
-import { Skeleton } from "@{{projectName}}/ui/components/skeleton";
+import { Button } from "{{packageScope}}/ui/components/button";
+import { Skeleton } from "{{packageScope}}/ui/components/skeleton";
 
 export default function UserMenu() {
   const router = useRouter();
@@ -9962,9 +9962,9 @@ import { useNavigate } from "react-router";
 import { toast } from "sonner";
 import z from "zod";
 import Loader from "./loader";
-import { Button } from "@{{projectName}}/ui/components/button";
-import { Input } from "@{{projectName}}/ui/components/input";
-import { Label } from "@{{projectName}}/ui/components/label";
+import { Button } from "{{packageScope}}/ui/components/button";
+import { Input } from "{{packageScope}}/ui/components/input";
+import { Label } from "{{packageScope}}/ui/components/label";
 
 export default function SignInForm({
   onSwitchToSignUp,
@@ -10098,9 +10098,9 @@ import { useNavigate } from "react-router";
 import { toast } from "sonner";
 import z from "zod";
 import Loader from "./loader";
-import { Button } from "@{{projectName}}/ui/components/button";
-import { Input } from "@{{projectName}}/ui/components/input";
-import { Label } from "@{{projectName}}/ui/components/label";
+import { Button } from "{{packageScope}}/ui/components/button";
+import { Input } from "{{packageScope}}/ui/components/input";
+import { Label } from "{{packageScope}}/ui/components/label";
 
 export default function SignUpForm({
   onSwitchToSignIn,
@@ -10263,11 +10263,11 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@{{projectName}}/ui/components/dropdown-menu";
+} from "{{packageScope}}/ui/components/dropdown-menu";
 import { authClient } from "@/lib/auth-client";
 
-import { Button } from "@{{projectName}}/ui/components/button";
-import { Skeleton } from "@{{projectName}}/ui/components/skeleton";
+import { Button } from "{{packageScope}}/ui/components/button";
+import { Skeleton } from "{{packageScope}}/ui/components/skeleton";
 
 export default function UserMenu() {
   const navigate = useNavigate();
@@ -10316,7 +10316,7 @@ export default function UserMenu() {
 }
 `],
   ["auth/better-auth/web/react/react-router/src/routes/dashboard.tsx.hbs", `{{#if (eq payments "polar")}}
-import { Button } from "@{{projectName}}/ui/components/button";
+import { Button } from "{{packageScope}}/ui/components/button";
 {{/if}}
 import { authClient } from "@/lib/auth-client";
 {{#if (eq api "orpc")}}
@@ -10416,9 +10416,9 @@ import { useNavigate } from "@tanstack/react-router";
 import { toast } from "sonner";
 import z from "zod";
 import Loader from "./loader";
-import { Button } from "@{{projectName}}/ui/components/button";
-import { Input } from "@{{projectName}}/ui/components/input";
-import { Label } from "@{{projectName}}/ui/components/label";
+import { Button } from "{{packageScope}}/ui/components/button";
+import { Input } from "{{packageScope}}/ui/components/input";
+import { Label } from "{{packageScope}}/ui/components/label";
 
 export default function SignInForm({ onSwitchToSignUp }: { onSwitchToSignUp: () => void }) {
   const navigate = useNavigate({
@@ -10552,9 +10552,9 @@ import { useNavigate } from "@tanstack/react-router";
 import { toast } from "sonner";
 import z from "zod";
 import Loader from "./loader";
-import { Button } from "@{{projectName}}/ui/components/button";
-import { Input } from "@{{projectName}}/ui/components/input";
-import { Label } from "@{{projectName}}/ui/components/label";
+import { Button } from "{{packageScope}}/ui/components/button";
+import { Input } from "{{packageScope}}/ui/components/input";
+import { Label } from "{{packageScope}}/ui/components/label";
 
 export default function SignUpForm({ onSwitchToSignIn }: { onSwitchToSignIn: () => void }) {
   const navigate = useNavigate({
@@ -10717,11 +10717,11 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@{{projectName}}/ui/components/dropdown-menu";
+} from "{{packageScope}}/ui/components/dropdown-menu";
 import { authClient } from "@/lib/auth-client";
 
-import { Button } from "@{{projectName}}/ui/components/button";
-import { Skeleton } from "@{{projectName}}/ui/components/skeleton";
+import { Button } from "{{packageScope}}/ui/components/button";
+import { Skeleton } from "{{packageScope}}/ui/components/skeleton";
 
 export default function UserMenu() {
   const navigate = useNavigate();
@@ -10772,7 +10772,7 @@ export default function UserMenu() {
 }
 `],
   ["auth/better-auth/web/react/tanstack-router/src/routes/dashboard.tsx.hbs", `{{#if (eq payments "polar")}}
-import { Button } from "@{{projectName}}/ui/components/button";
+import { Button } from "{{packageScope}}/ui/components/button";
 {{/if}}
 import { authClient } from "@/lib/auth-client";
 {{#if (eq api "orpc")}}
@@ -10868,9 +10868,9 @@ import { useNavigate } from "@tanstack/react-router";
 import { toast } from "sonner";
 import z from "zod";
 import Loader from "./loader";
-import { Button } from "@{{projectName}}/ui/components/button";
-import { Input } from "@{{projectName}}/ui/components/input";
-import { Label } from "@{{projectName}}/ui/components/label";
+import { Button } from "{{packageScope}}/ui/components/button";
+import { Input } from "{{packageScope}}/ui/components/input";
+import { Label } from "{{packageScope}}/ui/components/label";
 
 export default function SignInForm({ onSwitchToSignUp }: { onSwitchToSignUp: () => void }) {
   const navigate = useNavigate({
@@ -11004,9 +11004,9 @@ import { useNavigate } from "@tanstack/react-router";
 import { toast } from "sonner";
 import z from "zod";
 import Loader from "./loader";
-import { Button } from "@{{projectName}}/ui/components/button";
-import { Input } from "@{{projectName}}/ui/components/input";
-import { Label } from "@{{projectName}}/ui/components/label";
+import { Button } from "{{packageScope}}/ui/components/button";
+import { Input } from "{{packageScope}}/ui/components/input";
+import { Label } from "{{packageScope}}/ui/components/label";
 
 export default function SignUpForm({ onSwitchToSignIn }: { onSwitchToSignIn: () => void }) {
   const navigate = useNavigate({
@@ -11169,11 +11169,11 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@{{projectName}}/ui/components/dropdown-menu";
+} from "{{packageScope}}/ui/components/dropdown-menu";
 import { authClient } from "@/lib/auth-client";
 
-import { Button } from "@{{projectName}}/ui/components/button";
-import { Skeleton } from "@{{projectName}}/ui/components/skeleton";
+import { Button } from "{{packageScope}}/ui/components/button";
+import { Skeleton } from "{{packageScope}}/ui/components/skeleton";
 
 export default function UserMenu() {
   const navigate = useNavigate();
@@ -11231,9 +11231,9 @@ export const getUser = createServerFn({ method: "GET" }).middleware([authMiddlew
 })`],
   ["auth/better-auth/web/react/tanstack-start/src/middleware/auth.ts.hbs", `{{#if (eq backend "self")}}
 {{#if (or (eq runtime "workers") (eq serverDeploy "cloudflare") (and (eq backend "self") (eq webDeploy "cloudflare")))}}
-import { createAuth } from "@{{projectName}}/auth";
+import { createAuth } from "{{packageScope}}/auth";
 {{else}}
-import { auth } from "@{{projectName}}/auth";
+import { auth } from "{{packageScope}}/auth";
 {{/if}}
 import { createMiddleware } from "@tanstack/react-start";
 
@@ -11267,7 +11267,7 @@ export const authMiddleware = createMiddleware().server(
 `],
   ["auth/better-auth/web/react/tanstack-start/src/routes/dashboard.tsx.hbs", `import { getUser } from "@/functions/get-user";
 {{#if (eq payments "polar") }}
-import { Button } from "@{{projectName}}/ui/components/button";
+import { Button } from "{{packageScope}}/ui/components/button";
 import { authClient } from "@/lib/auth-client";
 import { getPayment } from "@/functions/get-payment";
 {{/if}}
@@ -11702,7 +11702,7 @@ export default function UserMenu() {
 {{#if (eq payments "polar")}}
 import { polarClient } from "@polar-sh/better-auth";
 {{/if}}
-import { env } from "@{{projectName}}/env/web";
+import { env } from "{{packageScope}}/env/web";
 
 export const authClient = createAuthClient({
 	baseURL: env.VITE_SERVER_URL,
@@ -12748,7 +12748,7 @@ export const SignOutButton = () => {
 `],
   ["auth/clerk/convex/web/react/next/src/app/dashboard/page.tsx.hbs", `"use client";
 
-import { api } from "@{{projectName}}/backend/convex/_generated/api";
+import { api } from "{{packageScope}}/backend/convex/_generated/api";
 import { SignInButton, UserButton, useUser } from "@clerk/nextjs";
 import { Authenticated, AuthLoading, Unauthenticated, useQuery } from "convex/react";
 
@@ -12790,7 +12790,7 @@ export const config = {
 };
 `],
   ["auth/clerk/convex/web/react/react-router/src/routes/dashboard.tsx.hbs", `import { SignInButton, UserButton, useUser } from "@clerk/react-router";
-import { api } from "@{{projectName}}/backend/convex/_generated/api";
+import { api } from "{{packageScope}}/backend/convex/_generated/api";
 import {
 	Authenticated,
 	AuthLoading,
@@ -12823,7 +12823,7 @@ export default function Dashboard() {
 }
 `],
   ["auth/clerk/convex/web/react/tanstack-router/src/routes/dashboard.tsx.hbs", `import { SignInButton, UserButton, useUser } from "@clerk/react";
-import { api } from "@{{projectName}}/backend/convex/_generated/api";
+import { api } from "{{packageScope}}/backend/convex/_generated/api";
 import { createFileRoute } from "@tanstack/react-router";
 import {
 	Authenticated,
@@ -12861,7 +12861,7 @@ function RouteComponent() {
 }
 `],
   ["auth/clerk/convex/web/react/tanstack-start/src/routes/dashboard.tsx.hbs", `import { SignInButton, UserButton, useUser } from "@clerk/tanstack-react-start";
-import { api } from "@{{projectName}}/backend/convex/_generated/api";
+import { api } from "{{packageScope}}/backend/convex/_generated/api";
 import { createFileRoute } from "@tanstack/react-router";
 import {
 	Authenticated,
@@ -13859,7 +13859,7 @@ export default defineSchema({
 }
 `],
   ["backend/convex/packages/backend/package.json.hbs", `{
-  "name": "@{{projectName}}/backend",
+  "name": "{{packageScope}}/backend",
   "version": "1.0.0",
   "scripts": {
     "dev": "convex dev",
@@ -13949,7 +13949,7 @@ next-env.d.ts
 }
 `],
   ["backend/server/base/tsconfig.json.hbs", `{
-  "extends": "@{{projectName}}/config/tsconfig.base.json",
+  "extends": "{{packageScope}}/config/tsconfig.base.json",
   "compilerOptions": {
     "composite": true,
 		"outDir": "dist",
@@ -13971,7 +13971,7 @@ export default defineConfig({
     noExternal: [/@{{projectName}}\\/.*/]
 });
 `],
-  ["backend/server/elysia/src/index.ts.hbs", `import { env } from "@{{projectName}}/env/server";
+  ["backend/server/elysia/src/index.ts.hbs", `import { env } from "{{packageScope}}/env/server";
 {{#if (eq runtime "node")}}
 import { node } from "@elysiajs/node";
 {{/if}}
@@ -13983,8 +13983,8 @@ import { convertToModelMessages, streamText, type UIMessage, wrapLanguageModel }
 import { devToolsMiddleware } from "@ai-sdk/devtools";
 {{/if}}
 {{#if (eq api "trpc")}}
-import { createContext } from "@{{projectName}}/api/context";
-import { appRouter } from "@{{projectName}}/api/routers/index";
+import { createContext } from "{{packageScope}}/api/context";
+import { appRouter } from "{{packageScope}}/api/routers/index";
 import { fetchRequestHandler } from "@trpc/server/adapters/fetch";
 {{/if}}
 {{#if (eq api "orpc")}}
@@ -13993,11 +13993,11 @@ import { OpenAPIReferencePlugin } from "@orpc/openapi/plugins";
 import { ZodToJsonSchemaConverter } from "@orpc/zod/zod4";
 import { RPCHandler } from "@orpc/server/fetch";
 import { onError } from "@orpc/server";
-import { appRouter } from "@{{projectName}}/api/routers/index";
-import { createContext } from "@{{projectName}}/api/context";
+import { appRouter } from "{{packageScope}}/api/routers/index";
+import { createContext } from "{{packageScope}}/api/context";
 {{/if}}
 {{#if (eq auth "better-auth")}}
-import { auth } from "@{{projectName}}/auth";
+import { auth } from "{{packageScope}}/auth";
 {{/if}}
 
 {{#if (eq api "orpc")}}
@@ -14108,11 +14108,11 @@ new Elysia()
 		console.log("Server is running on http://localhost:3000");
 	});
 `],
-  ["backend/server/express/src/index.ts.hbs", `import { env } from "@{{projectName}}/env/server";
+  ["backend/server/express/src/index.ts.hbs", `import { env } from "{{packageScope}}/env/server";
 {{#if (eq api "trpc")}}
 import { createExpressMiddleware } from "@trpc/server/adapters/express";
-import { createContext } from "@{{projectName}}/api/context";
-import { appRouter } from "@{{projectName}}/api/routers/index";
+import { createContext } from "{{packageScope}}/api/context";
+import { appRouter } from "{{packageScope}}/api/routers/index";
 {{/if}}
 {{#if (eq api "orpc")}}
 import { OpenAPIHandler } from "@orpc/openapi/node";
@@ -14120,9 +14120,9 @@ import { OpenAPIReferencePlugin } from "@orpc/openapi/plugins";
 import { ZodToJsonSchemaConverter } from "@orpc/zod/zod4";
 import { RPCHandler } from "@orpc/server/node";
 import { onError } from "@orpc/server";
-import { appRouter } from "@{{projectName}}/api/routers/index";
+import { appRouter } from "{{packageScope}}/api/routers/index";
 {{#if (or (eq auth "better-auth") (eq auth "clerk"))}}
-import { createContext } from "@{{projectName}}/api/context";
+import { createContext } from "{{packageScope}}/api/context";
 {{/if}}
 {{/if}}
 import cors from "cors";
@@ -14133,7 +14133,7 @@ import { google } from "@ai-sdk/google";
 import { devToolsMiddleware } from "@ai-sdk/devtools";
 {{/if}}
 {{#if (eq auth "better-auth")}}
-import { auth } from "@{{projectName}}/auth";
+import { auth } from "{{packageScope}}/auth";
 import { toNodeHandler } from "better-auth/node";
 {{/if}}
 {{#if (eq auth "clerk")}}
@@ -14244,14 +14244,14 @@ app.listen(3000, () => {
 	console.log("Server is running on http://localhost:3000");
 });
 `],
-  ["backend/server/fastify/src/index.ts.hbs", `import { env } from "@{{projectName}}/env/server";
+  ["backend/server/fastify/src/index.ts.hbs", `import { env } from "{{packageScope}}/env/server";
 import Fastify from "fastify";
 import fastifyCors from "@fastify/cors";
 
 {{#if (eq api "trpc")}}
 import { fastifyTRPCPlugin, type FastifyTRPCPluginOptions } from "@trpc/server/adapters/fastify";
-import { createContext } from "@{{projectName}}/api/context";
-import { appRouter, type AppRouter } from "@{{projectName}}/api/routers/index";
+import { createContext } from "{{packageScope}}/api/context";
+import { appRouter, type AppRouter } from "{{packageScope}}/api/routers/index";
 {{/if}}
 
 {{#if (eq api "orpc")}}
@@ -14260,8 +14260,8 @@ import { OpenAPIReferencePlugin } from "@orpc/openapi/plugins";
 import { ZodToJsonSchemaConverter } from "@orpc/zod/zod4";
 import { RPCHandler } from "@orpc/server/fastify";
 import { onError } from "@orpc/server";
-import { createContext } from "@{{projectName}}/api/context";
-import { appRouter } from "@{{projectName}}/api/routers/index";
+import { createContext } from "{{packageScope}}/api/context";
+import { appRouter } from "{{packageScope}}/api/routers/index";
 {{/if}}
 
 {{#if (includes examples "ai")}}
@@ -14271,7 +14271,7 @@ import { devToolsMiddleware } from "@ai-sdk/devtools";
 {{/if}}
 
 {{#if (eq auth "better-auth")}}
-import { auth } from "@{{projectName}}/auth";
+import { auth } from "{{packageScope}}/auth";
 {{/if}}
 {{#if (eq auth "clerk")}}
 import { clerkPlugin } from "@clerk/fastify";
@@ -14433,26 +14433,26 @@ fastify.listen({ port: 3000 }, (err) => {
 	console.log("Server running on port 3000");
 });
 `],
-  ["backend/server/hono/src/index.ts.hbs", `import { env } from "@{{projectName}}/env/server";
+  ["backend/server/hono/src/index.ts.hbs", `import { env } from "{{packageScope}}/env/server";
 {{#if (eq api "orpc")}}
 import { OpenAPIHandler } from "@orpc/openapi/fetch";
 import { OpenAPIReferencePlugin } from "@orpc/openapi/plugins";
 import { ZodToJsonSchemaConverter } from "@orpc/zod/zod4";
 import { RPCHandler } from "@orpc/server/fetch";
 import { onError } from "@orpc/server";
-import { createContext } from "@{{projectName}}/api/context";
-import { appRouter } from "@{{projectName}}/api/routers/index";
+import { createContext } from "{{packageScope}}/api/context";
+import { appRouter } from "{{packageScope}}/api/routers/index";
 {{/if}}
 {{#if (eq api "trpc")}}
 import { trpcServer } from "@hono/trpc-server";
-import { createContext } from "@{{projectName}}/api/context";
-import { appRouter } from "@{{projectName}}/api/routers/index";
+import { createContext } from "{{packageScope}}/api/context";
+import { appRouter } from "{{packageScope}}/api/routers/index";
 {{/if}}
 {{#if (eq auth "better-auth")}}
 {{#if (or (eq runtime "workers") (eq serverDeploy "cloudflare") (and (eq backend "self") (eq webDeploy "cloudflare")))}}
-import { createAuth } from "@{{projectName}}/auth";
+import { createAuth } from "{{packageScope}}/auth";
 {{else}}
-import { auth } from "@{{projectName}}/auth";
+import { auth } from "{{packageScope}}/auth";
 {{/if}}
 {{/if}}
 import { Hono } from "hono";
@@ -14684,7 +14684,7 @@ temp
 }
 `],
   ["base/tsconfig.json.hbs", `{
-  "extends": "@{{projectName}}/config/tsconfig.base.json",
+  "extends": "{{packageScope}}/config/tsconfig.base.json",
 }
 `],
   ["db-setup/docker-compose/mongodb/docker-compose.yml.hbs", `name: {{projectName}}
@@ -14794,7 +14794,7 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 .DS_Store
 `],
   ["db/base/package.json.hbs", `{
-  "name": "@{{projectName}}/db",
+  "name": "{{packageScope}}/db",
   "type": "module",
   "exports": {
     ".": {
@@ -14808,7 +14808,7 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
   "devDependencies": {}
 }`],
   ["db/base/tsconfig.json.hbs", `{
-  "extends": "@{{projectName}}/config/tsconfig.base.json",
+  "extends": "{{packageScope}}/config/tsconfig.base.json",
   "compilerOptions": {
     "declaration": true,
     "declarationMap": true,
@@ -14846,9 +14846,9 @@ export default defineConfig({
 `],
   ["db/drizzle/mysql/src/index.ts.hbs", `{{#if (or (eq runtime "bun") (eq runtime "node") (eq runtime "none"))}}
 {{#if (and (eq backend "self") (eq webDeploy "cloudflare") (includes frontend "svelte"))}}
-import type {} from "@{{projectName}}/env/server";
+import type {} from "{{packageScope}}/env/server";
 {{else}}
-import { env } from "@{{projectName}}/env/server";
+import { env } from "{{packageScope}}/env/server";
 {{/if}}
 import * as schema from "./schema";
 
@@ -14888,7 +14888,7 @@ import * as schema from "./schema";
 
 {{#if (eq dbSetup "planetscale")}}
 import { drizzle } from "drizzle-orm/planetscale-serverless";
-import { env } from "@{{projectName}}/env/server";
+import { env } from "{{packageScope}}/env/server";
 
 export function createDb() {
 	return drizzle({
@@ -14902,7 +14902,7 @@ export function createDb() {
 }
 {{else}}
 import { drizzle } from "drizzle-orm/mysql2";
-import { env } from "@{{projectName}}/env/server";
+import { env } from "{{packageScope}}/env/server";
 
 export function createDb() {
 	return drizzle({
@@ -14937,9 +14937,9 @@ export default defineConfig({
 `],
   ["db/drizzle/postgres/src/index.ts.hbs", `{{#if (or (eq runtime "bun") (eq runtime "node") (eq runtime "none"))}}
 {{#if (and (eq backend "self") (eq webDeploy "cloudflare") (includes frontend "svelte"))}}
-import type {} from "@{{projectName}}/env/server";
+import type {} from "{{packageScope}}/env/server";
 {{else}}
-import { env } from "@{{projectName}}/env/server";
+import { env } from "{{packageScope}}/env/server";
 {{/if}}
 import * as schema from "./schema";
 
@@ -14982,7 +14982,7 @@ import * as schema from "./schema";
 {{#if (eq dbSetup "neon")}}
 import { neon } from '@neondatabase/serverless';
 import { drizzle } from 'drizzle-orm/neon-http';
-import { env } from "@{{projectName}}/env/server";
+import { env } from "{{packageScope}}/env/server";
 
 export function createDb() {
 	const sql = neon(env.DATABASE_URL || "");
@@ -14990,7 +14990,7 @@ export function createDb() {
 }
 {{else}}
 import { drizzle } from "drizzle-orm/node-postgres";
-import { env } from "@{{projectName}}/env/server";
+import { env } from "{{packageScope}}/env/server";
 import { Pool } from "pg";
 
 export function createDb() {
@@ -15037,9 +15037,9 @@ export default defineConfig({
 import * as schema from "./schema";
 import { drizzle } from "drizzle-orm/d1";
 {{#if (and (eq backend "self") (eq webDeploy "cloudflare") (includes frontend "svelte"))}}
-import type {} from "@{{projectName}}/env/server";
+import type {} from "{{packageScope}}/env/server";
 {{else}}
-import { env } from "@{{projectName}}/env/server";
+import { env } from "{{packageScope}}/env/server";
 {{/if}}
 
 export function createDb({{#if (and (eq backend "self") (eq webDeploy "cloudflare") (includes frontend "svelte"))}}env: Env{{else}}runtimeEnv = env{{/if}}) {
@@ -15047,9 +15047,9 @@ export function createDb({{#if (and (eq backend "self") (eq webDeploy "cloudflar
 }
 {{else if (or (eq runtime "bun") (eq runtime "node") (eq runtime "none"))}}
 {{#if (and (eq backend "self") (eq webDeploy "cloudflare") (includes frontend "svelte"))}}
-import type {} from "@{{projectName}}/env/server";
+import type {} from "{{packageScope}}/env/server";
 {{else}}
-import { env } from "@{{projectName}}/env/server";
+import { env } from "{{packageScope}}/env/server";
 {{/if}}
 import * as schema from "./schema";
 import { drizzle } from "drizzle-orm/libsql";
@@ -15072,7 +15072,7 @@ export const db = createDb();
 {{else if (eq runtime "workers")}}
 import * as schema from "./schema";
 import { drizzle } from "drizzle-orm/libsql";
-import { env } from "@{{projectName}}/env/server";
+import { env } from "{{packageScope}}/env/server";
 import { createClient } from "@libsql/client";
 
 export function createDb(runtimeEnv = env) {
@@ -15089,7 +15089,7 @@ export function createDb(runtimeEnv = env) {
 `],
   ["db/drizzle/sqlite/src/migrations/.gitkeep", ``],
   ["db/mongoose/mongodb/src/index.ts.hbs", `import mongoose from "mongoose";
-import { env } from "@{{projectName}}/env/server";
+import { env } from "{{packageScope}}/env/server";
 
 await mongoose.connect(env.DATABASE_URL).catch((error) => {
 	console.log("Error connecting to database:", error);
@@ -15188,7 +15188,7 @@ datasource db {
 }`],
   ["db/prisma/mysql/src/index.ts.hbs", `{{#if (eq runtime "workers")}}
 import { PrismaClient } from "../prisma/generated/client";
-import { env } from "@{{projectName}}/env/server";
+import { env } from "{{packageScope}}/env/server";
 
 {{#if (eq dbSetup "planetscale")}}
 import { PrismaPlanetScale } from "@prisma/adapter-planetscale";
@@ -15218,9 +15218,9 @@ export function createPrismaClient() {
 {{else}}
 import { PrismaClient } from "../prisma/generated/client";
 {{#if (and (eq backend "self") (eq webDeploy "cloudflare") (includes frontend "svelte"))}}
-import type {} from "@{{projectName}}/env/server";
+import type {} from "{{packageScope}}/env/server";
 {{else}}
-import { env } from "@{{projectName}}/env/server";
+import { env } from "{{packageScope}}/env/server";
 {{/if}}
 
 {{#if (eq dbSetup "planetscale")}}
@@ -15301,7 +15301,7 @@ datasource db {
 `],
   ["db/prisma/postgres/src/index.ts.hbs", `{{#if (eq runtime "workers")}}
 import { PrismaClient } from "../prisma/generated/client";
-import { env } from "@{{projectName}}/env/server";
+import { env } from "{{packageScope}}/env/server";
 {{#if (eq dbSetup "neon")}}
 import { PrismaNeon } from "@prisma/adapter-neon";
 import { neonConfig } from "@neondatabase/serverless";
@@ -15343,9 +15343,9 @@ export function createPrismaClient() {
 {{else}}
 import { PrismaClient } from "../prisma/generated/client";
 {{#if (and (eq backend "self") (eq webDeploy "cloudflare") (includes frontend "svelte"))}}
-import type {} from "@{{projectName}}/env/server";
+import type {} from "{{packageScope}}/env/server";
 {{else}}
-import { env } from "@{{projectName}}/env/server";
+import { env } from "{{packageScope}}/env/server";
 {{/if}}
 {{#if (eq dbSetup "neon")}}
 import { PrismaNeon } from "@prisma/adapter-neon";
@@ -15441,9 +15441,9 @@ datasource db {
 {{#if (eq dbSetup "d1")}}
 import { PrismaD1 } from "@prisma/adapter-d1";
 {{#if (and (eq backend "self") (eq webDeploy "cloudflare") (includes frontend "svelte"))}}
-import type {} from "@{{projectName}}/env/server";
+import type {} from "{{packageScope}}/env/server";
 {{else}}
-import { env } from "@{{projectName}}/env/server";
+import { env } from "{{packageScope}}/env/server";
 {{/if}}
 
 export function createPrismaClient({{#if (and (eq backend "self") (eq webDeploy "cloudflare") (includes frontend "svelte"))}}env: Env{{/if}}) {
@@ -15458,9 +15458,9 @@ export default prisma;
 {{else}}
 import { PrismaLibSql } from "@prisma/adapter-libsql";
 {{#if (and (eq backend "self") (eq webDeploy "cloudflare") (includes frontend "svelte"))}}
-import type {} from "@{{projectName}}/env/server";
+import type {} from "{{packageScope}}/env/server";
 {{else}}
-import { env } from "@{{projectName}}/env/server";
+import { env } from "{{packageScope}}/env/server";
 {{/if}}
 
 export function createPrismaClient({{#if (and (eq backend "self") (eq webDeploy "cloudflare") (includes frontend "svelte"))}}env: Env{{/if}}) {
@@ -15664,7 +15664,7 @@ import {
   useSmoothText,
   type UIMessage,
 } from "@convex-dev/agent/react";
-import { api } from "@{{projectName}}/backend/convex/_generated/api";
+import { api } from "{{packageScope}}/backend/convex/_generated/api";
 import { useMutation } from "convex/react";
 import { useRef, useEffect, useState } from "react";
 import {
@@ -15973,7 +15973,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { Container } from "@/components/container";
 import { useColorScheme } from "@/lib/use-color-scheme";
 import { NAV_THEME } from "@/lib/constants";
-import { env } from "@{{projectName}}/env/native";
+import { env } from "{{packageScope}}/env/native";
 
 const generateAPIUrl = (relativePath: string) => {
   const serverUrl = env.EXPO_PUBLIC_SERVER_URL;
@@ -16274,7 +16274,7 @@ import {
   useSmoothText,
   type UIMessage,
 } from "@convex-dev/agent/react";
-import { api } from "@{{projectName}}/backend/convex/_generated/api";
+import { api } from "{{packageScope}}/backend/convex/_generated/api";
 import { useMutation } from "convex/react";
 import React, { useRef, useEffect, useState } from "react";
 import {
@@ -16577,7 +16577,7 @@ import { fetch as expoFetch } from "expo/fetch";
 import { Ionicons } from "@expo/vector-icons";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 import { Container } from "@/components/container";
-import { env } from "@{{projectName}}/env/native";
+import { env } from "{{packageScope}}/env/native";
 
 const generateAPIUrl = (relativePath: string) => {
   const serverUrl = env.EXPO_PUBLIC_SERVER_URL;
@@ -16886,7 +16886,7 @@ import {
   useSmoothText,
   type UIMessage,
 } from "@convex-dev/agent/react";
-import { api } from "@{{projectName}}/backend/convex/_generated/api";
+import { api } from "{{packageScope}}/backend/convex/_generated/api";
 import { useMutation } from "convex/react";
 import { Button, Separator, Spinner, Surface, Input, TextField, useThemeColor } from "heroui-native";
 import { useRef, useEffect, useState } from "react";
@@ -17063,7 +17063,7 @@ import { fetch as expoFetch } from "expo/fetch";
 import { Ionicons } from "@expo/vector-icons";
 import { Container } from "@/components/container";
 import { Button, Separator, FieldError, Spinner, Surface, Input, TextField, useThemeColor } from "heroui-native";
-import { env } from "@{{projectName}}/env/native";
+import { env } from "{{packageScope}}/env/native";
 
 const generateAPIUrl = (relativePath: string) => {
   const serverUrl = env.EXPO_PUBLIC_SERVER_URL;
@@ -17400,7 +17400,7 @@ async function handleSubmit(e: Event) {
   ["examples/ai/web/react/next/src/app/ai/page.tsx.hbs", `{{#if (eq backend "convex")}}
 "use client";
 
-import { api } from "@{{projectName}}/backend/convex/_generated/api";
+import { api } from "{{packageScope}}/backend/convex/_generated/api";
 import {
   useUIMessages,
   useSmoothText,
@@ -17427,8 +17427,8 @@ import { Streamdown } from "streamdown";
 {{/if}}
 import { useEffect, useRef, useState, type FormEvent } from "react";
 
-import { Button } from "@{{projectName}}/ui/components/button";
-import { Input } from "@{{projectName}}/ui/components/input";
+import { Button } from "{{packageScope}}/ui/components/button";
+import { Input } from "{{packageScope}}/ui/components/input";
 
 function MessageContent({
   text,
@@ -17578,9 +17578,9 @@ import { Streamdown } from "streamdown";
 {{/if}}
 import { useEffect, useRef, useState, type FormEvent } from "react";
 
-import { Button } from "@{{projectName}}/ui/components/button";
-import { Input } from "@{{projectName}}/ui/components/input";
-import { env } from "@{{projectName}}/env/web";
+import { Button } from "{{packageScope}}/ui/components/button";
+import { Input } from "{{packageScope}}/ui/components/input";
+import { env } from "{{packageScope}}/env/web";
 
 export default function AIPage() {
   const [input, setInput] = useState("");
@@ -17666,7 +17666,7 @@ export default function AIPage() {
 {{/if}}
 `],
   ["examples/ai/web/react/react-router/src/routes/ai.tsx.hbs", `{{#if (eq backend "convex")}}
-import { api } from "@{{projectName}}/backend/convex/_generated/api";
+import { api } from "{{packageScope}}/backend/convex/_generated/api";
 import {
   useUIMessages,
   useSmoothText,
@@ -17677,8 +17677,8 @@ import { Send, Loader2 } from "lucide-react";
 import React, { useRef, useEffect, useState, type FormEvent } from "react";
 import { Streamdown } from "streamdown";
 
-import { Button } from "@{{projectName}}/ui/components/button";
-import { Input } from "@{{projectName}}/ui/components/input";
+import { Button } from "{{packageScope}}/ui/components/button";
+import { Input } from "{{packageScope}}/ui/components/input";
 
 function MessageContent({
   text,
@@ -17811,10 +17811,10 @@ import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
 import { Send } from "lucide-react";
 import { Streamdown } from "streamdown";
-import { env } from "@{{projectName}}/env/web";
+import { env } from "{{packageScope}}/env/web";
 
-import { Button } from "@{{projectName}}/ui/components/button";
-import { Input } from "@{{projectName}}/ui/components/input";
+import { Button } from "{{packageScope}}/ui/components/button";
+import { Input } from "{{packageScope}}/ui/components/input";
 
 const AI: React.FC = () => {
   const [input, setInput] = useState("");
@@ -17902,7 +17902,7 @@ export default AI;
 {{/if}}
 `],
   ["examples/ai/web/react/tanstack-router/src/routes/ai.tsx.hbs", `{{#if (eq backend "convex")}}
-import { api } from "@{{projectName}}/backend/convex/_generated/api";
+import { api } from "{{packageScope}}/backend/convex/_generated/api";
 import {
   useUIMessages,
   useSmoothText,
@@ -17914,8 +17914,8 @@ import { Send, Loader2 } from "lucide-react";
 import { useRef, useEffect, useState, type FormEvent } from "react";
 import { Streamdown } from "streamdown";
 
-import { Button } from "@{{projectName}}/ui/components/button";
-import { Input } from "@{{projectName}}/ui/components/input";
+import { Button } from "{{packageScope}}/ui/components/button";
+import { Input } from "{{packageScope}}/ui/components/input";
 
 export const Route = createFileRoute("/ai")({
   component: RouteComponent,
@@ -18048,13 +18048,13 @@ function RouteComponent() {
 import { createFileRoute } from "@tanstack/react-router";
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
-import { Input } from "@{{projectName}}/ui/components/input";
-import { Button } from "@{{projectName}}/ui/components/button";
+import { Input } from "{{packageScope}}/ui/components/input";
+import { Button } from "{{packageScope}}/ui/components/button";
 import { Send } from "lucide-react";
 import { useRef, useEffect, useState, type FormEvent } from "react";
 import { Streamdown } from "streamdown";
 {{#unless (eq backend "self")}}
-import { env } from "@{{projectName}}/env/web";
+import { env } from "{{packageScope}}/env/web";
 {{/unless}}
 
 export const Route = createFileRoute("/ai")({
@@ -18145,7 +18145,7 @@ function RouteComponent() {
 {{/if}}
 `],
   ["examples/ai/web/react/tanstack-start/src/routes/ai.tsx.hbs", `{{#if (eq backend "convex")}}
-import { api } from "@{{projectName}}/backend/convex/_generated/api";
+import { api } from "{{packageScope}}/backend/convex/_generated/api";
 import {
   useUIMessages,
   useSmoothText,
@@ -18157,8 +18157,8 @@ import { Send, Loader2 } from "lucide-react";
 import { useRef, useEffect, useState, type FormEvent } from "react";
 import { Streamdown } from "streamdown";
 
-import { Button } from "@{{projectName}}/ui/components/button";
-import { Input } from "@{{projectName}}/ui/components/input";
+import { Button } from "{{packageScope}}/ui/components/button";
+import { Input } from "{{packageScope}}/ui/components/input";
 
 export const Route = createFileRoute("/ai")({
   component: RouteComponent,
@@ -18295,11 +18295,11 @@ import { Send } from "lucide-react";
 import { useRef, useEffect, useState, type FormEvent } from "react";
 import { Streamdown } from "streamdown";
 {{#unless (eq backend "self")}}
-import { env } from "@{{projectName}}/env/web";
+import { env } from "{{packageScope}}/env/web";
 {{/unless}}
 
-import { Button } from "@{{projectName}}/ui/components/button";
-import { Input } from "@{{projectName}}/ui/components/input";
+import { Button } from "{{packageScope}}/ui/components/button";
+import { Input } from "{{packageScope}}/ui/components/input";
 
 export const Route = createFileRoute("/ai")({
   component: RouteComponent,
@@ -18558,8 +18558,8 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 {{#if (eq backend "convex")}}
 import { useMutation, useQuery } from "convex/react";
-import { api } from "@{{projectName}}/backend/convex/_generated/api";
-import type { Id } from "@{{projectName}}/backend/convex/_generated/dataModel";
+import { api } from "{{packageScope}}/backend/convex/_generated/api";
+import type { Id } from "{{packageScope}}/backend/convex/_generated/dataModel";
 {{else}}
 import { useMutation, useQuery } from "@tanstack/react-query";
 {{/if}}
@@ -19080,8 +19080,8 @@ import { StyleSheet, useUnistyles } from "react-native-unistyles";
 
 {{#if (eq backend "convex")}}
 import { useMutation, useQuery } from "convex/react";
-import { api } from "@{{projectName}}/backend/convex/_generated/api";
-import type { Id } from "@{{projectName}}/backend/convex/_generated/dataModel";
+import { api } from "{{packageScope}}/backend/convex/_generated/api";
+import type { Id } from "{{packageScope}}/backend/convex/_generated/dataModel";
 {{else}}
 import { useMutation, useQuery } from "@tanstack/react-query";
 {{/if}}
@@ -19411,8 +19411,8 @@ import { View, Text, ScrollView, Alert } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 {{#if (eq backend "convex")}}
 import { useMutation, useQuery } from "convex/react";
-import { api } from "@{{projectName}}/backend/convex/_generated/api";
-import type { Id } from "@{{projectName}}/backend/convex/_generated/dataModel";
+import { api } from "{{packageScope}}/backend/convex/_generated/api";
+import type { Id } from "{{packageScope}}/backend/convex/_generated/dataModel";
 {{else}}
 import { useMutation, useQuery } from "@tanstack/react-query";
 {{/if}}
@@ -19692,11 +19692,11 @@ export default function TodosScreen() {
 import { eq } from "drizzle-orm";
 import z from "zod";
 {{#if (or (eq runtime "workers") (eq serverDeploy "cloudflare") (and (eq backend "self") (eq webDeploy "cloudflare")))}}
-import { createDb } from "@{{projectName}}/db";
+import { createDb } from "{{packageScope}}/db";
 {{else}}
-import { db } from "@{{projectName}}/db";
+import { db } from "{{packageScope}}/db";
 {{/if}}
-import { todo } from "@{{projectName}}/db/schema/todo";
+import { todo } from "{{packageScope}}/db/schema/todo";
 import { publicProcedure } from "../index";
 
 export const todoRouter = {
@@ -19746,12 +19746,12 @@ export const todoRouter = {
 {{#if (eq api "trpc")}}
 import z from "zod";
 import { router, publicProcedure } from "../index";
-import { todo } from "@{{projectName}}/db/schema/todo";
+import { todo } from "{{packageScope}}/db/schema/todo";
 import { eq } from "drizzle-orm";
 {{#if (or (eq runtime "workers") (eq serverDeploy "cloudflare") (and (eq backend "self") (eq webDeploy "cloudflare")))}}
-import { createDb } from "@{{projectName}}/db";
+import { createDb } from "{{packageScope}}/db";
 {{else}}
-import { db } from "@{{projectName}}/db";
+import { db } from "{{packageScope}}/db";
 {{/if}}
 
 export const todoRouter = router({
@@ -19823,7 +19823,7 @@ export const todo = sqliteTable("todo", {
   ["examples/todo/server/mongoose/base/src/routers/todo.ts.hbs", `{{#if (eq api "orpc")}}
 import z from "zod";
 import { publicProcedure } from "../index";
-import { Todo } from "@{{projectName}}/db/models/todo.model";
+import { Todo } from "{{packageScope}}/db/models/todo.model";
 
 export const todoRouter = {
     getAll: publicProcedure.handler(async () => {
@@ -19857,7 +19857,7 @@ export const todoRouter = {
 {{#if (eq api "trpc")}}
 import z from "zod";
 import { router, publicProcedure } from "../index";
-import { Todo } from "@{{projectName}}/db/models/todo.model";
+import { Todo } from "{{packageScope}}/db/models/todo.model";
 
 export const todoRouter = router({
     getAll: publicProcedure.query(async () => {
@@ -19915,9 +19915,9 @@ export { Todo };
   ["examples/todo/server/prisma/base/src/routers/todo.ts.hbs", `{{#if (eq api "orpc")}}
 import z from "zod";
 {{#if (or (eq runtime "workers") (eq serverDeploy "cloudflare") (and (eq backend "self") (eq webDeploy "cloudflare")))}}
-import { createPrismaClient } from "@{{projectName}}/db";
+import { createPrismaClient } from "{{packageScope}}/db";
 {{else}}
-import prisma from "@{{projectName}}/db";
+import prisma from "{{packageScope}}/db";
 {{/if}}
 import { publicProcedure } from "../index";
 
@@ -19983,9 +19983,9 @@ export const todoRouter = {
 import { TRPCError } from "@trpc/server";
 import z from "zod";
 {{#if (or (eq runtime "workers") (eq serverDeploy "cloudflare") (and (eq backend "self") (eq webDeploy "cloudflare")))}}
-import { createPrismaClient } from "@{{projectName}}/db";
+import { createPrismaClient } from "{{packageScope}}/db";
 {{else}}
-import prisma from "@{{projectName}}/db";
+import prisma from "{{packageScope}}/db";
 {{/if}}
 import { publicProcedure, router } from "../index";
 
@@ -20260,8 +20260,8 @@ import Layout from "../layouts/Layout.astro";
   ["examples/todo/web/nuxt/app/pages/todos.vue.hbs", `<script setup lang="ts">
 import { ref } from 'vue'
 {{#if (eq backend "convex")}}
-import { api } from "@{{ projectName }}/backend/convex/_generated/api";
-import type { Id } from "@{{ projectName }}/backend/convex/_generated/dataModel";
+import { api } from "{{packageScope}}/backend/convex/_generated/api";
+import type { Id } from "{{packageScope}}/backend/convex/_generated/dataModel";
 import { useConvexMutation, useConvexQuery } from "convex-vue";
 
 const { data, error, isPending } = useConvexQuery(api.todos.getAll, {});
@@ -20486,23 +20486,23 @@ function handleDeleteTodo(id: number) {
 `],
   ["examples/todo/web/react/next/src/app/todos/page.tsx.hbs", `"use client"
 
-import { Button } from "@{{projectName}}/ui/components/button";
+import { Button } from "{{packageScope}}/ui/components/button";
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from "@{{projectName}}/ui/components/card";
-import { Checkbox } from "@{{projectName}}/ui/components/checkbox";
-import { Input } from "@{{projectName}}/ui/components/input";
+} from "{{packageScope}}/ui/components/card";
+import { Checkbox } from "{{packageScope}}/ui/components/checkbox";
+import { Input } from "{{packageScope}}/ui/components/input";
 import { Loader2, Trash2 } from "lucide-react";
 import { useState, type FormEvent } from "react";
 
 {{#if (eq backend "convex")}}
 import { useMutation, useQuery } from "convex/react";
-import { api } from "@{{projectName}}/backend/convex/_generated/api";
-import type { Id } from "@{{projectName}}/backend/convex/_generated/dataModel";
+import { api } from "{{packageScope}}/backend/convex/_generated/api";
+import type { Id } from "{{packageScope}}/backend/convex/_generated/dataModel";
 {{else}}
 import { useMutation, useQuery } from "@tanstack/react-query";
   {{#if (eq api "orpc")}}
@@ -20730,23 +20730,23 @@ export default function TodosPage() {
   );
 }
 `],
-  ["examples/todo/web/react/react-router/src/routes/todos.tsx.hbs", `import { Button } from "@{{projectName}}/ui/components/button";
+  ["examples/todo/web/react/react-router/src/routes/todos.tsx.hbs", `import { Button } from "{{packageScope}}/ui/components/button";
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from "@{{projectName}}/ui/components/card";
-import { Checkbox } from "@{{projectName}}/ui/components/checkbox";
-import { Input } from "@{{projectName}}/ui/components/input";
+} from "{{packageScope}}/ui/components/card";
+import { Checkbox } from "{{packageScope}}/ui/components/checkbox";
+import { Input } from "{{packageScope}}/ui/components/input";
 import { Loader2, Trash2 } from "lucide-react";
 import { useState, type FormEvent } from "react";
 
 {{#if (eq backend "convex")}}
 import { useMutation, useQuery } from "convex/react";
-import { api } from "@{{projectName}}/backend/convex/_generated/api";
-import type { Id } from "@{{projectName}}/backend/convex/_generated/dataModel";
+import { api } from "{{packageScope}}/backend/convex/_generated/api";
+import type { Id } from "{{packageScope}}/backend/convex/_generated/dataModel";
 {{else}}
   {{#if (eq api "orpc")}}
   import { orpc } from "@/utils/orpc";
@@ -20973,24 +20973,24 @@ export default function Todos() {
   );
 }
 `],
-  ["examples/todo/web/react/tanstack-router/src/routes/todos.tsx.hbs", `import { Button } from "@{{projectName}}/ui/components/button";
+  ["examples/todo/web/react/tanstack-router/src/routes/todos.tsx.hbs", `import { Button } from "{{packageScope}}/ui/components/button";
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from "@{{projectName}}/ui/components/card";
-import { Checkbox } from "@{{projectName}}/ui/components/checkbox";
-import { Input } from "@{{projectName}}/ui/components/input";
+} from "{{packageScope}}/ui/components/card";
+import { Checkbox } from "{{packageScope}}/ui/components/checkbox";
+import { Input } from "{{packageScope}}/ui/components/input";
 import { createFileRoute } from "@tanstack/react-router";
 import { Loader2, Trash2 } from "lucide-react";
 import { useState, type FormEvent } from "react";
 
 {{#if (eq backend "convex")}}
 import { useMutation, useQuery } from "convex/react";
-import { api } from "@{{projectName}}/backend/convex/_generated/api";
-import type { Id } from "@{{projectName}}/backend/convex/_generated/dataModel";
+import { api } from "{{packageScope}}/backend/convex/_generated/api";
+import type { Id } from "{{packageScope}}/backend/convex/_generated/dataModel";
 {{else}}
   {{#if (eq api "orpc")}}
   import { orpc } from "@/utils/orpc";
@@ -21221,16 +21221,16 @@ function TodosRoute() {
   );
 }
 `],
-  ["examples/todo/web/react/tanstack-start/src/routes/todos.tsx.hbs", `import { Button } from "@{{projectName}}/ui/components/button";
+  ["examples/todo/web/react/tanstack-start/src/routes/todos.tsx.hbs", `import { Button } from "{{packageScope}}/ui/components/button";
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from "@{{projectName}}/ui/components/card";
-import { Checkbox } from "@{{projectName}}/ui/components/checkbox";
-import { Input } from "@{{projectName}}/ui/components/input";
+} from "{{packageScope}}/ui/components/card";
+import { Checkbox } from "{{packageScope}}/ui/components/checkbox";
+import { Input } from "{{packageScope}}/ui/components/input";
 import { createFileRoute } from "@tanstack/react-router";
 {{#if (eq backend "convex")}}
 import { Trash2 } from "lucide-react";
@@ -21243,8 +21243,8 @@ import { useState, type FormEvent } from "react";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { convexQuery } from "@convex-dev/react-query";
 import { useMutation } from "convex/react";
-import { api } from "@{{projectName}}/backend/convex/_generated/api";
-import type { Id } from "@{{projectName}}/backend/convex/_generated/dataModel";
+import { api } from "{{packageScope}}/backend/convex/_generated/api";
+import type { Id } from "{{packageScope}}/backend/convex/_generated/dataModel";
 {{else}}
 {{#if (eq api "trpc")}}
 import { useTRPC } from "@/utils/trpc";
@@ -21630,8 +21630,8 @@ function TodosRoute() {
   ["examples/todo/web/svelte/src/routes/todos/+page.svelte.hbs", `{{#if (eq backend "convex")}}
 <script lang="ts">
 	import { useQuery, useConvexClient } from 'convex-svelte';
-	import { api } from '@{{projectName}}/backend/convex/_generated/api';
-	import type { Id } from '@{{projectName}}/backend/convex/_generated/dataModel';
+	import { api } from '{{packageScope}}/backend/convex/_generated/api';
+	import type { Id } from '{{packageScope}}/backend/convex/_generated/dataModel';
 
 	let newTodoText = $state('');
 	let isAdding = $state(false);
@@ -21957,9 +21957,9 @@ linker = "hoisted" # having issues with Nuxt when linker is isolated
 linker = "isolated"
 {{/if}}`],
   ["extras/env.d.ts.hbs", `{{#if (eq serverDeploy "cloudflare")}}
-import { type server } from "@{{projectName}}/infra/alchemy.run";
+import { type server } from "{{packageScope}}/infra/alchemy.run";
 {{else}}
-import { type web as server } from "@{{projectName}}/infra/alchemy.run";
+import { type web as server } from "{{packageScope}}/infra/alchemy.run";
 {{/if}}
 
 // This file infers types for the cloudflare:workers environment from your Alchemy Worker.
@@ -22323,7 +22323,7 @@ import { setClerkAuthTokenGetter } from "@/utils/clerk-auth";
 {{#if (and (ne backend "convex") (eq auth "clerk"))}}
 import { ClerkProvider{{#unless (eq api "none")}}, useAuth{{/unless}} } from "@clerk/expo";
 import { tokenCache } from "@clerk/expo/token-cache";
-import { env } from "@{{projectName}}/env/native";
+import { env } from "{{packageScope}}/env/native";
 {{/if}}
 
 {{#if (eq backend "convex")}}
@@ -22331,10 +22331,10 @@ import { env } from "@{{projectName}}/env/native";
     import { ConvexReactClient } from "convex/react";
     import { ConvexBetterAuthProvider } from "@convex-dev/better-auth/react";
     import { authClient } from "@/lib/auth-client";
-    import { env } from "@{{projectName}}/env/native";
+    import { env } from "{{packageScope}}/env/native";
   {{else}}
     import { ConvexProvider, ConvexReactClient } from "convex/react";
-    import { env } from "@{{projectName}}/env/native";
+    import { env } from "{{packageScope}}/env/native";
   {{/if}}
   {{#if (eq auth "clerk")}}
     import { ClerkProvider, useAuth } from "@clerk/expo";
@@ -22752,7 +22752,7 @@ import { trpc } from "@/utils/trpc";
 {{#if (and (eq backend "convex") (eq auth "clerk"))}}
 import { Link } from "expo-router";
 import { Authenticated, AuthLoading, Unauthenticated, useQuery } from "convex/react";
-import { api } from "@{{ projectName }}/backend/convex/_generated/api";
+import { api } from "{{packageScope}}/backend/convex/_generated/api";
 import { useUser } from "@clerk/expo";
 import { SignOutButton } from "@/components/sign-out-button";
 {{else if (and (ne backend "convex") (eq auth "clerk"))}}
@@ -22761,13 +22761,13 @@ import { useAuth, useUser } from "@clerk/expo";
 import { SignOutButton } from "@/components/sign-out-button";
 {{else if (and (eq backend "convex") (eq auth "better-auth"))}}
 import { useConvexAuth, useQuery } from "convex/react";
-import { api } from "@{{ projectName }}/backend/convex/_generated/api";
+import { api } from "{{packageScope}}/backend/convex/_generated/api";
 import { authClient } from "@/lib/auth-client";
 import { SignIn } from "@/components/sign-in";
 import { SignUp } from "@/components/sign-up";
 {{else if (eq backend "convex")}}
 import { useQuery } from "convex/react";
-import { api } from "@{{ projectName }}/backend/convex/_generated/api";
+import { api } from "{{packageScope}}/backend/convex/_generated/api";
 {{/if}}
 
 export default function Home() {
@@ -23394,7 +23394,7 @@ import { setClerkAuthTokenGetter } from "@/utils/clerk-auth";
 {{#if (and (ne backend "convex") (eq auth "clerk"))}}
 import { ClerkProvider{{#unless (eq api "none")}}, useAuth{{/unless}} } from "@clerk/expo";
 import { tokenCache } from "@clerk/expo/token-cache";
-import { env } from "@{{projectName}}/env/native";
+import { env } from "{{packageScope}}/env/native";
 {{/if}}
 {{#if (eq api "trpc")}}
 import { queryClient } from "@/utils/trpc";
@@ -23407,10 +23407,10 @@ import { queryClient } from "@/utils/orpc";
 import { ConvexReactClient } from "convex/react";
 import { ConvexBetterAuthProvider } from "@convex-dev/better-auth/react";
 import { authClient } from "@/lib/auth-client";
-import { env } from "@{{projectName}}/env/native";
+import { env } from "{{packageScope}}/env/native";
 {{else}}
 import { ConvexProvider, ConvexReactClient } from "convex/react";
-import { env } from "@{{projectName}}/env/native";
+import { env } from "{{packageScope}}/env/native";
 {{/if}}
 {{#if (eq auth "clerk")}}
 import { ClerkProvider, useAuth } from "@clerk/expo";
@@ -23855,7 +23855,7 @@ import { trpc } from "@/utils/trpc";
 {{#if (and (eq backend "convex") (eq auth "clerk"))}}
 import { Link } from "expo-router";
 import { Authenticated, AuthLoading, Unauthenticated, useQuery } from "convex/react";
-import { api } from "@{{ projectName }}/backend/convex/_generated/api";
+import { api } from "{{packageScope}}/backend/convex/_generated/api";
 import { useUser } from "@clerk/expo";
 import { SignOutButton } from "@/components/sign-out-button";
 {{else if (and (ne backend "convex") (eq auth "clerk"))}}
@@ -23864,13 +23864,13 @@ import { useAuth, useUser } from "@clerk/expo";
 import { SignOutButton } from "@/components/sign-out-button";
 {{else if (and (eq backend "convex") (eq auth "better-auth"))}}
 import { useConvexAuth, useQuery } from "convex/react";
-import { api } from "@{{ projectName }}/backend/convex/_generated/api";
+import { api } from "{{packageScope}}/backend/convex/_generated/api";
 import { authClient } from "@/lib/auth-client";
 import { SignIn } from "@/components/sign-in";
 import { SignUp } from "@/components/sign-up";
 {{else if (eq backend "convex")}}
 import { useQuery } from "convex/react";
-import { api } from "@{{ projectName }}/backend/convex/_generated/api";
+import { api } from "{{packageScope}}/backend/convex/_generated/api";
 {{/if}}
 
 export default function Home() {
@@ -24692,7 +24692,7 @@ import "@/global.css";
 {{#if (and (ne backend "convex") (eq auth "clerk"))}}
 import { ClerkProvider{{#unless (eq api "none")}}, useAuth{{/unless}} } from "@clerk/expo";
 import { tokenCache } from "@clerk/expo/token-cache";
-import { env } from "@{{projectName}}/env/native";
+import { env } from "{{packageScope}}/env/native";
 {{/if}}
 
 {{#if (eq backend "convex")}}
@@ -24700,10 +24700,10 @@ import { env } from "@{{projectName}}/env/native";
     import { ConvexReactClient } from "convex/react";
     import { ConvexBetterAuthProvider } from "@convex-dev/better-auth/react";
     import { authClient } from "@/lib/auth-client";
-    import { env } from "@{{projectName}}/env/native";
+    import { env } from "{{packageScope}}/env/native";
   {{else}}
     import { ConvexProvider, ConvexReactClient } from "convex/react";
-    import { env } from "@{{projectName}}/env/native";
+    import { env } from "{{packageScope}}/env/native";
   {{/if}}
 
   {{#if (eq auth "clerk")}}
@@ -25053,7 +25053,7 @@ import { trpc } from "@/utils/trpc";
 {{#if (and (eq backend "convex") (eq auth "clerk"))}}
 import { Link } from "expo-router";
 import { Authenticated, AuthLoading, Unauthenticated, useQuery } from "convex/react";
-import { api } from "@{{projectName}}/backend/convex/_generated/api";
+import { api } from "{{packageScope}}/backend/convex/_generated/api";
 import { useUser } from "@clerk/expo";
 import { SignOutButton } from "@/components/sign-out-button";
 {{else if (and (ne backend "convex") (eq auth "clerk"))}}
@@ -25062,13 +25062,13 @@ import { useAuth, useUser } from "@clerk/expo";
 import { SignOutButton } from "@/components/sign-out-button";
 {{else if (and (eq backend "convex") (eq auth "better-auth"))}}
 import { useConvexAuth, useQuery } from "convex/react";
-import { api } from "@{{projectName}}/backend/convex/_generated/api";
+import { api } from "{{packageScope}}/backend/convex/_generated/api";
 import { authClient } from "@/lib/auth-client";
 import { SignIn } from "@/components/sign-in";
 import { SignUp } from "@/components/sign-up";
 {{else if (eq backend "convex")}}
 import { useQuery } from "convex/react";
-import { api } from "@{{projectName}}/backend/convex/_generated/api";
+import { api } from "{{packageScope}}/backend/convex/_generated/api";
 {{/if}}
 {{#unless (or (eq backend "none") (and (eq backend "convex") (eq auth "better-auth")))}}
 import { Ionicons } from "@expo/vector-icons";
@@ -25690,7 +25690,7 @@ const items = computed<NavigationMenuItem[]>(() => [
 `],
   ["frontend/nuxt/app/pages/index.vue.hbs", `<script setup lang="ts">
 {{#if (eq backend "convex")}}
-import { api } from "@{{ projectName }}/backend/convex/_generated/api";
+import { api } from "{{packageScope}}/backend/convex/_generated/api";
 import { useConvexQuery } from "convex-vue";
 {{else}}
   {{#unless (eq api "none")}}
@@ -25792,7 +25792,7 @@ onServerPrefetch(async () => {
   </UContainer>
 </template>
 `],
-  ["frontend/nuxt/nuxt.config.ts.hbs", `import "@{{projectName}}/env/web";
+  ["frontend/nuxt/nuxt.config.ts.hbs", `import "{{packageScope}}/env/web";
 
 // https://nuxt.com/docs/api/configuration/nuxt-config
 export default defineNuxtConfig({
@@ -25878,7 +25878,7 @@ Disallow:
 // NOTE: This file should not be edited
 // see https://nextjs.org/docs/app/api-reference/config/typescript for more information.
 `],
-  ["frontend/react/next/next.config.ts.hbs", `import "@{{projectName}}/env/web";
+  ["frontend/react/next/next.config.ts.hbs", `import "{{packageScope}}/env/web";
 {{#if (eq webDeploy "cloudflare")}}
 import { initOpenNextCloudflareForDev } from "@opennextjs/cloudflare";
 {{/if}}
@@ -25911,7 +25911,7 @@ initOpenNextCloudflareForDev();
     "start": "next start"
   },
   "dependencies": {
-    "@{{projectName}}/ui": "{{#if (eq packageManager "npm")}}*{{else}}workspace:*{{/if}}",
+    "{{packageScope}}/ui": "{{#if (eq packageManager "npm")}}*{{else}}workspace:*{{/if}}",
     "lucide-react": "^0.546.0",
     "next": "^16.2.0",
     "next-themes": "^0.4.6",
@@ -26016,7 +26016,7 @@ export default function RootLayout({
   ["frontend/react/next/src/app/page.tsx.hbs", `"use client"
 {{#if (eq backend "convex")}}
 import { useQuery } from "convex/react";
-import { api } from "@{{projectName}}/backend/convex/_generated/api";
+import { api } from "{{packageScope}}/backend/convex/_generated/api";
 {{else if (or (eq api "orpc") (eq api "trpc"))}}
 import { useQuery } from "@tanstack/react-query";
   {{#if (eq api "orpc")}}
@@ -26098,13 +26098,13 @@ export default function Home() {
 import * as React from "react"
 import { Moon, Sun } from "lucide-react"
 import { useTheme } from "next-themes"
-import { Button } from "@{{projectName}}/ui/components/button"
+import { Button } from "{{packageScope}}/ui/components/button"
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "@{{projectName}}/ui/components/dropdown-menu"
+} from "{{packageScope}}/ui/components/dropdown-menu"
 
 export function ModeToggle() {
   const { setTheme } = useTheme()
@@ -26144,15 +26144,15 @@ import { useAuth } from "@clerk/nextjs";
 {{#if (eq auth "clerk")}}
 import { ConvexReactClient } from "convex/react";
 import { ConvexProviderWithClerk } from "convex/react-clerk";
-import { env } from "@{{projectName}}/env/web";
+import { env } from "{{packageScope}}/env/web";
 {{else if (eq auth "better-auth")}}
 import { ConvexReactClient } from "convex/react";
 import { ConvexBetterAuthProvider } from "@convex-dev/better-auth/react";
 import { authClient } from "@/lib/auth-client";
-import { env } from "@{{projectName}}/env/web";
+import { env } from "{{packageScope}}/env/web";
 {{else}}
 import { ConvexProvider, ConvexReactClient } from "convex/react";
-import { env } from "@{{projectName}}/env/web";
+import { env } from "{{packageScope}}/env/web";
 {{/if}}
 {{else}}
 {{#unless (eq api "none")}}
@@ -26167,7 +26167,7 @@ import { queryClient } from "@/utils/trpc";
 {{/unless}}
 {{/if}}
 import { ThemeProvider } from "./theme-provider";
-import { Toaster } from "@{{projectName}}/ui/components/sonner";
+import { Toaster } from "{{packageScope}}/ui/components/sonner";
 
 {{#if (eq backend "convex")}}
 const convex = new ConvexReactClient(env.NEXT_PUBLIC_CONVEX_URL);
@@ -26281,7 +26281,7 @@ export function ThemeProvider({
     ],
     "paths": {
       "@/*": ["./src/*"],
-      "@{{projectName}}/ui/*": ["../../packages/ui/src/*"]
+      "{{packageScope}}/ui/*": ["../../packages/ui/src/*"]
     }{{#if (or (eq serverDeploy "cloudflare") (eq webDeploy "cloudflare"))}},
     "types": [
       "@cloudflare/workers-types"
@@ -26313,7 +26313,7 @@ export function ThemeProvider({
     "typecheck": "react-router typegen && tsc"
   },
   "dependencies": {
-    "@{{projectName}}/ui": "{{#if (eq packageManager "npm")}}*{{else}}workspace:*{{/if}}",
+    "{{packageScope}}/ui": "{{#if (eq packageManager "npm")}}*{{else}}workspace:*{{/if}}",
     "@react-router/fs-routes": "^7.14.1",
     "@react-router/node": "^7.14.1",
     "@react-router/serve": "^7.14.1",
@@ -26351,13 +26351,13 @@ export default {
 `],
   ["frontend/react/react-router/src/components/mode-toggle.tsx.hbs", `import { Moon, Sun } from "lucide-react";
 
-import { Button } from "@{{projectName}}/ui/components/button";
+import { Button } from "{{packageScope}}/ui/components/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "@{{projectName}}/ui/components/dropdown-menu";
+} from "{{packageScope}}/ui/components/dropdown-menu";
 import { useTheme } from "@/components/theme-provider";
 
 export function ModeToggle() {
@@ -26403,7 +26403,7 @@ import type { Route } from "./+types/root";
 import "./index.css";
 import Header from "./components/header";
 import { ThemeProvider } from "./components/theme-provider";
-import { Toaster } from "@{{projectName}}/ui/components/sonner";
+import { Toaster } from "{{packageScope}}/ui/components/sonner";
 {{#if (eq auth "clerk")}}
 import { ClerkProvider{{#if (or (eq backend "convex") (ne api "none"))}}, useAuth{{/if}} } from "@clerk/react-router";
 import { clerkMiddleware, rootAuthLoader } from "@clerk/react-router/server";
@@ -26415,7 +26415,7 @@ import { setClerkAuthTokenGetter } from "@/utils/clerk-auth";
 
 {{#if (eq backend "convex")}}
 import { ConvexReactClient } from "convex/react";
-import { env } from "@{{projectName}}/env/web";
+import { env } from "{{packageScope}}/env/web";
   {{#if (eq auth "clerk")}}
 import { ConvexProviderWithClerk } from "convex/react-clerk";
   {{else if (eq auth "better-auth")}}
@@ -26707,7 +26707,7 @@ export default flatRoutes() satisfies RouteConfig;
   ["frontend/react/react-router/src/routes/_index.tsx.hbs", `import type { Route } from "./+types/_index";
 {{#if (eq backend "convex")}}
 import { useQuery } from "convex/react";
-import { api } from "@{{projectName}}/backend/convex/_generated/api";
+import { api } from "{{packageScope}}/backend/convex/_generated/api";
 {{else if (or (eq api "orpc") (eq api "trpc"))}}
 import { useQuery } from "@tanstack/react-query";
   {{#if (eq api "orpc")}}
@@ -26807,7 +26807,7 @@ export default function Home() {
     "rootDirs": [".", "./.react-router/types"],
     "paths": {
       "@/*": ["./src/*"],
-      "@{{projectName}}/ui/*": ["../../packages/ui/src/*"]
+      "{{packageScope}}/ui/*": ["../../packages/ui/src/*"]
     },
     "esModuleInterop": true,
     "verbatimModuleSyntax": true,
@@ -26858,7 +26858,7 @@ export default defineConfig({
 	},
 	"dependencies": {
         "@hookform/resolvers": "^5.2.2",
-        "@{{projectName}}/ui": "{{#if (eq packageManager "npm")}}*{{else}}workspace:*{{/if}}",
+        "{{packageScope}}/ui": "{{#if (eq packageManager "npm")}}*{{else}}workspace:*{{/if}}",
 		"@tailwindcss/vite": "^4.2.2",
 		"@tanstack/react-router": "^1.168.22",
 		"lucide-react": "^1.8.0",
@@ -26882,13 +26882,13 @@ export default defineConfig({
 `],
   ["frontend/react/tanstack-router/src/components/mode-toggle.tsx.hbs", `import { Moon, Sun } from "lucide-react";
 
-import { Button } from "@{{projectName}}/ui/components/button";
+import { Button } from "{{packageScope}}/ui/components/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "@{{projectName}}/ui/components/dropdown-menu";
+} from "{{packageScope}}/ui/components/dropdown-menu";
 import { useTheme } from "@/components/theme-provider";
 
 export function ModeToggle() {
@@ -26940,7 +26940,7 @@ import { routeTree } from "./routeTree.gen";
   import { queryClient, trpc } from "./utils/trpc";
 {{/if}}
 {{#if (or (eq backend "convex") (eq auth "clerk"))}}
-  import { env } from "@{{projectName}}/env/web";
+  import { env } from "{{packageScope}}/env/web";
 {{/if}}
 {{#if (eq auth "clerk")}}
   import { ClerkProvider{{#if (or (eq backend "convex") (ne api "none"))}}, useAuth{{/if}} } from "@clerk/react";
@@ -27069,14 +27069,14 @@ if (!rootElement.innerHTML) {
 `],
   ["frontend/react/tanstack-router/src/routes/__root.tsx.hbs", `import Header from "@/components/header";
 import { ThemeProvider } from "@/components/theme-provider";
-import { Toaster } from "@{{projectName}}/ui/components/sonner";
+import { Toaster } from "{{packageScope}}/ui/components/sonner";
 {{#if (eq api "orpc")}}
 import { link, orpc } from "@/utils/orpc";
 import type { QueryClient } from "@tanstack/react-query";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import { useState } from "react";
 import { createTanstackQueryUtils } from "@orpc/tanstack-query";
-import type { AppRouterClient } from "@{{projectName}}/api/routers/index";
+import type { AppRouterClient } from "{{packageScope}}/api/routers/index";
 import { createORPCClient } from "@orpc/client";
 {{/if}}
 {{#if (eq api "trpc")}}
@@ -27182,7 +27182,7 @@ import { useQuery } from "@tanstack/react-query";
 {{/if}}
 {{#if (eq backend "convex")}}
 import { useQuery } from "convex/react";
-import { api } from "@{{ projectName }}/backend/convex/_generated/api";
+import { api } from "{{packageScope}}/backend/convex/_generated/api";
 {{/if}}
 
 export const Route = createFileRoute("/")({
@@ -27270,7 +27270,7 @@ function HomeComponent() {
     "rootDirs": ["."],
     "paths": {
       "@/*": ["./src/*"],
-      "@{{projectName}}/ui/*": ["../../packages/ui/src/*"]
+      "{{packageScope}}/ui/*": ["../../packages/ui/src/*"]
     }
   }
 }
@@ -27307,7 +27307,7 @@ export default defineConfig({
     "dev": "vite dev"
   },
   "dependencies": {
-    "@{{projectName}}/ui": "{{#if (eq packageManager "npm")}}*{{else}}workspace:*{{/if}}",
+    "{{packageScope}}/ui": "{{#if (eq packageManager "npm")}}*{{else}}workspace:*{{/if}}",
     "@tailwindcss/vite": "^4.2.2",
     "@tanstack/react-query": "^5.99.0",
     "@tanstack/react-router": "^1.168.22",
@@ -27344,7 +27344,7 @@ import { ConvexQueryClient } from "@convex-dev/react-query";
 import { routeTree } from "./routeTree.gen";
 import Loader from "./components/loader";
 import "./index.css";
-import { env } from "@{{projectName}}/env/web";
+import { env } from "{{packageScope}}/env/web";
 {{else}}
 import { createRouter as createTanStackRouter } from "@tanstack/react-router";
 import Loader from "./components/loader";
@@ -27356,10 +27356,10 @@ import { setupRouterSsrQueryIntegration } from "@tanstack/react-router-ssr-query
 import { createTRPCClient, httpBatchLink } from "@trpc/client";
 import { createTRPCOptionsProxy } from "@trpc/tanstack-react-query";
 import { toast } from "sonner";
-import type { AppRouter } from "@{{projectName}}/api/routers/index";
+import type { AppRouter } from "{{packageScope}}/api/routers/index";
 import { TRPCProvider } from "./utils/trpc";
 {{#unless (eq backend "self")}}
-import { env } from "@{{projectName}}/env/web";
+import { env } from "{{packageScope}}/env/web";
 {{/unless}}
 {{#if (eq auth "clerk")}}
 import { getClerkAuthToken } from "@/utils/clerk-auth";
@@ -27489,7 +27489,7 @@ declare module "@tanstack/react-router" {
 	}
 }
 `],
-  ["frontend/react/tanstack-start/src/routes/__root.tsx.hbs", `import { Toaster } from "@{{projectName}}/ui/components/sonner";
+  ["frontend/react/tanstack-start/src/routes/__root.tsx.hbs", `import { Toaster } from "{{packageScope}}/ui/components/sonner";
 {{#unless (eq backend "convex")}} {{#unless (eq api "none")}}
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 {{/unless}} {{/unless}}
@@ -27568,7 +27568,7 @@ export interface RouterAppContext {
 {{else}}
   {{#if (eq api "trpc")}}
 import type { TRPCOptionsProxy } from "@trpc/tanstack-react-query";
-import type { AppRouter } from "@{{projectName}}/api/routers/index";
+import type { AppRouter } from "{{packageScope}}/api/routers/index";
 export interface RouterAppContext {
   trpc: TRPCOptionsProxy<AppRouter>;
   queryClient: QueryClient;
@@ -27749,7 +27749,7 @@ function RootDocument() {
 {{#if (eq backend "convex")}}
 import { convexQuery } from "@convex-dev/react-query";
 import { useQuery } from "@tanstack/react-query";
-import { api } from "@{{projectName}}/backend/convex/_generated/api";
+import { api } from "{{packageScope}}/backend/convex/_generated/api";
 {{else if (or (eq api "trpc") (eq api "orpc"))}}
 import { useQuery } from "@tanstack/react-query";
   {{#if (eq api "trpc")}}
@@ -27854,7 +27854,7 @@ function HomeComponent() {
     "noUncheckedSideEffectImports": true,
     "paths": {
       "@/*": ["./src/*"],
-      "@{{projectName}}/ui/*": ["../../packages/ui/src/*"]
+      "{{packageScope}}/ui/*": ["../../packages/ui/src/*"]
     }
   }
 }
@@ -27894,7 +27894,7 @@ export default defineConfig({
     "start": "vinext start"
   },
   "dependencies": {
-    "@{{projectName}}/ui": "{{#if (eq packageManager "npm")}}*{{else}}workspace:*{{/if}}",
+    "{{packageScope}}/ui": "{{#if (eq packageManager "npm")}}*{{else}}workspace:*{{/if}}",
     "lucide-react": "^0.546.0",
     "next": "^16.2.0",
     "next-themes": "^0.4.6",
@@ -28003,7 +28003,7 @@ export default function RootLayout({
   ["frontend/react/vinext/src/app/page.tsx.hbs", `"use client"
 {{#if (eq backend "convex")}}
 import { useQuery } from "convex/react";
-import { api } from "@{{projectName}}/backend/convex/_generated/api";
+import { api } from "{{packageScope}}/backend/convex/_generated/api";
 {{else if (or (eq api "orpc") (eq api "trpc"))}}
 import { useQuery } from "@tanstack/react-query";
   {{#if (eq api "orpc")}}
@@ -28085,13 +28085,13 @@ export default function Home() {
 import * as React from "react"
 import { Moon, Sun } from "lucide-react"
 import { useTheme } from "next-themes"
-import { Button } from "@{{projectName}}/ui/components/button"
+import { Button } from "{{packageScope}}/ui/components/button"
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "@{{projectName}}/ui/components/dropdown-menu"
+} from "{{packageScope}}/ui/components/dropdown-menu"
 
 export function ModeToggle() {
   const { setTheme } = useTheme()
@@ -28131,15 +28131,15 @@ import { useAuth } from "@clerk/nextjs";
 {{#if (eq auth "clerk")}}
 import { ConvexReactClient } from "convex/react";
 import { ConvexProviderWithClerk } from "convex/react-clerk";
-import { env } from "@{{projectName}}/env/web";
+import { env } from "{{packageScope}}/env/web";
 {{else if (eq auth "better-auth")}}
 import { ConvexReactClient } from "convex/react";
 import { ConvexBetterAuthProvider } from "@convex-dev/better-auth/react";
 import { authClient } from "@/lib/auth-client";
-import { env } from "@{{projectName}}/env/web";
+import { env } from "{{packageScope}}/env/web";
 {{else}}
 import { ConvexProvider, ConvexReactClient } from "convex/react";
-import { env } from "@{{projectName}}/env/web";
+import { env } from "{{packageScope}}/env/web";
 {{/if}}
 {{else}}
 {{#unless (eq api "none")}}
@@ -28154,7 +28154,7 @@ import { queryClient } from "@/utils/trpc";
 {{/unless}}
 {{/if}}
 import { ThemeProvider } from "./theme-provider";
-import { Toaster } from "@{{projectName}}/ui/components/sonner";
+import { Toaster } from "{{packageScope}}/ui/components/sonner";
 
 {{#if (eq backend "convex")}}
 const convex = new ConvexReactClient(env.NEXT_PUBLIC_CONVEX_URL);
@@ -28269,7 +28269,7 @@ export function ThemeProvider({
     ],
     "paths": {
       "@/*": ["./src/*"],
-      "@{{projectName}}/ui/*": ["../../packages/ui/src/*"]
+      "{{packageScope}}/ui/*": ["../../packages/ui/src/*"]
     }{{#if (or (eq serverDeploy "cloudflare") (eq webDeploy "cloudflare"))}},
     "types": [
       "@cloudflare/workers-types"
@@ -28370,8 +28370,8 @@ dev-dist
   "iconLibrary": "lucide",
   "aliases": {
     "components": "@/components",
-    "utils": "@{{projectName}}/ui/lib/utils",
-    "ui": "@{{projectName}}/ui/components",
+    "utils": "{{packageScope}}/ui/lib/utils",
+    "ui": "{{packageScope}}/ui/components",
     "lib": "@/lib",
     "hooks": "@/hooks"
   },
@@ -28469,7 +28469,7 @@ export default function Loader() {
   );
 }
 `],
-  ["frontend/react/web-base/src/index.css.hbs", `@import '@{{projectName}}/ui/globals.css';
+  ["frontend/react/web-base/src/index.css.hbs", `@import '{{packageScope}}/ui/globals.css';
 {{#if (includes examples "ai")}}
 @source "../node_modules/streamdown/dist/*.js";
 {{/if}}
@@ -28845,7 +28845,7 @@ body {
 /// <reference path="../../../packages/env/env.d.ts" />
 {{/if}}
 {{#if (and (eq backend "self") (eq api "orpc"))}}
-import type { AppRouterClient } from "@{{projectName}}/api/routers/index";
+import type { AppRouterClient } from "{{packageScope}}/api/routers/index";
 
 {{/if}}
 // See https://svelte.dev/docs/kit/types#app.d.ts
@@ -28980,7 +28980,7 @@ export {};
   ["frontend/svelte/src/routes/+page.svelte.hbs", `{{#if (eq backend "convex")}}
 <script lang="ts">
 import { useQuery } from 'convex-svelte';
-import { api } from "@{{projectName}}/backend/convex/_generated/api";
+import { api } from "{{packageScope}}/backend/convex/_generated/api";
 
 const healthCheck = useQuery(api.healthCheck.get, {});
 
@@ -29129,7 +29129,7 @@ export default defineConfig({
 });
 `],
   ["packages/config/package.json.hbs", `{
-  "name": "@{{projectName}}/config",
+  "name": "{{packageScope}}/config",
   "version": "0.0.0",
   "private": true
 }
@@ -29168,7 +29168,7 @@ export default defineConfig({
   }
 }`],
   ["packages/env/package.json.hbs", `{
-	"name": "@{{projectName}}/env",
+	"name": "{{packageScope}}/env",
 	"version": "0.0.0",
 	"private": true,
 	"type": "module",
@@ -29484,7 +29484,7 @@ export const env = createEnv({
 });
 `],
   ["packages/env/tsconfig.json.hbs", `{
-  "extends": "@{{projectName}}/config/tsconfig.base.json",
+  "extends": "{{packageScope}}/config/tsconfig.base.json",
 }
 `],
   ["packages/infra/alchemy.run.ts.hbs", `import alchemy from "alchemy";
@@ -29885,7 +29885,7 @@ console.log(\`Server -> \${server.url}\`);
 await app.finalize();
 `],
   ["packages/infra/package.json.hbs", `{
-  "name": "@{{projectName}}/infra",
+  "name": "{{packageScope}}/infra",
   "private": true,
   "type": "module",
   "scripts": {
@@ -29909,11 +29909,11 @@ await app.finalize();
   },
   "iconLibrary": "lucide",
   "aliases": {
-    "components": "@{{projectName}}/ui/components",
-    "utils": "@{{projectName}}/ui/lib/utils",
-    "hooks": "@{{projectName}}/ui/hooks",
-    "lib": "@{{projectName}}/ui/lib",
-    "ui": "@{{projectName}}/ui/components"
+    "components": "{{packageScope}}/ui/components",
+    "utils": "{{packageScope}}/ui/lib/utils",
+    "hooks": "{{packageScope}}/ui/hooks",
+    "lib": "{{packageScope}}/ui/lib",
+    "ui": "{{packageScope}}/ui/components"
   },
   "menuColor": "default",
   "menuAccent": "subtle",
@@ -29921,7 +29921,7 @@ await app.finalize();
 }
 `],
   ["packages/ui/package.json.hbs", `{
-  "name": "@{{projectName}}/ui",
+  "name": "{{packageScope}}/ui",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -29964,7 +29964,7 @@ await app.finalize();
   ["packages/ui/src/components/button.tsx.hbs", `import { Button as ButtonPrimitive } from "@base-ui/react/button"
 import { cva, type VariantProps } from "class-variance-authority"
 
-import { cn } from "@{{projectName}}/ui/lib/utils"
+import { cn } from "{{packageScope}}/ui/lib/utils"
 
 const buttonVariants = cva(
   "group/button inline-flex shrink-0 items-center justify-center rounded-none border border-transparent bg-clip-padding text-xs font-medium whitespace-nowrap transition-all outline-none select-none focus-visible:border-ring focus-visible:ring-1 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-1 aria-invalid:ring-destructive/20 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
@@ -30020,7 +30020,7 @@ export { Button, buttonVariants }
 `],
   ["packages/ui/src/components/card.tsx.hbs", `import * as React from "react"
 
-import { cn } from "@{{projectName}}/ui/lib/utils"
+import { cn } from "{{packageScope}}/ui/lib/utils"
 
 function Card({
   className,
@@ -30126,7 +30126,7 @@ export {
 
 import { Checkbox as CheckboxPrimitive } from "@base-ui/react/checkbox"
 
-import { cn } from "@{{projectName}}/ui/lib/utils"
+import { cn } from "{{packageScope}}/ui/lib/utils"
 import { CheckIcon } from "lucide-react"
 
 function Checkbox({ className, ...props }: CheckboxPrimitive.Root.Props) {
@@ -30156,7 +30156,7 @@ export { Checkbox }
 import * as React from "react"
 import { Menu as MenuPrimitive } from "@base-ui/react/menu"
 
-import { cn } from "@{{projectName}}/ui/lib/utils"
+import { cn } from "{{packageScope}}/ui/lib/utils"
 import { ChevronRightIcon, CheckIcon } from "lucide-react"
 
 function DropdownMenu({ ...props }: MenuPrimitive.Root.Props) {
@@ -30427,7 +30427,7 @@ export {
   ["packages/ui/src/components/input.tsx.hbs", `import * as React from "react"
 import { Input as InputPrimitive } from "@base-ui/react/input"
 
-import { cn } from "@{{projectName}}/ui/lib/utils"
+import { cn } from "{{packageScope}}/ui/lib/utils"
 
 function Input({ className, type, ...props }: React.ComponentProps<"input">) {
   return (
@@ -30447,7 +30447,7 @@ export { Input }
 `],
   ["packages/ui/src/components/label.tsx.hbs", `import * as React from "react"
 
-import { cn } from "@{{projectName}}/ui/lib/utils"
+import { cn } from "{{packageScope}}/ui/lib/utils"
 
 function Label({ className, ...props }: React.ComponentProps<"label">) {
   return (
@@ -30464,7 +30464,7 @@ function Label({ className, ...props }: React.ComponentProps<"label">) {
 
 export { Label }
 `],
-  ["packages/ui/src/components/skeleton.tsx.hbs", `import { cn } from "@{{projectName}}/ui/lib/utils"
+  ["packages/ui/src/components/skeleton.tsx.hbs", `import { cn } from "{{packageScope}}/ui/lib/utils"
 
 function Skeleton({ className, ...props }: React.ComponentProps<"div">) {
   return (
@@ -30668,12 +30668,12 @@ export function cn(...inputs: ClassValue[]) {
 }
 `],
   ["packages/ui/tsconfig.json.hbs", `{
-  "extends": "@{{projectName}}/config/tsconfig.base.json",
+  "extends": "{{packageScope}}/config/tsconfig.base.json",
   "compilerOptions": {
     "jsx": "react-jsx",
     "lib": ["ESNext", "DOM", "DOM.Iterable"],
     "paths": {
-      "@{{projectName}}/ui/*": ["./src/*"]
+      "{{packageScope}}/ui/*": ["./src/*"]
     }
   },
   "include": ["src/**/*.ts", "src/**/*.tsx"],
@@ -30682,9 +30682,9 @@ export function cn(...inputs: ClassValue[]) {
 `],
   ["payments/polar/server/base/src/lib/payments.ts.hbs", `import { Polar } from "@polar-sh/sdk";
 {{#if (and (eq backend "self") (eq webDeploy "cloudflare") (includes frontend "svelte"))}}
-import type {} from "@{{projectName}}/env/server";
+import type {} from "{{packageScope}}/env/server";
 {{else}}
-import { env } from "@{{projectName}}/env/server";
+import { env } from "{{packageScope}}/env/server";
 {{/if}}
 
 {{#if (and (eq backend "self") (eq webDeploy "cloudflare") (includes frontend "svelte"))}}

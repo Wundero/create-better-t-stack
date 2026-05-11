@@ -20,7 +20,7 @@ async function main(): Promise<void> {
 
   const packageJson = JSON.parse(await readFile(CLI_PACKAGE_JSON_PATH, "utf-8"));
   const currentVersion = packageJson.version;
-  const packageName: string = packageJson.name || "create-better-t-stack";
+  const packageName: string = packageJson.name || "@wundero/create-better-t-stack";
   const strictSemver = /^\d+\.\d+\.\d+$/;
   let baseVersion = currentVersion;
   if (strictSemver.test(currentVersion)) {
@@ -187,7 +187,9 @@ async function main(): Promise<void> {
     }
 
     const typesPubSpin = spinner();
-    typesPubSpin.start(`Publishing @better-t-stack/types@${canaryVersion} (canary)...`);
+    typesPubSpin.start(
+      `Publishing @wundero/create-better-t-stack-types@${canaryVersion} (canary)...`,
+    );
     try {
       await $`cd packages/types && bun publish --access public --tag canary`;
       typesPubSpin.stop("Types package published");
@@ -198,7 +200,8 @@ async function main(): Promise<void> {
 
     // Update template-generator package version and types dependency, build, and publish
     templateGeneratorPackageJson.version = canaryVersion;
-    templateGeneratorPackageJson.dependencies["@better-t-stack/types"] = canaryVersion;
+    templateGeneratorPackageJson.dependencies["@wundero/create-better-t-stack-types"] =
+      canaryVersion;
     await writeFile(
       TEMPLATE_GENERATOR_PACKAGE_JSON_PATH,
       `${JSON.stringify(templateGeneratorPackageJson, null, 2)}\n`,
@@ -216,7 +219,7 @@ async function main(): Promise<void> {
 
     const templateGeneratorPubSpin = spinner();
     templateGeneratorPubSpin.start(
-      `Publishing @better-t-stack/template-generator@${canaryVersion} (canary)...`,
+      `Publishing @wundero/create-better-t-stack-template-generator@${canaryVersion} (canary)...`,
     );
     try {
       await $`cd packages/template-generator && bun publish --access public --tag canary`;
@@ -228,13 +231,13 @@ async function main(): Promise<void> {
 
     // Update CLI package version and dependencies
     packageJson.version = canaryVersion;
-    packageJson.dependencies["@better-t-stack/types"] = canaryVersion;
-    packageJson.dependencies["@better-t-stack/template-generator"] = canaryVersion;
+    packageJson.dependencies["@wundero/create-better-t-stack-types"] = canaryVersion;
+    packageJson.dependencies["@wundero/create-better-t-stack-template-generator"] = canaryVersion;
     await writeFile(CLI_PACKAGE_JSON_PATH, `${JSON.stringify(packageJson, null, 2)}\n`);
 
     // Update alias package version
     aliasPackageJson.version = canaryVersion;
-    aliasPackageJson.dependencies["create-better-t-stack"] = canaryVersion;
+    aliasPackageJson.dependencies["@wundero/create-better-t-stack"] = canaryVersion;
     await writeFile(ALIAS_PACKAGE_JSON_PATH, `${JSON.stringify(aliasPackageJson, null, 2)}\n`);
 
     const buildSpin = spinner();
@@ -289,9 +292,11 @@ async function main(): Promise<void> {
     console.log(`✅ Published canary v${canaryVersion} for all packages`);
     console.log(`📦 NPM: https://www.npmjs.com/package/${packageName}/v/${canaryVersion}`);
     console.log(`📦 NPM: https://www.npmjs.com/package/create-bts/v/${canaryVersion}`);
-    console.log(`📦 NPM: https://www.npmjs.com/package/@better-t-stack/types/v/${canaryVersion}`);
     console.log(
-      `📦 NPM: https://www.npmjs.com/package/@better-t-stack/template-generator/v/${canaryVersion}`,
+      `📦 NPM: https://www.npmjs.com/package/@wundero/create-better-t-stack-types/v/${canaryVersion}`,
+    );
+    console.log(
+      `📦 NPM: https://www.npmjs.com/package/@wundero/create-better-t-stack-template-generator/v/${canaryVersion}`,
     );
   } finally {
     if (!restored) {

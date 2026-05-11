@@ -1,4 +1,4 @@
-import type { ProjectConfig } from "@better-t-stack/types";
+import type { ProjectConfig } from "@wundero/create-better-t-stack-types";
 
 import type { VirtualFileSystem } from "../core/virtual-fs";
 import { addPackageDependency, type AvailableDependencies } from "../utils/add-deps";
@@ -8,7 +8,6 @@ const NATIVE_TYPESCRIPT_VERSION = "~5.9.2";
 
 export function processWorkspaceDeps(vfs: VirtualFileSystem, config: ProjectConfig): void {
   const {
-    projectName,
     packageManager,
     runtime,
     backend,
@@ -17,6 +16,7 @@ export function processWorkspaceDeps(vfs: VirtualFileSystem, config: ProjectConf
     api,
     serverDeploy,
     webDeploy,
+    packageScope,
   } = config;
 
   const workspaceVersion = packageManager === "npm" ? "*" : "workspace:*";
@@ -34,9 +34,9 @@ export function processWorkspaceDeps(vfs: VirtualFileSystem, config: ProjectConf
     native: vfs.exists("apps/native/package.json"),
   };
 
-  const configDep = packages.config ? { [`@${projectName}/config`]: workspaceVersion } : {};
-  const envDep = packages.env ? { [`@${projectName}/env`]: workspaceVersion } : {};
-  const uiDep = packages.ui ? { [`@${projectName}/ui`]: workspaceVersion } : {};
+  const configDep = packages.config ? { [`${packageScope}/config`]: workspaceVersion } : {};
+  const envDep = packages.env ? { [`${packageScope}/env`]: workspaceVersion } : {};
+  const uiDep = packages.ui ? { [`${packageScope}/ui`]: workspaceVersion } : {};
   const isCloudflare = serverDeploy === "cloudflare" || webDeploy === "cloudflare";
   const runtimeDevDeps = getRuntimeDevDeps(runtime, backend);
   const commonDeps: AvailableDependencies[] = ["dotenv", "zod"];
@@ -54,7 +54,7 @@ export function processWorkspaceDeps(vfs: VirtualFileSystem, config: ProjectConf
   if (packages.env) {
     const envDevDeps: Record<string, string> = { ...configDep };
     if (isCloudflare && packages.infra) {
-      envDevDeps[`@${projectName}/infra`] = workspaceVersion;
+      envDevDeps[`${packageScope}/infra`] = workspaceVersion;
     }
     addPackageDependency({
       vfs,
@@ -89,7 +89,7 @@ export function processWorkspaceDeps(vfs: VirtualFileSystem, config: ProjectConf
   if (packages.auth) {
     const authDeps: Record<string, string> = { ...envDep };
     if (database !== "none" && packages.db) {
-      authDeps[`@${projectName}/db`] = workspaceVersion;
+      authDeps[`${packageScope}/db`] = workspaceVersion;
     }
     addPackageDependency({
       vfs,
@@ -104,10 +104,10 @@ export function processWorkspaceDeps(vfs: VirtualFileSystem, config: ProjectConf
   if (packages.api) {
     const apiPackageDeps: Record<string, string> = { ...envDep };
     if (auth !== "none" && packages.auth) {
-      apiPackageDeps[`@${projectName}/auth`] = workspaceVersion;
+      apiPackageDeps[`${packageScope}/auth`] = workspaceVersion;
     }
     if (database !== "none" && packages.db) {
-      apiPackageDeps[`@${projectName}/db`] = workspaceVersion;
+      apiPackageDeps[`${packageScope}/db`] = workspaceVersion;
     }
     addPackageDependency({
       vfs,
@@ -131,9 +131,9 @@ export function processWorkspaceDeps(vfs: VirtualFileSystem, config: ProjectConf
 
   if (packages.server) {
     const serverDeps: Record<string, string> = { ...envDep };
-    if (api !== "none" && packages.api) serverDeps[`@${projectName}/api`] = workspaceVersion;
-    if (auth !== "none" && packages.auth) serverDeps[`@${projectName}/auth`] = workspaceVersion;
-    if (database !== "none" && packages.db) serverDeps[`@${projectName}/db`] = workspaceVersion;
+    if (api !== "none" && packages.api) serverDeps[`${packageScope}/api`] = workspaceVersion;
+    if (auth !== "none" && packages.auth) serverDeps[`${packageScope}/auth`] = workspaceVersion;
+    if (database !== "none" && packages.db) serverDeps[`${packageScope}/db`] = workspaceVersion;
     addPackageDependency({
       vfs,
       packagePath: "apps/server/package.json",
@@ -147,12 +147,12 @@ export function processWorkspaceDeps(vfs: VirtualFileSystem, config: ProjectConf
   if (packages.web) {
     const webPackageDeps: Record<string, string> = { ...envDep, ...uiDep };
 
-    if (api !== "none" && packages.api) webPackageDeps[`@${projectName}/api`] = workspaceVersion;
+    if (api !== "none" && packages.api) webPackageDeps[`${packageScope}/api`] = workspaceVersion;
     if (backend === "self" && auth !== "none" && packages.auth) {
-      webPackageDeps[`@${projectName}/auth`] = workspaceVersion;
+      webPackageDeps[`${packageScope}/auth`] = workspaceVersion;
     }
     if (backend === "convex" && packages.backend)
-      webPackageDeps[`@${projectName}/backend`] = workspaceVersion;
+      webPackageDeps[`${packageScope}/backend`] = workspaceVersion;
 
     addPackageDependency({
       vfs,
@@ -175,9 +175,9 @@ export function processWorkspaceDeps(vfs: VirtualFileSystem, config: ProjectConf
 
   if (packages.native) {
     const nativeDeps: Record<string, string> = { ...envDep };
-    if (api !== "none" && packages.api) nativeDeps[`@${projectName}/api`] = workspaceVersion;
+    if (api !== "none" && packages.api) nativeDeps[`${packageScope}/api`] = workspaceVersion;
     if (backend === "convex" && packages.backend)
-      nativeDeps[`@${projectName}/backend`] = workspaceVersion;
+      nativeDeps[`${packageScope}/backend`] = workspaceVersion;
     addPackageDependency({
       vfs,
       packagePath: "apps/native/package.json",

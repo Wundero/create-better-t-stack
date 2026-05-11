@@ -1,4 +1,4 @@
-import type { ProjectConfig } from "@better-t-stack/types";
+import type { ProjectConfig } from "@wundero/create-better-t-stack-types";
 
 function normalizeMultiValues(values: string[] | undefined): string[] {
   if (!values || values.length === 0) return [];
@@ -15,14 +15,14 @@ function formatMultiFlag(flag: string, values: string[]): string {
 
 function getBaseCommand(packageManager: ProjectConfig["packageManager"]): string {
   if (packageManager === "bun") {
-    return "bun create better-t-stack@latest";
+    return "bunx @wundero/create-better-t-stack@latest";
   }
 
   if (packageManager === "pnpm") {
-    return "pnpm create better-t-stack@latest";
+    return "pnpm dlx @wundero/create-better-t-stack@latest";
   }
 
-  return "npx create-better-t-stack@latest";
+  return "npx @wundero/create-better-t-stack@latest";
 }
 
 export function generateReproducibleCommand(config: ProjectConfig): string {
@@ -54,6 +54,9 @@ export function generateReproducibleCommand(config: ProjectConfig): string {
   flags.push(`--server-deploy ${config.serverDeploy}`);
   flags.push(config.git ? "--git" : "--no-git");
   flags.push(`--package-manager ${config.packageManager}`);
+  if (config.packageScope !== `@${config.projectName}`) {
+    flags.push(`--package-scope ${config.packageScope}`);
+  }
   flags.push(config.install ? "--install" : "--no-install");
 
   const projectPathArg = config.relativePath ? ` ${config.relativePath}` : "";

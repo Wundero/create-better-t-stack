@@ -33,6 +33,7 @@ export type ProjectHistoryEntry = {
     examples: string[];
     dbSetup: string;
     packageManager: string;
+    packageScope: string;
   };
   cliVersion: string;
   reproducibleCommand: string;
@@ -155,6 +156,7 @@ export async function addToHistory(
       examples: config.examples,
       dbSetup: config.dbSetup,
       packageManager: config.packageManager,
+      packageScope: config.packageScope,
     },
     cliVersion: getLatestCLIVersion(),
     reproducibleCommand,

@@ -2,9 +2,9 @@
 import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
 {{#if (and (eq backend "self") (eq webDeploy "cloudflare") (includes frontend "svelte"))}}
-import type {} from "@{{projectName}}/env/server";
+import type {} from "{{packageScope}}/env/server";
 {{else}}
-import { env } from "@{{projectName}}/env/server";
+import { env } from "{{packageScope}}/env/server";
 {{/if}}
 {{#if (eq payments "polar")}}
 import { polar, checkout, portal } from "@polar-sh/better-auth";
@@ -14,7 +14,7 @@ import { createPolarClient } from "./lib/payments";
 import { polarClient } from "./lib/payments";
 {{/if}}
 {{/if}}
-import { createPrismaClient } from "@{{projectName}}/db";
+import { createPrismaClient } from "{{packageScope}}/db";
 
 export function createAuth({{#if (and (eq backend "self") (eq webDeploy "cloudflare") (includes frontend "svelte"))}}env: Env{{/if}}) {
 	const prisma = createPrismaClient({{#if (and (eq backend "self") (eq webDeploy "cloudflare") (includes frontend "svelte"))}}env{{/if}});
@@ -90,9 +90,9 @@ export const auth = createAuth();
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 {{#if (and (eq backend "self") (eq webDeploy "cloudflare") (includes frontend "svelte"))}}
-import type {} from "@{{projectName}}/env/server";
+import type {} from "{{packageScope}}/env/server";
 {{else}}
-import { env } from "@{{projectName}}/env/server";
+import { env } from "{{packageScope}}/env/server";
 {{/if}}
 {{#if (eq payments "polar")}}
 import { polar, checkout, portal } from "@polar-sh/better-auth";
@@ -102,8 +102,8 @@ import { createPolarClient } from "./lib/payments";
 import { polarClient } from "./lib/payments";
 {{/if}}
 {{/if}}
-import { createDb } from "@{{projectName}}/db";
-import * as schema from "@{{projectName}}/db/schema/auth";
+import { createDb } from "{{packageScope}}/db";
+import * as schema from "{{packageScope}}/db/schema/auth";
 
 
 export function createAuth({{#if (and (eq backend "self") (eq webDeploy "cloudflare") (includes frontend "svelte"))}}env: Env{{/if}}) {
@@ -177,13 +177,13 @@ export const auth = createAuth();
 {{#if (eq runtime "workers")}}
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
-import { env } from "@{{projectName}}/env/server";
+import { env } from "{{packageScope}}/env/server";
 {{#if (eq payments "polar")}}
 import { polar, checkout, portal } from "@polar-sh/better-auth";
 import { polarClient } from "./lib/payments";
 {{/if}}
-import { createDb } from "@{{projectName}}/db";
-import * as schema from "@{{projectName}}/db/schema/auth";
+import { createDb } from "{{packageScope}}/db";
+import * as schema from "{{packageScope}}/db/schema/auth";
 
 
 export function createAuth() {
@@ -266,9 +266,9 @@ export function createAuth() {
 import { betterAuth } from "better-auth";
 import { mongodbAdapter } from "better-auth/adapters/mongodb";
 {{#if (and (eq backend "self") (eq webDeploy "cloudflare") (includes frontend "svelte"))}}
-import type {} from "@{{projectName}}/env/server";
+import type {} from "{{packageScope}}/env/server";
 {{else}}
-import { env } from "@{{projectName}}/env/server";
+import { env } from "{{packageScope}}/env/server";
 {{/if}}
 {{#if (eq payments "polar")}}
 import { polar, checkout, portal } from "@polar-sh/better-auth";
@@ -278,7 +278,7 @@ import { createPolarClient } from "./lib/payments";
 import { polarClient } from "./lib/payments";
 {{/if}}
 {{/if}}
-import { client } from "@{{projectName}}/db";
+import { client } from "{{packageScope}}/db";
 
 export function createAuth({{#if (and (eq backend "self") (eq webDeploy "cloudflare") (includes frontend "svelte"))}}env: Env{{/if}}) {
 	return betterAuth({
@@ -344,9 +344,9 @@ export const auth = createAuth();
 {{#if (eq orm "none")}}
 import { betterAuth } from "better-auth";
 {{#if (and (eq backend "self") (eq webDeploy "cloudflare") (includes frontend "svelte"))}}
-import type {} from "@{{projectName}}/env/server";
+import type {} from "{{packageScope}}/env/server";
 {{else}}
-import { env } from "@{{projectName}}/env/server";
+import { env } from "{{packageScope}}/env/server";
 {{/if}}
 {{#if (eq payments "polar")}}
 import { polar, checkout, portal } from "@polar-sh/better-auth";

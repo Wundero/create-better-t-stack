@@ -1,4 +1,4 @@
-import type { BetterTStackConfig, ProjectConfig } from "@better-t-stack/types";
+import type { BetterTStackConfig, ProjectConfig } from "@wundero/create-better-t-stack-types";
 
 import type { VirtualFileSystem } from "./core/virtual-fs";
 
@@ -30,6 +30,7 @@ export function writeBtsConfigToVfs(
     auth: projectConfig.auth,
     payments: projectConfig.payments,
     packageManager: projectConfig.packageManager,
+    packageScope: projectConfig.packageScope,
     dbSetup: projectConfig.dbSetup,
     api: projectConfig.api,
     webDeploy: projectConfig.webDeploy,
@@ -45,10 +46,10 @@ export function writeBtsConfigToVfs(
 
   const addCommand =
     projectConfig.packageManager === "npm"
-      ? "npx create-better-t-stack add"
+      ? "npx @wundero/create-better-t-stack add"
       : projectConfig.packageManager === "pnpm"
-        ? "pnpm dlx create-better-t-stack add"
-        : "bun create better-t-stack add";
+        ? "pnpm dlx @wundero/create-better-t-stack add"
+        : "bunx @wundero/create-better-t-stack add";
 
   const finalContent = `// Better-T-Stack
 //

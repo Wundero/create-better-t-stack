@@ -89,9 +89,9 @@ export function getDesktopBuildNote(stack: Pick<StackState, "addons" | "webFront
 
 export function generateStackCommand(stack: StackState) {
   const packageManagerCommands = {
-    npm: "npx create-better-t-stack@latest",
-    pnpm: "pnpm create better-t-stack@latest",
-    default: "bun create better-t-stack@latest",
+    npm: "npx @wundero/create-better-t-stack@latest",
+    pnpm: "pnpm dlx @wundero/create-better-t-stack@latest",
+    default: "bunx @wundero/create-better-t-stack@latest",
   };
 
   const base =

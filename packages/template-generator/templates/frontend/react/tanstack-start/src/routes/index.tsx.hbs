@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 {{#if (eq backend "convex")}}
 import { convexQuery } from "@convex-dev/react-query";
 import { useQuery } from "@tanstack/react-query";
-import { api } from "@{{projectName}}/backend/convex/_generated/api";
+import { api } from "{{packageScope}}/backend/convex/_generated/api";
 {{else if (or (eq api "trpc") (eq api "orpc"))}}
 import { useQuery } from "@tanstack/react-query";
   {{#if (eq api "trpc")}}
