@@ -1,9 +1,10 @@
 import type { ProjectConfig } from "@wundero/create-better-t-stack-types";
 
 import type { VirtualFileSystem } from "../core/virtual-fs";
-import { addPackageDependency } from "../utils/add-deps";
+import { addPackageDependency, type AvailableDependencies } from "../utils/add-deps";
 
-const CONVEX_BETTER_AUTH_VERSION = "1.6.9";
+// Intentional: @convex-dev/better-auth currently documents a pinned Better Auth range.
+const CONVEX_BETTER_AUTH_VERSION = "~1.6.9";
 
 export function processAuthDeps(vfs: VirtualFileSystem, config: ProjectConfig): void {
   const { auth, backend } = config;
@@ -125,7 +126,7 @@ function processConvexAuthDeps(vfs: VirtualFileSystem, config: ProjectConfig): v
 }
 
 function processStandardAuthDeps(vfs: VirtualFileSystem, config: ProjectConfig): void {
-  const { auth, backend, frontend } = config;
+  const { auth, backend, frontend, orm } = config;
   const authPath = "packages/auth/package.json";
   const apiPath = "packages/api/package.json";
   const webPath = "apps/web/package.json";
@@ -205,7 +206,11 @@ function processStandardAuthDeps(vfs: VirtualFileSystem, config: ProjectConfig):
     }
   } else if (auth === "better-auth") {
     if (authExists) {
-      addPackageDependency({ vfs, packagePath: authPath, dependencies: ["better-auth"] });
+      const authDependencies: AvailableDependencies[] = ["better-auth"];
+      if (orm === "mongoose") {
+        authDependencies.push("mongodb");
+      }
+      addPackageDependency({ vfs, packagePath: authPath, dependencies: authDependencies });
       if (hasNative) {
         addPackageDependency({ vfs, packagePath: authPath, dependencies: ["@better-auth/expo"] });
       }

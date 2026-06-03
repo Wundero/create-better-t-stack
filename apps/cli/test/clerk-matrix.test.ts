@@ -63,7 +63,7 @@ function needsServerClerkPublishableKey(backend: string, api: string) {
 }
 
 describe("Clerk matrix", () => {
-  it("should generate every supported Clerk combination", { timeout: 30_000 }, async () => {
+  it("should generate every supported Clerk combination", async () => {
     const standardFrontendCombos = buildFrontendCombos(standardWeb);
     const selfFrontendCombos = buildFrontendCombos(selfWeb, { requireWeb: true });
 
@@ -264,7 +264,13 @@ describe("Clerk matrix", () => {
       }
 
       if (combo.frontend.includes("tanstack-router")) {
-        const dashboard = files.get("apps/web/src/routes/dashboard.tsx");
+        const authRoute = files.get("apps/web/src/routes/_auth/route.tsx");
+        const dashboard = files.get("apps/web/src/routes/_auth/dashboard.tsx");
+        if (!authRoute) {
+          failures.push(
+            `${combo.backend}/${combo.runtime}/${combo.frontend.join("+")}/${combo.api}: missing TanStack Router auth layout route`,
+          );
+        }
         if (!dashboard) {
           failures.push(
             `${combo.backend}/${combo.runtime}/${combo.frontend.join("+")}/${combo.api}: missing TanStack Router dashboard route`,
@@ -285,7 +291,13 @@ describe("Clerk matrix", () => {
       }
 
       if (combo.frontend.includes("tanstack-start")) {
-        const dashboard = files.get("apps/web/src/routes/dashboard.tsx");
+        const authRoute = files.get("apps/web/src/routes/_auth/route.tsx");
+        const dashboard = files.get("apps/web/src/routes/_auth/dashboard.tsx");
+        if (!authRoute) {
+          failures.push(
+            `${combo.backend}/${combo.runtime}/${combo.frontend.join("+")}/${combo.api}: missing TanStack Start auth layout route`,
+          );
+        }
         if (!dashboard) {
           failures.push(
             `${combo.backend}/${combo.runtime}/${combo.frontend.join("+")}/${combo.api}: missing TanStack Start dashboard route`,
@@ -388,5 +400,5 @@ describe("Clerk matrix", () => {
 
     expect(combos).toHaveLength(499);
     expect(failures).toEqual([]);
-  });
+  }, 30_000);
 });

@@ -139,7 +139,9 @@ function updateRootPackageJson(vfs: VirtualFileSystem, config: ProjectConfig): v
   }
 
   if (needsDbScripts) {
-    scripts["db:push"] = pmConfig.filter(dbPackageName, "db:push");
+    if (dbSupport.hasDbPush) {
+      scripts["db:push"] = pmConfig.filter(dbPackageName, "db:push");
+    }
 
     if (!isD1Alchemy) {
       scripts["db:studio"] = pmConfig.filter(dbPackageName, "db:studio");
@@ -329,7 +331,8 @@ function updateDbPackageJson(vfs: VirtualFileSystem, config: ProjectConfig): voi
 
   const scripts = pkgJson.scripts;
   const { database, orm, dbSetup } = config;
-  const { isD1Alchemy } = getDbScriptSupport(config);
+  const dbSupport = getDbScriptSupport(config);
+  const { isD1Alchemy } = dbSupport;
 
   if (database !== "none") {
     if (database === "sqlite" && dbSetup !== "d1") {
@@ -337,7 +340,9 @@ function updateDbPackageJson(vfs: VirtualFileSystem, config: ProjectConfig): voi
     }
 
     if (orm === "prisma") {
-      scripts["db:push"] = "prisma db push";
+      if (dbSupport.hasDbPush) {
+        scripts["db:push"] = "prisma db push";
+      }
       scripts["db:generate"] = "prisma generate";
       scripts["db:migrate"] = "prisma migrate dev";
       scripts.postinstall ??= "prisma generate";
@@ -345,7 +350,9 @@ function updateDbPackageJson(vfs: VirtualFileSystem, config: ProjectConfig): voi
         scripts["db:studio"] = "prisma studio";
       }
     } else if (orm === "drizzle") {
-      scripts["db:push"] = "drizzle-kit push";
+      if (dbSupport.hasDbPush) {
+        scripts["db:push"] = "drizzle-kit push";
+      }
       scripts["db:generate"] = "drizzle-kit generate";
       if (!isD1Alchemy) {
         scripts["db:studio"] = "drizzle-kit studio";

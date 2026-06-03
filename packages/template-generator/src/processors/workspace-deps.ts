@@ -3,9 +3,6 @@ import type { ProjectConfig } from "@wundero/create-better-t-stack-types";
 import type { VirtualFileSystem } from "../core/virtual-fs";
 import { addPackageDependency, type AvailableDependencies } from "../utils/add-deps";
 
-// Expo SDK 55 requires TypeScript ~5.9.x — override the generic `^6` pin.
-const NATIVE_TYPESCRIPT_VERSION = "~5.9.2";
-
 export function processWorkspaceDeps(vfs: VirtualFileSystem, config: ProjectConfig): void {
   const {
     packageManager,
@@ -196,7 +193,7 @@ export function processWorkspaceDeps(vfs: VirtualFileSystem, config: ProjectConf
       packagePath: "apps/native/package.json",
       dependencies: commonDeps,
       customDependencies: nativeDeps,
-      customDevDependencies: { ...configDep, typescript: NATIVE_TYPESCRIPT_VERSION },
+      customDevDependencies: configDep,
     });
   }
 }

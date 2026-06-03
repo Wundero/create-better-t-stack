@@ -59,12 +59,12 @@ function generateTurboConfig(config: ProjectConfig): TurboConfig {
 function getBaseTasks(frontend: string[]): Record<string, TurboTask> {
   // Build outputs per framework:
   // - Vite-based (tanstack-router, react-router, tanstack-start, solid, svelte): dist/**
-  // - Next.js: .next/**
+  // - Next.js: .next/** excluding .next/cache/**
   // - Nuxt: .nuxt/**, .output/**
   const buildOutputs = ["dist/**"];
 
   if (frontend.includes("next") || frontend.includes("vinext")) {
-    buildOutputs.push(".next/**");
+    buildOutputs.push(".next/**", "!.next/cache/**");
   }
 
   if (frontend.includes("nuxt")) {

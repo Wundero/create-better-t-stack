@@ -268,6 +268,8 @@ export function isExampleTodoAllowed(
 }
 
 export function isExampleAIAllowed(backend?: ProjectConfig["backend"], frontends: Frontend[] = []) {
+  if (backend === "none") return false;
+
   const includesSolid = frontends.includes("solid");
   const includesAstro = frontends.includes("astro");
   if (includesSolid || includesAstro) return false;
@@ -470,7 +472,7 @@ export function validatePaymentsCompatibility(
   payments: Payments | undefined,
   auth: Auth | undefined,
   _backend: Backend | undefined,
-  frontends: Frontend[] = [],
+  _frontends: Frontend[] = [],
 ): ValidationResult {
   if (!payments || payments === "none") return Result.ok(undefined);
 
@@ -478,13 +480,6 @@ export function validatePaymentsCompatibility(
     if (!auth || auth === "none" || auth !== "better-auth") {
       return validationErr(
         "Polar payments requires Better Auth. Please use '--auth better-auth' or choose a different payments provider.",
-      );
-    }
-
-    const { web } = splitFrontends(frontends);
-    if (web.length === 0 && frontends.length > 0) {
-      return validationErr(
-        "Polar payments requires a web frontend or no frontend. Please select a web frontend or choose a different payments provider.",
       );
     }
   }
@@ -517,6 +512,14 @@ export function validateExamplesCompatibility(
 
   if (examplesArr.includes("ai") && (frontend ?? []).includes("solid")) {
     return validationErr("The 'ai' example is not compatible with the Solid frontend.");
+  }
+
+  if (examplesArr.includes("ai") && (frontend ?? []).includes("astro")) {
+    return validationErr("The 'ai' example is not compatible with the Astro frontend.");
+  }
+
+  if (examplesArr.includes("ai") && backend === "none") {
+    return validationErr("The 'ai' example requires a backend.");
   }
 
   // Convex AI example only supports React-based frontends

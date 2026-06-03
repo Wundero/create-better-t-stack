@@ -51,13 +51,13 @@ export type Sponsor = {
   name: string;
   githubId: string;
   avatarUrl: string;
-  websiteUrl?: string;
+  websiteUrl?: string | null;
   githubUrl: string;
   tierName: string;
-  totalProcessedAmount?: number;
+  totalProcessedAmount: number;
   sinceWhen: string;
   transactionCount: number;
-  formattedAmount?: string;
+  formattedAmount: string;
 };
 
 export type SponsorsData = {
@@ -73,7 +73,7 @@ export type SponsorsData = {
     top_sponsor: {
       name: string;
       amount: number;
-    };
+    } | null;
   };
   specialSponsors: Sponsor[];
   sponsors: Sponsor[];

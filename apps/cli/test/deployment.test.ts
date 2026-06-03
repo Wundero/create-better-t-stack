@@ -1,5 +1,7 @@
-import { describe, it } from "bun:test";
+import { describe, expect, it } from "bun:test";
 
+import { createVirtual } from "../src/index";
+import { collectFiles } from "./setup";
 import {
   expectError,
   expectSuccess,
@@ -336,6 +338,109 @@ describe("Deployment Configurations", () => {
       });
 
       expectSuccess(result);
+    });
+
+    it("should wire Cloudflare web deploys to the generated server Worker URL", async () => {
+      const result = await createVirtual({
+        projectName: "tanstack-start-hono-cloudflare-auth",
+        webDeploy: "cloudflare",
+        serverDeploy: "cloudflare",
+        backend: "hono",
+        runtime: "workers",
+        database: "sqlite",
+        orm: "prisma",
+        auth: "better-auth",
+        payments: "none",
+        api: "orpc",
+        frontend: ["tanstack-start"],
+        addons: ["turborepo"],
+        examples: ["todo"],
+        dbSetup: "d1",
+        install: false,
+        git: false,
+        packageManager: "bun",
+      });
+
+      if (result.isErr()) {
+        throw result.error;
+      }
+
+      const files = collectFiles(result.value.root, result.value.root.path);
+      const infraFile = files.get("packages/infra/alchemy.run.ts");
+
+      expect(infraFile).toContain('export const server = await Worker("server"');
+      expect(infraFile).toContain("url: true");
+      expect(infraFile).toContain("VITE_SERVER_URL: server.url!");
+      expect(infraFile!.indexOf('export const server = await Worker("server"')).toBeLessThan(
+        infraFile!.indexOf('export const web = await TanStackStart("web"'),
+      );
+    });
+
+    it("should keep native Metro from watching Alchemy state", async () => {
+      const result = await createVirtual({
+        projectName: "native-astro-alchemy",
+        frontend: ["astro", "native-unistyles"],
+        backend: "hono",
+        runtime: "workers",
+        api: "orpc",
+        auth: "better-auth",
+        payments: "none",
+        database: "sqlite",
+        orm: "drizzle",
+        dbSetup: "d1",
+        packageManager: "pnpm",
+        git: false,
+        webDeploy: "cloudflare",
+        serverDeploy: "cloudflare",
+        install: false,
+        addons: ["evlog", "lefthook", "turborepo", "ultracite"],
+        examples: ["none"],
+      });
+
+      if (result.isErr()) {
+        throw result.error;
+      }
+
+      const files = collectFiles(result.value.root, result.value.root.path);
+      const metroConfig = files.get("apps/native/metro.config.js");
+
+      expect(metroConfig).toContain("config.resolver.blockList = [");
+      expect(metroConfig).toContain("[/\\\\]packages[/\\\\]infra[/\\\\]\\.alchemy(?:[/\\\\]|$)");
+      expect(metroConfig).not.toContain("config.watchFolders =");
+    });
+
+    it("should keep native Metro minimal without Cloudflare deploys", async () => {
+      const result = await createVirtual({
+        projectName: "native-no-alchemy",
+        frontend: ["native-unistyles"],
+        backend: "hono",
+        runtime: "bun",
+        api: "orpc",
+        auth: "none",
+        payments: "none",
+        database: "sqlite",
+        orm: "drizzle",
+        dbSetup: "none",
+        packageManager: "pnpm",
+        git: false,
+        webDeploy: "none",
+        serverDeploy: "none",
+        install: false,
+        addons: ["none"],
+        examples: ["none"],
+      });
+
+      if (result.isErr()) {
+        throw result.error;
+      }
+
+      const files = collectFiles(result.value.root, result.value.root.path);
+      const metroConfig = files.get("apps/native/metro.config.js");
+
+      expect(metroConfig).toBeDefined();
+      expect(metroConfig).not.toContain("node:path");
+      expect(metroConfig).not.toContain("config.resolver.blockList");
+      expect(metroConfig).not.toContain("\\.alchemy");
     });
 
     it("should work with different deploy providers", async () => {

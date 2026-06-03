@@ -86,9 +86,8 @@ async function installAndRun(
   rmSync(dir, { recursive: true, force: true });
   mkdirSync(dir, { recursive: true });
 
-  const overrides = {
+  const overrides: Record<string, string> = {
     "@wundero/create-better-t-stack-types": `file:${tarballs["@wundero/create-better-t-stack-types"]}`,
-    "@wundero/create-better-t-stack-template-generator": `file:${tarballs["@wundero/create-better-t-stack-template-generator"]}`,
   };
   const fixture: Record<string, unknown> = {
     name: `smoke-${pm}`,
@@ -102,6 +101,37 @@ async function installAndRun(
   else fixture.overrides = overrides;
 
   writeFileSync(join(dir, "package.json"), JSON.stringify(fixture, null, 2));
+
+  if (pm === "pnpm") {
+    writeFileSync(
+      join(dir, ".pnpmfile.cjs"),
+      `const localDeps = ${JSON.stringify(overrides, null, 2)};
+
+module.exports = {
+  hooks: {
+    readPackage(pkg) {
+      if (pkg.name === "create-better-t-stack") {
+        pkg.dependencies = {
+          ...pkg.dependencies,
+          "@wundero/create-better-t-stack-types": localDeps["@wundero/create-better-t-stack-types"],
+          "@wundero/create-better-t-stack-template-generator": localDeps["@wundero/create-better-t-stack-template-generator"],
+        };
+      }
+
+      if (pkg.name === "@wundero/create-better-t-stack-template-generator") {
+        pkg.dependencies = {
+          ...pkg.dependencies,
+          "@wundero/create-better-t-stack-types": localDeps["@wundero/create-better-t-stack-types"],
+        };
+      }
+
+      return pkg;
+    },
+  },
+};
+`,
+    );
+  }
 
   const install = await $`${pm} install --ignore-scripts`.cwd(dir).quiet().nothrow();
   if (install.exitCode !== 0) {
