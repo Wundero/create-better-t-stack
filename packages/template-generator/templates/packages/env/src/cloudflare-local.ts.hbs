@@ -1,8 +1,19 @@
-import { config } from "dotenv";
+import { config, parse } from "dotenv";
+import { existsSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
-config({ path: fileURLToPath(new URL("../../../.env", import.meta.url)) });
-config();
+const devVarsPath = fileURLToPath(new URL("../../../.dev.vars", import.meta.url));
+if (existsSync(devVarsPath)) {
+	config({ path: devVarsPath });
+}
+if (process.env.DEV_VARS) {
+	const inlineEnv = parse(process.env.DEV_VARS);
+	for (const [key, value] of Object.entries(inlineEnv)) {
+		if (process.env[key] === undefined) {
+			process.env[key] = value;
+		}
+	}
+}
 
 const runtimeEnv = typeof process === "undefined" ? {} : process.env;
 

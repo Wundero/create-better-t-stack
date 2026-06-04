@@ -12,6 +12,10 @@ build
 .env
 .env*.local
 
+# Cloudflare local dev vars
+.dev.vars
+.dev.vars.local
+
 # IDEs and editors
 .vscode/*
 !.vscode/settings.json

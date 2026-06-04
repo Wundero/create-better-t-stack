@@ -1,0 +1,16 @@
+import { existsSync, readFileSync } from "node:fs";
+import { resolve } from "node:path";
+import { parse } from "dotenv";
+
+export function readDevVars(file = ".dev.vars", envName?: string) {
+	const basePath = resolve(process.cwd(), file);
+	const envPath =
+		envName && existsSync(`${basePath}.${envName}`)
+			? `${basePath}.${envName}`
+			: basePath;
+
+	const fileEnv = existsSync(envPath) ? parse(readFileSync(envPath, "utf8")) : {};
+	const inlineEnv = process.env.DEV_VARS ? parse(process.env.DEV_VARS) : {};
+
+	return { ...fileEnv, ...inlineEnv, ...process.env };
+}

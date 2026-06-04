@@ -147,6 +147,10 @@ export async function displayPostInstallInstructions(
     output += `${pc.cyan(`${stepCounter++}.`)} ${packageManager} install\n`;
   }
 
+  if (webDeploy === "cloudflare" || serverDeploy === "cloudflare") {
+    output += `${pc.cyan(`${stepCounter++}.`)} Copy ${pc.white(".dev.vars.example")} to ${pc.white(".dev.vars")} and update secrets\n`;
+  }
+
   if (database === "sqlite" && dbSetup !== "d1") {
     output += `${pc.cyan(`${stepCounter++}.`)} ${runCmd} db:local\n${pc.dim(
       "   (optional - starts local SQLite database)",

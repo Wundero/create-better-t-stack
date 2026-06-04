@@ -17,6 +17,7 @@ import { appRouter } from "{{packageScope}}/api/routers/index";
 {{#if (eq auth "better-auth")}}
 {{#if (or (eq runtime "workers") (eq serverDeploy "cloudflare") (and (eq backend "self") (eq webDeploy "cloudflare")))}}
 import { createAuth } from "{{packageScope}}/auth";
+import { cloneRequestForAuth, cloneResponseForAuth } from "{{packageScope}}/auth/lib/cloudflare-auth";
 {{else}}
 import { auth } from "{{packageScope}}/auth";
 {{/if}}
@@ -62,12 +63,15 @@ app.use(
 app.on(
 	["POST", "GET"],
 	"/api/auth/*",
-	(c) =>
+	async (c) => {
 {{#if (or (eq runtime "workers") (eq serverDeploy "cloudflare") (and (eq backend "self") (eq webDeploy "cloudflare")))}}
-		createAuth().handler(c.req.raw)
+		const request = cloneRequestForAuth(c.req.raw);
+		const response = await createAuth().handler(request);
+		return cloneResponseForAuth(response);
 {{else}}
-		auth.handler(c.req.raw)
+		return auth.handler(c.req.raw);
 {{/if}}
+	}
 );
 {{/if}}
 

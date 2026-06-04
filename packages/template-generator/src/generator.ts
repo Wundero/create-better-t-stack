@@ -10,6 +10,7 @@ import {
   processAlchemyPlugins,
   processPwaPlugins,
   processEnvVariables,
+  processTsconfigReferences,
 } from "./processors";
 import {
   type TemplateData,
@@ -87,6 +88,7 @@ export async function generate(
       processAlchemyPlugins(vfs, config);
       processPwaPlugins(vfs, config);
       processCatalogs(vfs, config);
+      processTsconfigReferences(vfs, config);
       processReadme(vfs, config);
 
       // Write bts.jsonc config file

@@ -25,7 +25,12 @@ import { createContext } from "{{packageScope}}/api/context";
 import { customJsonSerializers } from "{{packageScope}}/api/serialization";
 {{/if}}
 {{#if (eq auth "better-auth")}}
+{{#if (or (eq runtime "workers") (eq serverDeploy "cloudflare") (and (eq backend "self") (eq webDeploy "cloudflare")))}}
+import { createAuth } from "{{packageScope}}/auth";
+import { cloneRequestForAuth, cloneResponseForAuth } from "{{packageScope}}/auth/lib/cloudflare-auth";
+{{else}}
 import { auth } from "{{packageScope}}/auth";
+{{/if}}
 {{/if}}
 {{#if (and (includes examples "ai") (ne api "none"))}}
 import { readApiRequest } from "{{packageScope}}/api/serialization";
@@ -101,7 +106,13 @@ new Elysia()
 	.all("/api/auth/*", async (context) => {
 		const { request, status } = context;
 		if (["POST", "GET"].includes(request.method)) {
+{{#if (or (eq runtime "workers") (eq serverDeploy "cloudflare") (and (eq backend "self") (eq webDeploy "cloudflare")))}}
+			const clonedRequest = cloneRequestForAuth(request);
+			const response = await createAuth().handler(clonedRequest);
+			return cloneResponseForAuth(response);
+{{else}}
 			return auth.handler(request);
+{{/if}}
 		}
 		return status(405)
 	})

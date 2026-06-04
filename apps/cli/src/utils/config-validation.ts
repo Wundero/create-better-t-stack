@@ -481,6 +481,31 @@ export function validateApiConstraints(
   return Result.ok(undefined);
 }
 
+export function validateAuthFeatures(
+  authFeatures: ProjectConfig["authFeatures"],
+  auth: ProjectConfig["auth"] | undefined,
+  database: ProjectConfig["database"] | undefined,
+): ValidationResult {
+  if (!authFeatures || authFeatures.length === 0) {
+    return Result.ok(undefined);
+  }
+
+  if (authFeatures.includes("organization")) {
+    if (auth !== "better-auth") {
+      return validationErr(
+        "Organization feature requires Better Auth. Please use '--auth better-auth' or remove the organization feature.",
+      );
+    }
+    if (database === "none" || !database) {
+      return validationErr(
+        "Organization feature requires a database. Please select a database or remove the organization feature.",
+      );
+    }
+  }
+
+  return Result.ok(undefined);
+}
+
 export function validateFullConfig(
   config: Partial<ProjectConfig>,
   providedFlags: Set<string>,
@@ -546,6 +571,10 @@ export function validateFullConfig(
       config.backend,
       config.frontend ?? [],
     );
+
+    if (config.authFeatures && config.authFeatures.length > 0) {
+      yield* validateAuthFeatures(config.authFeatures, config.auth, config.database);
+    }
 
     yield* validateCloudflareConfig(config);
 

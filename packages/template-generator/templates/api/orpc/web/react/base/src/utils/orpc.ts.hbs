@@ -48,9 +48,7 @@ export function createQueryClient() {
 	});
 }
 
-{{#unless (includes frontend "tanstack-start")}}
-export const queryClient = createQueryClient();
-{{/unless}}
+
 
 {{#if (and (includes frontend "tanstack-start") (eq backend "self"))}}
 const getORPCClient = createIsomorphicFn()

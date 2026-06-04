@@ -100,6 +100,10 @@ export const AuthSchema = z
   .enum(["better-auth", "clerk", "none"])
   .describe("Authentication provider");
 
+export const AuthFeatureSchema = z.enum(["organization"]).describe("Better Auth feature plugin");
+
+export const AuthFeaturesListSchema = z.array(AuthFeatureSchema).optional();
+
 export const PaymentsSchema = z.enum(["polar", "none"]).describe("Payments provider");
 
 export const WebDeploySchema = z.enum(["cloudflare", "none"]).describe("Web deployment");
@@ -471,6 +475,7 @@ export const CreateInputSchema = z
     database: DatabaseSchema.optional(),
     orm: ORMSchema.optional(),
     auth: AuthSchema.optional(),
+    authFeatures: AuthFeaturesListSchema,
     payments: PaymentsSchema.optional(),
     frontend: z.array(FrontendSchema).optional(),
     addons: AddonsListSchema.optional(),
@@ -529,6 +534,7 @@ export const ProjectConfigSchema = z.object({
   addons: AddonsListSchema,
   examples: z.array(ExamplesSchema),
   auth: AuthSchema,
+  authFeatures: AuthFeaturesListSchema,
   payments: PaymentsSchema,
   git: z.boolean(),
   packageManager: PackageManagerSchema,
@@ -555,6 +561,7 @@ export const BetterTStackConfigSchema = z.object({
   addons: AddonsListSchema,
   examples: z.array(ExamplesSchema),
   auth: AuthSchema,
+  authFeatures: AuthFeaturesListSchema,
   payments: PaymentsSchema,
   packageManager: PackageManagerSchema,
   packageScope: PackageScopeSchema.optional(),

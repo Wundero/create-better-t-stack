@@ -19,6 +19,7 @@ import { processPaymentsDeps } from "./payments-deps";
 import { processPwaPlugins } from "./pwa-plugins";
 import { processReadme } from "./readme-generator";
 import { processRuntimeDeps } from "./runtime-deps";
+import { processTsconfigReferences } from "./tsconfig-references";
 import { processTurboConfig } from "./turbo-generator";
 import { processWorkspaceDeps } from "./workspace-deps";
 
@@ -55,6 +56,7 @@ export {
   processNxConfig,
   processReadme,
   processRuntimeDeps,
+  processTsconfigReferences,
   processTurboConfig,
   processWorkspaceDeps,
   processAuthPlugins,

@@ -48,7 +48,8 @@ describe("Cloudflare DB client generation", () => {
     expect(authFile).toContain("export function createAuth()");
     expect(authFile).not.toContain("export const auth = createAuth();");
     expect(envFile).toContain('export { env } from "cloudflare:workers";');
-    expect(serverFile).toContain("createAuth().handler(c.req.raw)");
+    expect(serverFile).toContain("cloneRequestForAuth(c.req.raw)");
+    expect(serverFile).toContain("cloneResponseForAuth(response)");
     expect(contextFile).toContain("createAuth().api.getSession");
     expect(todoRouterFile).toContain("const db = createDb();");
   });
@@ -121,7 +122,11 @@ describe("Cloudflare DB client generation", () => {
       frontend: "tanstack-start",
       api: "trpc",
       routePath: "apps/web/src/routes/api/auth/$.ts",
-      routeNeedles: ["const auth = createAuth()", "return auth.handler(request)"],
+      routeNeedles: [
+        "const auth = createAuth()",
+        "cloneRequestForAuth(request)",
+        "cloneResponseForAuth(response)",
+      ],
       envNeedle: 'export { env } from "cloudflare:workers";',
     },
     {
@@ -129,7 +134,11 @@ describe("Cloudflare DB client generation", () => {
       frontend: "nuxt",
       api: "orpc",
       routePath: "apps/web/server/api/auth/[...all].ts",
-      routeNeedles: ["const auth = createAuth();", "return auth.handler(toWebRequest(event));"],
+      routeNeedles: [
+        "const auth = createAuth();",
+        "cloneRequestForAuth(toWebRequest(event))",
+        "cloneResponseForAuth(response)",
+      ],
       envNeedle: 'export { env } from "cloudflare:workers";',
     },
     {
@@ -137,7 +146,11 @@ describe("Cloudflare DB client generation", () => {
       frontend: "astro",
       api: "orpc",
       routePath: "apps/web/src/pages/api/auth/[...all].ts",
-      routeNeedles: ["const auth = createAuth();", "return auth.handler(ctx.request);"],
+      routeNeedles: [
+        "const auth = createAuth();",
+        "cloneRequestForAuth(ctx.request)",
+        "cloneResponseForAuth(response)",
+      ],
       envNeedle: 'export { env } from "cloudflare:workers";',
     },
   ] as const;

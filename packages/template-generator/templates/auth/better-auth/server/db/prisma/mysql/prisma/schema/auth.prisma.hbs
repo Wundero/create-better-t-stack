@@ -1,13 +1,17 @@
 model User {
-  id            String    @id
-  name          String    @db.Text
+  id            String         @id
+  name          String         @db.Text
   email         String
-  emailVerified Boolean   @default(false)
-  image         String?   @db.Text
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  emailVerified Boolean        @default(false)
+  image         String?        @db.Text
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
   sessions      Session[]
   accounts      Account[]
+  {{#if (includes authFeatures "organization")}}
+  members       Member[]
+  invitations   Invitation[]
+  {{/if}}
 
   @@unique([email])
   @@map("user")
@@ -60,3 +64,47 @@ model Verification {
   @@index([identifier(length: 191)])
   @@map("verification")
 }
+
+{{#if (includes authFeatures "organization")}}
+model Organization {
+  id          String       @id
+  name        String       @db.Text
+  slug        String?      @unique
+  logo        String?      @db.Text
+  metadata    String?      @db.Text
+  members     Member[]
+  invitations Invitation[]
+  createdAt   DateTime     @default(now())
+
+  @@map("organization")
+}
+
+model Member {
+  id             String       @id
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role           String       @db.Text
+  createdAt      DateTime     @default(now())
+
+  @@index([organizationId(length: 191)])
+  @@map("member")
+}
+
+model Invitation {
+  id             String       @id
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  email          String
+  role           String?      @db.Text
+  status         String       @db.Text
+  expiresAt      DateTime
+  inviterId      String
+  inviter        User         @relation(fields: [inviterId], references: [id], onDelete: Cascade)
+  createdAt      DateTime     @default(now())
+
+  @@index([organizationId(length: 191)])
+  @@map("invitation")
+}
+{{/if}}

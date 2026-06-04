@@ -1,5 +1,6 @@
 {{#if (or (eq runtime "workers") (eq serverDeploy "cloudflare") (and (eq backend "self") (eq webDeploy "cloudflare")))}}
 import { createAuth } from "{{packageScope}}/auth";
+import { cloneRequestForAuth, cloneResponseForAuth } from "{{packageScope}}/auth/lib/cloudflare-auth";
 {{else}}
 import { auth } from "{{packageScope}}/auth";
 {{/if}}
@@ -7,6 +8,9 @@ import { auth } from "{{packageScope}}/auth";
 export default defineEventHandler((event) => {
 {{#if (or (eq runtime "workers") (eq serverDeploy "cloudflare") (and (eq backend "self") (eq webDeploy "cloudflare")))}}
   const auth = createAuth();
-{{/if}}
+  const response = await auth.handler(cloneRequestForAuth(toWebRequest(event)));
+  return cloneResponseForAuth(response);
+{{else}}
   return auth.handler(toWebRequest(event));
+{{/if}}
 });

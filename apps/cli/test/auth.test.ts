@@ -672,10 +672,11 @@ describe("Authentication Configurations", () => {
           path.join(result.projectDir, "apps/server/src/index.ts"),
           "utf8",
         );
-        const serverEnvFile = await fs.readFile(
-          path.join(result.projectDir, "apps/server/.env"),
-          "utf8",
-        );
+        const serverEnvPath =
+          serverDeploy === "cloudflare"
+            ? path.join(result.projectDir, ".dev.vars.example")
+            : path.join(result.projectDir, "apps/server/.env");
+        const serverEnvFile = await fs.readFile(serverEnvPath, "utf8");
 
         expect(authFile).toContain('from "@polar-sh/better-auth"');
         expect(authFile).toContain("polar({");

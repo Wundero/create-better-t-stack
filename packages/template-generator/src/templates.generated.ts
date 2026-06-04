@@ -1759,7 +1759,8 @@ export function createDevalueFetch(fetcher: typeof fetch = fetch): typeof fetch 
     "declarationMap": true,
     "sourceMap": true,
     "outDir": "dist",
-    "composite": true
+    "composite": true,
+    "incremental": true
   }
 }`],
   ["api/orpc/web/astro/src/lib/orpc.ts.hbs", `import type { AppRouterClient } from "{{packageScope}}/api/routers/index";
@@ -1927,9 +1928,7 @@ export function createQueryClient() {
 	});
 }
 
-{{#unless (includes frontend "tanstack-start")}}
-export const queryClient = createQueryClient();
-{{/unless}}
+
 
 {{#if (and (includes frontend "tanstack-start") (eq backend "self"))}}
 const getORPCClient = createIsomorphicFn()
@@ -2370,6 +2369,7 @@ import { getCloudflareBindings, type CloudflareBindings } from "{{packageScope}}
 {{#if (eq auth "better-auth")}}
 {{#if (or (eq runtime "workers") (eq serverDeploy "cloudflare") (and (eq backend "self") (eq webDeploy "cloudflare")))}}
 import { createAuth } from "{{packageScope}}/auth";
+import { cloneHeadersForAuth } from "{{packageScope}}/auth/lib/cloudflare-auth";
 {{else}}
 import { auth } from "{{packageScope}}/auth";
 {{/if}}
@@ -2382,7 +2382,7 @@ export type CreateContextOptions = {
 export async function createContext({{#if (eq auth "none")}}_options{{else}}{ context }{{/if}}: CreateContextOptions){{#if (eq auth "clerk")}}: Promise<ClerkRequestContext>{{/if}} {
 {{#if (eq auth "better-auth")}}
 	const session = await {{#if (or (eq runtime "workers") (eq serverDeploy "cloudflare") (and (eq backend "self") (eq webDeploy "cloudflare")))}}createAuth(){{else}}auth{{/if}}.api.getSession({
-		headers: context.req.raw.headers,
+		headers: {{#if (or (eq runtime "workers") (eq serverDeploy "cloudflare") (and (eq backend "self") (eq webDeploy "cloudflare")))}}cloneHeadersForAuth(context.req.raw.headers){{else}}context.req.raw.headers{{/if}},
 	});
 	return {
 		auth: null,
@@ -2751,7 +2751,8 @@ export function createDevalueFetch(fetcher: typeof fetch = fetch): typeof fetch 
     "declarationMap": true,
     "sourceMap": true,
     "outDir": "dist",
-    "composite": true
+    "composite": true,
+    "incremental": true
   }
 }`],
   ["api/trpc/web/react/base/src/utils/trpc.ts.hbs", `{{#if (includes frontend 'next')}}
@@ -2768,20 +2769,22 @@ import { env } from "{{packageScope}}/env/web";
 import { getClerkAuthToken } from "@/utils/clerk-auth";
 {{/if}}
 
-export const queryClient = new QueryClient({
-	queryCache: new QueryCache({
-		onError: (error, query) => {
-			toast.error(error.message, {
-				action: {
-					label: "retry",
-					onClick: () => {
-						query.invalidate();
+export function createQueryClient() {
+	return new QueryClient({
+		queryCache: new QueryCache({
+			onError: (error, query) => {
+				toast.error(error.message, {
+					action: {
+						label: "retry",
+						onClick: () => {
+							query.invalidate();
+						},
 					},
-				},
-			});
-		},
-	}),
-});
+				});
+			},
+		}),
+	});
+}
 
 const trpcClient = createTRPCClient<AppRouter>({
 	links: [
@@ -2816,12 +2819,14 @@ const trpcClient = createTRPCClient<AppRouter>({
 {{/if}}
 		}),
 	],
-})
-
-export const trpc = createTRPCOptionsProxy<AppRouter>({
-	client: trpcClient,
-	queryClient,
 });
+
+export function createTRPCUtils(queryClient: QueryClient) {
+	return createTRPCOptionsProxy<AppRouter>({
+		client: trpcClient,
+		queryClient,
+	});
+}
 
 {{else if (includes frontend 'tanstack-start')}}
 import { createTRPCContext } from "@trpc/tanstack-react-query";
@@ -2842,20 +2847,22 @@ import { env } from "{{packageScope}}/env/web";
 import { getClerkAuthToken } from "@/utils/clerk-auth";
 {{/if}}
 
-export const queryClient = new QueryClient({
-	queryCache: new QueryCache({
-		onError: (error, query) => {
-			toast.error(error.message, {
-				action: {
-					label: "retry",
-					onClick: () => {
-						query.invalidate();
+export function createQueryClient() {
+	return new QueryClient({
+		queryCache: new QueryCache({
+			onError: (error, query) => {
+				toast.error(error.message, {
+					action: {
+						label: "retry",
+						onClick: () => {
+							query.invalidate();
+						},
 					},
-				},
-			});
-		},
-	}),
-});
+				});
+			},
+		}),
+	});
+}
 
 export const trpcClient = createTRPCClient<AppRouter>({
 	links: [
@@ -2880,10 +2887,12 @@ export const trpcClient = createTRPCClient<AppRouter>({
 	],
 });
 
-export const trpc = createTRPCOptionsProxy<AppRouter>({
-	client: trpcClient,
-	queryClient,
-});
+export function createTRPCUtils(queryClient: QueryClient) {
+	return createTRPCOptionsProxy<AppRouter>({
+		client: trpcClient,
+		queryClient,
+	});
+}
 {{/if}}
 `],
   ["auth/better-auth/convex/backend/convex/auth.config.ts.hbs", `import { getAuthConfigProvider } from "@convex-dev/better-auth/auth-config";
@@ -6151,6 +6160,7 @@ export const onRequest = defineMiddleware(async (context, next) => {
 `],
   ["auth/better-auth/fullstack/astro/src/pages/api/auth/[...all].ts.hbs", `{{#if (or (eq runtime "workers") (eq serverDeploy "cloudflare") (and (eq backend "self") (eq webDeploy "cloudflare")))}}
 import { createAuth } from "{{packageScope}}/auth";
+import { cloneRequestForAuth, cloneResponseForAuth } from "{{packageScope}}/auth/lib/cloudflare-auth";
 {{else}}
 import { auth } from "{{packageScope}}/auth";
 {{/if}}
@@ -6159,8 +6169,11 @@ import type { APIRoute } from "astro";
 export const ALL: APIRoute = async (ctx) => {
 {{#if (or (eq runtime "workers") (eq serverDeploy "cloudflare") (and (eq backend "self") (eq webDeploy "cloudflare")))}}
   const auth = createAuth();
-{{/if}}
+  const response = await auth.handler(cloneRequestForAuth(ctx.request));
+  return cloneResponseForAuth(response);
+{{else}}
   return auth.handler(ctx.request);
+{{/if}}
 };
 `],
   ["auth/better-auth/fullstack/next/src/app/api/auth/[...all]/route.ts.hbs", `{{#if (or (eq runtime "workers") (eq serverDeploy "cloudflare") (and (eq backend "self") (eq webDeploy "cloudflare")))}}
@@ -6184,6 +6197,7 @@ export const { GET, POST } = toNextJsHandler(auth);
 `],
   ["auth/better-auth/fullstack/nuxt/server/api/auth/[...all].ts.hbs", `{{#if (or (eq runtime "workers") (eq serverDeploy "cloudflare") (and (eq backend "self") (eq webDeploy "cloudflare")))}}
 import { createAuth } from "{{packageScope}}/auth";
+import { cloneRequestForAuth, cloneResponseForAuth } from "{{packageScope}}/auth/lib/cloudflare-auth";
 {{else}}
 import { auth } from "{{packageScope}}/auth";
 {{/if}}
@@ -6191,8 +6205,11 @@ import { auth } from "{{packageScope}}/auth";
 export default defineEventHandler((event) => {
 {{#if (or (eq runtime "workers") (eq serverDeploy "cloudflare") (and (eq backend "self") (eq webDeploy "cloudflare")))}}
   const auth = createAuth();
-{{/if}}
+  const response = await auth.handler(cloneRequestForAuth(toWebRequest(event)));
+  return cloneResponseForAuth(response);
+{{else}}
   return auth.handler(toWebRequest(event));
+{{/if}}
 });
 `],
   ["auth/better-auth/fullstack/svelte/src/hooks.server.ts.hbs", `{{#if (eq api "orpc")}}
@@ -6236,6 +6253,7 @@ export const handle: Handle = async ({ event, resolve }) => {
 `],
   ["auth/better-auth/fullstack/tanstack-start/src/routes/api/auth/$.ts.hbs", `{{#if (or (eq runtime "workers") (eq serverDeploy "cloudflare") (and (eq backend "self") (eq webDeploy "cloudflare")))}}
 import { createAuth } from '{{packageScope}}/auth'
+import { cloneRequestForAuth, cloneResponseForAuth } from '{{packageScope}}/auth/lib/cloudflare-auth'
 {{else}}
 import { auth } from '{{packageScope}}/auth'
 {{/if}}
@@ -6247,14 +6265,20 @@ export const Route = createFileRoute('/api/auth/$')({
       GET: ({ request }) => {
         {{#if (or (eq runtime "workers") (eq serverDeploy "cloudflare") (and (eq backend "self") (eq webDeploy "cloudflare")))}}
         const auth = createAuth()
-        {{/if}}
+        const response = await auth.handler(cloneRequestForAuth(request))
+        return cloneResponseForAuth(response)
+        {{else}}
         return auth.handler(request)
+        {{/if}}
       },
       POST: ({ request }) => {
         {{#if (or (eq runtime "workers") (eq serverDeploy "cloudflare") (and (eq backend "self") (eq webDeploy "cloudflare")))}}
         const auth = createAuth()
-        {{/if}}
+        const response = await auth.handler(cloneRequestForAuth(request))
+        return cloneResponseForAuth(response)
+        {{else}}
         return auth.handler(request)
+        {{/if}}
       },
     },
   },
@@ -8505,6 +8529,9 @@ export const auth = createAuth();
 {{#if (or (eq runtime "bun") (eq runtime "node") (eq runtime "none"))}}
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
+{{#if (includes authFeatures "organization")}}
+import { organization } from "better-auth/plugins";
+{{/if}}
 {{#if (and (eq backend "self") (eq webDeploy "cloudflare") (includes frontend "svelte"))}}
 import type {} from "{{packageScope}}/env/server";
 {{else}}
@@ -8575,6 +8602,11 @@ export function createAuth({{#if (and (eq backend "self") (eq webDeploy "cloudfl
 				],
 			}),
 {{/if}}
+{{#if (includes authFeatures "organization")}}
+			organization({
+				// TODO: Restrict organization creation or member limits by plan.
+			}),
+{{/if}}
 		],
 	});
 }
@@ -8587,6 +8619,9 @@ export const auth = createAuth();
 {{#if (eq runtime "workers")}}
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
+{{#if (includes authFeatures "organization")}}
+import { organization } from "better-auth/plugins";
+{{/if}}
 import { env } from "{{packageScope}}/env/server";
 {{#if (eq payments "polar")}}
 import { polar, checkout, portal } from "@polar-sh/better-auth";
@@ -8639,8 +8674,9 @@ export function createAuth() {
 			//   domain: "<your-workers-subdomain>",
 			// },
 		},
-{{#if (eq payments "polar")}}
+{{#if (or (eq payments "polar") (includes authFeatures "organization"))}}
 		plugins: [
+{{#if (eq payments "polar")}}
 			polar({
 				client: polarClient,
 				createCustomerOnSignUp: true,
@@ -8659,6 +8695,12 @@ export function createAuth() {
 					portal(),
 				],
 			}),
+{{/if}}
+{{#if (includes authFeatures "organization")}}
+			organization({
+				// TODO: Restrict organization creation or member limits by plan.
+			}),
+{{/if}}
 		],
 {{/if}}
 	});
@@ -8811,6 +8853,32 @@ export const auth = createAuth();
 {{/if}}
 {{/if}}
 `],
+  ["auth/better-auth/server/base/src/lib/cloudflare-auth.ts.hbs", `export function cloneRequestForAuth(request: Request) {
+	const init: RequestInit & { duplex?: "half" } = {
+		method: request.method,
+	headers: new Headers(request.headers),
+		body: request.method === "GET" || request.method === "HEAD" ? undefined : request.body,
+	};
+
+	if (init.body) {
+		init.duplex = "half";
+	}
+
+	return new Request(request.url, init);
+}
+
+export function cloneResponseForAuth(response: Response) {
+	return new Response(response.body, {
+		status: response.status,
+		statusText: response.statusText,
+		headers: new Headers(response.headers),
+	});
+}
+
+export function cloneHeadersForAuth(headers: HeadersInit) {
+	return new Headers(headers);
+}
+`],
   ["auth/better-auth/server/base/tsconfig.json.hbs", `{
   "extends": "{{packageScope}}/config/tsconfig.base.json",
   "compilerOptions": {
@@ -8818,7 +8886,8 @@ export const auth = createAuth();
     "declarationMap": true,
     "sourceMap": true,
     "outDir": "dist",
-    "composite": true
+    "composite": true,
+    "incremental": true
   }
 }`],
   ["auth/better-auth/server/db/drizzle/mysql/src/schema/auth.ts.hbs", `import { relations } from "drizzle-orm";
@@ -8921,6 +8990,79 @@ export const accountRelations = relations(account, ({ one }) => ({
     references: [user.id],
   }),
 }));
+
+{{#if (includes authFeatures "organization")}}
+export const organization = mysqlTable("organization", {
+  id: varchar("id", { length: 36 }).primaryKey(),
+  name: varchar("name", { length: 255 }).notNull(),
+  slug: varchar("slug", { length: 255 }).unique(),
+  logo: text("logo"),
+  metadata: text("metadata"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const member = mysqlTable(
+  "member",
+  {
+    id: varchar("id", { length: 36 }).primaryKey(),
+    organizationId: varchar("organization_id", { length: 36 })
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    userId: varchar("user_id", { length: 36 })
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    role: varchar("role", { length: 255 }).notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => [index("member_orgId_idx").on(table.organizationId)],
+);
+
+export const invitation = mysqlTable(
+  "invitation",
+  {
+    id: varchar("id", { length: 36 }).primaryKey(),
+    organizationId: varchar("organization_id", { length: 36 })
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    email: varchar("email", { length: 255 }).notNull(),
+    role: varchar("role", { length: 255 }),
+    status: varchar("status", { length: 255 }).notNull(),
+    expiresAt: timestamp("expires_at").notNull(),
+    inviterId: varchar("inviter_id", { length: 36 })
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => [index("invitation_orgId_idx").on(table.organizationId)],
+);
+
+export const organizationRelations = relations(organization, ({ many }) => ({
+  members: many(member),
+  invitations: many(invitation),
+}));
+
+export const memberRelations = relations(member, ({ one }) => ({
+  user: one(user, {
+    fields: [member.userId],
+    references: [user.id],
+  }),
+  organization: one(organization, {
+    fields: [member.organizationId],
+    references: [organization.id],
+  }),
+}));
+
+export const invitationRelations = relations(invitation, ({ one }) => ({
+  organization: one(organization, {
+    fields: [invitation.organizationId],
+    references: [organization.id],
+  }),
+  inviter: one(user, {
+    fields: [invitation.inviterId],
+    references: [user.id],
+  }),
+}));
+{{/if}}
 `],
   ["auth/better-auth/server/db/drizzle/postgres/src/schema/auth.ts.hbs", `import { relations } from "drizzle-orm";
 import { pgTable, text, timestamp, boolean, index } from "drizzle-orm/pg-core";
@@ -9015,6 +9157,79 @@ export const accountRelations = relations(account, ({ one }) => ({
     references: [user.id],
   }),
 }));
+
+{{#if (includes authFeatures "organization")}}
+export const organization = pgTable("organization", {
+  id: text("id").primaryKey(),
+  name: text("name").notNull(),
+  slug: text("slug").unique(),
+  logo: text("logo"),
+  metadata: text("metadata"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const member = pgTable(
+  "member",
+  {
+    id: text("id").primaryKey(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    role: text("role").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => [index("member_orgId_idx").on(table.organizationId)],
+);
+
+export const invitation = pgTable(
+  "invitation",
+  {
+    id: text("id").primaryKey(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    email: text("email").notNull(),
+    role: text("role"),
+    status: text("status").notNull(),
+    expiresAt: timestamp("expires_at").notNull(),
+    inviterId: text("inviter_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => [index("invitation_orgId_idx").on(table.organizationId)],
+);
+
+export const organizationRelations = relations(organization, ({ many }) => ({
+  members: many(member),
+  invitations: many(invitation),
+}));
+
+export const memberRelations = relations(member, ({ one }) => ({
+  user: one(user, {
+    fields: [member.userId],
+    references: [user.id],
+  }),
+  organization: one(organization, {
+    fields: [member.organizationId],
+    references: [organization.id],
+  }),
+}));
+
+export const invitationRelations = relations(invitation, ({ one }) => ({
+  organization: one(organization, {
+    fields: [invitation.organizationId],
+    references: [organization.id],
+  }),
+  inviter: one(user, {
+    fields: [invitation.inviterId],
+    references: [user.id],
+  }),
+}));
+{{/if}}
 `],
   ["auth/better-auth/server/db/drizzle/sqlite/src/schema/auth.ts.hbs", `import { relations, sql } from "drizzle-orm";
 import { sqliteTable, text, integer, index } from "drizzle-orm/sqlite-core";
@@ -9123,6 +9338,85 @@ export const accountRelations = relations(account, ({ one }) => ({
     references: [user.id],
   }),
 }));
+
+{{#if (includes authFeatures "organization")}}
+export const organization = sqliteTable("organization", {
+  id: text("id").primaryKey(),
+  name: text("name").notNull(),
+  slug: text("slug").unique(),
+  logo: text("logo"),
+  metadata: text("metadata"),
+  createdAt: integer("created_at", { mode: "timestamp_ms" })
+    .default(sql\`(cast(unixepoch('subsecond') * 1000 as integer))\`)
+    .notNull(),
+});
+
+export const member = sqliteTable(
+  "member",
+  {
+    id: text("id").primaryKey(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    role: text("role").notNull(),
+    createdAt: integer("created_at", { mode: "timestamp_ms" })
+      .default(sql\`(cast(unixepoch('subsecond') * 1000 as integer))\`)
+      .notNull(),
+  },
+  (table) => [index("member_orgId_idx").on(table.organizationId)],
+);
+
+export const invitation = sqliteTable(
+  "invitation",
+  {
+    id: text("id").primaryKey(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    email: text("email").notNull(),
+    role: text("role"),
+    status: text("status").notNull(),
+    expiresAt: integer("expires_at", { mode: "timestamp_ms" }).notNull(),
+    inviterId: text("inviter_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    createdAt: integer("created_at", { mode: "timestamp_ms" })
+      .default(sql\`(cast(unixepoch('subsecond') * 1000 as integer))\`)
+      .notNull(),
+  },
+  (table) => [index("invitation_orgId_idx").on(table.organizationId)],
+);
+
+export const organizationRelations = relations(organization, ({ many }) => ({
+  members: many(member),
+  invitations: many(invitation),
+}));
+
+export const memberRelations = relations(member, ({ one }) => ({
+  user: one(user, {
+    fields: [member.userId],
+    references: [user.id],
+  }),
+  organization: one(organization, {
+    fields: [member.organizationId],
+    references: [organization.id],
+  }),
+}));
+
+export const invitationRelations = relations(invitation, ({ one }) => ({
+  organization: one(organization, {
+    fields: [invitation.organizationId],
+    references: [organization.id],
+  }),
+  inviter: one(user, {
+    fields: [invitation.inviterId],
+    references: [user.id],
+  }),
+}));
+{{/if}}
 `],
   ["auth/better-auth/server/db/mongoose/mongodb/src/models/auth.model.ts.hbs", `import mongoose from 'mongoose';
 
@@ -9190,23 +9484,73 @@ const verificationSchema = new Schema(
 );
 verificationSchema.index({ identifier: 1 });
 
+{{#if (includes authFeatures "organization")}}
+const organizationSchema = new Schema(
+    {
+        _id: { type: ObjectId, auto: true },
+        name: { type: String, required: true },
+        slug: { type: String, unique: true },
+        logo: { type: String },
+        metadata: { type: String },
+        createdAt: { type: Date, required: true, default: Date.now },
+    },
+    { collection: 'organization' }
+);
+
+const memberSchema = new Schema(
+    {
+        _id: { type: ObjectId, auto: true },
+        organizationId: { type: ObjectId, ref: 'Organization', required: true },
+        userId: { type: ObjectId, ref: 'User', required: true },
+        role: { type: String, required: true },
+        createdAt: { type: Date, required: true, default: Date.now },
+    },
+    { collection: 'member' }
+);
+memberSchema.index({ organizationId: 1 });
+
+const invitationSchema = new Schema(
+    {
+        _id: { type: ObjectId, auto: true },
+        organizationId: { type: ObjectId, ref: 'Organization', required: true },
+        email: { type: String, required: true },
+        role: { type: String },
+        status: { type: String, required: true },
+        expiresAt: { type: Date, required: true },
+        inviterId: { type: ObjectId, ref: 'User', required: true },
+        createdAt: { type: Date, required: true, default: Date.now },
+    },
+    { collection: 'invitation' }
+);
+invitationSchema.index({ organizationId: 1 });
+{{/if}}
+
 const User = model('User', userSchema);
 const Session = model('Session', sessionSchema);
 const Account = model('Account', accountSchema);
 const Verification = model('Verification', verificationSchema);
+{{#if (includes authFeatures "organization")}}
+const Organization = model('Organization', organizationSchema);
+const Member = model('Member', memberSchema);
+const Invitation = model('Invitation', invitationSchema);
+{{/if}}
 
-export { User, Session, Account, Verification };
+export { User, Session, Account, Verification{{#if (includes authFeatures "organization")}}, Organization, Member, Invitation{{/if}} };
 `],
   ["auth/better-auth/server/db/prisma/mongodb/prisma/schema/auth.prisma.hbs", `model User {
-  id            String    @id @map("_id")
+  id            String         @id @map("_id")
   name          String
   email         String
-  emailVerified Boolean   @default(false)
+  emailVerified Boolean        @default(false)
   image         String?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
   sessions      Session[]
   accounts      Account[]
+  {{#if (includes authFeatures "organization")}}
+  members       Member[]
+  invitations   Invitation[]
+  {{/if}}
 
   @@unique([email])
   @@map("user")
@@ -9259,17 +9603,65 @@ model Verification {
   @@index([identifier])
   @@map("verification")
 }
+
+{{#if (includes authFeatures "organization")}}
+model Organization {
+  id          String       @id @map("_id")
+  name        String
+  slug        String?      @unique
+  logo        String?
+  metadata    String?
+  members     Member[]
+  invitations Invitation[]
+  createdAt   DateTime     @default(now())
+
+  @@map("organization")
+}
+
+model Member {
+  id             String       @id @map("_id")
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role           String
+  createdAt      DateTime     @default(now())
+
+  @@index([organizationId])
+  @@map("member")
+}
+
+model Invitation {
+  id             String       @id @map("_id")
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  email          String
+  role           String?
+  status         String
+  expiresAt      DateTime
+  inviterId      String
+  inviter        User         @relation(fields: [inviterId], references: [id], onDelete: Cascade)
+  createdAt      DateTime     @default(now())
+
+  @@index([organizationId])
+  @@map("invitation")
+}
+{{/if}}
 `],
   ["auth/better-auth/server/db/prisma/mysql/prisma/schema/auth.prisma.hbs", `model User {
-  id            String    @id
-  name          String    @db.Text
+  id            String         @id
+  name          String         @db.Text
   email         String
-  emailVerified Boolean   @default(false)
-  image         String?   @db.Text
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  emailVerified Boolean        @default(false)
+  image         String?        @db.Text
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
   sessions      Session[]
   accounts      Account[]
+  {{#if (includes authFeatures "organization")}}
+  members       Member[]
+  invitations   Invitation[]
+  {{/if}}
 
   @@unique([email])
   @@map("user")
@@ -9322,17 +9714,65 @@ model Verification {
   @@index([identifier(length: 191)])
   @@map("verification")
 }
+
+{{#if (includes authFeatures "organization")}}
+model Organization {
+  id          String       @id
+  name        String       @db.Text
+  slug        String?      @unique
+  logo        String?      @db.Text
+  metadata    String?      @db.Text
+  members     Member[]
+  invitations Invitation[]
+  createdAt   DateTime     @default(now())
+
+  @@map("organization")
+}
+
+model Member {
+  id             String       @id
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role           String       @db.Text
+  createdAt      DateTime     @default(now())
+
+  @@index([organizationId(length: 191)])
+  @@map("member")
+}
+
+model Invitation {
+  id             String       @id
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  email          String
+  role           String?      @db.Text
+  status         String       @db.Text
+  expiresAt      DateTime
+  inviterId      String
+  inviter        User         @relation(fields: [inviterId], references: [id], onDelete: Cascade)
+  createdAt      DateTime     @default(now())
+
+  @@index([organizationId(length: 191)])
+  @@map("invitation")
+}
+{{/if}}
 `],
   ["auth/better-auth/server/db/prisma/postgres/prisma/schema/auth.prisma.hbs", `model User {
-  id            String    @id
+  id            String         @id
   name          String
   email         String
-  emailVerified Boolean   @default(false)
+  emailVerified Boolean        @default(false)
   image         String?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
   sessions      Session[]
   accounts      Account[]
+  {{#if (includes authFeatures "organization")}}
+  members       Member[]
+  invitations   Invitation[]
+  {{/if}}
 
   @@unique([email])
   @@map("user")
@@ -9385,17 +9825,65 @@ model Verification {
   @@index([identifier])
   @@map("verification")
 }
+
+{{#if (includes authFeatures "organization")}}
+model Organization {
+  id          String       @id
+  name        String
+  slug        String?      @unique
+  logo        String?
+  metadata    String?
+  members     Member[]
+  invitations Invitation[]
+  createdAt   DateTime     @default(now())
+
+  @@map("organization")
+}
+
+model Member {
+  id             String       @id
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role           String
+  createdAt      DateTime     @default(now())
+
+  @@index([organizationId])
+  @@map("member")
+}
+
+model Invitation {
+  id             String       @id
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  email          String
+  role           String?
+  status         String
+  expiresAt      DateTime
+  inviterId      String
+  inviter        User         @relation(fields: [inviterId], references: [id], onDelete: Cascade)
+  createdAt      DateTime     @default(now())
+
+  @@index([organizationId])
+  @@map("invitation")
+}
+{{/if}}
 `],
   ["auth/better-auth/server/db/prisma/sqlite/prisma/schema/auth.prisma.hbs", `model User {
-  id            String    @id
+  id            String         @id
   name          String
   email         String
-  emailVerified Boolean   @default(false)
+  emailVerified Boolean        @default(false)
   image         String?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
   sessions      Session[]
   accounts      Account[]
+  {{#if (includes authFeatures "organization")}}
+  members       Member[]
+  invitations   Invitation[]
+  {{/if}}
 
   @@unique([email])
   @@map("user")
@@ -9448,6 +9936,50 @@ model Verification {
   @@index([identifier])
   @@map("verification")
 }
+
+{{#if (includes authFeatures "organization")}}
+model Organization {
+  id          String       @id
+  name        String
+  slug        String?      @unique
+  logo        String?
+  metadata    String?
+  members     Member[]
+  invitations Invitation[]
+  createdAt   DateTime     @default(now())
+
+  @@map("organization")
+}
+
+model Member {
+  id             String       @id
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role           String
+  createdAt      DateTime     @default(now())
+
+  @@index([organizationId])
+  @@map("member")
+}
+
+model Invitation {
+  id             String       @id
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  email          String
+  role           String?
+  status         String
+  expiresAt      DateTime
+  inviterId      String
+  inviter        User         @relation(fields: [inviterId], references: [id], onDelete: Cascade)
+  createdAt      DateTime     @default(now())
+
+  @@index([organizationId])
+  @@map("invitation")
+}
+{{/if}}
 `],
   ["auth/better-auth/web/astro/src/components/SignInForm.astro.hbs", `---
 import { authClient } from "../lib/auth-client";
@@ -10215,6 +10747,9 @@ export default defineNuxtPlugin(() => {
 {{#if (eq payments "polar")}}
 import { polarClient } from "@polar-sh/better-auth/client";
 {{/if}}
+{{#if (includes authFeatures "organization")}}
+import { organizationClient } from "better-auth/client/plugins";
+{{/if}}
 {{#unless (eq backend "self")}}
 import { env } from "{{packageScope}}/env/web";
 {{/unless}}
@@ -10223,8 +10758,11 @@ export const authClient = createAuthClient({
 {{#unless (eq backend "self")}}
 	baseURL: env.{{#if (includes frontend "next")}}NEXT_PUBLIC_SERVER_URL{{else}}VITE_SERVER_URL{{/if}},
 {{/unless}}
-{{#if (eq payments "polar")}}
-	plugins: [polarClient()]
+{{#if (or (eq payments "polar") (includes authFeatures "organization"))}}
+	plugins: [
+		{{#if (eq payments "polar")}}polarClient(),{{/if}}
+		{{#if (includes authFeatures "organization")}}organizationClient(),{{/if}}
+	]
 {{/if}}
 });
 `],
@@ -11532,7 +12070,6 @@ export default function UserMenu() {
 import { Button } from "{{packageScope}}/ui/components/button";
 {{/if}}
 import { authClient } from "@/lib/auth-client";
-{{/if}}
 {{#if (eq api "orpc")}}
 import { orpc } from "@/utils/orpc";
 {{/if}}
@@ -14937,7 +15474,12 @@ import { createContext } from "{{packageScope}}/api/context";
 import { customJsonSerializers } from "{{packageScope}}/api/serialization";
 {{/if}}
 {{#if (eq auth "better-auth")}}
+{{#if (or (eq runtime "workers") (eq serverDeploy "cloudflare") (and (eq backend "self") (eq webDeploy "cloudflare")))}}
+import { createAuth } from "{{packageScope}}/auth";
+import { cloneRequestForAuth, cloneResponseForAuth } from "{{packageScope}}/auth/lib/cloudflare-auth";
+{{else}}
 import { auth } from "{{packageScope}}/auth";
+{{/if}}
 {{/if}}
 {{#if (and (includes examples "ai") (ne api "none"))}}
 import { readApiRequest } from "{{packageScope}}/api/serialization";
@@ -15013,7 +15555,13 @@ new Elysia()
 	.all("/api/auth/*", async (context) => {
 		const { request, status } = context;
 		if (["POST", "GET"].includes(request.method)) {
+{{#if (or (eq runtime "workers") (eq serverDeploy "cloudflare") (and (eq backend "self") (eq webDeploy "cloudflare")))}}
+			const clonedRequest = cloneRequestForAuth(request);
+			const response = await createAuth().handler(clonedRequest);
+			return cloneResponseForAuth(response);
+{{else}}
 			return auth.handler(request);
+{{/if}}
 		}
 		return status(405)
 	})
@@ -15503,6 +16051,7 @@ import { appRouter } from "{{packageScope}}/api/routers/index";
 {{#if (eq auth "better-auth")}}
 {{#if (or (eq runtime "workers") (eq serverDeploy "cloudflare") (and (eq backend "self") (eq webDeploy "cloudflare")))}}
 import { createAuth } from "{{packageScope}}/auth";
+import { cloneRequestForAuth, cloneResponseForAuth } from "{{packageScope}}/auth/lib/cloudflare-auth";
 {{else}}
 import { auth } from "{{packageScope}}/auth";
 {{/if}}
@@ -15548,12 +16097,15 @@ app.use(
 app.on(
 	["POST", "GET"],
 	"/api/auth/*",
-	(c) =>
+	async (c) => {
 {{#if (or (eq runtime "workers") (eq serverDeploy "cloudflare") (and (eq backend "self") (eq webDeploy "cloudflare")))}}
-		createAuth().handler(c.req.raw)
+		const request = cloneRequestForAuth(c.req.raw);
+		const response = await createAuth().handler(request);
+		return cloneResponseForAuth(response);
 {{else}}
-		auth.handler(c.req.raw)
+		return auth.handler(c.req.raw);
 {{/if}}
+	}
 );
 {{/if}}
 
@@ -15724,6 +16276,10 @@ build
 .env
 .env*.local
 
+# Cloudflare local dev vars
+.dev.vars
+.dev.vars.local
+
 # IDEs and editors
 .vscode/*
 !.vscode/settings.json
@@ -15775,6 +16331,7 @@ temp
 `],
   ["base/tsconfig.json.hbs", `{
   "extends": "{{packageScope}}/config/tsconfig.base.json",
+  "files": []
 }
 `],
   ["db-setup/docker-compose/mongodb/docker-compose.yml.hbs", `name: {{projectName}}
@@ -15915,22 +16472,24 @@ export * from "./todo";
 {{/if}}
 export {};`],
   ["db/drizzle/mysql/drizzle.config.ts.hbs", `import { defineConfig } from "drizzle-kit";
+{{#if (or (eq webDeploy "cloudflare") (eq serverDeploy "cloudflare"))}}
 import dotenv from "dotenv";
 
-dotenv.config({
-    {{#if (eq backend "self")}}
-    path: "../../apps/web/.env",
-    {{else}}
-    path: "../../apps/server/.env",
-    {{/if}}
-});
+dotenv.config({ path: "../../.dev.vars" });
+{{else}}
+import { env } from "{{packageScope}}/env/server";
+{{/if}}
 
 export default defineConfig({
   schema: "./src/schema",
   out: "./src/migrations",
   dialect: "mysql",
   dbCredentials: {
+    {{#if (or (eq webDeploy "cloudflare") (eq serverDeploy "cloudflare"))}}
     url: process.env.DATABASE_URL || "",
+    {{else}}
+    url: env.DATABASE_URL,
+    {{/if}}
   },
 });
 `],
@@ -16006,22 +16565,24 @@ export function createDb() {
 {{/if}}
 `],
   ["db/drizzle/postgres/drizzle.config.ts.hbs", `import { defineConfig } from "drizzle-kit";
+{{#if (or (eq webDeploy "cloudflare") (eq serverDeploy "cloudflare"))}}
 import dotenv from "dotenv";
 
-dotenv.config({
-    {{#if (eq backend "self")}}
-    path: "../../apps/web/.env",
-    {{else}}
-    path: "../../apps/server/.env",
-    {{/if}}
-});
+dotenv.config({ path: "../../.dev.vars" });
+{{else}}
+import { env } from "{{packageScope}}/env/server";
+{{/if}}
 
 export default defineConfig({
   schema: "./src/schema",
   out: "./src/migrations",
   dialect: "postgresql",
   dbCredentials: {
+    {{#if (or (eq webDeploy "cloudflare") (eq serverDeploy "cloudflare"))}}
     url: process.env.DATABASE_URL || "",
+    {{else}}
+    url: env.DATABASE_URL,
+    {{/if}}
   },
 });
 `],
@@ -16100,15 +16661,13 @@ export function createDb() {
 {{/if}}
 `],
   ["db/drizzle/sqlite/drizzle.config.ts.hbs", `import { defineConfig } from "drizzle-kit";
+{{#if (and (ne dbSetup "d1") (or (eq webDeploy "cloudflare") (eq serverDeploy "cloudflare")))}}
 import dotenv from "dotenv";
 
-dotenv.config({
-    {{#if (eq backend "self")}}
-    path: "../../apps/web/.env",
-    {{else}}
-    path: "../../apps/server/.env",
-    {{/if}}
-});
+dotenv.config({ path: "../../.dev.vars" });
+{{else if (ne dbSetup "d1")}}
+import { env } from "{{packageScope}}/env/server";
+{{/if}}
 
 export default defineConfig({
   schema: "./src/schema",
@@ -16120,9 +16679,17 @@ export default defineConfig({
   {{else}}
   dialect: "turso",
   dbCredentials: {
+    {{#if (or (eq webDeploy "cloudflare") (eq serverDeploy "cloudflare"))}}
     url: process.env.DATABASE_URL || "",
+    {{else}}
+    url: env.DATABASE_URL,
+    {{/if}}
     {{#if (eq dbSetup "turso")}}
+    {{#if (or (eq webDeploy "cloudflare") (eq serverDeploy "cloudflare"))}}
     authToken: process.env.DATABASE_AUTH_TOKEN,
+    {{else}}
+    authToken: env.DATABASE_AUTH_TOKEN,
+    {{/if}}
     {{/if}}
   },
   {{/if}}
@@ -16197,7 +16764,9 @@ import type { PrismaConfig } from "prisma";
 import dotenv from "dotenv";
 
 dotenv.config({
-    {{#if (eq backend "self")}}
+    {{#if (or (eq webDeploy "cloudflare") (eq serverDeploy "cloudflare"))}}
+    path: "../../.dev.vars",
+    {{else if (eq backend "self")}}
     path: "../../apps/web/.env",
     {{else}}
     path: "../../apps/server/.env",
@@ -16242,7 +16811,9 @@ import { defineConfig, env } from "prisma/config";
 import dotenv from "dotenv";
 
 dotenv.config({
-  {{#if (eq backend "self")}}
+  {{#if (or (eq webDeploy "cloudflare") (eq serverDeploy "cloudflare"))}}
+  path: "../../.dev.vars",
+  {{else if (eq backend "self")}}
   path: "../../apps/web/.env",
   {{else}}
   path: "../../apps/server/.env",
@@ -16353,7 +16924,9 @@ import { defineConfig, env } from 'prisma/config'
 import dotenv from 'dotenv'
 
 dotenv.config({
-    {{#if (eq backend "self")}}
+    {{#if (or (eq webDeploy "cloudflare") (eq serverDeploy "cloudflare"))}}
+    path: "../../.dev.vars",
+    {{else if (eq backend "self")}}
     path: "../../apps/web/.env",
     {{else}}
     path: "../../apps/server/.env",
@@ -16496,7 +17069,9 @@ import { defineConfig, env } from "prisma/config";
 import dotenv from "dotenv";
 
 dotenv.config({
-  {{#if (eq backend "self")}}
+  {{#if (or (eq webDeploy "cloudflare") (eq serverDeploy "cloudflare"))}}
+  path: "../../.dev.vars",
+  {{else if (eq backend "self")}}
   path: "../../apps/web/.env",
   {{else}}
   path: "../../apps/server/.env",
@@ -27742,13 +28317,14 @@ import { env } from "{{packageScope}}/env/web";
 {{/if}}
 {{else}}
 {{#unless (eq api "none")}}
-import { QueryClientProvider } from "@tanstack/react-query";
+import { useState } from "react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 {{#if (eq api "orpc")}}
-import { queryClient } from "@/utils/orpc";
+import { createQueryClient } from "@/utils/orpc";
 {{/if}}
 {{#if (eq api "trpc")}}
-import { queryClient } from "@/utils/trpc";
+import { createQueryClient } from "@/utils/trpc";
 {{/if}}
 {{/unless}}
 {{/if}}
@@ -27811,7 +28387,7 @@ export default function Providers({
       {{/if}}
       {{else}}
       {{#unless (eq api "none")}}
-      <QueryClientProvider client={queryClient}>
+      <QueryClientProvider client={useState(() => createQueryClient())[0]}>
         {{#if (eq auth "clerk")}}
         <ClerkApiAuthBridge />
         {{/if}}
@@ -27990,6 +28566,9 @@ import "./index.css";
 import Header from "./components/header";
 import { ThemeProvider } from "./components/theme-provider";
 import { Toaster } from "{{packageScope}}/ui/components/sonner";
+{{#unless (eq backend "convex")}}
+import { useState } from "react";
+{{/unless}}
 {{#if (eq auth "clerk")}}
 import { ClerkProvider{{#if (or (eq backend "convex") (ne api "none"))}}, useAuth{{/if}} } from "@clerk/react-router";
 import { clerkMiddleware, rootAuthLoader } from "@clerk/react-router/server";
@@ -28012,13 +28591,14 @@ import { ConvexProvider } from "convex/react";
   {{/if}}
 {{else}}
   {{#unless (eq api "none")}}
+import { useState } from "react";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
     {{#if (eq api "orpc")}}
-import { queryClient } from "./utils/orpc";
+import { createQueryClient } from "./utils/orpc";
     {{/if}}
     {{#if (eq api "trpc")}}
-import { queryClient } from "./utils/trpc";
+import { createQueryClient } from "./utils/trpc";
     {{/if}}
   {{/unless}}
 {{/if}}
@@ -28139,6 +28719,9 @@ export default function App() {
 }
 {{else if (eq auth "clerk")}}
 export default function App({ loaderData }: Route.ComponentProps) {
+  {{#unless (eq api "none")}}
+  const [queryClient] = useState(() => createQueryClient());
+  {{/unless}}
   return (
     <ClerkProvider loaderData={loaderData}>
       {{#unless (eq api "none")}}
@@ -28195,6 +28778,7 @@ export default function App({ loaderData }: Route.ComponentProps) {
 }
 {{else if (eq api "orpc")}}
 export default function App() {
+  const [queryClient] = useState(() => createQueryClient());
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider
@@ -28215,6 +28799,7 @@ export default function App() {
 }
 {{else if (eq api "trpc")}}
 export default function App() {
+  const [queryClient] = useState(() => createQueryClient());
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider
@@ -28513,11 +29098,11 @@ import { routeTree } from "./routeTree.gen";
 
 {{#if (eq api "orpc")}}
   import { QueryClientProvider } from "@tanstack/react-query";
-  import { orpc, queryClient } from "./utils/orpc";
+  import { orpc, createQueryClient } from "./utils/orpc";
 {{/if}}
 {{#if (eq api "trpc")}}
   import { QueryClientProvider } from "@tanstack/react-query";
-  import { queryClient, trpc } from "./utils/trpc";
+  import { createQueryClient, trpc } from "./utils/trpc";
 {{/if}}
 {{#if (or (eq backend "convex") (eq auth "clerk"))}}
   import { env } from "{{packageScope}}/env/web";
@@ -28552,6 +29137,10 @@ function ClerkApiAuthBridge() {
 
   return null;
 }
+{{/if}}
+
+{{#if (or (eq api "orpc") (eq api "trpc"))}}
+const queryClient = createQueryClient();
 {{/if}}
 
 const router = createRouter({
@@ -30846,11 +31435,22 @@ export { AppDurableObject } from "./durable-object";
 	"type": "module",
 	"exports": {}
 }`],
-  ["packages/env/src/cloudflare-local.ts.hbs", `import { config } from "dotenv";
+  ["packages/env/src/cloudflare-local.ts.hbs", `import { config, parse } from "dotenv";
+import { existsSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
-config({ path: fileURLToPath(new URL("../../../.env", import.meta.url)) });
-config();
+const devVarsPath = fileURLToPath(new URL("../../../.dev.vars", import.meta.url));
+if (existsSync(devVarsPath)) {
+	config({ path: devVarsPath });
+}
+if (process.env.DEV_VARS) {
+	const inlineEnv = parse(process.env.DEV_VARS);
+	for (const [key, value] of Object.entries(inlineEnv)) {
+		if (process.env[key] === undefined) {
+			process.env[key] = value;
+		}
+	}
+}
 
 const runtimeEnv = typeof process === "undefined" ? {} : process.env;
 
@@ -31157,6 +31757,10 @@ export const env = createEnv({
 `],
   ["packages/env/tsconfig.json.hbs", `{
   "extends": "{{packageScope}}/config/tsconfig.base.json",
+  "compilerOptions": {
+    "composite": true,
+    "incremental": true
+  }
 }
 `],
   ["packages/infra/alchemy.run.ts.hbs", `import alchemy from "alchemy";
@@ -31200,19 +31804,9 @@ import { DurableObjectNamespace } from "alchemy/cloudflare";
 {{#if (and (or (eq serverDeploy "cloudflare") (and (eq webDeploy "cloudflare") (eq backend "self"))) (eq dbSetup "d1"))}}
 import { D1Database } from "alchemy/cloudflare";
 {{/if}}
-import { config } from "dotenv";
+import { readDevVars } from "./lib/read-dev-vars.js";
 
-{{#if (and (eq webDeploy "cloudflare") (eq serverDeploy "cloudflare"))}}
-config({ path: "./.env" });
-config({ path: "../../apps/web/.env" });
-config({ path: "../../apps/server/.env" });
-{{else if (eq webDeploy "cloudflare")}}
-config({ path: "./.env" });
-config({ path: "../../apps/web/.env" });
-{{else if (eq serverDeploy "cloudflare")}}
-config({ path: "./.env" });
-config({ path: "../../apps/server/.env" });
-{{/if}}
+Object.assign(process.env, readDevVars("../../.dev.vars"));
 
 const app = await alchemy("{{projectName}}");
 
@@ -31867,6 +32461,23 @@ await app.finalize();
     "deploy": "alchemy deploy",
     "destroy": "alchemy destroy"
   }
+}
+`],
+  ["packages/infra/src/lib/read-dev-vars.ts.hbs", `import { existsSync, readFileSync } from "node:fs";
+import { resolve } from "node:path";
+import { parse } from "dotenv";
+
+export function readDevVars(file = ".dev.vars", envName?: string) {
+	const basePath = resolve(process.cwd(), file);
+	const envPath =
+		envName && existsSync(\`\${basePath}.\${envName}\`)
+			? \`\${basePath}.\${envName}\`
+			: basePath;
+
+	const fileEnv = existsSync(envPath) ? parse(readFileSync(envPath, "utf8")) : {};
+	const inlineEnv = process.env.DEV_VARS ? parse(process.env.DEV_VARS) : {};
+
+	return { ...fileEnv, ...inlineEnv, ...process.env };
 }
 `],
   ["packages/ui/components.json.hbs", `{
@@ -32647,6 +33258,8 @@ export function cn(...inputs: ClassValue[]) {
     "jsx": "react-jsx",
     "lib": ["ESNext", "DOM", "DOM.Iterable"],
     "types": [],
+    "composite": true,
+    "incremental": true,
     "paths": {
       "{{packageScope}}/ui/*": ["./src/*"]
     }
@@ -32878,4 +33491,4 @@ function SuccessPage() {
 `]
 ]);
 
-export const TEMPLATE_COUNT = 509;
+export const TEMPLATE_COUNT = 511;

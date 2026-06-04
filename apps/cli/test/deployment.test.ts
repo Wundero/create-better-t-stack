@@ -507,6 +507,176 @@ describe("Deployment Configurations", () => {
     });
   });
 
+  describe("Cloudflare dev vars", () => {
+    it("generates root .dev.vars.example for Cloudflare server deploy", async () => {
+      const result = await createVirtual({
+        projectName: "cf-server-dev-vars",
+        frontend: ["tanstack-start"],
+        backend: "hono",
+        runtime: "workers",
+        database: "sqlite",
+        orm: "drizzle",
+        auth: "better-auth",
+        payments: "none",
+        api: "orpc",
+        addons: ["none"],
+        examples: ["none"],
+        dbSetup: "none",
+        webDeploy: "none",
+        serverDeploy: "cloudflare",
+        install: false,
+        git: false,
+        packageManager: "bun",
+      });
+
+      if (result.isErr()) {
+        throw result.error;
+      }
+
+      const files = collectFiles(result.value.root, result.value.root.path);
+      const devVarsExample = files.get(".dev.vars.example");
+      const gitignore = files.get(".gitignore");
+
+      expect(devVarsExample).toBeDefined();
+      expect(devVarsExample).toContain("BETTER_AUTH_SECRET=");
+      expect(devVarsExample).toContain("BETTER_AUTH_URL=");
+      expect(devVarsExample).toContain("ALCHEMY_PASSWORD=");
+      expect(gitignore).toContain(".dev.vars");
+    });
+
+    it("generates root .dev.vars.example for Cloudflare web deploy", async () => {
+      const result = await createVirtual({
+        projectName: "cf-web-dev-vars",
+        frontend: ["next"],
+        backend: "self",
+        runtime: "none",
+        database: "sqlite",
+        orm: "drizzle",
+        auth: "none",
+        payments: "none",
+        api: "trpc",
+        addons: ["none"],
+        examples: ["none"],
+        dbSetup: "none",
+        webDeploy: "cloudflare",
+        serverDeploy: "none",
+        install: false,
+        git: false,
+        packageManager: "bun",
+      });
+
+      if (result.isErr()) {
+        throw result.error;
+      }
+
+      const files = collectFiles(result.value.root, result.value.root.path);
+      const devVarsExample = files.get(".dev.vars.example");
+
+      expect(devVarsExample).toBeDefined();
+      expect(devVarsExample).toContain("CORS_ORIGIN=");
+      expect(devVarsExample).toContain("ALCHEMY_PASSWORD=");
+    });
+
+    it("imports readDevVars in alchemy.run.ts", async () => {
+      const result = await createVirtual({
+        projectName: "cf-alchemy-dev-vars",
+        frontend: ["tanstack-router"],
+        backend: "hono",
+        runtime: "workers",
+        database: "sqlite",
+        orm: "drizzle",
+        auth: "none",
+        payments: "none",
+        api: "trpc",
+        addons: ["none"],
+        examples: ["none"],
+        dbSetup: "none",
+        webDeploy: "cloudflare",
+        serverDeploy: "cloudflare",
+        install: false,
+        git: false,
+        packageManager: "bun",
+      });
+
+      if (result.isErr()) {
+        throw result.error;
+      }
+
+      const files = collectFiles(result.value.root, result.value.root.path);
+      const alchemyFile = files.get("packages/infra/alchemy.run.ts");
+
+      expect(alchemyFile).toContain('import { readDevVars } from "./lib/read-dev-vars.js"');
+      expect(alchemyFile).toContain('Object.assign(process.env, readDevVars("../../.dev.vars"))');
+      expect(alchemyFile).not.toContain('import { config } from "dotenv"');
+    });
+
+    it("uses root .dev.vars in drizzle config for Cloudflare deploys", async () => {
+      const result = await createVirtual({
+        projectName: "cf-drizzle-dev-vars",
+        frontend: ["tanstack-router"],
+        backend: "hono",
+        runtime: "workers",
+        database: "postgres",
+        orm: "drizzle",
+        auth: "none",
+        payments: "none",
+        api: "trpc",
+        addons: ["none"],
+        examples: ["none"],
+        dbSetup: "none",
+        webDeploy: "none",
+        serverDeploy: "cloudflare",
+        install: false,
+        git: false,
+        packageManager: "bun",
+      });
+
+      if (result.isErr()) {
+        throw result.error;
+      }
+
+      const files = collectFiles(result.value.root, result.value.root.path);
+      const drizzleConfig = files.get("packages/db/drizzle.config.ts");
+
+      expect(drizzleConfig).toContain('path: "../../.dev.vars"');
+      expect(drizzleConfig).not.toContain('path: "../../apps/server/.env"');
+    });
+
+    it("keeps existing env behavior for non-Cloudflare projects", async () => {
+      const result = await createVirtual({
+        projectName: "no-cf-env",
+        frontend: ["tanstack-router"],
+        backend: "hono",
+        runtime: "bun",
+        database: "sqlite",
+        orm: "drizzle",
+        auth: "none",
+        payments: "none",
+        api: "trpc",
+        addons: ["none"],
+        examples: ["none"],
+        dbSetup: "none",
+        webDeploy: "none",
+        serverDeploy: "none",
+        install: false,
+        git: false,
+        packageManager: "bun",
+      });
+
+      if (result.isErr()) {
+        throw result.error;
+      }
+
+      const files = collectFiles(result.value.root, result.value.root.path);
+
+      expect(files.get(".dev.vars.example")).toBeUndefined();
+      expect(files.get("apps/server/.env")).toContain("CORS_ORIGIN=");
+      expect(files.get("packages/db/drizzle.config.ts")).toContain(
+        'import { env } from "@no-cf-env/env/server"',
+      );
+    });
+  });
+
   describe("Deployment with Special Backend Constraints", () => {
     it("should work with deployment + self backend", async () => {
       const result = await runTRPCTest({

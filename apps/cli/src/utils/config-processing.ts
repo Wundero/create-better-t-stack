@@ -5,6 +5,7 @@ import { Result } from "better-result";
 import type {
   API,
   Auth,
+  AuthFeature,
   Backend,
   CLIInput,
   Database,
@@ -69,6 +70,10 @@ export function processFlags(options: CLIInput, projectName?: string) {
 
   if (options.auth !== undefined) {
     config.auth = options.auth as Auth;
+  }
+
+  if (options.authFeatures !== undefined) {
+    config.authFeatures = options.authFeatures as AuthFeature[];
   }
 
   if (options.payments !== undefined) {

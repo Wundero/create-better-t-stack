@@ -3,6 +3,7 @@ import type {
   Addons,
   API,
   Auth,
+  AuthFeature,
   Backend,
   Database,
   DatabaseSetup,
@@ -21,7 +22,7 @@ import { isSilent } from "../utils/context";
 import { UserCancelledError } from "../utils/errors";
 import { getAddonsChoice } from "./addons";
 import { getApiChoice } from "./api";
-import { getAuthChoice } from "./auth";
+import { getAuthChoice, getAuthFeaturesChoice } from "./auth";
 import { getBackendFrameworkChoice } from "./backend";
 import { getCloudflareConfigChoice } from "./cloudflare";
 import { getDatabaseChoice } from "./database";
@@ -46,6 +47,7 @@ type PromptGroupResults = {
   orm: ORM;
   api: API;
   auth: Auth;
+  authFeatures: AuthFeature[];
   payments: Payments;
   addons: Addons[];
   examples: Examples[];
@@ -78,6 +80,7 @@ export async function gatherConfig(
       database: flags.database ?? DEFAULT_CONFIG.database,
       orm: flags.orm ?? DEFAULT_CONFIG.orm,
       auth: flags.auth ?? DEFAULT_CONFIG.auth,
+      authFeatures: flags.authFeatures ?? DEFAULT_CONFIG.authFeatures,
       payments: flags.payments ?? DEFAULT_CONFIG.payments,
       addons: flags.addons ?? [...DEFAULT_CONFIG.addons],
       examples: flags.examples ?? [...DEFAULT_CONFIG.examples],
@@ -110,6 +113,7 @@ export async function gatherConfig(
       api: ({ results }) =>
         getApiChoice(flags.api, results.frontend, results.backend) as Promise<API>,
       auth: ({ results }) => getAuthChoice(flags.auth, results.backend, results.frontend),
+      authFeatures: ({ results }) => getAuthFeaturesChoice(flags.authFeatures, results.auth),
       payments: ({ results }) =>
         getPaymentsChoice(flags.payments, results.auth, results.backend, results.frontend),
       addons: ({ results }) =>
@@ -183,6 +187,7 @@ export async function gatherConfig(
     database: result.database,
     orm: result.orm,
     auth: result.auth,
+    authFeatures: result.authFeatures,
     payments: result.payments,
     addons: result.addons,
     examples: result.examples,

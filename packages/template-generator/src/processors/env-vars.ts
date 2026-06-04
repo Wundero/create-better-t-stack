@@ -595,6 +595,42 @@ export function processEnvVariables(vfs: VirtualFileSystem, config: ProjectConfi
     hasSvelte ||
     hasAstro;
 
+  const isCloudflare = webDeploy === "cloudflare" || serverDeploy === "cloudflare";
+
+  // --- Root .dev.vars.example for Cloudflare ---
+  if (isCloudflare) {
+    const devVarsVars: EnvVariable[] = [];
+
+    if (hasWebFrontend) {
+      devVarsVars.push(...buildClientVars(frontend, backend, auth));
+    }
+
+    devVarsVars.push(
+      ...buildServerVars(
+        backend,
+        frontend,
+        projectName,
+        auth,
+        api,
+        database,
+        dbSetup,
+        runtime,
+        webDeploy,
+        serverDeploy,
+        payments,
+        examples,
+      ),
+    );
+
+    devVarsVars.push({
+      key: "ALCHEMY_PASSWORD",
+      value: "please-change-this",
+      condition: true,
+    });
+
+    writeEnvFile(vfs, ".dev.vars.example", devVarsVars);
+  }
+
   // --- Client App .env ---
   if (hasWebFrontend) {
     const clientDir = "apps/web";
@@ -667,22 +703,24 @@ export function processEnvVariables(vfs: VirtualFileSystem, config: ProjectConfi
     examples,
   );
 
-  if (backend === "self") {
-    const webDir = "apps/web";
-    if (vfs.directoryExists(webDir)) {
-      const envPath = `${webDir}/.env`;
+  if (!isCloudflare) {
+    if (backend === "self") {
+      const webDir = "apps/web";
+      if (vfs.directoryExists(webDir)) {
+        const envPath = `${webDir}/.env`;
+        writeEnvFile(vfs, envPath, serverVars);
+      }
+    } else if (vfs.directoryExists("apps/server")) {
+      const envPath = "apps/server/.env";
       writeEnvFile(vfs, envPath, serverVars);
     }
-  } else if (vfs.directoryExists("apps/server")) {
-    const envPath = "apps/server/.env";
-    writeEnvFile(vfs, envPath, serverVars);
   }
 
   // --- Alchemy Infra .env ---
   const isUnifiedAlchemy = webDeploy === "cloudflare" && serverDeploy === "cloudflare";
   const isIndividualAlchemy = webDeploy === "cloudflare" || serverDeploy === "cloudflare";
 
-  if (isUnifiedAlchemy || isIndividualAlchemy) {
+  if (!isCloudflare && (isUnifiedAlchemy || isIndividualAlchemy)) {
     const infraDir = "packages/infra";
     if (vfs.directoryExists(infraDir)) {
       const envPath = `${infraDir}/.env`;

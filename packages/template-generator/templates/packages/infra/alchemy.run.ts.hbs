@@ -39,19 +39,9 @@ import { DurableObjectNamespace } from "alchemy/cloudflare";
 {{#if (and (or (eq serverDeploy "cloudflare") (and (eq webDeploy "cloudflare") (eq backend "self"))) (eq dbSetup "d1"))}}
 import { D1Database } from "alchemy/cloudflare";
 {{/if}}
-import { config } from "dotenv";
+import { readDevVars } from "./lib/read-dev-vars.js";
 
-{{#if (and (eq webDeploy "cloudflare") (eq serverDeploy "cloudflare"))}}
-config({ path: "./.env" });
-config({ path: "../../apps/web/.env" });
-config({ path: "../../apps/server/.env" });
-{{else if (eq webDeploy "cloudflare")}}
-config({ path: "./.env" });
-config({ path: "../../apps/web/.env" });
-{{else if (eq serverDeploy "cloudflare")}}
-config({ path: "./.env" });
-config({ path: "../../apps/server/.env" });
-{{/if}}
+Object.assign(process.env, readDevVars("../../.dev.vars"));
 
 const app = await alchemy("{{projectName}}");
 

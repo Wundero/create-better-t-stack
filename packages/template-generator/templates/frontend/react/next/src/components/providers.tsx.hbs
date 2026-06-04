@@ -23,13 +23,14 @@ import { env } from "{{packageScope}}/env/web";
 {{/if}}
 {{else}}
 {{#unless (eq api "none")}}
-import { QueryClientProvider } from "@tanstack/react-query";
+import { useState } from "react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 {{#if (eq api "orpc")}}
-import { queryClient } from "@/utils/orpc";
+import { createQueryClient } from "@/utils/orpc";
 {{/if}}
 {{#if (eq api "trpc")}}
-import { queryClient } from "@/utils/trpc";
+import { createQueryClient } from "@/utils/trpc";
 {{/if}}
 {{/unless}}
 {{/if}}
@@ -92,7 +93,7 @@ export default function Providers({
       {{/if}}
       {{else}}
       {{#unless (eq api "none")}}
-      <QueryClientProvider client={queryClient}>
+      <QueryClientProvider client={useState(() => createQueryClient())[0]}>
         {{#if (eq auth "clerk")}}
         <ClerkApiAuthBridge />
         {{/if}}

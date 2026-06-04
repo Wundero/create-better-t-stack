@@ -64,9 +64,55 @@ const verificationSchema = new Schema(
 );
 verificationSchema.index({ identifier: 1 });
 
+{{#if (includes authFeatures "organization")}}
+const organizationSchema = new Schema(
+    {
+        _id: { type: ObjectId, auto: true },
+        name: { type: String, required: true },
+        slug: { type: String, unique: true },
+        logo: { type: String },
+        metadata: { type: String },
+        createdAt: { type: Date, required: true, default: Date.now },
+    },
+    { collection: 'organization' }
+);
+
+const memberSchema = new Schema(
+    {
+        _id: { type: ObjectId, auto: true },
+        organizationId: { type: ObjectId, ref: 'Organization', required: true },
+        userId: { type: ObjectId, ref: 'User', required: true },
+        role: { type: String, required: true },
+        createdAt: { type: Date, required: true, default: Date.now },
+    },
+    { collection: 'member' }
+);
+memberSchema.index({ organizationId: 1 });
+
+const invitationSchema = new Schema(
+    {
+        _id: { type: ObjectId, auto: true },
+        organizationId: { type: ObjectId, ref: 'Organization', required: true },
+        email: { type: String, required: true },
+        role: { type: String },
+        status: { type: String, required: true },
+        expiresAt: { type: Date, required: true },
+        inviterId: { type: ObjectId, ref: 'User', required: true },
+        createdAt: { type: Date, required: true, default: Date.now },
+    },
+    { collection: 'invitation' }
+);
+invitationSchema.index({ organizationId: 1 });
+{{/if}}
+
 const User = model('User', userSchema);
 const Session = model('Session', sessionSchema);
 const Account = model('Account', accountSchema);
 const Verification = model('Verification', verificationSchema);
+{{#if (includes authFeatures "organization")}}
+const Organization = model('Organization', organizationSchema);
+const Member = model('Member', memberSchema);
+const Invitation = model('Invitation', invitationSchema);
+{{/if}}
 
-export { User, Session, Account, Verification };
+export { User, Session, Account, Verification{{#if (includes authFeatures "organization")}}, Organization, Member, Invitation{{/if}} };

@@ -1,8 +1,8 @@
 import { DEFAULT_CONFIG } from "../constants";
-import type { Auth, Backend, Frontend } from "../types";
+import type { Auth, AuthFeature, Backend, Frontend } from "../types";
 import { supportsConvexBetterAuth } from "../utils/compatibility-rules";
 import { UserCancelledError } from "../utils/errors";
-import { isCancel, navigableSelect } from "./navigable";
+import { isCancel, navigableMultiselect } from "./navigable";
 
 export function getAvailableAuthProviders(
   backend?: Backend,
@@ -87,4 +87,25 @@ export async function getAuthChoice(
   if (isCancel(response)) throw new UserCancelledError({ message: "Operation cancelled" });
 
   return response as Auth;
+}
+
+export async function getAuthFeaturesChoice(authFeatures: AuthFeature[] | undefined, auth: Auth) {
+  if (authFeatures !== undefined) return authFeatures;
+  if (auth !== "better-auth") return [];
+
+  const response = await navigableMultiselect({
+    message: "Select Better Auth features (optional)",
+    options: [
+      {
+        value: "organization",
+        label: "Organization",
+        hint: "Multi-tenant organization/team support",
+      },
+    ],
+    required: false,
+  });
+
+  if (isCancel(response)) throw new UserCancelledError({ message: "Operation cancelled" });
+
+  return (response ?? []) as AuthFeature[];
 }

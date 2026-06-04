@@ -83,6 +83,9 @@ export const auth = createAuth();
 {{#if (or (eq runtime "bun") (eq runtime "node") (eq runtime "none"))}}
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
+{{#if (includes authFeatures "organization")}}
+import { organization } from "better-auth/plugins";
+{{/if}}
 {{#if (and (eq backend "self") (eq webDeploy "cloudflare") (includes frontend "svelte"))}}
 import type {} from "{{packageScope}}/env/server";
 {{else}}
@@ -153,6 +156,11 @@ export function createAuth({{#if (and (eq backend "self") (eq webDeploy "cloudfl
 				],
 			}),
 {{/if}}
+{{#if (includes authFeatures "organization")}}
+			organization({
+				// TODO: Restrict organization creation or member limits by plan.
+			}),
+{{/if}}
 		],
 	});
 }
@@ -165,6 +173,9 @@ export const auth = createAuth();
 {{#if (eq runtime "workers")}}
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
+{{#if (includes authFeatures "organization")}}
+import { organization } from "better-auth/plugins";
+{{/if}}
 import { env } from "{{packageScope}}/env/server";
 {{#if (eq payments "polar")}}
 import { polar, checkout, portal } from "@polar-sh/better-auth";
@@ -217,8 +228,9 @@ export function createAuth() {
 			//   domain: "<your-workers-subdomain>",
 			// },
 		},
-{{#if (eq payments "polar")}}
+{{#if (or (eq payments "polar") (includes authFeatures "organization"))}}
 		plugins: [
+{{#if (eq payments "polar")}}
 			polar({
 				client: polarClient,
 				createCustomerOnSignUp: true,
@@ -237,6 +249,12 @@ export function createAuth() {
 					portal(),
 				],
 			}),
+{{/if}}
+{{#if (includes authFeatures "organization")}}
+			organization({
+				// TODO: Restrict organization creation or member limits by plan.
+			}),
+{{/if}}
 		],
 {{/if}}
 	});

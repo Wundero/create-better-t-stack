@@ -2,6 +2,9 @@ import { createAuthClient } from "better-auth/react";
 {{#if (eq payments "polar")}}
 import { polarClient } from "@polar-sh/better-auth/client";
 {{/if}}
+{{#if (includes authFeatures "organization")}}
+import { organizationClient } from "better-auth/client/plugins";
+{{/if}}
 {{#unless (eq backend "self")}}
 import { env } from "{{packageScope}}/env/web";
 {{/unless}}
@@ -10,7 +13,10 @@ export const authClient = createAuthClient({
 {{#unless (eq backend "self")}}
 	baseURL: env.{{#if (includes frontend "next")}}NEXT_PUBLIC_SERVER_URL{{else}}VITE_SERVER_URL{{/if}},
 {{/unless}}
-{{#if (eq payments "polar")}}
-	plugins: [polarClient()]
+{{#if (or (eq payments "polar") (includes authFeatures "organization"))}}
+	plugins: [
+		{{#if (eq payments "polar")}}polarClient(),{{/if}}
+		{{#if (includes authFeatures "organization")}}organizationClient(),{{/if}}
+	]
 {{/if}}
 });

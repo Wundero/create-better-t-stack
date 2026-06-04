@@ -12,20 +12,22 @@ import { env } from "{{packageScope}}/env/web";
 import { getClerkAuthToken } from "@/utils/clerk-auth";
 {{/if}}
 
-export const queryClient = new QueryClient({
-	queryCache: new QueryCache({
-		onError: (error, query) => {
-			toast.error(error.message, {
-				action: {
-					label: "retry",
-					onClick: () => {
-						query.invalidate();
+export function createQueryClient() {
+	return new QueryClient({
+		queryCache: new QueryCache({
+			onError: (error, query) => {
+				toast.error(error.message, {
+					action: {
+						label: "retry",
+						onClick: () => {
+							query.invalidate();
+						},
 					},
-				},
-			});
-		},
-	}),
-});
+				});
+			},
+		}),
+	});
+}
 
 const trpcClient = createTRPCClient<AppRouter>({
 	links: [
@@ -60,12 +62,14 @@ const trpcClient = createTRPCClient<AppRouter>({
 {{/if}}
 		}),
 	],
-})
-
-export const trpc = createTRPCOptionsProxy<AppRouter>({
-	client: trpcClient,
-	queryClient,
 });
+
+export function createTRPCUtils(queryClient: QueryClient) {
+	return createTRPCOptionsProxy<AppRouter>({
+		client: trpcClient,
+		queryClient,
+	});
+}
 
 {{else if (includes frontend 'tanstack-start')}}
 import { createTRPCContext } from "@trpc/tanstack-react-query";
@@ -86,20 +90,22 @@ import { env } from "{{packageScope}}/env/web";
 import { getClerkAuthToken } from "@/utils/clerk-auth";
 {{/if}}
 
-export const queryClient = new QueryClient({
-	queryCache: new QueryCache({
-		onError: (error, query) => {
-			toast.error(error.message, {
-				action: {
-					label: "retry",
-					onClick: () => {
-						query.invalidate();
+export function createQueryClient() {
+	return new QueryClient({
+		queryCache: new QueryCache({
+			onError: (error, query) => {
+				toast.error(error.message, {
+					action: {
+						label: "retry",
+						onClick: () => {
+							query.invalidate();
+						},
 					},
-				},
-			});
-		},
-	}),
-});
+				});
+			},
+		}),
+	});
+}
 
 export const trpcClient = createTRPCClient<AppRouter>({
 	links: [
@@ -124,8 +130,10 @@ export const trpcClient = createTRPCClient<AppRouter>({
 	],
 });
 
-export const trpc = createTRPCOptionsProxy<AppRouter>({
-	client: trpcClient,
-	queryClient,
-});
+export function createTRPCUtils(queryClient: QueryClient) {
+	return createTRPCOptionsProxy<AppRouter>({
+		client: trpcClient,
+		queryClient,
+	});
+}
 {{/if}}

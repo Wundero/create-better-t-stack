@@ -195,7 +195,12 @@ describe("Clerk matrix", () => {
       }
 
       if (needsServerClerkPublishableKey(combo.backend, combo.api)) {
-        const appEnvPath = combo.backend === "self" ? "apps/web/.env" : "apps/server/.env";
+        const appEnvPath =
+          config.serverDeploy === "cloudflare"
+            ? ".dev.vars.example"
+            : combo.backend === "self"
+              ? "apps/web/.env"
+              : "apps/server/.env";
         const appEnvFile = files.get(appEnvPath);
 
         if (!appEnvFile?.includes("CLERK_PUBLISHABLE_KEY=")) {

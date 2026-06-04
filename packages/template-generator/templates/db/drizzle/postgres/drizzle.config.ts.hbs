@@ -1,19 +1,21 @@
 import { defineConfig } from "drizzle-kit";
+{{#if (or (eq webDeploy "cloudflare") (eq serverDeploy "cloudflare"))}}
 import dotenv from "dotenv";
 
-dotenv.config({
-    {{#if (eq backend "self")}}
-    path: "../../apps/web/.env",
-    {{else}}
-    path: "../../apps/server/.env",
-    {{/if}}
-});
+dotenv.config({ path: "../../.dev.vars" });
+{{else}}
+import { env } from "{{packageScope}}/env/server";
+{{/if}}
 
 export default defineConfig({
   schema: "./src/schema",
   out: "./src/migrations",
   dialect: "postgresql",
   dbCredentials: {
+    {{#if (or (eq webDeploy "cloudflare") (eq serverDeploy "cloudflare"))}}
     url: process.env.DATABASE_URL || "",
+    {{else}}
+    url: env.DATABASE_URL,
+    {{/if}}
   },
 });

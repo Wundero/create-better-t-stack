@@ -23,6 +23,7 @@ export const DEFAULT_CONFIG_BASE = {
   database: "sqlite",
   orm: "drizzle",
   auth: "better-auth",
+  authFeatures: undefined,
   payments: "none",
   addons: ["turborepo"],
   examples: [],
