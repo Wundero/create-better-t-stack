@@ -108,6 +108,10 @@ function getAddonDisplay(addon: Addons): { label: string; hint: string } {
       label = "PostHog";
       hint = "Product analytics, logs, and session replay";
       break;
+    case "portless":
+      label = "Portless";
+      hint = "Dev proxy with stable .localhost URLs (Node 24+)";
+      break;
     default:
       label = addon;
       hint = `Add ${addon}`;
@@ -123,6 +127,7 @@ const ADDON_GROUPS = {
   "Platform Extensions": ["pwa", "tauri", "electrobun", "opentui", "wxt", "docker-compose"],
   Observability: ["evlog", "opentelemetry", "posthog"],
   "AI & Agent Tools": ["skills", "mcp"],
+  "Dev Tools": ["portless"],
 };
 
 function createGroupedOptions(): Record<string, AddonOption[]> {

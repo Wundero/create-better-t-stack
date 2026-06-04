@@ -13,6 +13,7 @@ import { setupFumadocs } from "./fumadocs-setup";
 import { setupMcp } from "./mcp-setup";
 import { validateOpenTelemetrySetup } from "./opentelemetry-setup";
 import { setupOxc } from "./oxc-setup";
+import { setupPortless } from "./portless-setup";
 import { validatePostHogSetup } from "./posthog-setup";
 import { setupSkills } from "./skills-setup";
 import { setupStarlight } from "./starlight-setup";
@@ -132,6 +133,10 @@ export async function setupAddons(config: ProjectConfig): Promise<void> {
 
   if (addons.includes("posthog")) {
     await runSetup(() => validatePostHogSetup(config));
+  }
+
+  if (addons.includes("portless")) {
+    await runSetup(() => setupPortless(config));
   }
 }
 

@@ -54,6 +54,7 @@ export const AddonsSchema = z
     "evlog",
     "opentelemetry",
     "posthog",
+    "portless",
     "none",
   ])
   .describe("Additional addons");

@@ -1664,6 +1664,88 @@ describe("Addon Configurations", () => {
     });
   });
 
+  describe("Portless Addon", () => {
+    it("should work as a universal addon with any frontend", async () => {
+      const result = await runTRPCTest({
+        projectName: "portless-universal",
+        addons: ["portless"],
+        frontend: ["tanstack-router"],
+        backend: "hono",
+        runtime: "bun",
+        database: "sqlite",
+        orm: "drizzle",
+        auth: "none",
+        api: "trpc",
+        examples: ["none"],
+        dbSetup: "none",
+        webDeploy: "none",
+        serverDeploy: "none",
+        install: false,
+      });
+      expectSuccess(result);
+    });
+
+    it("should generate portless.json with web and server apps", async () => {
+      const result = await runTRPCTest({
+        projectName: "portless-files",
+        addons: ["portless"],
+        frontend: ["tanstack-router"],
+        backend: "hono",
+        runtime: "bun",
+        database: "sqlite",
+        orm: "drizzle",
+        auth: "none",
+        api: "trpc",
+        examples: ["none"],
+        dbSetup: "none",
+        webDeploy: "none",
+        serverDeploy: "none",
+        install: false,
+      });
+
+      expectSuccess(result);
+      expect(result.projectDir).toBeDefined();
+
+      const portlessJsonPath = join(result.projectDir!, "portless.json");
+      expect(existsSync(portlessJsonPath)).toBe(true);
+
+      const portlessConfig = await readFile(portlessJsonPath, "utf-8");
+      expect(portlessConfig).toContain('"apps/web"');
+      expect(portlessConfig).toContain('"apps/server"');
+      expect(portlessConfig).toContain('"name": "portless-files"');
+      expect(portlessConfig).toContain('"name": "api.portless-files"');
+    });
+
+    it("should generate portless.json with only web app when no backend", async () => {
+      const result = await runTRPCTest({
+        projectName: "portless-no-backend",
+        addons: ["portless"],
+        frontend: ["tanstack-router"],
+        backend: "none",
+        runtime: "none",
+        database: "none",
+        orm: "none",
+        auth: "none",
+        api: "none",
+        examples: ["none"],
+        dbSetup: "none",
+        webDeploy: "none",
+        serverDeploy: "none",
+        install: false,
+      });
+
+      expectSuccess(result);
+      expect(result.projectDir).toBeDefined();
+
+      const portlessJsonPath = join(result.projectDir!, "portless.json");
+      expect(existsSync(portlessJsonPath)).toBe(true);
+
+      const portlessConfig = await readFile(portlessJsonPath, "utf-8");
+      expect(portlessConfig).toContain('"apps/web"');
+      expect(portlessConfig).not.toContain('"apps/server"');
+    });
+  });
+
   describe("All Available Addons", () => {
     const testableAddons = [
       "pwa",
@@ -1677,6 +1759,7 @@ describe("Addon Configurations", () => {
       "evlog",
       "opentelemetry",
       "posthog",
+      "portless",
       // Note: starlight, ultracite, fumadocs are prompt-controlled only
     ];
 

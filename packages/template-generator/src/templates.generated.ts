@@ -1031,6 +1031,17 @@ export function shutdownPostHog() {
   "include": ["src"]
 }
 `],
+  ["addons/portless/portless.json.hbs", `{
+  "apps": {
+    "apps/web": {
+      "name": "{{projectName}}"
+    }{{#if (ne backend "none")}}{{#if (ne backend "convex")}},
+    "apps/server": {
+      "name": "api.{{projectName}}"
+    }{{/if}}{{/if}}
+  }
+}
+`],
   ["addons/pwa/apps/web/next/public/favicon/apple-touch-icon.png", `[Binary file]`],
   ["addons/pwa/apps/web/next/public/favicon/favicon-96x96.png", `[Binary file]`],
   ["addons/pwa/apps/web/next/public/favicon/favicon.svg", `<svg xmlns="http://www.w3.org/2000/svg" version="1.1" xmlns:xlink="http://www.w3.org/1999/xlink" width="92" height="92"><svg width="92" height="92" viewBox="0 0 92 92" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -34265,4 +34276,4 @@ function SuccessPage() {
 `]
 ]);
 
-export const TEMPLATE_COUNT = 541;
+export const TEMPLATE_COUNT = 542;

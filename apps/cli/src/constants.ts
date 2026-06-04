@@ -80,5 +80,6 @@ export const ADDON_COMPATIBILITY = {
   evlog: [],
   opentelemetry: [],
   posthog: [],
+  portless: [],
   none: [],
 } as const;

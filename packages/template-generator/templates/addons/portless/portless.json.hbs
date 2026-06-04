@@ -1,0 +1,10 @@
+{
+  "apps": {
+    "apps/web": {
+      "name": "{{projectName}}"
+    }{{#if (ne backend "none")}}{{#if (ne backend "convex")}},
+    "apps/server": {
+      "name": "api.{{projectName}}"
+    }{{/if}}{{/if}}
+  }
+}
