@@ -841,4 +841,146 @@ describe("API Configurations", () => {
       });
     }
   });
+
+  describe("QueryClient factory pattern (#895)", () => {
+    it("should export createQueryClient factory for orpc + solid", async () => {
+      const result = await createVirtual({
+        projectName: "orpc-solid-factory",
+        api: "orpc",
+        frontend: ["solid"],
+        backend: "hono",
+        runtime: "bun",
+        database: "sqlite",
+        orm: "drizzle",
+        auth: "none",
+        addons: ["none"],
+        examples: ["none"],
+        dbSetup: "none",
+        webDeploy: "none",
+        serverDeploy: "none",
+        install: false,
+        git: false,
+        packageManager: "bun",
+        payments: "none",
+      });
+
+      if (result.isErr()) {
+        throw result.error;
+      }
+
+      const files = collectFiles(result.value.root, result.value.root.path);
+      const orpcFile = files.get("apps/web/src/utils/orpc.ts") ?? "";
+      const mainFile = files.get("apps/web/src/main.tsx") ?? "";
+
+      expect(orpcFile).toContain("export function createQueryClient()");
+      expect(orpcFile).not.toContain("export const queryClient");
+      expect(mainFile).toContain('import { orpc, createQueryClient } from "./utils/orpc";');
+      expect(mainFile).toContain("const queryClient = createQueryClient();");
+    });
+
+    it("should export createQueryClient factory for orpc + svelte", async () => {
+      const result = await createVirtual({
+        projectName: "orpc-svelte-factory",
+        api: "orpc",
+        frontend: ["svelte"],
+        backend: "hono",
+        runtime: "bun",
+        database: "sqlite",
+        orm: "drizzle",
+        auth: "none",
+        addons: ["none"],
+        examples: ["none"],
+        dbSetup: "none",
+        webDeploy: "none",
+        serverDeploy: "none",
+        install: false,
+        git: false,
+        packageManager: "bun",
+        payments: "none",
+      });
+
+      if (result.isErr()) {
+        throw result.error;
+      }
+
+      const files = collectFiles(result.value.root, result.value.root.path);
+      const orpcFile = files.get("apps/web/src/lib/orpc.ts") ?? "";
+      const layoutFile = files.get("apps/web/src/routes/+layout.svelte") ?? "";
+
+      expect(orpcFile).toContain("export function createQueryClient()");
+      expect(orpcFile).not.toContain("export const queryClient");
+      expect(layoutFile).toContain("import { createQueryClient } from '$lib/orpc';");
+      expect(layoutFile).toContain("const queryClient = createQueryClient();");
+    });
+
+    it("should export createQueryClient factory for orpc + native-bare", async () => {
+      const result = await createVirtual({
+        projectName: "orpc-native-factory",
+        api: "orpc",
+        frontend: ["native-bare"],
+        backend: "hono",
+        runtime: "bun",
+        database: "sqlite",
+        orm: "drizzle",
+        auth: "none",
+        addons: ["none"],
+        examples: ["none"],
+        dbSetup: "none",
+        webDeploy: "none",
+        serverDeploy: "none",
+        install: false,
+        git: false,
+        packageManager: "bun",
+        payments: "none",
+      });
+
+      if (result.isErr()) {
+        throw result.error;
+      }
+
+      const files = collectFiles(result.value.root, result.value.root.path);
+      const orpcFile = files.get("apps/native/utils/orpc.ts") ?? "";
+      const layoutFile = files.get("apps/native/app/_layout.tsx") ?? "";
+
+      expect(orpcFile).toContain("export function createQueryClient()");
+      expect(orpcFile).not.toContain("export const queryClient");
+      expect(layoutFile).toContain('import { createQueryClient } from "@/utils/orpc";');
+      expect(layoutFile).toContain("const queryClient = createQueryClient();");
+    });
+
+    it("should export createQueryClient factory for trpc + native-bare", async () => {
+      const result = await createVirtual({
+        projectName: "trpc-native-factory",
+        api: "trpc",
+        frontend: ["native-bare"],
+        backend: "hono",
+        runtime: "bun",
+        database: "sqlite",
+        orm: "drizzle",
+        auth: "none",
+        addons: ["none"],
+        examples: ["none"],
+        dbSetup: "none",
+        webDeploy: "none",
+        serverDeploy: "none",
+        install: false,
+        git: false,
+        packageManager: "bun",
+        payments: "none",
+      });
+
+      if (result.isErr()) {
+        throw result.error;
+      }
+
+      const files = collectFiles(result.value.root, result.value.root.path);
+      const trpcFile = files.get("apps/native/utils/trpc.ts") ?? "";
+      const layoutFile = files.get("apps/native/app/_layout.tsx") ?? "";
+
+      expect(trpcFile).toContain("export function createQueryClient()");
+      expect(trpcFile).not.toContain("export const queryClient");
+      expect(layoutFile).toContain('import { createQueryClient } from "@/utils/trpc";');
+      expect(layoutFile).toContain("const queryClient = createQueryClient();");
+    });
+  });
 });

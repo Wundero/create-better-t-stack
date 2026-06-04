@@ -369,11 +369,80 @@ describe("Deployment Configurations", () => {
       const infraFile = files.get("packages/infra/alchemy.run.ts");
 
       expect(infraFile).toContain('export const server = await Worker("server"');
-      expect(infraFile).toContain("url: true");
+      expect(infraFile).not.toContain("url: true");
       expect(infraFile).toContain("VITE_SERVER_URL: server.url!");
-      expect(infraFile!.indexOf('export const server = await Worker("server"')).toBeLessThan(
-        infraFile!.indexOf('export const web = await TanStackStart("web"'),
-      );
+      expect(infraFile!.split('export const server = await Worker("server"').length).toBe(2);
+      expect(infraFile).toContain('export const web = await TanStackStart("web"');
+    });
+
+    it("Better Auth social provider env vars (#697)", async () => {
+      const result = await createVirtual({
+        projectName: "cf-better-auth-social",
+        frontend: ["tanstack-router"],
+        backend: "hono",
+        runtime: "workers",
+        database: "sqlite",
+        orm: "drizzle",
+        auth: "better-auth",
+        payments: "none",
+        api: "trpc",
+        addons: ["biome"],
+        examples: ["none"],
+        dbSetup: "d1",
+        webDeploy: "cloudflare",
+        serverDeploy: "cloudflare",
+        install: false,
+        git: false,
+        packageManager: "bun",
+      });
+
+      if (result.isErr()) {
+        throw result.error;
+      }
+
+      const files = collectFiles(result.value.root, result.value.root.path);
+      const devVars = files.get(".dev.vars.example");
+      const infraFile = files.get("packages/infra/alchemy.run.ts");
+
+      expect(devVars).toContain("GITHUB_CLIENT_ID=");
+      expect(devVars).toContain("GITHUB_CLIENT_SECRET=");
+      expect(devVars).toContain("GOOGLE_CLIENT_ID=");
+      expect(devVars).toContain("GOOGLE_CLIENT_SECRET=");
+      expect(infraFile).toContain("GITHUB_CLIENT_ID:");
+    });
+
+    it("Better Auth social provider env vars — non-Cloudflare path (#697)", async () => {
+      const result = await createVirtual({
+        projectName: "better-auth-social-env",
+        frontend: ["tanstack-router"],
+        backend: "hono",
+        runtime: "bun",
+        database: "sqlite",
+        orm: "drizzle",
+        auth: "better-auth",
+        payments: "none",
+        api: "trpc",
+        addons: ["biome"],
+        examples: ["none"],
+        dbSetup: "none",
+        webDeploy: "none",
+        serverDeploy: "none",
+        install: false,
+        git: false,
+        packageManager: "bun",
+      });
+
+      if (result.isErr()) {
+        throw result.error;
+      }
+
+      const files = collectFiles(result.value.root, result.value.root.path);
+      const envServer = files.get("packages/env/src/server.ts");
+
+      expect(envServer).toContain("GITHUB_CLIENT_ID");
+      expect(envServer).toContain("GITHUB_CLIENT_SECRET");
+      expect(envServer).toContain("GOOGLE_CLIENT_ID");
+      expect(envServer).toContain("GOOGLE_CLIENT_SECRET");
     });
 
     it("should keep native Metro from watching Alchemy state", async () => {
@@ -638,7 +707,9 @@ describe("Deployment Configurations", () => {
       const files = collectFiles(result.value.root, result.value.root.path);
       const drizzleConfig = files.get("packages/db/drizzle.config.ts");
 
-      expect(drizzleConfig).toContain('path: "../../.dev.vars"');
+      expect(drizzleConfig).not.toContain("import dotenv");
+      expect(drizzleConfig).toContain("import { env } from");
+      expect(drizzleConfig).toContain("env.DATABASE_URL");
       expect(drizzleConfig).not.toContain('path: "../../apps/server/.env"');
     });
 
