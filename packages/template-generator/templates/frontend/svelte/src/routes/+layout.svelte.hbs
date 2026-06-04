@@ -21,9 +21,10 @@
     import { QueryClientProvider } from '@tanstack/svelte-query';
     import { SvelteQueryDevtools } from '@tanstack/svelte-query-devtools'
 	import '../app.css';
-    import { queryClient } from '$lib/orpc';
+    import { createQueryClient } from '$lib/orpc';
     import Header from '../components/Header.svelte';
 
+    const queryClient = createQueryClient();
 	const { children } = $props();
 </script>
 

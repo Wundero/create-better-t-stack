@@ -1,9 +1,11 @@
 import { authClient } from "@/lib/auth-client";
 {{#if (eq api "trpc")}}
-import { queryClient } from "@/utils/trpc";
+import { createQueryClient } from "@/utils/trpc";
+const queryClient = createQueryClient();
 {{/if}}
 {{#if (eq api "orpc")}}
-import { queryClient } from "@/utils/orpc";
+import { createQueryClient } from "@/utils/orpc";
+const queryClient = createQueryClient();
 {{/if}}
 import { useForm } from "@tanstack/react-form";
 import { useState } from "react";

@@ -12,13 +12,15 @@ import { Platform } from "react-native";
 import { getClerkAuthToken } from "@/utils/clerk-auth";
 {{/if}}
 
-export const queryClient = new QueryClient({
-	queryCache: new QueryCache({
-		onError: (error) => {
-			console.log(error)
-		},
-	}),
-});
+export function createQueryClient() {
+	return new QueryClient({
+		queryCache: new QueryCache({
+			onError: (error) => {
+				console.log(error)
+			},
+		}),
+	});
+}
 
 export const link = new RPCLink({
 {{#if (eq backend "self")}}

@@ -11,10 +11,12 @@ import { tokenCache } from "@clerk/expo/token-cache";
 import { env } from "{{packageScope}}/env/native";
 {{/if}}
 {{#if (eq api "trpc")}}
-import { queryClient } from "@/utils/trpc";
+import { createQueryClient } from "@/utils/trpc";
+const queryClient = createQueryClient();
 {{/if}}
 {{#if (eq api "orpc")}}
-import { queryClient } from "@/utils/orpc";
+import { createQueryClient } from "@/utils/orpc";
+const queryClient = createQueryClient();
 {{/if}}
 {{#if (eq backend "convex")}}
 {{#if (eq auth "better-auth")}}

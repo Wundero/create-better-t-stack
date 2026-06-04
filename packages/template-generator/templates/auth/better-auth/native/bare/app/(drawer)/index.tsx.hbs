@@ -13,11 +13,13 @@ import { SignIn } from "@/components/sign-in";
 import { SignUp } from "@/components/sign-up";
 {{#if (eq api "orpc")}}
 import { useQuery } from "@tanstack/react-query";
-import { queryClient, orpc } from "@/utils/orpc";
+import { createQueryClient, orpc } from "@/utils/orpc";
+const queryClient = createQueryClient();
 {{/if}}
 {{#if (eq api "trpc")}}
 import { useQuery } from "@tanstack/react-query";
-import { queryClient, trpc } from "@/utils/trpc";
+import { createQueryClient, trpc } from "@/utils/trpc";
+const queryClient = createQueryClient();
 {{/if}}
 
 export default function Home() {

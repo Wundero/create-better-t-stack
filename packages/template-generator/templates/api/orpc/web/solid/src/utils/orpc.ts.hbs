@@ -6,13 +6,15 @@ import type { AppRouterClient } from "{{packageScope}}/api/routers/index";
 import { customJsonSerializers } from "{{packageScope}}/api/serialization";
 import { env } from "{{packageScope}}/env/web";
 
-export const queryClient = new QueryClient({
-	queryCache: new QueryCache({
-		onError: (error) => {
-			console.error(`Error: ${error.message}`);
-		},
-	}),
-});
+export function createQueryClient() {
+	return new QueryClient({
+		queryCache: new QueryCache({
+			onError: (error) => {
+				console.error(`Error: ${error.message}`);
+			},
+		}),
+	});
+}
 
 export const link = new RPCLink({
 	url: `${env.VITE_SERVER_URL}/rpc`,
