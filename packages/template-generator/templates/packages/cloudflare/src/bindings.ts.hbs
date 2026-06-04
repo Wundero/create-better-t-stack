@@ -17,6 +17,9 @@ export type CloudflareBindings = {
 {{#if (cfBinding cloudflare "durable-object")}}
 	APP_DO: DurableObjectNamespace;
 {{/if}}
+{{#if (eq cloudflare.email.sender "cloudflare")}}
+	EMAIL_SENDER: EmailSender;
+{{/if}}
 };
 
 export type CloudflareContext = {

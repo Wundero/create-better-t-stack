@@ -28,7 +28,8 @@ export async function setupOxc(
 
         packageJson.scripts = {
           ...packageJson.scripts,
-          check: "oxlint && oxfmt --write",
+          fmt: "oxfmt --write",
+          check: "oxlint && oxfmt",
         };
 
         await fs.writeJson(packageJsonPath, packageJson, { spaces: 2 });

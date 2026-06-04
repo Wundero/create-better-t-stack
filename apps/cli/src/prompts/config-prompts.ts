@@ -30,7 +30,7 @@ import { getBackendFrameworkChoice } from "./backend";
 import { getCloudflareConfigChoice } from "./cloudflare";
 import { getDatabaseChoice } from "./database";
 import { getDBSetupChoice } from "./database-setup";
-import { getEmailChoice, getEmailProviderChoice } from "./email";
+import { getEmailChoice, getEmailDomainChoice, getEmailProviderChoice } from "./email";
 import { getExamplesChoice } from "./examples";
 import { getFrontendChoice } from "./frontend";
 import { getGitChoice } from "./git";
@@ -41,8 +41,8 @@ import { getORMChoice } from "./orm";
 import { getPackageManagerChoice } from "./package-manager";
 import { getPaymentsChoice } from "./payments";
 import { getRuntimeChoice } from "./runtime";
-import { getServerDeploymentChoice } from "./server-deploy";
-import { getDeploymentChoice } from "./web-deploy";
+import { getServerDeploymentChoice, getServerDomainChoice } from "./server-deploy";
+import { getDeploymentChoice, getWebDomainChoice } from "./web-deploy";
 
 type PromptGroupResults = {
   frontend: Frontend[];
@@ -65,6 +65,9 @@ type PromptGroupResults = {
   install: boolean;
   webDeploy: WebDeploy;
   serverDeploy: ServerDeploy;
+  webDomain?: string;
+  serverDomain?: string;
+  emailDomain?: string;
   cloudflare?: CloudflareConfig;
 };
 
@@ -102,6 +105,9 @@ export async function gatherConfig(
       api: flags.api ?? DEFAULT_CONFIG.api,
       webDeploy: flags.webDeploy ?? DEFAULT_CONFIG.webDeploy,
       serverDeploy: flags.serverDeploy ?? DEFAULT_CONFIG.serverDeploy,
+      webDomain: flags.webDomain ?? DEFAULT_CONFIG.webDomain,
+      serverDomain: flags.serverDomain ?? DEFAULT_CONFIG.serverDomain,
+      emailDomain: flags.emailDomain ?? DEFAULT_CONFIG.emailDomain,
       cloudflare: flags.cloudflare,
       shadcnTheme: flags.shadcnTheme,
     };
@@ -131,6 +137,8 @@ export async function gatherConfig(
       email: ({ results }) => getEmailChoice(flags.email, results.auth),
       emailProvider: ({ results }) =>
         getEmailProviderChoice(results.email, flags.emailProvider, results.serverDeploy),
+      emailDomain: ({ results }) =>
+        getEmailDomainChoice(results.email ?? DEFAULT_CONFIG.email, flags.emailDomain),
       i18n: ({ results }) => getI18nChoice(flags.i18n, results.frontend),
       addons: ({ results }) =>
         getAddonsChoice(
@@ -164,12 +172,19 @@ export async function gatherConfig(
           results.frontend,
           results.dbSetup,
         ),
+      webDomain: ({ results }) =>
+        getWebDomainChoice(results.webDeploy ?? DEFAULT_CONFIG.webDeploy, flags.webDomain),
       serverDeploy: ({ results }) =>
         getServerDeploymentChoice(
           flags.serverDeploy,
           results.runtime,
           results.backend,
           results.webDeploy,
+        ),
+      serverDomain: ({ results }) =>
+        getServerDomainChoice(
+          results.serverDeploy ?? DEFAULT_CONFIG.serverDeploy,
+          flags.serverDomain,
         ),
       cloudflare: ({ results }) =>
         getCloudflareConfigChoice(flags.cloudflare, {
@@ -217,6 +232,9 @@ export async function gatherConfig(
     api: result.api,
     webDeploy: result.webDeploy,
     serverDeploy: result.serverDeploy,
+    webDomain: result.webDomain,
+    serverDomain: result.serverDomain,
+    emailDomain: result.emailDomain,
     cloudflare: result.cloudflare,
     shadcnTheme: flags.shadcnTheme,
   };

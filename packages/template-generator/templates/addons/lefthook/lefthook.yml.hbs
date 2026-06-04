@@ -10,7 +10,7 @@ pre-commit:
       run: {{packageManager}} biome check --write --no-errors-on-unmatched --files-ignore-unknown=true {staged_files}
       stage_fixed: true
 {{else if (includes addons "oxc")}}
-    - name: oxlint
+    - name: oxc
       run: {{packageManager}} oxlint --fix {staged_files}
       stage_fixed: true
     - name: oxfmt

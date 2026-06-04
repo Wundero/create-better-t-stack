@@ -1,7 +1,7 @@
 import { DEFAULT_CONFIG } from "../constants";
 import type { Auth, Email, EmailProvider } from "../types";
 import { UserCancelledError } from "../utils/errors";
-import { isCancel, navigableSelect } from "./navigable";
+import { isCancel, navigableSelect, navigableText } from "./navigable";
 
 export async function getEmailChoice(email?: Email, auth?: Auth, _emailProvider?: EmailProvider) {
   if (email !== undefined) return email;
@@ -28,6 +28,23 @@ export async function getEmailChoice(email?: Email, auth?: Auth, _emailProvider?
   if (isCancel(response)) throw new UserCancelledError({ message: "Operation cancelled" });
 
   return response;
+}
+
+export async function getEmailDomainChoice(
+  email: Email,
+  emailDomain?: string,
+): Promise<string | undefined> {
+  if (emailDomain !== undefined) return emailDomain || undefined;
+  if (email !== "react-email") return undefined;
+
+  const response = await navigableText({
+    message: "Email domain (optional)",
+    placeholder: "mail.example.com",
+  });
+
+  if (isCancel(response)) throw new UserCancelledError({ message: "Operation cancelled" });
+
+  return response.trim() || undefined;
 }
 
 export async function getEmailProviderChoice(

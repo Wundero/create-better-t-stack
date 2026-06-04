@@ -126,6 +126,18 @@ export function processFlags(options: CLIInput, projectName?: string) {
     config.serverDeploy = options.serverDeploy as ServerDeploy;
   }
 
+  if (options.webDomain) {
+    config.webDomain = options.webDomain;
+  }
+
+  if (options.serverDomain) {
+    config.serverDomain = options.serverDomain;
+  }
+
+  if (options.emailDomain) {
+    config.emailDomain = options.emailDomain;
+  }
+
   if (options.cloudflare) {
     config.cloudflare = options.cloudflare;
   }

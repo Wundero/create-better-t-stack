@@ -825,7 +825,7 @@ pre-commit:
       run: {{packageManager}} biome check --write --no-errors-on-unmatched --files-ignore-unknown=true {staged_files}
       stage_fixed: true
 {{else if (includes addons "oxc")}}
-    - name: oxlint
+    - name: oxc
       run: {{packageManager}} oxlint --fix {staged_files}
       stage_fixed: true
     - name: oxfmt
@@ -24461,6 +24461,8 @@ import { type web as server } from "{{packageScope}}/infra/alchemy.run";
 
 export type CloudflareEnv = typeof server.Env{{#if (eq cloudflare.hyperdrive "postgres")}} & {
   HYPERDRIVE?: Hyperdrive;
+}{{/if}}{{#if (eq cloudflare.email.sender "cloudflare")}} & {
+  EMAIL_SENDER: EmailSender;
 }{{/if}};
 
 declare global {
@@ -32032,6 +32034,9 @@ export default defineConfig({
 {{#if (cfBinding cloudflare "durable-object")}}
 	APP_DO: DurableObjectNamespace;
 {{/if}}
+{{#if (eq cloudflare.email.sender "cloudflare")}}
+	EMAIL_SENDER: EmailSender;
+{{/if}}
 };
 
 export type CloudflareContext = {
@@ -32508,6 +32513,12 @@ import { Queue } from "alchemy/cloudflare";
 {{#if (cfBinding cloudflare "durable-object")}}
 import { DurableObjectNamespace } from "alchemy/cloudflare";
 {{/if}}
+{{#if (eq cloudflare.hyperdrive "postgres")}}
+import { Hyperdrive } from "alchemy/cloudflare";
+{{/if}}
+{{#if (eq cloudflare.email.sender "cloudflare")}}
+import { EmailSender } from "alchemy/cloudflare";
+{{/if}}
 {{#if (and (or (eq serverDeploy "cloudflare") (and (eq webDeploy "cloudflare") (eq backend "self"))) (eq dbSetup "d1"))}}
 import { D1Database } from "alchemy/cloudflare";
 {{/if}}
@@ -32528,13 +32539,14 @@ const webDomains = [
 {{/if}}
 
 {{#if (eq cloudflare.hyperdrive "postgres")}}
-// TODO: Create a Cloudflare Hyperdrive config and add the Worker binding manually.
-// Alchemy does not currently expose a first-class Hyperdrive resource in this template.
-// Wrangler shape:
-// hyperdrive = [{ binding = "HYPERDRIVE", id = "<hyperdrive-id>" }]
+const hyperdrive = await Hyperdrive("hyperdrive", {
+	name: "{{projectName}}-hyperdrive",
+});
 {{/if}}
 {{#if (eq cloudflare.email.sender "cloudflare")}}
-// TODO: Add a Cloudflare Email Routing/Email Sending binding once the sender address is configured.
+const emailSender = await EmailSender("email-sender", {
+	name: "{{projectName}}-email-sender",
+});
 {{/if}}
 {{#if (cfBinding cloudflare "workers-ai")}}
 const ai = Ai();
@@ -32581,6 +32593,12 @@ export const server = await Worker("server", {
     DB: db,
     {{else if (ne database "none")}}
     DATABASE_URL: alchemy.secret.env.DATABASE_URL!,
+    {{/if}}
+    {{#if (eq cloudflare.hyperdrive "postgres")}}
+    HYPERDRIVE: hyperdrive,
+    {{/if}}
+    {{#if (eq cloudflare.email.sender "cloudflare")}}
+    EMAIL_SENDER: emailSender,
     {{/if}}
     CORS_ORIGIN: alchemy.env.CORS_ORIGIN!,
     {{#if (eq auth "better-auth")}}
@@ -32640,6 +32658,12 @@ export const web = await Nextjs("web", {
     {{#if (cfBinding cloudflare "durable-object")}}
     APP_DO: appDurableObject,
     {{/if}}
+		{{#if (eq cloudflare.hyperdrive "postgres")}}
+		HYPERDRIVE: hyperdrive,
+		{{/if}}
+		{{#if (eq cloudflare.email.sender "cloudflare")}}
+		EMAIL_SENDER: emailSender,
+		{{/if}}
     {{#if (eq backend "convex")}}
     NEXT_PUBLIC_CONVEX_URL: alchemy.env.NEXT_PUBLIC_CONVEX_URL!,
     {{#if (eq auth "better-auth")}}
@@ -32716,6 +32740,12 @@ export const web = await Nuxt("web", {
     {{#if (cfBinding cloudflare "durable-object")}}
     APP_DO: appDurableObject,
     {{/if}}
+		{{#if (eq cloudflare.hyperdrive "postgres")}}
+		HYPERDRIVE: hyperdrive,
+		{{/if}}
+		{{#if (eq cloudflare.email.sender "cloudflare")}}
+		EMAIL_SENDER: emailSender,
+		{{/if}}
     {{#if (eq backend "convex")}}
     NUXT_PUBLIC_CONVEX_URL: alchemy.env.NUXT_PUBLIC_CONVEX_URL!,
     {{#if (eq auth "better-auth")}}
@@ -32789,6 +32819,12 @@ export const web = await SvelteKit("web", {
     {{#if (cfBinding cloudflare "durable-object")}}
     APP_DO: appDurableObject,
     {{/if}}
+		{{#if (eq cloudflare.hyperdrive "postgres")}}
+		HYPERDRIVE: hyperdrive,
+		{{/if}}
+		{{#if (eq cloudflare.email.sender "cloudflare")}}
+		EMAIL_SENDER: emailSender,
+		{{/if}}
     {{#if (eq backend "convex")}}
     PUBLIC_CONVEX_URL: alchemy.env.PUBLIC_CONVEX_URL!,
     {{#if (eq auth "better-auth")}}
@@ -32857,6 +32893,12 @@ export const web = await TanStackStart("web", {
     {{#if (cfBinding cloudflare "durable-object")}}
     APP_DO: appDurableObject,
     {{/if}}
+		{{#if (eq cloudflare.hyperdrive "postgres")}}
+		HYPERDRIVE: hyperdrive,
+		{{/if}}
+		{{#if (eq cloudflare.email.sender "cloudflare")}}
+		EMAIL_SENDER: emailSender,
+		{{/if}}
     {{#if (eq backend "convex")}}
     VITE_CONVEX_URL: alchemy.env.VITE_CONVEX_URL!,
     {{#if (eq auth "better-auth")}}
@@ -32929,6 +32971,12 @@ export const web = await Vite("web", {
     {{#if (cfBinding cloudflare "durable-object")}}
     APP_DO: appDurableObject,
     {{/if}}
+		{{#if (eq cloudflare.hyperdrive "postgres")}}
+		HYPERDRIVE: hyperdrive,
+		{{/if}}
+		{{#if (eq cloudflare.email.sender "cloudflare")}}
+		EMAIL_SENDER: emailSender,
+		{{/if}}
     {{#if (eq backend "convex")}}
     VITE_CONVEX_URL: alchemy.env.VITE_CONVEX_URL!,
     {{#if (eq auth "better-auth")}}
@@ -32965,6 +33013,12 @@ export const web = await ReactRouter("web", {
     {{#if (cfBinding cloudflare "durable-object")}}
     APP_DO: appDurableObject,
     {{/if}}
+		{{#if (eq cloudflare.hyperdrive "postgres")}}
+		HYPERDRIVE: hyperdrive,
+		{{/if}}
+		{{#if (eq cloudflare.email.sender "cloudflare")}}
+		EMAIL_SENDER: emailSender,
+		{{/if}}
     {{#if (eq backend "convex")}}
     VITE_CONVEX_URL: alchemy.env.VITE_CONVEX_URL!,
     {{#if (eq auth "better-auth")}}
@@ -33002,6 +33056,12 @@ export const web = await Vite("web", {
     {{#if (cfBinding cloudflare "durable-object")}}
     APP_DO: appDurableObject,
     {{/if}}
+		{{#if (eq cloudflare.hyperdrive "postgres")}}
+		HYPERDRIVE: hyperdrive,
+		{{/if}}
+		{{#if (eq cloudflare.email.sender "cloudflare")}}
+		EMAIL_SENDER: emailSender,
+		{{/if}}
     {{#if (eq backend "convex")}}
     VITE_CONVEX_URL: alchemy.env.VITE_CONVEX_URL!,
     {{#if (eq auth "better-auth")}}
@@ -33106,6 +33166,12 @@ export const server = await Worker("server", {
     {{/if}}
     {{#if (cfBinding cloudflare "durable-object")}}
     APP_DO: appDurableObject,
+    {{/if}}
+    {{#if (eq cloudflare.hyperdrive "postgres")}}
+    HYPERDRIVE: hyperdrive,
+    {{/if}}
+    {{#if (eq cloudflare.email.sender "cloudflare")}}
+    EMAIL_SENDER: emailSender,
     {{/if}}
     CORS_ORIGIN: alchemy.env.CORS_ORIGIN!,
     {{#if (eq auth "better-auth")}}

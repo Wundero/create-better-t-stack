@@ -2,7 +2,7 @@ import { DEFAULT_CONFIG } from "../constants";
 import type { Backend, DatabaseSetup, Frontend, Runtime, WebDeploy } from "../types";
 import { WEB_FRAMEWORKS } from "../utils/compatibility";
 import { UserCancelledError } from "../utils/errors";
-import { isCancel, navigableSelect } from "./navigable";
+import { isCancel, navigableSelect, navigableText } from "./navigable";
 
 function hasWebFrontend(frontends: Frontend[]) {
   return frontends.some((f) => WEB_FRAMEWORKS.includes(f));
@@ -66,6 +66,23 @@ export async function getDeploymentChoice(
   if (isCancel(response)) throw new UserCancelledError({ message: "Operation cancelled" });
 
   return response;
+}
+
+export async function getWebDomainChoice(
+  webDeploy: WebDeploy,
+  webDomain?: string,
+): Promise<string | undefined> {
+  if (webDomain !== undefined) return webDomain || undefined;
+  if (webDeploy !== "cloudflare") return undefined;
+
+  const response = await navigableText({
+    message: "Web domain (optional)",
+    placeholder: "app.example.com",
+  });
+
+  if (isCancel(response)) throw new UserCancelledError({ message: "Operation cancelled" });
+
+  return response.trim() || undefined;
 }
 
 export async function getDeploymentToAdd(frontend: Frontend[], existingDeployment?: WebDeploy) {

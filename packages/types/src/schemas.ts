@@ -504,6 +504,9 @@ export const CreateInputSchema = z
     api: APISchema.optional(),
     webDeploy: WebDeploySchema.optional(),
     serverDeploy: ServerDeploySchema.optional(),
+    webDomain: z.string().optional().describe("Custom domain for web deployment"),
+    serverDomain: z.string().optional().describe("Custom domain for server deployment"),
+    emailDomain: z.string().optional().describe("Custom domain for email sending"),
     cloudflare: CloudflareConfigSchema.optional(),
     directoryConflict: DirectoryConflictSchema.optional(),
     renderTitle: z.boolean().optional(),
@@ -562,6 +565,9 @@ export const ProjectConfigSchema = z.object({
   api: APISchema,
   webDeploy: WebDeploySchema,
   serverDeploy: ServerDeploySchema,
+  webDomain: z.string().optional().describe("Custom domain for web deployment"),
+  serverDomain: z.string().optional().describe("Custom domain for server deployment"),
+  emailDomain: z.string().optional().describe("Custom domain for email sending"),
   cloudflare: CloudflareConfigSchema.optional(),
 });
 
@@ -591,6 +597,9 @@ export const BetterTStackConfigSchema = z.object({
   api: APISchema,
   webDeploy: WebDeploySchema,
   serverDeploy: ServerDeploySchema,
+  webDomain: z.string().optional().describe("Custom domain for web deployment"),
+  serverDomain: z.string().optional().describe("Custom domain for server deployment"),
+  emailDomain: z.string().optional().describe("Custom domain for email sending"),
   cloudflare: CloudflareConfigSchema.optional(),
 });
 

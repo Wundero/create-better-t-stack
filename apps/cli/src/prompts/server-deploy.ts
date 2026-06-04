@@ -1,7 +1,7 @@
 import { DEFAULT_CONFIG } from "../constants";
 import type { Backend, Runtime, ServerDeploy, WebDeploy } from "../types";
 import { UserCancelledError } from "../utils/errors";
-import { isCancel, navigableSelect } from "./navigable";
+import { isCancel, navigableSelect, navigableText } from "./navigable";
 
 type DeploymentOption = {
   value: ServerDeploy;
@@ -47,6 +47,23 @@ export async function getServerDeploymentChoice(
   }
 
   return "none";
+}
+
+export async function getServerDomainChoice(
+  serverDeploy: ServerDeploy,
+  serverDomain?: string,
+): Promise<string | undefined> {
+  if (serverDomain !== undefined) return serverDomain || undefined;
+  if (serverDeploy !== "cloudflare") return undefined;
+
+  const response = await navigableText({
+    message: "Server domain (optional)",
+    placeholder: "api.example.com",
+  });
+
+  if (isCancel(response)) throw new UserCancelledError({ message: "Operation cancelled" });
+
+  return response.trim() || undefined;
 }
 
 export async function getServerDeploymentToAdd(

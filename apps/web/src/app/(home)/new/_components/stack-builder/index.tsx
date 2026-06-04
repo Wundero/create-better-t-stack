@@ -309,6 +309,7 @@ export function StackBuilder({ specialSponsors = [] }: StackBuilderProps) {
                       stack={stack}
                       compatibilityNotes={compatibilityAnalysis.notes}
                       onSelect={handleTechSelect}
+                      onStackChange={setStack}
                       showAllCategories
                     />
                   </main>
@@ -415,6 +416,7 @@ export function StackBuilder({ specialSponsors = [] }: StackBuilderProps) {
                     stack={stack}
                     compatibilityNotes={compatibilityAnalysis.notes}
                     onSelect={handleTechSelect}
+                    onStackChange={setStack}
                     showAllCategories
                   />
                 </main>

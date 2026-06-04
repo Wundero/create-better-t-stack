@@ -1,6 +1,7 @@
 import { CheckCircle2, InfoIcon, Terminal } from "lucide-react";
 import { motion } from "motion/react";
 
+import { Input } from "@/components/ui/input";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import type { StackState } from "@/lib/constant";
 import { TECH_OPTIONS } from "@/lib/constant";
@@ -16,6 +17,7 @@ type TechCategoriesProps = {
   stack: StackState;
   compatibilityNotes: Record<string, { hasIssue: boolean; notes: string[] }>;
   onSelect: (category: keyof typeof TECH_OPTIONS, techId: string) => void;
+  onStackChange?: (updates: Partial<StackState>) => void;
   showAllCategories?: boolean;
 };
 
@@ -39,6 +41,7 @@ export function TechCategories({
   stack,
   compatibilityNotes,
   onSelect,
+  onStackChange,
   showAllCategories = false,
 }: TechCategoriesProps) {
   const isDesktop = mode === "desktop";
@@ -51,6 +54,22 @@ export function TechCategories({
         const categoryDisplayName = getCategoryDisplayName(categoryKey);
 
         if (categoryOptions.length === 0) return null;
+
+        const showDomainInput =
+          (categoryKey === "webDeploy" && stack.webDeploy !== "none") ||
+          (categoryKey === "serverDeploy" && stack.serverDeploy !== "none");
+
+        const domainField =
+          categoryKey === "webDeploy"
+            ? "webDomain"
+            : categoryKey === "serverDeploy"
+              ? "serverDomain"
+              : null;
+
+        const domainValue = domainField ? stack[domainField] : "";
+        const domainLabel = categoryKey === "webDeploy" ? "Web Domain" : "Server Domain";
+        const domainPlaceholder =
+          categoryKey === "webDeploy" ? "app.example.com" : "api.example.com";
 
         return (
           <section
@@ -204,6 +223,25 @@ export function TechCategories({
                 );
               })}
             </div>
+
+            {showDomainInput && domainField && onStackChange && (
+              <div className="mt-3">
+                <label className="flex flex-col">
+                  <span className="mb-1 font-mono text-[11px] text-muted-foreground uppercase tracking-wide">
+                    {domainLabel}
+                  </span>
+                  <Input
+                    type="text"
+                    value={domainValue}
+                    onChange={(event) => {
+                      onStackChange({ [domainField]: event.target.value });
+                    }}
+                    className="builder-focus-ring w-full rounded-lg border-border/60 px-2.5 py-1.5 font-mono text-sm focus:border-primary focus:outline-none"
+                    placeholder={domainPlaceholder}
+                  />
+                </label>
+              </div>
+            )}
           </section>
         );
       })}

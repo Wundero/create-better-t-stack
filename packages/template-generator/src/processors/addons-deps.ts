@@ -35,6 +35,19 @@ export function processAddonsDeps(vfs: VirtualFileSystem, config: ProjectConfig)
     addPackageDependency({ vfs, packagePath: "package.json", devDependencies: ["nx"] });
   }
 
+  if (config.addons.includes("oxc")) {
+    const rootPkgPath = "package.json";
+    const rootPkg = vfs.readJson<PackageJson>(rootPkgPath);
+    if (rootPkg) {
+      rootPkg.scripts = {
+        ...rootPkg.scripts,
+        fmt: "oxfmt --write",
+        check: "oxlint && oxfmt",
+      };
+      vfs.writeJson(rootPkgPath, rootPkg);
+    }
+  }
+
   if (config.addons.includes("evlog")) {
     const serverPkgPath = "apps/server/package.json";
     if (vfs.exists(serverPkgPath) && config.backend !== "self" && config.backend !== "none") {

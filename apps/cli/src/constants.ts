@@ -39,6 +39,9 @@ export const DEFAULT_CONFIG_BASE = {
   api: "trpc",
   webDeploy: "none",
   serverDeploy: "none",
+  webDomain: "",
+  serverDomain: "",
+  emailDomain: "",
 } as const;
 
 export function getDefaultConfig() {

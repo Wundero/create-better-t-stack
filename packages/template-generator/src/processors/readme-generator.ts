@@ -731,7 +731,8 @@ function generateScriptsList(
   }
 
   if (addons.includes("oxc")) {
-    scripts += `\n- \`${packageManagerRunCmd} check\`: Run Oxlint and Oxfmt`;
+    scripts += `\n- \`${packageManagerRunCmd} fmt\`: Format code with Oxfmt`;
+    scripts += `\n- \`${packageManagerRunCmd} check\`: Check code with Oxlint and Oxfmt`;
   }
 
   if (addons.includes("pwa")) {

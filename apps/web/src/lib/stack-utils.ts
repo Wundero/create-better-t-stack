@@ -142,6 +142,9 @@ export function generateStackCommand(stack: StackState) {
     stack.git === "false" ? "--no-git" : "--git",
     `--web-deploy ${stack.webDeploy}`,
     `--server-deploy ${stack.serverDeploy}`,
+    stack.webDomain ? `--web-domain ${stack.webDomain}` : "",
+    stack.serverDomain ? `--server-domain ${stack.serverDomain}` : "",
+    stack.emailDomain ? `--email-domain ${stack.emailDomain}` : "",
     stack.install === "false" ? "--no-install" : "--install",
     `--addons ${
       stack.addons.length > 0
@@ -177,7 +180,7 @@ export function generateStackCommand(stack: StackState) {
     flags.push("--yolo");
   }
 
-  return `${base} ${projectName} ${flags.join(" ")}`;
+  return `${base} ${projectName} ${flags.filter(Boolean).join(" ")}`;
 }
 
 export function generateStackUrlFromState(stack: StackState, baseUrl?: string) {
