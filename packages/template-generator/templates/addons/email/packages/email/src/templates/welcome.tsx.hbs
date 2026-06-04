@@ -1,0 +1,44 @@
+import {
+  Body,
+  Button,
+  Container,
+  Head,
+  Heading,
+  Html,
+  Preview,
+  Section,
+  Text,
+} from "@react-email/components";
+import type { EmailTheme } from "../theme";
+
+interface WelcomeEmailProps {
+  name: string;
+  confirmUrl: string;
+  theme?: EmailTheme;
+}
+
+export function WelcomeEmail({ name, confirmUrl, theme }: WelcomeEmailProps) {
+  const primaryColor = theme?.primaryColor ?? "#000000";
+  const backgroundColor = theme?.backgroundColor ?? "#ffffff";
+
+  return (
+    <Html>
+      <Head />
+      <Preview>Welcome to our platform</Preview>
+      <Body style=\{{ backgroundColor, fontFamily: "sans-serif" }}>
+        <Container>
+          <Heading>Welcome, {name}!</Heading>
+          <Text>Thanks for joining us. Please confirm your email address:</Text>
+          <Section>
+            <Button
+              href={confirmUrl}
+              style=\{{ backgroundColor: primaryColor, color: "#ffffff", padding: "12px 24px" }}
+            >
+              Confirm Email
+            </Button>
+          </Section>
+        </Container>
+      </Body>
+    </Html>
+  );
+}

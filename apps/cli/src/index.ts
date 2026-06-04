@@ -169,6 +169,7 @@ export const router = t.router({
           serverDeploy: ServerDeploySchema.optional(),
           cloudflare: CloudflareConfigSchema.optional(),
           directoryConflict: DirectoryConflictSchema.optional(),
+          shadcnTheme: z.string().optional().describe("Base64-encoded ShadCN theme preset"),
           renderTitle: z.boolean().optional(),
           disableAnalytics: z.boolean().optional().default(false).describe("Disable analytics"),
           manualDb: z

@@ -25,6 +25,10 @@ export const DEFAULT_CONFIG_BASE = {
   auth: "better-auth",
   authFeatures: undefined,
   payments: "none",
+  email: "none",
+  emailProvider: "none",
+  i18n: "none",
+  shadcnTheme: undefined,
   addons: ["turborepo"],
   examples: [],
   git: true,
@@ -71,5 +75,7 @@ export const ADDON_COMPATIBILITY = {
   "docker-compose": [],
   skills: [],
   evlog: [],
+  opentelemetry: [],
+  posthog: [],
   none: [],
 } as const;

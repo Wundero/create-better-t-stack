@@ -21,6 +21,9 @@ import type {
   CloudflareBindingSchema,
   CloudflareDomainsSchema,
   CloudflareEmailSchema,
+  EmailSchema,
+  EmailProviderSchema,
+  I18nSchema,
   DirectoryConflictSchema,
   TemplateSchema,
   AddonOptionsSchema,
@@ -55,6 +58,10 @@ export type CloudflareHyperdrive = z.infer<typeof CloudflareHyperdriveSchema>;
 export type CloudflareBinding = z.infer<typeof CloudflareBindingSchema>;
 export type CloudflareDomains = z.infer<typeof CloudflareDomainsSchema>;
 export type CloudflareEmail = z.infer<typeof CloudflareEmailSchema>;
+export type Email = z.infer<typeof EmailSchema>;
+export type EmailProvider = z.infer<typeof EmailProviderSchema>;
+export type I18n = z.infer<typeof I18nSchema>;
+export type ShadcnTheme = string | undefined;
 export type DirectoryConflict = z.infer<typeof DirectoryConflictSchema>;
 export type Template = z.infer<typeof TemplateSchema>;
 export type AddonOptions = z.infer<typeof AddonOptionsSchema>;

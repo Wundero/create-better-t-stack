@@ -1,0 +1,13 @@
+export interface AppEvent {
+  name: string;
+  timestamp: Date;
+  properties?: Record<string, unknown>;
+}
+
+export function createEvent(name: string, properties?: Record<string, unknown>): AppEvent {
+  return {
+    name,
+    timestamp: new Date(),
+    properties,
+  };
+}

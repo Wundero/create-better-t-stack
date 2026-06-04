@@ -1,0 +1,23 @@
+{
+  "name": "@{{packageScope}}/i18n",
+  "version": "1.0.0",
+  "type": "module",
+  "exports": {
+    ".": "./dist/index.js",
+    "./locales": "./dist/locales/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch"
+  },
+  "dependencies": {
+    {{#if (eq i18n "lingui")}}
+    "@lingui/core": "^5.3.0",
+    "@lingui/react": "^5.3.0",
+    "@lingui/macro": "^5.3.0"
+    {{/if}}
+  },
+  "devDependencies": {
+    "typescript": "^5.5.4"
+  }
+}

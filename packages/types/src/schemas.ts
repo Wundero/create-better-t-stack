@@ -52,6 +52,8 @@ export const AddonsSchema = z
     "docker-compose",
     "skills",
     "evlog",
+    "opentelemetry",
+    "posthog",
     "none",
   ])
   .describe("Additional addons");
@@ -128,6 +130,14 @@ export const CloudflareDomainsSchema = z
       .describe("Whether Cloudflare domains are TODO placeholders or prompted values"),
   })
   .describe("Cloudflare custom domain configuration");
+
+export const EmailSchema = z.enum(["none", "react-email"]).describe("Email integration option");
+
+export const EmailProviderSchema = z.enum(["none", "cloudflare"]).describe("Email provider");
+
+export const I18nSchema = z
+  .enum(["none", "lingui", "paraglidejs"])
+  .describe("Internationalization option");
 
 export const CloudflareEmailSchema = z
   .strictObject({
@@ -477,6 +487,10 @@ export const CreateInputSchema = z
     auth: AuthSchema.optional(),
     authFeatures: AuthFeaturesListSchema,
     payments: PaymentsSchema.optional(),
+    email: EmailSchema.optional(),
+    emailProvider: EmailProviderSchema.optional(),
+    i18n: I18nSchema.optional(),
+    shadcnTheme: z.string().optional().describe("Base64-encoded ShadCN theme preset"),
     frontend: z.array(FrontendSchema).optional(),
     addons: AddonsListSchema.optional(),
     examples: z.array(ExamplesSchema).optional(),
@@ -536,6 +550,10 @@ export const ProjectConfigSchema = z.object({
   auth: AuthSchema,
   authFeatures: AuthFeaturesListSchema,
   payments: PaymentsSchema,
+  email: EmailSchema,
+  emailProvider: EmailProviderSchema,
+  i18n: I18nSchema,
+  shadcnTheme: z.string().optional().describe("Base64-encoded ShadCN theme preset"),
   git: z.boolean(),
   packageManager: PackageManagerSchema,
   packageScope: PackageScopeSchema,
@@ -563,6 +581,10 @@ export const BetterTStackConfigSchema = z.object({
   auth: AuthSchema,
   authFeatures: AuthFeaturesListSchema,
   payments: PaymentsSchema,
+  email: EmailSchema,
+  emailProvider: EmailProviderSchema,
+  i18n: I18nSchema,
+  shadcnTheme: z.string().optional().describe("Base64-encoded ShadCN theme preset"),
   packageManager: PackageManagerSchema,
   packageScope: PackageScopeSchema.optional(),
   dbSetup: DatabaseSetupSchema,
@@ -607,6 +629,8 @@ export const DATABASE_SETUP_VALUES = DatabaseSetupSchema.options;
 export const API_VALUES = APISchema.options;
 export const AUTH_VALUES = AuthSchema.options;
 export const PAYMENTS_VALUES = PaymentsSchema.options;
+export const EMAIL_VALUES = EmailSchema.options;
+export const EMAIL_PROVIDER_VALUES = EmailProviderSchema.options;
 export const WEB_DEPLOY_VALUES = WebDeploySchema.options;
 export const SERVER_DEPLOY_VALUES = ServerDeploySchema.options;
 export const DIRECTORY_CONFLICT_VALUES = DirectoryConflictSchema.options;

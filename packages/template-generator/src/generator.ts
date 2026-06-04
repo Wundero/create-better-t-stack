@@ -29,6 +29,8 @@ import {
   processExampleTemplates,
   processExtrasTemplates,
   processDeployTemplates,
+  processEmailTemplates,
+  processI18nTemplates,
 } from "./template-handlers";
 import type { GeneratorOptions, VirtualFileTree } from "./types";
 import { GeneratorError } from "./types";
@@ -77,6 +79,8 @@ export async function generate(
       await processAuthTemplates(vfs, templates, config);
       await processPaymentsTemplates(vfs, templates, config);
       await processAddonTemplates(vfs, templates, config);
+      await processEmailTemplates(vfs, templates, config);
+      await processI18nTemplates(vfs, templates, config);
       await processExampleTemplates(vfs, templates, config);
       await processExtrasTemplates(vfs, templates, config);
       await processDeployTemplates(vfs, templates, config);

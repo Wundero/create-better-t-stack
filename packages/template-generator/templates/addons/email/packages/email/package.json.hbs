@@ -1,0 +1,24 @@
+{
+  "name": "{{packageScope}}/email",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./send": "./src/send.ts",
+    "./templates/*": "./src/templates/*"
+  },
+  "scripts": {
+    "check-types": "tsc --noEmit"
+  },
+  "dependencies": {
+    "react": "^19.1.0",
+    "@react-email/components": "^0.0.36",
+    {{#if (includes addons "observability")}}
+    "@workspace/observability": "workspace:*"
+    {{/if}}
+  },
+  "devDependencies": {
+    "typescript": "^5.5.4"
+  }
+}

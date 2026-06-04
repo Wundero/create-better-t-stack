@@ -1,0 +1,50 @@
+import { render } from "@react-email/render";
+import { WelcomeEmail } from "./templates/welcome";
+import type { EmailTheme } from "./theme";
+
+export type EmailType = "welcome";
+
+export interface SendEmailInput {
+  type: EmailType;
+  to: string;
+  subject: string;
+  data: Record<string, unknown>;
+  theme?: EmailTheme;
+}
+
+{{#if (eq emailProvider "cloudflare")}}
+export async function sendEmail(input: SendEmailInput): Promise<void> {
+  const { type, to, subject, data, theme } = input;
+
+  let html: string;
+  switch (type) {
+    case "welcome":
+      html = await render(WelcomeEmail({ ...data, theme } as React.ComponentProps<typeof WelcomeEmail>));
+      break;
+    default:
+      throw new Error(`Unknown email type: ${type}`);
+  }
+
+  const response = await fetch("https://api.cloudflare.com/client/v4/accounts/{account_id}/email/routing/send", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${process.env.CLOUDFLARE_API_TOKEN}`,
+    },
+    body: JSON.stringify({
+      to,
+      subject,
+      html,
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to send email: ${response.statusText}`);
+  }
+}
+{{else}}
+// Placeholder: configure your email provider here
+export async function sendEmail(_input: SendEmailInput): Promise<void> {
+  throw new Error("Email provider not configured. Set up a provider in packages/email/src/send.ts");
+}
+{{/if}}

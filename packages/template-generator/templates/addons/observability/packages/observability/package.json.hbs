@@ -1,0 +1,33 @@
+{
+  "name": "{{packageScope}}/observability",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./logger": "./src/logger.ts",
+{{#if (includes addons "opentelemetry")}}
+    "./otel": "./src/otel.ts",
+{{/if}}
+{{#if (includes addons "posthog")}}
+    "./posthog": "./src/posthog.ts",
+{{/if}}
+    "./events": "./src/events.ts"
+  },
+  "dependencies": {
+{{#if (includes addons "opentelemetry")}}
+    "@opentelemetry/api": "^1.9.0",
+    "@opentelemetry/sdk-node": "^0.57.0",
+    "@opentelemetry/auto-instrumentations-node": "^0.55.0",
+    "@opentelemetry/exporter-trace-otlp-http": "^0.57.0",
+    "@opentelemetry/exporter-metrics-otlp-http": "^0.57.0",
+{{/if}}
+{{#if (includes addons "posthog")}}
+    "posthog-node": "^4.7.0"
+{{/if}}
+  },
+  "devDependencies": {},
+  "scripts": {
+    "check-types": "tsc --noEmit"
+  }
+}

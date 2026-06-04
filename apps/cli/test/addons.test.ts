@@ -226,6 +226,292 @@ describe("Addon Configurations", () => {
           expectError(result, "tauri addon requires one of these frontends");
         });
       }
+
+      describe("Tauri File Generation", () => {
+        it("should generate apps/tauri workspace files", async () => {
+          const result = await runTRPCTest({
+            projectName: "tauri-files",
+            addons: ["tauri"],
+            frontend: ["tanstack-router"],
+            backend: "hono",
+            runtime: "bun",
+            database: "sqlite",
+            orm: "drizzle",
+            auth: "none",
+            api: "trpc",
+            examples: ["none"],
+            dbSetup: "none",
+            webDeploy: "none",
+            serverDeploy: "none",
+            install: false,
+          });
+
+          expectSuccess(result);
+          expect(result.projectDir).toBeDefined();
+
+          const tauriPackageJson = join(result.projectDir!, "apps", "tauri", "package.json");
+          const tauriConf = join(
+            result.projectDir!,
+            "apps",
+            "tauri",
+            "src-tauri",
+            "tauri.conf.json",
+          );
+          const cargoToml = join(result.projectDir!, "apps", "tauri", "src-tauri", "Cargo.toml");
+          const mainRs = join(result.projectDir!, "apps", "tauri", "src-tauri", "src", "main.rs");
+          const libRs = join(result.projectDir!, "apps", "tauri", "src-tauri", "src", "lib.rs");
+          const webSrcTauri = join(result.projectDir!, "apps", "web", "src-tauri");
+
+          expect(existsSync(tauriPackageJson)).toBe(true);
+          expect(existsSync(tauriConf)).toBe(true);
+          expect(existsSync(cargoToml)).toBe(true);
+          expect(existsSync(mainRs)).toBe(true);
+          expect(existsSync(libRs)).toBe(true);
+          expect(existsSync(webSrcTauri)).toBe(false);
+        });
+
+        it("should generate framework-aware tauri.conf.json for Next.js", async () => {
+          const result = await runTRPCTest({
+            projectName: "tauri-next-files",
+            addons: ["tauri"],
+            frontend: ["next"],
+            backend: "self",
+            runtime: "none",
+            database: "sqlite",
+            orm: "drizzle",
+            auth: "none",
+            api: "trpc",
+            examples: ["none"],
+            dbSetup: "none",
+            webDeploy: "none",
+            serverDeploy: "none",
+            install: false,
+          });
+
+          expectSuccess(result);
+          expect(result.projectDir).toBeDefined();
+
+          const tauriConf = join(
+            result.projectDir!,
+            "apps",
+            "tauri",
+            "src-tauri",
+            "tauri.conf.json",
+          );
+          expect(existsSync(tauriConf)).toBe(true);
+
+          const conf = await readFile(tauriConf, "utf-8");
+          expect(conf).toContain('"frontendDist": "../web/out"');
+          expect(conf).toContain('"devUrl": "http://localhost:3001"');
+        });
+
+        it("should generate framework-aware tauri.conf.json for SvelteKit", async () => {
+          const result = await runTRPCTest({
+            projectName: "tauri-svelte-files",
+            addons: ["tauri"],
+            frontend: ["svelte"],
+            backend: "hono",
+            runtime: "bun",
+            database: "sqlite",
+            orm: "drizzle",
+            auth: "none",
+            api: "orpc",
+            examples: ["none"],
+            dbSetup: "none",
+            webDeploy: "none",
+            serverDeploy: "none",
+            install: false,
+          });
+
+          expectSuccess(result);
+          expect(result.projectDir).toBeDefined();
+
+          const tauriConf = join(
+            result.projectDir!,
+            "apps",
+            "tauri",
+            "src-tauri",
+            "tauri.conf.json",
+          );
+          expect(existsSync(tauriConf)).toBe(true);
+
+          const conf = await readFile(tauriConf, "utf-8");
+          expect(conf).toContain('"frontendDist": "../web/build"');
+          expect(conf).toContain('"devUrl": "http://localhost:5173"');
+        });
+      });
+    });
+
+    describe("Observability Addons", () => {
+      describe("OpenTelemetry", () => {
+        it("should work as a universal addon with any frontend", async () => {
+          const result = await runTRPCTest({
+            projectName: "observability-opentelemetry",
+            addons: ["opentelemetry"],
+            frontend: ["tanstack-router"],
+            backend: "hono",
+            runtime: "bun",
+            database: "sqlite",
+            orm: "drizzle",
+            auth: "none",
+            api: "trpc",
+            examples: ["none"],
+            dbSetup: "none",
+            webDeploy: "none",
+            serverDeploy: "none",
+            install: false,
+          });
+          expectSuccess(result);
+        });
+      });
+
+      describe("PostHog", () => {
+        it("should work as a universal addon with any frontend", async () => {
+          const result = await runTRPCTest({
+            projectName: "observability-posthog",
+            addons: ["posthog"],
+            frontend: ["tanstack-router"],
+            backend: "hono",
+            runtime: "bun",
+            database: "sqlite",
+            orm: "drizzle",
+            auth: "none",
+            api: "trpc",
+            examples: ["none"],
+            dbSetup: "none",
+            webDeploy: "none",
+            serverDeploy: "none",
+            install: false,
+          });
+          expectSuccess(result);
+        });
+      });
+
+      describe("Observability File Generation", () => {
+        it("should generate observability package files with opentelemetry", async () => {
+          const result = await runTRPCTest({
+            projectName: "observability-files-otel",
+            addons: ["opentelemetry"],
+            frontend: ["tanstack-router"],
+            backend: "hono",
+            runtime: "bun",
+            database: "sqlite",
+            orm: "drizzle",
+            auth: "none",
+            api: "trpc",
+            examples: ["none"],
+            dbSetup: "none",
+            webDeploy: "none",
+            serverDeploy: "none",
+            install: false,
+          });
+
+          expectSuccess(result);
+          expect(result.projectDir).toBeDefined();
+
+          const packageJson = join(result.projectDir!, "packages", "observability", "package.json");
+          const tsconfig = join(result.projectDir!, "packages", "observability", "tsconfig.json");
+          const srcIndex = join(result.projectDir!, "packages", "observability", "src", "index.ts");
+          const otelFile = join(result.projectDir!, "packages", "observability", "src", "otel.ts");
+          const posthogFile = join(
+            result.projectDir!,
+            "packages",
+            "observability",
+            "src",
+            "posthog.ts",
+          );
+
+          expect(existsSync(packageJson)).toBe(true);
+          expect(existsSync(tsconfig)).toBe(true);
+          expect(existsSync(srcIndex)).toBe(true);
+          expect(existsSync(otelFile)).toBe(true);
+          expect(existsSync(posthogFile)).toBe(true);
+
+          const pkg = await readFile(packageJson, "utf-8");
+          expect(pkg).toContain('"@opentelemetry/api"');
+        });
+
+        it("should generate observability package files with posthog", async () => {
+          const result = await runTRPCTest({
+            projectName: "observability-files-posthog",
+            addons: ["posthog"],
+            frontend: ["tanstack-router"],
+            backend: "hono",
+            runtime: "bun",
+            database: "sqlite",
+            orm: "drizzle",
+            auth: "none",
+            api: "trpc",
+            examples: ["none"],
+            dbSetup: "none",
+            webDeploy: "none",
+            serverDeploy: "none",
+            install: false,
+          });
+
+          expectSuccess(result);
+          expect(result.projectDir).toBeDefined();
+
+          const packageJson = join(result.projectDir!, "packages", "observability", "package.json");
+          const srcIndex = join(result.projectDir!, "packages", "observability", "src", "index.ts");
+          const otelFile = join(result.projectDir!, "packages", "observability", "src", "otel.ts");
+          const posthogFile = join(
+            result.projectDir!,
+            "packages",
+            "observability",
+            "src",
+            "posthog.ts",
+          );
+
+          expect(existsSync(packageJson)).toBe(true);
+          expect(existsSync(srcIndex)).toBe(true);
+          expect(existsSync(otelFile)).toBe(true);
+          expect(existsSync(posthogFile)).toBe(true);
+
+          const pkg = await readFile(packageJson, "utf-8");
+          expect(pkg).toContain('"posthog-node"');
+        });
+
+        it("should generate observability package files with both otel and posthog", async () => {
+          const result = await runTRPCTest({
+            projectName: "observability-files-both",
+            addons: ["opentelemetry", "posthog"],
+            frontend: ["tanstack-router"],
+            backend: "hono",
+            runtime: "bun",
+            database: "sqlite",
+            orm: "drizzle",
+            auth: "none",
+            api: "trpc",
+            examples: ["none"],
+            dbSetup: "none",
+            webDeploy: "none",
+            serverDeploy: "none",
+            install: false,
+          });
+
+          expectSuccess(result);
+          expect(result.projectDir).toBeDefined();
+
+          const packageJson = join(result.projectDir!, "packages", "observability", "package.json");
+          const otelFile = join(result.projectDir!, "packages", "observability", "src", "otel.ts");
+          const posthogFile = join(
+            result.projectDir!,
+            "packages",
+            "observability",
+            "src",
+            "posthog.ts",
+          );
+
+          expect(existsSync(packageJson)).toBe(true);
+          expect(existsSync(otelFile)).toBe(true);
+          expect(existsSync(posthogFile)).toBe(true);
+
+          const pkg = await readFile(packageJson, "utf-8");
+          expect(pkg).toContain('"@opentelemetry/api"');
+          expect(pkg).toContain('"posthog-node"');
+        });
+      });
     });
 
     describe("Electrobun Addon", () => {
@@ -1389,6 +1675,8 @@ describe("Addon Configurations", () => {
       "nx",
       "oxc",
       "evlog",
+      "opentelemetry",
+      "posthog",
       // Note: starlight, ultracite, fumadocs are prompt-controlled only
     ];
 

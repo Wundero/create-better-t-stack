@@ -86,7 +86,7 @@ export async function displayPostInstallInstructions(
         )
       : "";
 
-  const tauriInstructions = addons?.includes("tauri") ? getTauriInstructions(runCmd, frontend) : "";
+  const tauriInstructions = addons?.includes("tauri") ? getTauriInstructions(runCmd) : "";
   const electrobunInstructions = addons?.includes("electrobun")
     ? getElectrobunInstructions(runCmd, frontend)
     : "";
@@ -408,18 +408,14 @@ async function getDatabaseInstructions(
   return instructions.length ? `${pc.bold("Database commands:")}\n${instructions.join("\n")}` : "";
 }
 
-function getTauriInstructions(runCmd: string, frontend: Frontend[]) {
-  const staticBuildNote = getDesktopStaticBuildNote(frontend);
-
+function getTauriInstructions(runCmd: string) {
   return `\n${pc.bold("Desktop app with Tauri:")}\n${pc.cyan(
     "•",
-  )} Start desktop app: ${`cd apps/web && ${runCmd} desktop:dev`}\n${pc.cyan(
+  )} Start desktop app: ${`cd apps/tauri && ${runCmd} dev`}\n${pc.cyan(
     "•",
-  )} Build desktop app: ${`cd apps/web && ${runCmd} desktop:build`}\n${pc.yellow(
+  )} Build desktop app: ${`cd apps/tauri && ${runCmd} build`}\n${pc.yellow(
     "NOTE:",
-  )} Tauri requires Rust and platform-specific dependencies.\n   See: ${"https://v2.tauri.app/start/prerequisites/"}${
-    staticBuildNote ? `\n${staticBuildNote}` : ""
-  }`;
+  )} Tauri requires Rust and platform-specific dependencies.\n   See: ${"https://v2.tauri.app/start/prerequisites/"}`;
 }
 
 function getElectrobunInstructions(runCmd: string, frontend: Frontend[]) {

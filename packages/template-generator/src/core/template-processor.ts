@@ -18,6 +18,28 @@ Handlebars.registerHelper("hasCfPlatform", (cloudflare) => {
       cloudflare.email?.sender === "cloudflare"),
   );
 });
+Handlebars.registerHelper("themeVar", function (mode, token, defaultValue) {
+  const themeStr = this.shadcnTheme;
+  if (!themeStr) return defaultValue;
+  try {
+    const theme = JSON.parse(Buffer.from(themeStr, "base64").toString("utf-8"));
+    if (theme && theme[mode] && theme[mode][token]) {
+      return theme[mode][token];
+    }
+  } catch {}
+  return defaultValue;
+});
+Handlebars.registerHelper("shadcnValue", function (property, defaultValue) {
+  const themeStr = this.shadcnTheme;
+  if (!themeStr) return defaultValue;
+  try {
+    const theme = JSON.parse(Buffer.from(themeStr, "base64").toString("utf-8"));
+    if (theme && theme[property] !== undefined) {
+      return theme[property];
+    }
+  } catch {}
+  return defaultValue;
+});
 
 export function processTemplateString(content: string, context: ProjectConfig): string {
   return Handlebars.compile(content)(context);

@@ -98,7 +98,15 @@ function getAddonDisplay(addon: Addons): { label: string; hint: string } {
       break;
     case "evlog":
       label = "evlog";
-      hint = "Request logging with Better Auth context and AI SDK telemetry";
+      hint = "Structured request, auth, and AI event logging";
+      break;
+    case "opentelemetry":
+      label = "OpenTelemetry";
+      hint = "Vendor-neutral traces, logs, and metrics";
+      break;
+    case "posthog":
+      label = "PostHog";
+      hint = "Product analytics, logs, and session replay";
       break;
     default:
       label = addon;
@@ -113,7 +121,7 @@ const ADDON_GROUPS = {
   "Code Quality": ["biome", "oxc", "ultracite", "husky", "lefthook"],
   Documentation: ["starlight", "fumadocs"],
   "Platform Extensions": ["pwa", "tauri", "electrobun", "opentui", "wxt", "docker-compose"],
-  Observability: ["evlog"],
+  Observability: ["evlog", "opentelemetry", "posthog"],
   "AI & Agent Tools": ["skills", "mcp"],
 };
 

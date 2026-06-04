@@ -5,8 +5,12 @@ import type {
   Auth,
   AuthFeature,
   Backend,
+  CloudflareConfig,
   Database,
   DatabaseSetup,
+  Email,
+  EmailProvider,
+  I18n,
   Examples,
   Frontend,
   ORM,
@@ -16,7 +20,6 @@ import type {
   Runtime,
   ServerDeploy,
   WebDeploy,
-  CloudflareConfig,
 } from "../types";
 import { isSilent } from "../utils/context";
 import { UserCancelledError } from "../utils/errors";
@@ -27,9 +30,11 @@ import { getBackendFrameworkChoice } from "./backend";
 import { getCloudflareConfigChoice } from "./cloudflare";
 import { getDatabaseChoice } from "./database";
 import { getDBSetupChoice } from "./database-setup";
+import { getEmailChoice, getEmailProviderChoice } from "./email";
 import { getExamplesChoice } from "./examples";
 import { getFrontendChoice } from "./frontend";
 import { getGitChoice } from "./git";
+import { getI18nChoice } from "./i18n";
 import { getinstallChoice } from "./install";
 import { navigableGroup } from "./navigable-group";
 import { getORMChoice } from "./orm";
@@ -49,6 +54,9 @@ type PromptGroupResults = {
   auth: Auth;
   authFeatures: AuthFeature[];
   payments: Payments;
+  email: Email;
+  emailProvider: EmailProvider;
+  i18n: I18n;
   addons: Addons[];
   examples: Examples[];
   dbSetup: DatabaseSetup;
@@ -82,6 +90,9 @@ export async function gatherConfig(
       auth: flags.auth ?? DEFAULT_CONFIG.auth,
       authFeatures: flags.authFeatures ?? DEFAULT_CONFIG.authFeatures,
       payments: flags.payments ?? DEFAULT_CONFIG.payments,
+      email: flags.email ?? DEFAULT_CONFIG.email,
+      emailProvider: flags.emailProvider ?? DEFAULT_CONFIG.emailProvider,
+      i18n: flags.i18n ?? DEFAULT_CONFIG.i18n,
       addons: flags.addons ?? [...DEFAULT_CONFIG.addons],
       examples: flags.examples ?? [...DEFAULT_CONFIG.examples],
       git: flags.git ?? DEFAULT_CONFIG.git,
@@ -92,6 +103,7 @@ export async function gatherConfig(
       webDeploy: flags.webDeploy ?? DEFAULT_CONFIG.webDeploy,
       serverDeploy: flags.serverDeploy ?? DEFAULT_CONFIG.serverDeploy,
       cloudflare: flags.cloudflare,
+      shadcnTheme: flags.shadcnTheme,
     };
   }
 
@@ -116,6 +128,10 @@ export async function gatherConfig(
       authFeatures: ({ results }) => getAuthFeaturesChoice(flags.authFeatures, results.auth),
       payments: ({ results }) =>
         getPaymentsChoice(flags.payments, results.auth, results.backend, results.frontend),
+      email: ({ results }) => getEmailChoice(flags.email, results.auth),
+      emailProvider: ({ results }) =>
+        getEmailProviderChoice(results.email, flags.emailProvider, results.serverDeploy),
+      i18n: ({ results }) => getI18nChoice(flags.i18n, results.frontend),
       addons: ({ results }) =>
         getAddonsChoice(
           flags.addons,
@@ -189,6 +205,9 @@ export async function gatherConfig(
     auth: result.auth,
     authFeatures: result.authFeatures,
     payments: result.payments,
+    email: result.email,
+    emailProvider: result.emailProvider,
+    i18n: result.i18n,
     addons: result.addons,
     examples: result.examples,
     git: result.git,
@@ -199,5 +218,6 @@ export async function gatherConfig(
     webDeploy: result.webDeploy,
     serverDeploy: result.serverDeploy,
     cloudflare: result.cloudflare,
+    shadcnTheme: flags.shadcnTheme,
   };
 }

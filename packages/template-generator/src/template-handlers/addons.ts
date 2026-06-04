@@ -85,6 +85,20 @@ export async function processAddonTemplates(
       continue;
     }
 
+    // Observability addons share a single packages/observability package.
+    // Skip individual template processing; they are handled collectively below.
+    if (["evlog", "opentelemetry", "posthog"].includes(addon)) {
+      continue;
+    }
+
     processTemplatesFromPrefix(vfs, templates, `addons/${addon}`, "", config);
+  }
+
+  // Process shared observability templates when any observability addon is selected
+  const hasObservabilityAddon = config.addons.some((addon) =>
+    ["evlog", "opentelemetry", "posthog"].includes(addon),
+  );
+  if (hasObservabilityAddon) {
+    processTemplatesFromPrefix(vfs, templates, "addons/observability", "", config);
   }
 }

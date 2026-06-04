@@ -10,11 +10,9 @@ import type {
   CLIInput,
   Database,
   DatabaseSetup,
-  ORM,
-  PackageManager,
-  PackageScope,
-  Payments,
-  ProjectConfig,
+  Email,
+  EmailProvider,
+  I18n,
   Runtime,
   ServerDeploy,
   WebDeploy,
@@ -78,6 +76,22 @@ export function processFlags(options: CLIInput, projectName?: string) {
 
   if (options.payments !== undefined) {
     config.payments = options.payments as Payments;
+  }
+
+  if (options.email) {
+    config.email = options.email as Email;
+  }
+
+  if (options.emailProvider) {
+    config.emailProvider = options.emailProvider as EmailProvider;
+  }
+
+  if (options.i18n) {
+    config.i18n = options.i18n as I18n;
+  }
+
+  if (options.shadcnTheme) {
+    config.shadcnTheme = options.shadcnTheme;
   }
 
   if (options.git !== undefined) {

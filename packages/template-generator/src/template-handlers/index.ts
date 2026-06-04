@@ -1,18 +1,18 @@
 export { type TemplateData, processTemplatesFromPrefix, hasTemplatesWithPrefix } from "./utils";
-export { processBaseTemplate } from "./base";
 export { processFrontendTemplates } from "./frontend";
 export { processBackendTemplates } from "./backend";
 export { processDbTemplates } from "./database";
 export { processApiTemplates } from "./api";
-export {
-  processCloudflarePackage,
-  processConfigPackage,
-  processEnvPackage,
-  processUiPackage,
-} from "./packages";
+export { processBaseTemplate } from "./base";
+export { processConfigPackage } from "./packages";
+export { processEnvPackage } from "./packages";
+export { processCloudflarePackage } from "./packages";
+export { processUiPackage } from "./packages";
 export { processAuthTemplates } from "./auth";
 export { processPaymentsTemplates } from "./payments";
 export { processAddonTemplates } from "./addons";
 export { processExampleTemplates } from "./examples";
 export { processExtrasTemplates } from "./extras";
 export { processDeployTemplates } from "./deploy";
+export { processEmailTemplates } from "./email";
+export { processI18nTemplates } from "./i18n";

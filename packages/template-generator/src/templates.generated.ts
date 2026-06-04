@@ -580,7 +580,238 @@ console.log("Electrobun desktop shell started.");
   "include": ["src/**/*.ts", "electrobun.config.ts"]
 }
 `],
+  ["addons/email/packages/email/package.json.hbs", `{
+  "name": "{{packageScope}}/email",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./send": "./src/send.ts",
+    "./templates/*": "./src/templates/*"
+  },
+  "scripts": {
+    "check-types": "tsc --noEmit"
+  },
+  "dependencies": {
+    "react": "^19.1.0",
+    "@react-email/components": "^0.0.36",
+    {{#if (includes addons "observability")}}
+    "@workspace/observability": "workspace:*"
+    {{/if}}
+  },
+  "devDependencies": {
+    "typescript": "^5.5.4"
+  }
+}
+`],
+  ["addons/email/packages/email/src/index.ts.hbs", `export { WelcomeEmail } from "./templates/welcome";
+export { sendEmail } from "./send";
+export type { EmailTheme } from "./theme";
+`],
+  ["addons/email/packages/email/src/send.ts.hbs", `import { render } from "@react-email/render";
+import { WelcomeEmail } from "./templates/welcome";
+import type { EmailTheme } from "./theme";
+
+export type EmailType = "welcome";
+
+export interface SendEmailInput {
+  type: EmailType;
+  to: string;
+  subject: string;
+  data: Record<string, unknown>;
+  theme?: EmailTheme;
+}
+
+{{#if (eq emailProvider "cloudflare")}}
+export async function sendEmail(input: SendEmailInput): Promise<void> {
+  const { type, to, subject, data, theme } = input;
+
+  let html: string;
+  switch (type) {
+    case "welcome":
+      html = await render(WelcomeEmail({ ...data, theme } as React.ComponentProps<typeof WelcomeEmail>));
+      break;
+    default:
+      throw new Error(\`Unknown email type: \${type}\`);
+  }
+
+  const response = await fetch("https://api.cloudflare.com/client/v4/accounts/{account_id}/email/routing/send", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: \`Bearer \${process.env.CLOUDFLARE_API_TOKEN}\`,
+    },
+    body: JSON.stringify({
+      to,
+      subject,
+      html,
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(\`Failed to send email: \${response.statusText}\`);
+  }
+}
+{{else}}
+// Placeholder: configure your email provider here
+export async function sendEmail(_input: SendEmailInput): Promise<void> {
+  throw new Error("Email provider not configured. Set up a provider in packages/email/src/send.ts");
+}
+{{/if}}
+`],
+  ["addons/email/packages/email/src/templates/welcome.tsx.hbs", `import {
+  Body,
+  Button,
+  Container,
+  Head,
+  Heading,
+  Html,
+  Preview,
+  Section,
+  Text,
+} from "@react-email/components";
+import type { EmailTheme } from "../theme";
+
+interface WelcomeEmailProps {
+  name: string;
+  confirmUrl: string;
+  theme?: EmailTheme;
+}
+
+export function WelcomeEmail({ name, confirmUrl, theme }: WelcomeEmailProps) {
+  const primaryColor = theme?.primaryColor ?? "#000000";
+  const backgroundColor = theme?.backgroundColor ?? "#ffffff";
+
+  return (
+    <Html>
+      <Head />
+      <Preview>Welcome to our platform</Preview>
+      <Body style=\\{{ backgroundColor, fontFamily: "sans-serif" }}>
+        <Container>
+          <Heading>Welcome, {name}!</Heading>
+          <Text>Thanks for joining us. Please confirm your email address:</Text>
+          <Section>
+            <Button
+              href={confirmUrl}
+              style=\\{{ backgroundColor: primaryColor, color: "#ffffff", padding: "12px 24px" }}
+            >
+              Confirm Email
+            </Button>
+          </Section>
+        </Container>
+      </Body>
+    </Html>
+  );
+}
+`],
+  ["addons/email/packages/email/src/theme.ts.hbs", `export interface EmailTheme {
+  primaryColor: string;
+  backgroundColor: string;
+  fontFamily: string;
+}
+
+export const defaultTheme: EmailTheme = {
+  primaryColor: "#18181b",
+  backgroundColor: "#fafafa",
+  fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif",
+};
+`],
+  ["addons/email/packages/email/tsconfig.json.hbs", `{
+  "compilerOptions": {
+    "target": "ESNext",
+    "module": "ESNext",
+    "lib": ["ESNext", "DOM", "DOM.Iterable"],
+    "declaration": true,
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true,
+    "moduleResolution": "bundler",
+    "allowSyntheticDefaultImports": true,
+    "esModuleInterop": true,
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "skipLibCheck": true,
+    "declarationMap": true,
+    "jsx": "react-jsx"
+  },
+  "include": ["src/**/*"]
+}
+`],
   ["addons/husky/.husky/pre-commit", `lint-staged
+`],
+  ["addons/i18n/packages/i18n/package.json.hbs", `{
+  "name": "@{{packageScope}}/i18n",
+  "version": "1.0.0",
+  "type": "module",
+  "exports": {
+    ".": "./dist/index.js",
+    "./locales": "./dist/locales/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch"
+  },
+  "dependencies": {
+    {{#if (eq i18n "lingui")}}
+    "@lingui/core": "^5.3.0",
+    "@lingui/react": "^5.3.0",
+    "@lingui/macro": "^5.3.0"
+    {{/if}}
+  },
+  "devDependencies": {
+    "typescript": "^5.5.4"
+  }
+}
+`],
+  ["addons/i18n/packages/i18n/src/index.ts.hbs", `{{#if (eq i18n "lingui")}}
+import { i18n } from "@lingui/core";
+import { messages as enMessages } from "./locales/en";
+
+export function setupI18n(locale = "en") {
+  i18n.load("en", enMessages);
+  i18n.activate(locale);
+  return i18n;
+}
+
+export { i18n };
+{{else}}
+export function setupI18n(_locale = "en") {
+  return {};
+}
+{{/if}}
+`],
+  ["addons/i18n/packages/i18n/src/locales/en.ts.hbs", `{{#if (eq i18n "lingui")}}
+export const messages = {
+  "app.hello": "Hello",
+  "app.welcome": "Welcome",
+};
+{{else}}
+export const messages = {};
+{{/if}}
+`],
+  ["addons/i18n/packages/i18n/tsconfig.json.hbs", `{
+  "compilerOptions": {
+    "target": "ESNext",
+    "module": "ESNext",
+    "lib": ["ESNext", "DOM", "DOM.Iterable"],
+    "declaration": true,
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true,
+    "moduleResolution": "bundler",
+    "allowSyntheticDefaultImports": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "outDir": "./dist",
+    "rootDir": "."
+  },
+  "include": ["src"]
+}
 `],
   ["addons/lefthook/lefthook.yml.hbs", `# Lefthook configuration
 # https://github.com/evilmartians/lefthook
@@ -606,6 +837,199 @@ pre-commit:
     # - name: lint
     #   run: {{packageManagerRunCmd}} lint
 {{/if}}
+`],
+  ["addons/observability/packages/observability/package.json.hbs", `{
+  "name": "{{packageScope}}/observability",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./logger": "./src/logger.ts",
+{{#if (includes addons "opentelemetry")}}
+    "./otel": "./src/otel.ts",
+{{/if}}
+{{#if (includes addons "posthog")}}
+    "./posthog": "./src/posthog.ts",
+{{/if}}
+    "./events": "./src/events.ts"
+  },
+  "dependencies": {
+{{#if (includes addons "opentelemetry")}}
+    "@opentelemetry/api": "^1.9.0",
+    "@opentelemetry/sdk-node": "^0.57.0",
+    "@opentelemetry/auto-instrumentations-node": "^0.55.0",
+    "@opentelemetry/exporter-trace-otlp-http": "^0.57.0",
+    "@opentelemetry/exporter-metrics-otlp-http": "^0.57.0",
+{{/if}}
+{{#if (includes addons "posthog")}}
+    "posthog-node": "^4.7.0"
+{{/if}}
+  },
+  "devDependencies": {},
+  "scripts": {
+    "check-types": "tsc --noEmit"
+  }
+}
+`],
+  ["addons/observability/packages/observability/src/events.ts.hbs", `export interface AppEvent {
+  name: string;
+  timestamp: Date;
+  properties?: Record<string, unknown>;
+}
+
+export function createEvent(name: string, properties?: Record<string, unknown>): AppEvent {
+  return {
+    name,
+    timestamp: new Date(),
+    properties,
+  };
+}
+`],
+  ["addons/observability/packages/observability/src/index.ts.hbs", `export * from "./logger";
+export * from "./events";
+{{#if (includes addons "opentelemetry")}}
+export * from "./otel";
+{{/if}}
+{{#if (includes addons "posthog")}}
+export * from "./posthog";
+{{/if}}
+`],
+  ["addons/observability/packages/observability/src/logger.ts.hbs", `export type LogLevel = "debug" | "info" | "warn" | "error";
+
+export interface Logger {
+  debug(message: string, meta?: Record<string, unknown>): void;
+  info(message: string, meta?: Record<string, unknown>): void;
+  warn(message: string, meta?: Record<string, unknown>): void;
+  error(message: string, meta?: Record<string, unknown>): void;
+}
+
+export class ConsoleLogger implements Logger {
+  constructor(private service: string = "app") {}
+
+  debug(message: string, meta?: Record<string, unknown>) {
+    console.debug(\`[\${this.service}] \${message}\`, meta);
+  }
+
+  info(message: string, meta?: Record<string, unknown>) {
+    console.info(\`[\${this.service}] \${message}\`, meta);
+  }
+
+  warn(message: string, meta?: Record<string, unknown>) {
+    console.warn(\`[\${this.service}] \${message}\`, meta);
+  }
+
+  error(message: string, meta?: Record<string, unknown>) {
+    console.error(\`[\${this.service}] \${message}\`, meta);
+  }
+}
+
+let defaultLogger: Logger = new ConsoleLogger();
+
+export function setDefaultLogger(logger: Logger) {
+  defaultLogger = logger;
+}
+
+export function getLogger(): Logger {
+  return defaultLogger;
+}
+`],
+  ["addons/observability/packages/observability/src/otel.ts.hbs", `{{#if (includes addons "opentelemetry")}}
+import { NodeSDK } from "@opentelemetry/sdk-node";
+import { OTLPTraceExporter } from "@opentelemetry/exporter-trace-otlp-http";
+import { OTLPMetricExporter } from "@opentelemetry/exporter-metrics-otlp-http";
+import { getNodeAutoInstrumentations } from "@opentelemetry/auto-instrumentations-node";
+
+let sdk: NodeSDK | undefined;
+
+export function initOpenTelemetry(options?: {
+  traceEndpoint?: string;
+  metricEndpoint?: string;
+  serviceName?: string;
+}) {
+  if (sdk) return sdk;
+
+  const traceExporter = new OTLPTraceExporter({
+    url: options?.traceEndpoint,
+  });
+
+  const metricExporter = new OTLPMetricExporter({
+    url: options?.metricEndpoint,
+  });
+
+  sdk = new NodeSDK({
+    traceExporter,
+    metricExporter,
+    instrumentations: [getNodeAutoInstrumentations()],
+    serviceName: options?.serviceName ?? "better-t-app",
+  });
+
+  sdk.start();
+  return sdk;
+}
+
+export function shutdownOpenTelemetry() {
+  return sdk?.shutdown();
+}
+{{else}}
+export function initOpenTelemetry(_options?: Record<string, unknown>) {
+  return undefined;
+}
+
+export function shutdownOpenTelemetry() {
+  return Promise.resolve();
+}
+{{/if}}
+`],
+  ["addons/observability/packages/observability/src/posthog.ts.hbs", `{{#if (includes addons "posthog")}}
+import { PostHog } from "posthog-node";
+
+let client: PostHog | undefined;
+
+export function getPostHogClient(options?: { apiKey?: string; host?: string }): PostHog | undefined {
+  if (!options?.apiKey) return undefined;
+  if (!client) {
+    client = new PostHog(options.apiKey, { host: options.host ?? "https://app.posthog.com" });
+  }
+  return client;
+}
+
+export function captureEvent(
+  distinctId: string,
+  event: string,
+  properties?: Record<string, unknown>,
+) {
+  client?.capture({ distinctId, event, properties });
+}
+
+export function shutdownPostHog() {
+  return client?.shutdown();
+}
+{{else}}
+export function getPostHogClient(_options?: Record<string, unknown>) {
+  return undefined;
+}
+
+export function captureEvent(
+  _distinctId: string,
+  _event: string,
+  _properties?: Record<string, unknown>,
+) {
+}
+
+export function shutdownPostHog() {
+  return Promise.resolve();
+}
+{{/if}}
+`],
+  ["addons/observability/packages/observability/tsconfig.json.hbs", `{
+  "extends": "{{packageScope}}/config/tsconfig.base.json",
+  "compilerOptions": {
+    "composite": true,
+    "outDir": "dist"
+  },
+  "include": ["src"]
+}
 `],
   ["addons/pwa/apps/web/next/public/favicon/apple-touch-icon.png", `[Binary file]`],
   ["addons/pwa/apps/web/next/public/favicon/favicon-96x96.png", `[Binary file]`],
@@ -679,6 +1103,143 @@ export default defineConfig({
   preset,
   images: ["public/logo.png"],
 });
+`],
+  ["addons/tauri/apps/tauri/package.json.hbs", `{
+  "name": "@{{projectName}}/tauri",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "bun tauri dev",
+    "build": "bun tauri build",
+    "tauri": "tauri"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2"
+  }
+}
+`],
+  ["addons/tauri/apps/tauri/src-tauri/_gitignore", `/target
+/gen/schemas
+`],
+  ["addons/tauri/apps/tauri/src-tauri/build.rs", `fn main() {
+    tauri_build::build()
+}
+`],
+  ["addons/tauri/apps/tauri/src-tauri/capabilities/default.json", `{
+  "$schema": "../../capabilities.schema.json",
+  "identifier": "default",
+  "description": "Capability for the main window",
+  "windows": ["main"],
+  "permissions": ["core:default", "opener:default"]
+}
+`],
+  ["addons/tauri/apps/tauri/src-tauri/Cargo.toml.hbs", `[package]
+name = "{{projectName}}"
+version = "0.1.0"
+description = "A Tauri App"
+edition = "2021"
+rust-version = "1.77.2"
+
+[lib]
+name = "{{projectName}}_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-opener = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+`],
+  ["addons/tauri/apps/tauri/src-tauri/src/lib.rs", `// Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
+#[tauri::command]
+fn greet(name: &str) -> String {
+    format!("Hello, {}! You've been greeted from Rust!", name)
+}
+
+#[cfg_attr(mobile, tauri::mobile_entry_point)]
+pub fn run() {
+    tauri::Builder::default()
+        .plugin(tauri_plugin_opener::init())
+        .invoke_handler(tauri::generate_handler![greet])
+        .run(tauri::generate_context!())
+        .expect("error while running tauri application");
+}
+`],
+  ["addons/tauri/apps/tauri/src-tauri/src/main.rs", `// Prevents additional console window on Windows in release, DO NOT REMOVE!!
+#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+
+fn main() {
+    {{projectName}}_lib::run()
+}
+`],
+  ["addons/tauri/apps/tauri/src-tauri/tauri.conf.json.hbs", `{
+  "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
+  "productName": "{{projectName}}",
+  "version": "0.1.0",
+  "identifier": "com.{{projectName}}.app",
+  "build": {
+    {{#if (includes frontend "react-router")}}
+    "frontendDist": "../web/build/client",
+    "devUrl": "http://localhost:5173",
+    {{else if (includes frontend "tanstack-start")}}
+    "frontendDist": "../web/dist/client",
+    "devUrl": "http://localhost:3001",
+    {{else if (includes frontend "next")}}
+    "frontendDist": "../web/out",
+    "devUrl": "http://localhost:3001",
+    {{else if (includes frontend "nuxt")}}
+    "frontendDist": "../web/.output/public",
+    "devUrl": "http://localhost:3001",
+    {{else if (includes frontend "svelte")}}
+    "frontendDist": "../web/build",
+    "devUrl": "http://localhost:5173",
+    {{else if (includes frontend "astro")}}
+    "frontendDist": "../web/dist",
+    "devUrl": "http://localhost:4321",
+    {{else}}
+    "frontendDist": "../web/dist",
+    "devUrl": "http://localhost:5173",
+    {{/if}}
+    {{#if (includes frontend "nuxt")}}
+    "beforeDevCommand": "cd ../web && bun run dev",
+    "beforeBuildCommand": "cd ../web && bun run generate"
+    {{else}}
+    "beforeDevCommand": "cd ../web && bun run dev",
+    "beforeBuildCommand": "cd ../web && bun run build"
+    {{/if}}
+  },
+  "app": {
+    "withGlobalTauri": true,
+    "windows": [
+      {
+        "title": "{{projectName}}",
+        "width": 800,
+        "height": 600,
+        "resizable": true,
+        "fullscreen": false
+      }
+    ],
+    "security": {
+      "csp": null,
+      "capabilities": ["default"]
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ]
+  }
+}
 `],
   ["addons/turborepo/generators/config.ts.hbs", `import type { PlopTypes } from "@turbo/gen";
 import fs from "node:fs";
@@ -16457,7 +17018,11 @@ temp
     "apps/*",
     "packages/*"
   ],
-  "scripts": {}
+  "scripts": {
+    {{#if (or (includes frontend "next") (includes frontend "tanstack-router") (includes frontend "react-router") (includes frontend "tanstack-start") (includes frontend "vinext"))}}
+    "ui": "cd packages/ui && bun shadcn add"
+    {{/if}}
+  }
 }
 `],
   ["base/tsconfig.json.hbs", `{
@@ -33272,76 +33837,77 @@ export function cn(...inputs: ClassValue[]) {
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.58 0.22 27);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.809 0.105 251.813);
-  --chart-2: oklch(0.623 0.214 259.815);
-  --chart-3: oklch(0.546 0.245 262.881);
-  --chart-4: oklch(0.488 0.243 264.376);
-  --chart-5: oklch(0.424 0.199 265.638);
-  --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  --background: {{themeVar "light" "background" "oklch(1 0 0)"}};
+  --foreground: {{themeVar "light" "foreground" "oklch(0.145 0 0)"}};
+  --card: {{themeVar "light" "card" "oklch(1 0 0)"}};
+  --card-foreground: {{themeVar "light" "card-foreground" "oklch(0.145 0 0)"}};
+  --popover: {{themeVar "light" "popover" "oklch(1 0 0)"}};
+  --popover-foreground: {{themeVar "light" "popover-foreground" "oklch(0.145 0 0)"}};
+  --primary: {{themeVar "light" "primary" "oklch(0.205 0 0)"}};
+  --primary-foreground: {{themeVar "light" "primary-foreground" "oklch(0.985 0 0)"}};
+  --secondary: {{themeVar "light" "secondary" "oklch(0.97 0 0)"}};
+  --secondary-foreground: {{themeVar "light" "secondary-foreground" "oklch(0.205 0 0)"}};
+  --muted: {{themeVar "light" "muted" "oklch(0.97 0 0)"}};
+  --muted-foreground: {{themeVar "light" "muted-foreground" "oklch(0.556 0 0)"}};
+  --accent: {{themeVar "light" "accent" "oklch(0.97 0 0)"}};
+  --accent-foreground: {{themeVar "light" "accent-foreground" "oklch(0.205 0 0)"}};
+  --destructive: {{themeVar "light" "destructive" "oklch(0.58 0.22 27)"}};
+  --border: {{themeVar "light" "border" "oklch(0.922 0 0)"}};
+  --input: {{themeVar "light" "input" "oklch(0.922 0 0)"}};
+  --ring: {{themeVar "light" "ring" "oklch(0.708 0 0)"}};
+  --chart-1: {{themeVar "light" "chart-1" "oklch(0.809 0.105 251.813)"}};
+  --chart-2: {{themeVar "light" "chart-2" "oklch(0.623 0.214 259.815)"}};
+  --chart-3: {{themeVar "light" "chart-3" "oklch(0.546 0.245 262.881)"}};
+  --chart-4: {{themeVar "light" "chart-4" "oklch(0.488 0.243 264.376)"}};
+  --chart-5: {{themeVar "light" "chart-5" "oklch(0.424 0.199 265.638)"}};
+  --radius: {{shadcnValue "radius" "0.625"}}rem;
+  --sidebar: {{themeVar "light" "sidebar" "oklch(0.985 0 0)"}};
+  --sidebar-foreground: {{themeVar "light" "sidebar-foreground" "oklch(0.145 0 0)"}};
+  --sidebar-primary: {{themeVar "light" "sidebar-primary" "oklch(0.205 0 0)"}};
+  --sidebar-primary-foreground: {{themeVar "light" "sidebar-primary-foreground" "oklch(0.985 0 0)"}};
+  --sidebar-accent: {{themeVar "light" "sidebar-accent" "oklch(0.97 0 0)"}};
+  --sidebar-accent-foreground: {{themeVar "light" "sidebar-accent-foreground" "oklch(0.205 0 0)"}};
+  --sidebar-border: {{themeVar "light" "sidebar-border" "oklch(0.922 0 0)"}};
+  --sidebar-ring: {{themeVar "light" "sidebar-ring" "oklch(0.708 0 0)"}};
 }
 
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.87 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.371 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.809 0.105 251.813);
-  --chart-2: oklch(0.623 0.214 259.815);
-  --chart-3: oklch(0.546 0.245 262.881);
-  --chart-4: oklch(0.488 0.243 264.376);
-  --chart-5: oklch(0.424 0.199 265.638);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+  --background: {{themeVar "dark" "background" "oklch(0.145 0 0)"}};
+  --foreground: {{themeVar "dark" "foreground" "oklch(0.985 0 0)"}};
+  --card: {{themeVar "dark" "card" "oklch(0.205 0 0)"}};
+  --card-foreground: {{themeVar "dark" "card-foreground" "oklch(0.985 0 0)"}};
+  --popover: {{themeVar "dark" "popover" "oklch(0.205 0 0)"}};
+  --popover-foreground: {{themeVar "dark" "popover-foreground" "oklch(0.985 0 0)"}};
+  --primary: {{themeVar "dark" "primary" "oklch(0.87 0 0)"}};
+  --primary-foreground: {{themeVar "dark" "primary-foreground" "oklch(0.205 0 0)"}};
+  --secondary: {{themeVar "dark" "secondary" "oklch(0.269 0 0)"}};
+  --secondary-foreground: {{themeVar "dark" "secondary-foreground" "oklch(0.985 0 0)"}};
+  --muted: {{themeVar "dark" "muted" "oklch(0.269 0 0)"}};
+  --muted-foreground: {{themeVar "dark" "muted-foreground" "oklch(0.708 0 0)"}};
+  --accent: {{themeVar "dark" "accent" "oklch(0.371 0 0)"}};
+  --accent-foreground: {{themeVar "dark" "accent-foreground" "oklch(0.985 0 0)"}};
+  --destructive: {{themeVar "dark" "destructive" "oklch(0.704 0.191 22.216)"}};
+  --border: {{themeVar "dark" "border" "oklch(1 0 0 / 10%)"}};
+  --input: {{themeVar "dark" "input" "oklch(1 0 0 / 15%)"}};
+  --ring: {{themeVar "dark" "ring" "oklch(0.556 0 0)"}};
+  --chart-1: {{themeVar "dark" "chart-1" "oklch(0.809 0.105 251.813)"}};
+  --chart-2: {{themeVar "dark" "chart-2" "oklch(0.623 0.214 259.815)"}};
+  --chart-3: {{themeVar "dark" "chart-3" "oklch(0.546 0.245 262.881)"}};
+  --chart-4: {{themeVar "dark" "chart-4" "oklch(0.488 0.243 264.376)"}};
+  --chart-5: {{themeVar "dark" "chart-5" "oklch(0.424 0.199 265.638)"}};
+  --sidebar: {{themeVar "dark" "sidebar" "oklch(0.205 0 0)"}};
+  --sidebar-foreground: {{themeVar "dark" "sidebar-foreground" "oklch(0.985 0 0)"}};
+  --sidebar-primary: {{themeVar "dark" "sidebar-primary" "oklch(0.488 0.243 264.376)"}};
+  --sidebar-primary-foreground: {{themeVar "dark" "sidebar-primary-foreground" "oklch(0.985 0 0)"}};
+  --sidebar-accent: {{themeVar "dark" "sidebar-accent" "oklch(0.269 0 0)"}};
+  --sidebar-accent-foreground: {{themeVar "dark" "sidebar-accent-foreground" "oklch(0.985 0 0)"}};
+  --sidebar-border: {{themeVar "dark" "sidebar-border" "oklch(1 0 0 / 10%)"}};
+  --sidebar-ring: {{themeVar "dark" "sidebar-ring" "oklch(0.556 0 0)"}};
 }
 
 @theme inline {
-  --font-sans: 'Inter Variable', sans-serif;
+  --font-sans: {{#if (shadcnValue "fontSans")}}'{{shadcnValue "fontSans"}}', {{/if}}sans-serif;
+  --font-mono: {{#if (shadcnValue "fontMono")}}'{{shadcnValue "fontMono"}}', {{/if}}monospace;
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -33633,4 +34199,4 @@ function SuccessPage() {
 `]
 ]);
 
-export const TEMPLATE_COUNT = 516;
+export const TEMPLATE_COUNT = 541;

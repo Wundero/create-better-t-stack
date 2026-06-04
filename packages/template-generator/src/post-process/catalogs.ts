@@ -29,23 +29,73 @@ type PackageInfo = {
   devDependencies: Record<string, string>;
 };
 
-const PACKAGE_PATHS = [
-  ".",
-  "apps/server",
-  "apps/web",
-  "apps/native",
-  "apps/desktop",
-  "apps/fumadocs",
-  "apps/docs",
-  "packages/api",
-  "packages/db",
-  "packages/auth",
-  "packages/backend",
-  "packages/config",
-  "packages/env",
-  "packages/infra",
-  "packages/ui",
-];
+// Protocols that should never be catalogued
+const EXCLUDED_PROTOCOLS = ["workspace:", "file:", "link:", "portal:", "catalog:"];
+
+function hasExcludedProtocol(version: string): boolean {
+  return EXCLUDED_PROTOCOLS.some((protocol) => version.startsWith(protocol));
+}
+
+/**
+ * Discover workspace package directories from workspace globs.
+ * Supports both Bun (package.json workspaces) and pnpm (pnpm-workspace.yaml).
+ */
+function discoverWorkspacePackages(vfs: VirtualFileSystem): string[] {
+  const packages: string[] = [];
+
+  // Try package.json workspaces first (Bun style)
+  const rootPkg = vfs.readJson<PackageJson>("package.json");
+  const workspaceGlobs: string[] = [];
+
+  if (rootPkg?.workspaces) {
+    if (Array.isArray(rootPkg.workspaces)) {
+      workspaceGlobs.push(...rootPkg.workspaces);
+    } else if (typeof rootPkg.workspaces === "object" && rootPkg.workspaces.packages) {
+      workspaceGlobs.push(...rootPkg.workspaces.packages);
+    }
+  }
+
+  // Also check pnpm-workspace.yaml (pnpm style)
+  const pnpmWorkspaceContent = vfs.readFile("pnpm-workspace.yaml");
+  if (pnpmWorkspaceContent) {
+    try {
+      const pnpmWorkspace = yaml.parse(pnpmWorkspaceContent) as {
+        packages?: string[];
+      };
+      if (pnpmWorkspace.packages) {
+        workspaceGlobs.push(...pnpmWorkspace.packages);
+      }
+    } catch {
+      // Ignore YAML parse errors
+    }
+  }
+
+  // Always include root package
+  packages.push(".");
+
+  // Expand globs like "apps/*", "packages/*"
+  for (const glob of workspaceGlobs) {
+    if (glob.endsWith("/*")) {
+      const baseDir = glob.slice(0, -2); // Remove "/*"
+      if (vfs.directoryExists(baseDir)) {
+        const entries = vfs.listDir(baseDir);
+        for (const entry of entries) {
+          const pkgPath = `${baseDir}/${entry}`;
+          // Only include directories that have a package.json
+          if (vfs.fileExists(`${pkgPath}/package.json`)) {
+            packages.push(pkgPath);
+          }
+        }
+      }
+    } else if (glob !== "." && vfs.fileExists(`${glob}/package.json`)) {
+      // Exact path with package.json
+      packages.push(glob);
+    }
+  }
+
+  // Deduplicate while preserving order
+  return [...new Set(packages)];
+}
 
 /**
  * Process dependency catalogs for pnpm/bun
@@ -55,7 +105,10 @@ export function processCatalogs(vfs: VirtualFileSystem, config: ProjectConfig): 
 
   const packagesInfo: PackageInfo[] = [];
 
-  for (const pkgPath of PACKAGE_PATHS) {
+  // Dynamically discover workspace packages instead of using static list
+  const packagePaths = discoverWorkspacePackages(vfs);
+
+  for (const pkgPath of packagePaths) {
     const jsonPath = pkgPath === "." ? "package.json" : `${pkgPath}/package.json`;
     const pkgJson = vfs.readJson<PackageJson>(jsonPath);
 
@@ -93,7 +146,7 @@ function findDuplicateDependencies(
 
     for (const [depName, version] of Object.entries(allDeps)) {
       if (depName.startsWith(projectScope)) continue;
-      if (version.startsWith("workspace:")) continue;
+      if (hasExcludedProtocol(version)) continue;
 
       const existing = depCount.get(depName);
       if (existing) {

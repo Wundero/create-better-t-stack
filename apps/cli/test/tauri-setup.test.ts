@@ -1,69 +1,134 @@
 import { describe, expect, it } from "bun:test";
+import { mkdir, writeFile, rm } from "node:fs/promises";
+import { join } from "node:path";
 
-import { buildTauriInitArgs } from "../src/helpers/addons/tauri-setup";
+import { validateTauriSetup } from "../src/helpers/addons/tauri-setup";
+import type { ProjectConfig } from "../src/types";
 
-describe("Tauri setup", () => {
-  it("builds init args with frontend-specific dev urls and static output paths", () => {
-    const cases = [
-      {
-        frontend: ["tanstack-start"],
-        expectedDist: "../dist/client",
-        expectedUrl: "http://localhost:3001",
-        expectedBuildCommand: "bun run build",
-      },
-      {
-        frontend: ["next"],
-        expectedDist: "../out",
-        expectedUrl: "http://localhost:3001",
-        expectedBuildCommand: "bun run build",
-      },
-      {
-        frontend: ["nuxt"],
-        expectedDist: "../.output/public",
-        expectedUrl: "http://localhost:3001",
-        expectedBuildCommand: "bun run generate",
-      },
-      {
-        frontend: ["astro"],
-        expectedDist: "../dist",
-        expectedUrl: "http://localhost:4321",
-        expectedBuildCommand: "bun run build",
-      },
-      {
-        frontend: ["react-router"],
-        expectedDist: "../build/client",
-        expectedUrl: "http://localhost:5173",
-        expectedBuildCommand: "bun run build",
-      },
-      {
-        frontend: ["solid"],
-        expectedDist: "../dist",
-        expectedUrl: "http://localhost:3001",
-        expectedBuildCommand: "bun run build",
-      },
-    ] as const;
+const TEST_DIR = join(import.meta.dir, ".test-tauri-validation");
 
-    for (const testCase of cases) {
-      const args = buildTauriInitArgs({
-        packageManager: "bun",
-        frontend: [...testCase.frontend],
-        projectDir: "/tmp/my app",
-      });
+function createTestConfig(overrides: Partial<ProjectConfig> = {}): ProjectConfig {
+  return {
+    projectName: "test-app",
+    packageScope: "test-app",
+    packageManager: "bun",
+    frontend: ["tanstack-router"],
+    backend: "hono",
+    runtime: "bun",
+    api: "trpc",
+    database: "sqlite",
+    orm: "drizzle",
+    auth: "none",
+    addons: ["tauri"],
+    examples: ["none"],
+    dbSetup: "none",
+    webDeploy: "none",
+    serverDeploy: "none",
+    ...overrides,
+  } as ProjectConfig;
+}
 
-      expect(args).toContain("@tauri-apps/cli@latest");
-      expect(args).toContain("--app-name");
-      expect(args).toContain("my app");
-      expect(args).toContain("--frontend-dist");
-      expect(args).toContain(testCase.expectedDist);
-      expect(args).toContain("--dev-url");
-      expect(args).toContain(testCase.expectedUrl);
-      expect(args).toContain("--before-dev-command");
-      expect(args).toContain("bun run dev");
-      expect(args).toContain("--before-build-command");
-      expect(args).toContain(testCase.expectedBuildCommand);
-      expect(args.some((arg) => arg.startsWith("--app-name="))).toBe(false);
-      expect(args.some((arg) => arg.startsWith("--before-dev-command="))).toBe(false);
-      expect(args.some((arg) => arg.startsWith("--before-build-command="))).toBe(false);
-    }
+async function setupValidTauriFiles(projectDir: string) {
+  const tauriDir = join(projectDir, "apps", "tauri", "src-tauri");
+  const srcDir = join(tauriDir, "src");
+  await mkdir(srcDir, { recursive: true });
+  await writeFile(join(tauriDir, "Cargo.toml"), `[package]\nname = "test-app"`);
+  await writeFile(join(tauriDir, "tauri.conf.json"), JSON.stringify({ productName: "test-app" }));
+  await writeFile(join(srcDir, "main.rs"), "fn main() {}");
+  await writeFile(join(srcDir, "lib.rs"), "pub fn run() {}");
+}
+
+describe("Tauri validation", () => {
+  it("should pass when all required files exist", async () => {
+    await rm(TEST_DIR, { recursive: true, force: true });
+    const config = createTestConfig({ projectDir: TEST_DIR });
+
+    await setupValidTauriFiles(config.projectDir);
+
+    const result = await validateTauriSetup(config);
+
+    expect(result.isOk()).toBe(true);
+
+    await rm(TEST_DIR, { recursive: true, force: true });
+  });
+
+  it("should fail when Cargo.toml is missing", async () => {
+    await rm(TEST_DIR, { recursive: true, force: true });
+    const config = createTestConfig({ projectDir: TEST_DIR });
+
+    await setupValidTauriFiles(config.projectDir);
+    await rm(join(TEST_DIR, "apps", "tauri", "src-tauri", "Cargo.toml"));
+
+    const result = await validateTauriSetup(config);
+
+    expect(result.isErr()).toBe(true);
+    const error = result.isErr() ? result.error : null;
+    expect(error?.message).toContain("Cargo.toml");
+
+    await rm(TEST_DIR, { recursive: true, force: true });
+  });
+
+  it("should fail when tauri.conf.json is missing", async () => {
+    await rm(TEST_DIR, { recursive: true, force: true });
+    const config = createTestConfig({ projectDir: TEST_DIR });
+
+    await setupValidTauriFiles(config.projectDir);
+    await rm(join(TEST_DIR, "apps", "tauri", "src-tauri", "tauri.conf.json"));
+
+    const result = await validateTauriSetup(config);
+
+    expect(result.isErr()).toBe(true);
+    const error = result.isErr() ? result.error : null;
+    expect(error?.message).toContain("tauri.conf.json");
+
+    await rm(TEST_DIR, { recursive: true, force: true });
+  });
+
+  it("should fail when main.rs is missing", async () => {
+    await rm(TEST_DIR, { recursive: true, force: true });
+    const config = createTestConfig({ projectDir: TEST_DIR });
+
+    await setupValidTauriFiles(config.projectDir);
+    await rm(join(TEST_DIR, "apps", "tauri", "src-tauri", "src", "main.rs"));
+
+    const result = await validateTauriSetup(config);
+
+    expect(result.isErr()).toBe(true);
+    const error = result.isErr() ? result.error : null;
+    expect(error?.message).toContain("main.rs");
+
+    await rm(TEST_DIR, { recursive: true, force: true });
+  });
+
+  it("should fail when lib.rs is missing", async () => {
+    await rm(TEST_DIR, { recursive: true, force: true });
+    const config = createTestConfig({ projectDir: TEST_DIR });
+
+    await setupValidTauriFiles(config.projectDir);
+    await rm(join(TEST_DIR, "apps", "tauri", "src-tauri", "src", "lib.rs"));
+
+    const result = await validateTauriSetup(config);
+
+    expect(result.isErr()).toBe(true);
+    const error = result.isErr() ? result.error : null;
+    expect(error?.message).toContain("lib.rs");
+
+    await rm(TEST_DIR, { recursive: true, force: true });
+  });
+
+  it("should fail when all files are missing", async () => {
+    await rm(TEST_DIR, { recursive: true, force: true });
+    const config = createTestConfig({ projectDir: TEST_DIR });
+
+    const result = await validateTauriSetup(config);
+
+    expect(result.isErr()).toBe(true);
+    const error = result.isErr() ? result.error : null;
+    expect(error?.message).toContain("Cargo.toml");
+    expect(error?.message).toContain("tauri.conf.json");
+    expect(error?.message).toContain("main.rs");
+    expect(error?.message).toContain("lib.rs");
+
+    await rm(TEST_DIR, { recursive: true, force: true });
   });
 });

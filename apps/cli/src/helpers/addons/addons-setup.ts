@@ -11,10 +11,12 @@ import { cliConsola } from "../../utils/terminal-output";
 import { setupEvlog } from "./evlog-setup";
 import { setupFumadocs } from "./fumadocs-setup";
 import { setupMcp } from "./mcp-setup";
+import { validateOpenTelemetrySetup } from "./opentelemetry-setup";
 import { setupOxc } from "./oxc-setup";
+import { validatePostHogSetup } from "./posthog-setup";
 import { setupSkills } from "./skills-setup";
 import { setupStarlight } from "./starlight-setup";
-import { setupTauri } from "./tauri-setup";
+import { validateTauriSetup } from "./tauri-setup";
 import { setupTui } from "./tui-setup";
 import { setupUltracite } from "./ultracite-setup";
 import { setupWxt } from "./wxt-setup";
@@ -57,7 +59,7 @@ export async function setupAddons(config: ProjectConfig): Promise<void> {
   );
 
   if (addons.includes("tauri") && hasWebFrontend) {
-    await runSetup(() => setupTauri(config));
+    await runSetup(() => validateTauriSetup(config));
   }
 
   const hasUltracite = addons.includes("ultracite");
@@ -122,6 +124,14 @@ export async function setupAddons(config: ProjectConfig): Promise<void> {
 
   if (addons.includes("evlog")) {
     await runSetup(() => setupEvlog(config));
+  }
+
+  if (addons.includes("opentelemetry")) {
+    await runSetup(() => validateOpenTelemetrySetup(config));
+  }
+
+  if (addons.includes("posthog")) {
+    await runSetup(() => validatePostHogSetup(config));
   }
 }
 

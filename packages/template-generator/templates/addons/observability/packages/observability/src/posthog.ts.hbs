@@ -1,0 +1,40 @@
+{{#if (includes addons "posthog")}}
+import { PostHog } from "posthog-node";
+
+let client: PostHog | undefined;
+
+export function getPostHogClient(options?: { apiKey?: string; host?: string }): PostHog | undefined {
+  if (!options?.apiKey) return undefined;
+  if (!client) {
+    client = new PostHog(options.apiKey, { host: options.host ?? "https://app.posthog.com" });
+  }
+  return client;
+}
+
+export function captureEvent(
+  distinctId: string,
+  event: string,
+  properties?: Record<string, unknown>,
+) {
+  client?.capture({ distinctId, event, properties });
+}
+
+export function shutdownPostHog() {
+  return client?.shutdown();
+}
+{{else}}
+export function getPostHogClient(_options?: Record<string, unknown>) {
+  return undefined;
+}
+
+export function captureEvent(
+  _distinctId: string,
+  _event: string,
+  _properties?: Record<string, unknown>,
+) {
+}
+
+export function shutdownPostHog() {
+  return Promise.resolve();
+}
+{{/if}}

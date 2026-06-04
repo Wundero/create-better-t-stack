@@ -6,5 +6,9 @@
     "apps/*",
     "packages/*"
   ],
-  "scripts": {}
+  "scripts": {
+    {{#if (or (includes frontend "next") (includes frontend "tanstack-router") (includes frontend "react-router") (includes frontend "tanstack-start") (includes frontend "vinext"))}}
+    "ui": "cd packages/ui && bun shadcn add"
+    {{/if}}
+  }
 }
