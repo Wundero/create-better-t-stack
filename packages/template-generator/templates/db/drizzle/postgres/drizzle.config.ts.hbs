@@ -1,8 +1,6 @@
 import { defineConfig } from "drizzle-kit";
 {{#if (or (eq webDeploy "cloudflare") (eq serverDeploy "cloudflare"))}}
-import dotenv from "dotenv";
-
-dotenv.config({ path: "../../.dev.vars" });
+import { env } from "{{packageScope}}/env/cloudflare-local";
 {{else}}
 import { env } from "{{packageScope}}/env/server";
 {{/if}}
@@ -12,10 +10,6 @@ export default defineConfig({
   out: "./src/migrations",
   dialect: "postgresql",
   dbCredentials: {
-    {{#if (or (eq webDeploy "cloudflare") (eq serverDeploy "cloudflare"))}}
-    url: process.env.DATABASE_URL || "",
-    {{else}}
     url: env.DATABASE_URL,
-    {{/if}}
   },
 });

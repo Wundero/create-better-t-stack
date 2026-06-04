@@ -1,8 +1,6 @@
 import { defineConfig } from "drizzle-kit";
 {{#if (and (ne dbSetup "d1") (or (eq webDeploy "cloudflare") (eq serverDeploy "cloudflare")))}}
-import dotenv from "dotenv";
-
-dotenv.config({ path: "../../.dev.vars" });
+import { env } from "{{packageScope}}/env/cloudflare-local";
 {{else if (ne dbSetup "d1")}}
 import { env } from "{{packageScope}}/env/server";
 {{/if}}
@@ -17,17 +15,9 @@ export default defineConfig({
   {{else}}
   dialect: "turso",
   dbCredentials: {
-    {{#if (or (eq webDeploy "cloudflare") (eq serverDeploy "cloudflare"))}}
-    url: process.env.DATABASE_URL || "",
-    {{else}}
     url: env.DATABASE_URL,
-    {{/if}}
     {{#if (eq dbSetup "turso")}}
-    {{#if (or (eq webDeploy "cloudflare") (eq serverDeploy "cloudflare"))}}
-    authToken: process.env.DATABASE_AUTH_TOKEN,
-    {{else}}
     authToken: env.DATABASE_AUTH_TOKEN,
-    {{/if}}
     {{/if}}
   },
   {{/if}}
