@@ -24,7 +24,11 @@ export function processAddonsDeps(vfs: VirtualFileSystem, config: ProjectConfig)
   );
 
   if (config.addons.includes("turborepo")) {
-    addPackageDependency({ vfs, packagePath: "package.json", devDependencies: ["turbo"] });
+    addPackageDependency({
+      vfs,
+      packagePath: "package.json",
+      devDependencies: ["turbo", "@turbo/gen"],
+    });
   }
 
   if (config.addons.includes("nx")) {

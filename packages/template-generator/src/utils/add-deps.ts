@@ -98,6 +98,10 @@ export const dependencyVersionMap = {
   turbo: "^2.8.12",
   nx: "^21.5.2",
 
+  "@turbo/gen": "^2.8.12",
+
+  "@total-typescript/ts-reset": "^0.6.1",
+
   ai: "^6.0.3",
   "@ai-sdk/google": "^3.0.1",
   "@ai-sdk/vue": "^3.0.3",

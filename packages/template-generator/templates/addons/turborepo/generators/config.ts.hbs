@@ -1,0 +1,102 @@
+import type { PlopTypes } from "@turbo/gen";
+import fs from "node:fs";
+import path from "node:path";
+
+function getWorkspacePackages(root: string): string[] {
+  const rootPkg = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf-8"));
+  const globs: string[] = rootPkg.workspaces?.packages ?? rootPkg.workspaces ?? [];
+  const packages: string[] = [];
+
+  for (const glob of globs) {
+    const dir = glob.replace("/*", "");
+    const base = path.join(root, dir);
+    if (!fs.existsSync(base)) continue;
+    for (const entry of fs.readdirSync(base)) {
+      const pkgPath = path.join(base, entry, "package.json");
+      if (fs.existsSync(pkgPath)) {
+        const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf-8"));
+        if (pkg.name) packages.push(pkg.name);
+      }
+    }
+  }
+
+  return packages.sort();
+}
+
+export default function generator(plop: PlopTypes.NodePlopAPI): void {
+  plop.setGenerator("lib", {
+    description: "Add a new workspace library package",
+    prompts: [
+      {
+        type: "input",
+        name: "rawName",
+        message: "Package name (e.g. analytics)",
+        validate: (input: string) => {
+          if (!input.trim()) return "Package name is required";
+          if (!/^[a-z0-9-]+$/.test(input)) return "Use kebab-case (lowercase letters, numbers, hyphens)";
+          return true;
+        },
+      },
+      {
+        type: "checkbox",
+        name: "deps",
+        message: "Select workspace dependencies",
+        choices: () => {
+          const cwd = plop.getDestBasePath();
+          const pkgs = getWorkspacePackages(cwd);
+          return pkgs.map((p) => ({ name: p, value: p }));
+        },
+      },
+      {
+        type: "checkbox",
+        name: "devDeps",
+        message: "Select workspace dev dependencies",
+        choices: () => {
+          const cwd = plop.getDestBasePath();
+          const pkgs = getWorkspacePackages(cwd);
+          return pkgs.map((p) => ({ name: p, value: p }));
+        },
+      },
+    ],
+    actions: (data) => {
+      const rawName = String(data?.rawName ?? "");
+      const kebabName = plop.getHelper("kebabCase")(rawName);
+      const scope = "{{packageScope}}";
+
+      const deps: Record<string, string> = {};
+      for (const dep of (data?.deps ?? []) as string[]) {
+        deps[dep] = "workspace:*";
+      }
+
+      const devDeps: Record<string, string> = {};
+      for (const dep of (data?.devDeps ?? []) as string[]) {
+        devDeps[dep] = "workspace:*";
+      }
+      devDeps[`${scope}/config`] = "workspace:*";
+
+      return [
+        {
+          type: "add",
+          path: `packages/${kebabName}/package.json`,
+          templateFile: "turbo/generators/templates/lib/package.json.hbs",
+          data: {
+            scopedName: `${scope}/${kebabName}`,
+            dependencies: JSON.stringify(deps, null, 2),
+            devDependencies: JSON.stringify(devDeps, null, 2),
+          },
+        },
+        {
+          type: "add",
+          path: `packages/${kebabName}/tsconfig.json`,
+          templateFile: "turbo/generators/templates/lib/tsconfig.json.hbs",
+        },
+        {
+          type: "add",
+          path: `packages/${kebabName}/src/index.ts`,
+          templateFile: "turbo/generators/templates/lib/src/index.ts.hbs",
+          data: { packageName: kebabName },
+        },
+      ];
+    },
+  });
+}

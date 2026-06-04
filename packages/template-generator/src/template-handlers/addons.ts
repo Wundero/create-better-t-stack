@@ -14,7 +14,17 @@ export async function processAddonTemplates(
     if (addon === "none") continue;
 
     // monorepo tools are handled programmatically by generators
-    if (addon === "turborepo" || addon === "nx") continue;
+    if (addon === "turborepo") {
+      processTemplatesFromPrefix(
+        vfs,
+        templates,
+        "addons/turborepo/generators",
+        "turbo/generators",
+        config,
+      );
+      continue;
+    }
+    if (addon === "nx") continue;
 
     if (addon === "pwa") {
       if (config.frontend.includes("next") || config.frontend.includes("vinext")) {

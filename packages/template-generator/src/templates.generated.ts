@@ -680,6 +680,137 @@ export default defineConfig({
   images: ["public/logo.png"],
 });
 `],
+  ["addons/turborepo/generators/config.ts.hbs", `import type { PlopTypes } from "@turbo/gen";
+import fs from "node:fs";
+import path from "node:path";
+
+function getWorkspacePackages(root: string): string[] {
+  const rootPkg = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf-8"));
+  const globs: string[] = rootPkg.workspaces?.packages ?? rootPkg.workspaces ?? [];
+  const packages: string[] = [];
+
+  for (const glob of globs) {
+    const dir = glob.replace("/*", "");
+    const base = path.join(root, dir);
+    if (!fs.existsSync(base)) continue;
+    for (const entry of fs.readdirSync(base)) {
+      const pkgPath = path.join(base, entry, "package.json");
+      if (fs.existsSync(pkgPath)) {
+        const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf-8"));
+        if (pkg.name) packages.push(pkg.name);
+      }
+    }
+  }
+
+  return packages.sort();
+}
+
+export default function generator(plop: PlopTypes.NodePlopAPI): void {
+  plop.setGenerator("lib", {
+    description: "Add a new workspace library package",
+    prompts: [
+      {
+        type: "input",
+        name: "rawName",
+        message: "Package name (e.g. analytics)",
+        validate: (input: string) => {
+          if (!input.trim()) return "Package name is required";
+          if (!/^[a-z0-9-]+$/.test(input)) return "Use kebab-case (lowercase letters, numbers, hyphens)";
+          return true;
+        },
+      },
+      {
+        type: "checkbox",
+        name: "deps",
+        message: "Select workspace dependencies",
+        choices: () => {
+          const cwd = plop.getDestBasePath();
+          const pkgs = getWorkspacePackages(cwd);
+          return pkgs.map((p) => ({ name: p, value: p }));
+        },
+      },
+      {
+        type: "checkbox",
+        name: "devDeps",
+        message: "Select workspace dev dependencies",
+        choices: () => {
+          const cwd = plop.getDestBasePath();
+          const pkgs = getWorkspacePackages(cwd);
+          return pkgs.map((p) => ({ name: p, value: p }));
+        },
+      },
+    ],
+    actions: (data) => {
+      const rawName = String(data?.rawName ?? "");
+      const kebabName = plop.getHelper("kebabCase")(rawName);
+      const scope = "{{packageScope}}";
+
+      const deps: Record<string, string> = {};
+      for (const dep of (data?.deps ?? []) as string[]) {
+        deps[dep] = "workspace:*";
+      }
+
+      const devDeps: Record<string, string> = {};
+      for (const dep of (data?.devDeps ?? []) as string[]) {
+        devDeps[dep] = "workspace:*";
+      }
+      devDeps[\`\${scope}/config\`] = "workspace:*";
+
+      return [
+        {
+          type: "add",
+          path: \`packages/\${kebabName}/package.json\`,
+          templateFile: "turbo/generators/templates/lib/package.json.hbs",
+          data: {
+            scopedName: \`\${scope}/\${kebabName}\`,
+            dependencies: JSON.stringify(deps, null, 2),
+            devDependencies: JSON.stringify(devDeps, null, 2),
+          },
+        },
+        {
+          type: "add",
+          path: \`packages/\${kebabName}/tsconfig.json\`,
+          templateFile: "turbo/generators/templates/lib/tsconfig.json.hbs",
+        },
+        {
+          type: "add",
+          path: \`packages/\${kebabName}/src/index.ts\`,
+          templateFile: "turbo/generators/templates/lib/src/index.ts.hbs",
+          data: { packageName: kebabName },
+        },
+      ];
+    },
+  });
+}
+`],
+  ["addons/turborepo/generators/templates/lib/package.json.hbs", `{
+  "name": "\\{{scopedName}}",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "default": "./src/index.ts"
+    }
+  },
+  "scripts": {
+    "check-types": "tsc --noEmit"
+  },
+  "dependencies": \\{{{dependencies}}},
+  "devDependencies": \\{{{devDependencies}}}
+}
+`],
+  ["addons/turborepo/generators/templates/lib/src/index.ts.hbs", `export const packageName = "\\{{packageName}}";
+`],
+  ["addons/turborepo/generators/templates/lib/tsconfig.json.hbs", `{
+  "extends": "{{packageScope}}/config/tsconfig.base.json",
+  "compilerOptions": {
+    "outDir": "dist",
+    "composite": true
+  },
+  "include": ["src"]
+}
+`],
   ["api/orpc/fullstack/astro/src/pages/rpc/[...rest].ts.hbs", `import type { APIRoute } from "astro";
 import { OpenAPIHandler } from "@orpc/openapi/fetch";
 import { OpenAPIReferencePlugin } from "@orpc/openapi/plugins";
@@ -31392,8 +31523,17 @@ export { AppDurableObject } from "./durable-object";
   ["packages/config/package.json.hbs", `{
   "name": "{{packageScope}}/config",
   "version": "0.0.0",
-  "private": true
+  "private": true,
+  "exports": {
+    "./tsconfig.base.json": "./tsconfig.base.json",
+    "./reset": "./reset.d.ts"
+  },
+  "devDependencies": {
+    "@total-typescript/ts-reset": "^0.6.1"
+  }
 }
+`],
+  ["packages/config/reset.d.ts.hbs", `import "@total-typescript/ts-reset";
 `],
   ["packages/config/tsconfig.base.json.hbs", `{
   "$schema": "https://json.schemastore.org/tsconfig",
@@ -31415,19 +31555,21 @@ export { AppDurableObject } from "./durable-object";
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true,
     "types": [
+      "{{packageScope}}/config/reset"
       {{#if (eq runtime "node")}}
-        "node"
+      , "node"
       {{else if (eq runtime "bun")}}
-        "bun"
+      , "bun"
       {{else if (eq runtime "workers")}}
-        "node"
+      , "node"
       {{else}}
-        "node"
-      {{/if}}{{#if (or (eq serverDeploy "cloudflare") (eq webDeploy "cloudflare"))}},
-      "@cloudflare/workers-types"{{/if}}
+      , "node"
+      {{/if}}{{#if (or (eq serverDeploy "cloudflare") (eq webDeploy "cloudflare"))}}
+      , "@cloudflare/workers-types"{{/if}}
     ]
   }
-}`],
+}
+`],
   ["packages/env/package.json.hbs", `{
 	"name": "{{packageScope}}/env",
 	"version": "0.0.0",
@@ -33491,4 +33633,4 @@ function SuccessPage() {
 `]
 ]);
 
-export const TEMPLATE_COUNT = 511;
+export const TEMPLATE_COUNT = 516;

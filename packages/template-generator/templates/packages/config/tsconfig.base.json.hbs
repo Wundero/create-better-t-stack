@@ -18,16 +18,17 @@
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true,
     "types": [
+      "{{packageScope}}/config/reset"
       {{#if (eq runtime "node")}}
-        "node"
+      , "node"
       {{else if (eq runtime "bun")}}
-        "bun"
+      , "bun"
       {{else if (eq runtime "workers")}}
-        "node"
+      , "node"
       {{else}}
-        "node"
-      {{/if}}{{#if (or (eq serverDeploy "cloudflare") (eq webDeploy "cloudflare"))}},
-      "@cloudflare/workers-types"{{/if}}
+      , "node"
+      {{/if}}{{#if (or (eq serverDeploy "cloudflare") (eq webDeploy "cloudflare"))}}
+      , "@cloudflare/workers-types"{{/if}}
     ]
   }
 }
