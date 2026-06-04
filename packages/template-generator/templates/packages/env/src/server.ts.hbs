@@ -112,6 +112,10 @@ export const env = createEnv({
 {{#if (eq auth "better-auth")}}
 		BETTER_AUTH_SECRET: z.string().min(32),
 		BETTER_AUTH_URL: z.url(),
+		GITHUB_CLIENT_ID: z.string().optional(),
+		GITHUB_CLIENT_SECRET: z.string().optional(),
+		GOOGLE_CLIENT_ID: z.string().optional(),
+		GOOGLE_CLIENT_SECRET: z.string().optional(),
 {{/if}}
 {{#if (eq auth "clerk")}}
 		CLERK_SECRET_KEY: z.string().min(1),

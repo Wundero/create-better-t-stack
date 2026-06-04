@@ -1774,13 +1774,15 @@ import { Platform } from "react-native";
 import { getClerkAuthToken } from "@/utils/clerk-auth";
 {{/if}}
 
-export const queryClient = new QueryClient({
-	queryCache: new QueryCache({
-		onError: (error) => {
-			console.log(error)
-		},
-	}),
-});
+export function createQueryClient() {
+	return new QueryClient({
+		queryCache: new QueryCache({
+			onError: (error) => {
+				console.log(error)
+			},
+		}),
+	});
+}
 
 export const link = new RPCLink({
 {{#if (eq backend "self")}}
@@ -2747,13 +2749,15 @@ import type { AppRouterClient } from "{{packageScope}}/api/routers/index";
 import { customJsonSerializers } from "{{packageScope}}/api/serialization";
 import { env } from "{{packageScope}}/env/web";
 
-export const queryClient = new QueryClient({
-	queryCache: new QueryCache({
-		onError: (error) => {
-			console.error(\`Error: \${error.message}\`);
-		},
-	}),
-});
+export function createQueryClient() {
+	return new QueryClient({
+		queryCache: new QueryCache({
+			onError: (error) => {
+				console.error(\`Error: \${error.message}\`);
+			},
+		}),
+	});
+}
 
 export const link = new RPCLink({
 	url: \`\${env.VITE_SERVER_URL}/rpc\`,
@@ -2782,13 +2786,15 @@ import { QueryCache, QueryClient } from "@tanstack/svelte-query";
 import type { AppRouterClient } from "{{packageScope}}/api/routers/index";
 import { customJsonSerializers } from "{{packageScope}}/api/serialization";
 
-export const queryClient = new QueryClient({
-	queryCache: new QueryCache({
-		onError: (error) => {
-			console.error(\`Error: \${error.message}\`);
-		},
-	}),
-});
+export function createQueryClient() {
+	return new QueryClient({
+		queryCache: new QueryCache({
+			onError: (error) => {
+				console.error(\`Error: \${error.message}\`);
+			},
+		}),
+	});
+}
 
 export const link = new RPCLink({
 	{{#if (eq backend "self")}}
@@ -2872,7 +2878,9 @@ import type { AppRouter } from "{{packageScope}}/api/routers/index";
 import { transformer } from "{{packageScope}}/api/serialization";
 import { env } from "{{packageScope}}/env/native";
 
-export const queryClient = new QueryClient();
+export function createQueryClient() {
+	return new QueryClient();
+}
 
 const trpcClient = createTRPCClient<AppRouter>({
 	links: [
@@ -7002,11 +7010,13 @@ import { SignIn } from "@/components/sign-in";
 import { SignUp } from "@/components/sign-up";
 {{#if (eq api "orpc")}}
 import { useQuery } from "@tanstack/react-query";
-import { queryClient, orpc } from "@/utils/orpc";
+import { createQueryClient, orpc } from "@/utils/orpc";
+const queryClient = createQueryClient();
 {{/if}}
 {{#if (eq api "trpc")}}
 import { useQuery } from "@tanstack/react-query";
-import { queryClient, trpc } from "@/utils/trpc";
+import { createQueryClient, trpc } from "@/utils/trpc";
+const queryClient = createQueryClient();
 {{/if}}
 
 export default function Home() {
@@ -7250,10 +7260,12 @@ borderRadius: 16,
 `],
   ["auth/better-auth/native/bare/components/sign-in.tsx.hbs", `import { authClient } from "@/lib/auth-client";
 {{#if (eq api "trpc")}}
-import { queryClient } from "@/utils/trpc";
+import { createQueryClient } from "@/utils/trpc";
+const queryClient = createQueryClient();
 {{/if}}
 {{#if (eq api "orpc")}}
-import { queryClient } from "@/utils/orpc";
+import { createQueryClient } from "@/utils/orpc";
+const queryClient = createQueryClient();
 {{/if}}
 import { useForm } from "@tanstack/react-form";
 import { useState } from "react";
@@ -7485,10 +7497,12 @@ export { SignIn };
 `],
   ["auth/better-auth/native/bare/components/sign-up.tsx.hbs", `import { authClient } from "@/lib/auth-client";
 {{#if (eq api "trpc")}}
-import { queryClient } from "@/utils/trpc";
+import { createQueryClient } from "@/utils/trpc";
+const queryClient = createQueryClient();
 {{/if}}
 {{#if (eq api "orpc")}}
-import { queryClient } from "@/utils/orpc";
+import { createQueryClient } from "@/utils/orpc";
+const queryClient = createQueryClient();
 {{/if}}
 import { useForm } from "@tanstack/react-form";
 import { useState } from "react";
@@ -7808,11 +7822,13 @@ import { SignIn } from "@/components/sign-in";
 import { SignUp } from "@/components/sign-up";
 {{#if (eq api "orpc")}}
 import { useQuery } from "@tanstack/react-query";
-import { queryClient, orpc } from "@/utils/orpc";
+import { createQueryClient, orpc } from "@/utils/orpc";
+const queryClient = createQueryClient();
 {{/if}}
 {{#if (eq api "trpc")}}
 import { useQuery } from "@tanstack/react-query";
-import { queryClient, trpc } from "@/utils/trpc";
+import { createQueryClient, trpc } from "@/utils/trpc";
+const queryClient = createQueryClient();
 {{/if}}
 
 export default function Home() {
@@ -8073,10 +8089,12 @@ const styles = StyleSheet.create((theme) => ({
 `],
   ["auth/better-auth/native/unistyles/components/sign-in.tsx.hbs", `import { authClient } from "@/lib/auth-client";
 {{#if (eq api "trpc")}}
-import { queryClient } from "@/utils/trpc";
+import { createQueryClient } from "@/utils/trpc";
+const queryClient = createQueryClient();
 {{/if}}
 {{#if (eq api "orpc")}}
-import { queryClient } from "@/utils/orpc";
+import { createQueryClient } from "@/utils/orpc";
+const queryClient = createQueryClient();
 {{/if}}
 import { useForm } from "@tanstack/react-form";
 import { useState } from "react";
@@ -8289,10 +8307,12 @@ const styles = StyleSheet.create((theme) => ({
 `],
   ["auth/better-auth/native/unistyles/components/sign-up.tsx.hbs", `import { authClient } from "@/lib/auth-client";
 {{#if (eq api "trpc")}}
-import { queryClient } from "@/utils/trpc";
+import { createQueryClient } from "@/utils/trpc";
+const queryClient = createQueryClient();
 {{/if}}
 {{#if (eq api "orpc")}}
-import { queryClient } from "@/utils/orpc";
+import { createQueryClient } from "@/utils/orpc";
+const queryClient = createQueryClient();
 {{/if}}
 import { useForm } from "@tanstack/react-form";
 import { useState } from "react";
@@ -8549,11 +8569,13 @@ import { SignIn } from "@/components/sign-in";
 import { SignUp } from "@/components/sign-up";
 {{#if (eq api "orpc")}}
 import { useQuery } from "@tanstack/react-query";
-import { queryClient, orpc } from "@/utils/orpc";
+import { createQueryClient, orpc } from "@/utils/orpc";
+const queryClient = createQueryClient();
 {{/if}}
 {{#if (eq api "trpc")}}
 import { useQuery } from "@tanstack/react-query";
-import { queryClient, trpc } from "@/utils/trpc";
+import { createQueryClient, trpc } from "@/utils/trpc";
+const queryClient = createQueryClient();
 {{/if}}
 
 export default function Home() {
@@ -8724,10 +8746,12 @@ return (
 `],
   ["auth/better-auth/native/uniwind/components/sign-in.tsx.hbs", `import { authClient } from "@/lib/auth-client";
 {{#if (eq api "trpc")}}
-import { queryClient } from "@/utils/trpc";
+import { createQueryClient } from "@/utils/trpc";
+const queryClient = createQueryClient();
 {{/if}}
 {{#if (eq api "orpc")}}
-import { queryClient } from "@/utils/orpc";
+import { createQueryClient } from "@/utils/orpc";
+const queryClient = createQueryClient();
 {{/if}}
 import { useForm } from "@tanstack/react-form";
 import { useRef } from "react";
@@ -8896,10 +8920,12 @@ export { SignIn };
 `],
   ["auth/better-auth/native/uniwind/components/sign-up.tsx.hbs", `import { authClient } from "@/lib/auth-client";
 {{#if (eq api "trpc")}}
-import { queryClient } from "@/utils/trpc";
+import { createQueryClient } from "@/utils/trpc";
+const queryClient = createQueryClient();
 {{/if}}
 {{#if (eq api "orpc")}}
-import { queryClient } from "@/utils/orpc";
+import { createQueryClient } from "@/utils/orpc";
+const queryClient = createQueryClient();
 {{/if}}
 import { useForm } from "@tanstack/react-form";
 import { useRef } from "react";
@@ -17180,9 +17206,7 @@ export * from "./todo";
 export {};`],
   ["db/drizzle/mysql/drizzle.config.ts.hbs", `import { defineConfig } from "drizzle-kit";
 {{#if (or (eq webDeploy "cloudflare") (eq serverDeploy "cloudflare"))}}
-import dotenv from "dotenv";
-
-dotenv.config({ path: "../../.dev.vars" });
+import { env } from "{{packageScope}}/env/cloudflare-local";
 {{else}}
 import { env } from "{{packageScope}}/env/server";
 {{/if}}
@@ -17192,11 +17216,7 @@ export default defineConfig({
   out: "./src/migrations",
   dialect: "mysql",
   dbCredentials: {
-    {{#if (or (eq webDeploy "cloudflare") (eq serverDeploy "cloudflare"))}}
-    url: process.env.DATABASE_URL || "",
-    {{else}}
     url: env.DATABASE_URL,
-    {{/if}}
   },
 });
 `],
@@ -17273,9 +17293,7 @@ export function createDb() {
 `],
   ["db/drizzle/postgres/drizzle.config.ts.hbs", `import { defineConfig } from "drizzle-kit";
 {{#if (or (eq webDeploy "cloudflare") (eq serverDeploy "cloudflare"))}}
-import dotenv from "dotenv";
-
-dotenv.config({ path: "../../.dev.vars" });
+import { env } from "{{packageScope}}/env/cloudflare-local";
 {{else}}
 import { env } from "{{packageScope}}/env/server";
 {{/if}}
@@ -17285,11 +17303,7 @@ export default defineConfig({
   out: "./src/migrations",
   dialect: "postgresql",
   dbCredentials: {
-    {{#if (or (eq webDeploy "cloudflare") (eq serverDeploy "cloudflare"))}}
-    url: process.env.DATABASE_URL || "",
-    {{else}}
     url: env.DATABASE_URL,
-    {{/if}}
   },
 });
 `],
@@ -17369,9 +17383,7 @@ export function createDb() {
 `],
   ["db/drizzle/sqlite/drizzle.config.ts.hbs", `import { defineConfig } from "drizzle-kit";
 {{#if (and (ne dbSetup "d1") (or (eq webDeploy "cloudflare") (eq serverDeploy "cloudflare")))}}
-import dotenv from "dotenv";
-
-dotenv.config({ path: "../../.dev.vars" });
+import { env } from "{{packageScope}}/env/cloudflare-local";
 {{else if (ne dbSetup "d1")}}
 import { env } from "{{packageScope}}/env/server";
 {{/if}}
@@ -17386,17 +17398,9 @@ export default defineConfig({
   {{else}}
   dialect: "turso",
   dbCredentials: {
-    {{#if (or (eq webDeploy "cloudflare") (eq serverDeploy "cloudflare"))}}
-    url: process.env.DATABASE_URL || "",
-    {{else}}
     url: env.DATABASE_URL,
-    {{/if}}
     {{#if (eq dbSetup "turso")}}
-    {{#if (or (eq webDeploy "cloudflare") (eq serverDeploy "cloudflare"))}}
-    authToken: process.env.DATABASE_AUTH_TOKEN,
-    {{else}}
     authToken: env.DATABASE_AUTH_TOKEN,
-    {{/if}}
     {{/if}}
   },
   {{/if}}
@@ -24892,10 +24896,12 @@ import { DarkTheme, DefaultTheme, ThemeProvider } from "expo-router/react-naviga
 import { StatusBar } from "expo-status-bar";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 {{#if (eq api "trpc")}}
-import { queryClient } from "@/utils/trpc";
+import { createQueryClient } from "@/utils/trpc";
+const queryClient = createQueryClient();
 {{/if}}
 {{#if (eq api "orpc")}}
-import { queryClient } from "@/utils/orpc";
+import { createQueryClient } from "@/utils/orpc";
+const queryClient = createQueryClient();
 {{/if}}
 import { NAV_THEME } from "@/lib/constants";
 import { useColorScheme } from "@/lib/use-color-scheme";
@@ -26085,10 +26091,12 @@ import { tokenCache } from "@clerk/expo/token-cache";
 import { env } from "{{packageScope}}/env/native";
 {{/if}}
 {{#if (eq api "trpc")}}
-import { queryClient } from "@/utils/trpc";
+import { createQueryClient } from "@/utils/trpc";
+const queryClient = createQueryClient();
 {{/if}}
 {{#if (eq api "orpc")}}
-import { queryClient } from "@/utils/orpc";
+import { createQueryClient } from "@/utils/orpc";
+const queryClient = createQueryClient();
 {{/if}}
 {{#if (eq backend "convex")}}
 {{#if (eq auth "better-auth")}}
@@ -27518,10 +27526,12 @@ import { KeyboardProvider } from "react-native-keyboard-controller";
 import { AppThemeProvider } from "@/contexts/app-theme-context";
 
 {{#if (eq api "trpc")}}
-  import { queryClient } from "@/utils/trpc";
+  import { createQueryClient } from "@/utils/trpc";
+  const queryClient = createQueryClient();
 {{/if}}
 {{#if (eq api "orpc")}}
-  import { queryClient } from "@/utils/orpc";
+  import { createQueryClient } from "@/utils/orpc";
+  const queryClient = createQueryClient();
 {{/if}}
 
 export const unstable_settings = {
@@ -31027,10 +31037,12 @@ import { env } from "{{packageScope}}/env/web";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 {{#if (eq api "orpc")}}
-import { queryClient } from "@/utils/orpc";
+import { createQueryClient } from "@/utils/orpc";
+const queryClient = createQueryClient();
 {{/if}}
 {{#if (eq api "trpc")}}
-import { queryClient } from "@/utils/trpc";
+import { createQueryClient } from "@/utils/trpc";
+const queryClient = createQueryClient();
 {{/if}}
 {{/unless}}
 {{/if}}
@@ -31463,7 +31475,8 @@ import { routeTree } from "./routeTree.gen";
 import "./styles.css";
 {{#if (eq api "orpc")}}
 import { QueryClientProvider } from "@tanstack/solid-query";
-import { orpc, queryClient } from "./utils/orpc";
+import { orpc, createQueryClient } from "./utils/orpc";
+const queryClient = createQueryClient();
 {{/if}}
 
 const router = createRouter({
@@ -31826,9 +31839,10 @@ export {};
     import { QueryClientProvider } from '@tanstack/svelte-query';
     import { SvelteQueryDevtools } from '@tanstack/svelte-query-devtools'
 	import '../app.css';
-    import { queryClient } from '$lib/orpc';
+    import { createQueryClient } from '$lib/orpc';
     import Header from '../components/Header.svelte';
 
+    const queryClient = createQueryClient();
 	const { children } = $props();
 </script>
 
@@ -32335,6 +32349,10 @@ export const env = createEnv({
 {{#if (eq auth "better-auth")}}
 		BETTER_AUTH_SECRET: z.string().min(32),
 		BETTER_AUTH_URL: z.url(),
+		GITHUB_CLIENT_ID: z.string().optional(),
+		GITHUB_CLIENT_SECRET: z.string().optional(),
+		GOOGLE_CLIENT_ID: z.string().optional(),
+		GOOGLE_CLIENT_SECRET: z.string().optional(),
 {{/if}}
 {{#if (eq auth "clerk")}}
 		CLERK_SECRET_KEY: z.string().min(1),
@@ -32593,59 +32611,6 @@ const db = await D1Database("database", {
 });
 {{/if}}
 
-{{#if (eq serverDeploy "cloudflare")}}
-export const server = await Worker("server", {
-  cwd: "../../apps/server",
-  entrypoint: "src/index.ts",
-  compatibility: "node",
-  url: true,
-  bindings: {
-    {{#if (eq dbSetup "d1")}}
-    DB: db,
-    {{else if (ne database "none")}}
-    DATABASE_URL: alchemy.secret.env.DATABASE_URL!,
-    {{/if}}
-    {{#if (eq cloudflare.hyperdrive "postgres")}}
-    HYPERDRIVE: hyperdrive,
-    {{/if}}
-    {{#if (eq cloudflare.email.sender "cloudflare")}}
-    EMAIL_SENDER: emailSender,
-    {{/if}}
-    CORS_ORIGIN: alchemy.env.CORS_ORIGIN!,
-    {{#if (eq auth "better-auth")}}
-    BETTER_AUTH_SECRET: alchemy.secret.env.BETTER_AUTH_SECRET!,
-    BETTER_AUTH_URL: alchemy.env.BETTER_AUTH_URL!,
-    {{/if}}
-    {{#if (eq auth "clerk")}}
-    CLERK_SECRET_KEY: alchemy.secret.env.CLERK_SECRET_KEY!,
-    {{#if (and (ne api "none") (or (eq backend "self") (eq backend "hono") (eq backend "elysia")))}}
-    CLERK_PUBLISHABLE_KEY: alchemy.env.CLERK_PUBLISHABLE_KEY!,
-    {{/if}}
-    {{/if}}
-    {{#if (includes examples "ai")}}
-    GOOGLE_GENERATIVE_AI_API_KEY: alchemy.secret.env.GOOGLE_GENERATIVE_AI_API_KEY!,
-    {{/if}}
-    {{#if (eq payments "polar")}}
-    POLAR_ACCESS_TOKEN: alchemy.secret.env.POLAR_ACCESS_TOKEN!,
-    POLAR_SUCCESS_URL: alchemy.env.POLAR_SUCCESS_URL!,
-    {{/if}}
-    {{#if (eq dbSetup "turso")}}
-    DATABASE_AUTH_TOKEN: alchemy.secret.env.DATABASE_AUTH_TOKEN!,
-    {{/if}}
-    {{#if (eq database "mysql")}}
-    {{#if (eq orm "drizzle")}}
-    DATABASE_HOST: alchemy.env.DATABASE_HOST!,
-    DATABASE_USERNAME: alchemy.env.DATABASE_USERNAME!,
-    DATABASE_PASSWORD: alchemy.secret.env.DATABASE_PASSWORD!,
-    {{/if}}
-    {{/if}}
-  },
-  dev: {
-		port: 3000,
-	},
-});
-{{/if}}
-
 {{#if (eq webDeploy "cloudflare")}}
 {{#if (includes frontend "next")}}
 export const web = await Nextjs("web", {
@@ -32697,6 +32662,10 @@ export const web = await Nextjs("web", {
     {{#if (eq auth "better-auth")}}
     BETTER_AUTH_SECRET: alchemy.secret.env.BETTER_AUTH_SECRET!,
     BETTER_AUTH_URL: alchemy.env.BETTER_AUTH_URL!,
+    GITHUB_CLIENT_ID: alchemy.env.GITHUB_CLIENT_ID!,
+    GITHUB_CLIENT_SECRET: alchemy.secret.env.GITHUB_CLIENT_SECRET!,
+    GOOGLE_CLIENT_ID: alchemy.env.GOOGLE_CLIENT_ID!,
+    GOOGLE_CLIENT_SECRET: alchemy.secret.env.GOOGLE_CLIENT_SECRET!,
     {{/if}}
     {{/if}}
     {{#if (eq auth "clerk")}}
@@ -32780,6 +32749,10 @@ export const web = await Nuxt("web", {
     {{#if (eq auth "better-auth")}}
     BETTER_AUTH_SECRET: alchemy.secret.env.BETTER_AUTH_SECRET!,
     BETTER_AUTH_URL: alchemy.env.BETTER_AUTH_URL!,
+    GITHUB_CLIENT_ID: alchemy.env.GITHUB_CLIENT_ID!,
+    GITHUB_CLIENT_SECRET: alchemy.secret.env.GITHUB_CLIENT_SECRET!,
+    GOOGLE_CLIENT_ID: alchemy.env.GOOGLE_CLIENT_ID!,
+    GOOGLE_CLIENT_SECRET: alchemy.secret.env.GOOGLE_CLIENT_SECRET!,
     {{/if}}
     {{/if}}
     {{#if (eq auth "clerk")}}
@@ -32858,6 +32831,10 @@ export const web = await SvelteKit("web", {
     {{#if (eq auth "better-auth")}}
     BETTER_AUTH_SECRET: alchemy.secret.env.BETTER_AUTH_SECRET!,
     BETTER_AUTH_URL: alchemy.env.BETTER_AUTH_URL!,
+    GITHUB_CLIENT_ID: alchemy.env.GITHUB_CLIENT_ID!,
+    GITHUB_CLIENT_SECRET: alchemy.secret.env.GITHUB_CLIENT_SECRET!,
+    GOOGLE_CLIENT_ID: alchemy.env.GOOGLE_CLIENT_ID!,
+    GOOGLE_CLIENT_SECRET: alchemy.secret.env.GOOGLE_CLIENT_SECRET!,
     {{/if}}
     {{#if (and (includes examples "ai") (ne backend "convex"))}}
     GOOGLE_GENERATIVE_AI_API_KEY: alchemy.secret.env.GOOGLE_GENERATIVE_AI_API_KEY!,
@@ -32932,6 +32909,10 @@ export const web = await TanStackStart("web", {
     {{#if (eq auth "better-auth")}}
     BETTER_AUTH_SECRET: alchemy.secret.env.BETTER_AUTH_SECRET!,
     BETTER_AUTH_URL: alchemy.env.BETTER_AUTH_URL!,
+    GITHUB_CLIENT_ID: alchemy.env.GITHUB_CLIENT_ID!,
+    GITHUB_CLIENT_SECRET: alchemy.secret.env.GITHUB_CLIENT_SECRET!,
+    GOOGLE_CLIENT_ID: alchemy.env.GOOGLE_CLIENT_ID!,
+    GOOGLE_CLIENT_SECRET: alchemy.secret.env.GOOGLE_CLIENT_SECRET!,
     {{/if}}
     {{/if}}
     {{#if (eq auth "clerk")}}
@@ -33131,6 +33112,10 @@ export const web = await Astro("web", {
     {{#if (eq auth "better-auth")}}
     BETTER_AUTH_SECRET: alchemy.secret.env.BETTER_AUTH_SECRET!,
     BETTER_AUTH_URL: alchemy.env.BETTER_AUTH_URL!,
+    GITHUB_CLIENT_ID: alchemy.env.GITHUB_CLIENT_ID!,
+    GITHUB_CLIENT_SECRET: alchemy.secret.env.GITHUB_CLIENT_SECRET!,
+    GOOGLE_CLIENT_ID: alchemy.env.GOOGLE_CLIENT_ID!,
+    GOOGLE_CLIENT_SECRET: alchemy.secret.env.GOOGLE_CLIENT_SECRET!,
     {{/if}}
     {{#if (eq payments "polar")}}
     POLAR_ACCESS_TOKEN: alchemy.secret.env.POLAR_ACCESS_TOKEN!,
@@ -33188,6 +33173,10 @@ export const server = await Worker("server", {
     {{#if (eq auth "better-auth")}}
     BETTER_AUTH_SECRET: alchemy.secret.env.BETTER_AUTH_SECRET!,
     BETTER_AUTH_URL: alchemy.env.BETTER_AUTH_URL!,
+    GITHUB_CLIENT_ID: alchemy.env.GITHUB_CLIENT_ID!,
+    GITHUB_CLIENT_SECRET: alchemy.secret.env.GITHUB_CLIENT_SECRET!,
+    GOOGLE_CLIENT_ID: alchemy.env.GOOGLE_CLIENT_ID!,
+    GOOGLE_CLIENT_SECRET: alchemy.secret.env.GOOGLE_CLIENT_SECRET!,
     {{/if}}
     {{#if (eq auth "clerk")}}
     CLERK_SECRET_KEY: alchemy.secret.env.CLERK_SECRET_KEY!,

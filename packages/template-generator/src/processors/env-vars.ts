@@ -522,6 +522,26 @@ function buildServerVars(
       condition: hasBetterAuth,
     },
     {
+      key: "GITHUB_CLIENT_ID",
+      value: "",
+      condition: hasBetterAuth,
+    },
+    {
+      key: "GITHUB_CLIENT_SECRET",
+      value: "",
+      condition: hasBetterAuth,
+    },
+    {
+      key: "GOOGLE_CLIENT_ID",
+      value: "",
+      condition: hasBetterAuth,
+    },
+    {
+      key: "GOOGLE_CLIENT_SECRET",
+      value: "",
+      condition: hasBetterAuth,
+    },
+    {
       key: "CLERK_SECRET_KEY",
       value: "",
       condition: hasClerk,
