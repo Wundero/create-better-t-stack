@@ -429,7 +429,7 @@ describe("Deployment Configurations", () => {
         (vercelConfig.services?.web as { rewrites?: unknown[] } | undefined)?.rewrites,
       ).toEqual([{ source: "/(.*)", destination: "/index.html" }]);
       expect(files.get("apps/web/.env.schema")).toContain("@type=string(matches=");
-      expect(orpcClient).toContain("function getServerUrl(url: string)");
+      expect(orpcClient).toContain("function getServerUrl(url: string | undefined)");
       expect(orpcClient).toContain("window.location.origin");
       expect(orpcClient).toContain("VERCEL_PROJECT_PRODUCTION_URL");
       // Preview/branch SSR must resolve the current deployment, not production.
