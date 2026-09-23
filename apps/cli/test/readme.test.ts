@@ -82,6 +82,17 @@ describe("README generation", () => {
     expect(readme).not.toContain("web/         # Frontend application");
   });
 
+  it("documents the ESLint + Prettier addon and its preference note", async () => {
+    const readme = await generateReadme({
+      addons: ["eslint"],
+    });
+
+    expect(readme).toContain("**ESLint + Prettier**");
+    expect(readme).toContain("oxlint, Vite+, or Biome preferred");
+    expect(readme).toContain("Run ESLint and Prettier");
+    expect(readme).toContain("## Git Hooks and Formatting");
+  });
+
   it("documents optional native Vite+ hooks when no hook addon is selected", async () => {
     const readme = await generateReadme({
       addons: ["vite-plus"],
