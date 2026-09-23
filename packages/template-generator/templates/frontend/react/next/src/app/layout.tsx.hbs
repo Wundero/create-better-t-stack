@@ -7,6 +7,7 @@ import { getToken } from "@/lib/auth-server";
 {{/if}}
 import Providers from "@/components/providers";
 import Header from "@/components/header";
+import { ThemeProvider } from "@wrksz/themes/next";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -35,12 +36,19 @@ export default async function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <Providers initialToken={token}>
-          <div className="grid grid-rows-[auto_1fr] h-svh">
-            <Header />
-            {children}
-          </div>
-        </Providers>
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="system"
+          enableSystem
+          disableTransitionOnChange
+        >
+          <Providers initialToken={token}>
+            <div className="grid grid-rows-[auto_1fr] h-svh">
+              <Header />
+              {children}
+            </div>
+          </Providers>
+        </ThemeProvider>
       </body>
     </html>
   );
@@ -56,19 +64,26 @@ export default function RootLayout({
 			<body
 				className={`${geistSans.variable} ${geistMono.variable} antialiased`}
 			>
-				{{#if (eq auth "clerk")}}<ClerkProvider>
-					<Providers>
+				<ThemeProvider
+					attribute="class"
+					defaultTheme="system"
+					enableSystem
+					disableTransitionOnChange
+				>
+					{{#if (eq auth "clerk")}}<ClerkProvider>
+						<Providers>
+							<div className="grid grid-rows-[auto_1fr] h-svh">
+								<Header />
+								{children}
+							</div>
+						</Providers>
+					</ClerkProvider>{{else}}<Providers>
 						<div className="grid grid-rows-[auto_1fr] h-svh">
 							<Header />
 							{children}
 						</div>
-					</Providers>
-				</ClerkProvider>{{else}}<Providers>
-					<div className="grid grid-rows-[auto_1fr] h-svh">
-						<Header />
-						{children}
-					</div>
-				</Providers>{{/if}}
+					</Providers>{{/if}}
+				</ThemeProvider>
 			</body>
 		</html>
 	);
