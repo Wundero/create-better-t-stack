@@ -31,7 +31,7 @@ export function supportsShadcnLint(config: ProjectConfig): boolean {
   );
 }
 
-export function getShadcnLintSettings(config: ProjectConfig): { shadcn: { ui: string } } {
+export function getShadcnLintSettings(config: ProjectConfig) {
   return {
     shadcn: {
       ui: `@${config.projectName}/ui/components`,
