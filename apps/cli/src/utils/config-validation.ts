@@ -38,6 +38,7 @@ import {
   validateCloudflareWebDeployKnownIssues,
   validateWebDeployRequiresWebFrontend,
   validateWorkersCompatibility,
+  validatePortlessCompatibility,
 } from "./compatibility-rules";
 import { ValidationError } from "./errors";
 
@@ -486,6 +487,8 @@ export function validateFullConfig(
       config.addons = [...new Set(config.addons)];
     }
 
+    yield* validatePortlessCompatibility(config);
+
     yield* validateExamplesCompatibility(
       config.examples ?? [],
       config.backend,
@@ -531,6 +534,8 @@ export function validateConfigForProgrammaticUse(config: Partial<ProjectConfig>)
         config.runtime,
       );
     }
+
+    yield* validatePortlessCompatibility(config);
 
     yield* validateExamplesCompatibility(
       config.examples ?? [],
