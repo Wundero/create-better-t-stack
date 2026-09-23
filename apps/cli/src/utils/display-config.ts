@@ -90,6 +90,9 @@ const VALUE_LABELS = {
   manual: "Manual",
   npm: "npm",
   pnpm: "pnpm",
+  baseui: "Base UI",
+  radixui: "Radix UI",
+  "react-aria": "React Aria",
 } satisfies Record<string, string>;
 
 function isKnownValueLabel(value: string): value is keyof typeof VALUE_LABELS {
@@ -109,6 +112,14 @@ export function formatConfigValue(value: ConfigDisplayValue): string {
     .split("-")
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join(" ");
+}
+
+function formatShadcn(config: NonNullable<ProjectConfig["shadcn"]>): string {
+  const parts = [formatConfigValue(config.base ?? "baseui")];
+  if (config.preset) parts.push(`preset ${config.preset}`);
+  if (config.rtl) parts.push("RTL");
+  if (config.pointer) parts.push("pointer");
+  return parts.join(" · ");
 }
 
 function section(
@@ -148,6 +159,7 @@ export function getConfigSections(config: Partial<ProjectConfig>): ConfigDisplay
       ["Payments", config.payments],
       ["Addons", config.addons],
       ["Examples", config.examples],
+      ["shadcn", config.shadcn ? formatShadcn(config.shadcn) : undefined, "raw"],
     ]),
     section("Delivery", [
       ["Web deploy", config.webDeploy],
