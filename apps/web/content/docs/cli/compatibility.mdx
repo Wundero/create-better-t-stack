@@ -57,6 +57,23 @@ create-better-t-stack --runtime workers --backend hono --database sqlite --orm d
 create-better-t-stack --runtime workers --backend hono --database sqlite --orm prisma --db-setup d1
 ```
 
+### AWS Lambda Restrictions
+
+The `lambda` runtime runs your server as an AWS Lambda function with a function URL:
+
+| Component     | Requirement    | Reason                                               |
+| ------------- | -------------- | ---------------------------------------------------- |
+| Backend       | Must be `hono` | Only Hono supports the function runtime entrypoint   |
+| Server deploy | Must be `aws`  | Lambda is provisioned through Alchemy's AWS provider |
+
+```bash
+# ❌ Invalid - Lambda with Express
+create-better-t-stack --runtime lambda --backend express --server-deploy aws
+
+# ✅ Valid - Lambda with Hono and an AWS server deployment
+create-better-t-stack --runtime lambda --backend hono --server-deploy aws
+```
+
 ### Backend Presets
 
 #### Convex Backend
@@ -137,6 +154,7 @@ create-better-t-stack --frontend next native-uniwind
 | `supabase`        | `postgres`                     | PostgreSQL with additional features                                                                              |
 | `prisma-postgres` | `postgres`                     | Managed PostgreSQL via Prisma                                                                                    |
 | `planetscale`     | `mysql`, `postgres`            | PlanetScale serverless database                                                                                  |
+| `aurora`          | `postgres`, `mysql`            | AWS Aurora Serverless V2 provisioned through Alchemy on an AWS deployment                                        |
 | `mongodb-atlas`   | `mongodb`                      | Managed MongoDB                                                                                                  |
 | `docker`          | `postgres`, `mysql`, `mongodb` | Not compatible with `sqlite` or Workers                                                                          |
 
@@ -155,6 +173,13 @@ create-better-t-stack --frontend next native-uniwind
 
 - Cannot be used with `sqlite` (file-based database)
 - Cannot be used with `workers` runtime (serverless environment)
+
+#### AWS Aurora
+
+- Requires `--database postgres` or `--database mysql`
+- Requires an AWS deployment target for the database-owning app: `--server-deploy aws`, or `--web-deploy aws` with `--backend self`
+- Cannot be used with `workers` or `lambda` runtime (the cluster is only reachable from its private VPC network)
+- Alchemy does not run migrations for Aurora; apply them from inside the VPC with `db:migrate:deploy`
 
 ## Addon Compatibility
 
@@ -201,11 +226,14 @@ create-better-t-stack --addons turborepo
 ### Web Deployment
 
 - `--web-deploy cloudflare`, `--web-deploy docker`, and `--web-deploy vercel` require a web frontend
+- `--web-deploy aws` requires a web frontend and supports Next.js, Nuxt, Astro, SvelteKit, Solid, TanStack Start, React Router, and TanStack Router
 - Cannot be used with native-only projects
 
 ### Server Deployment
 
 - `--server-deploy cloudflare` requires `--runtime workers` with `--backend hono`
+- `--server-deploy aws` requires `--runtime bun`, `--runtime node`, or `--runtime lambda`
+- `--runtime lambda` also requires `--backend hono` and `--server-deploy aws`
 - `--server-deploy docker` and `--server-deploy vercel` require `--runtime bun` or `--runtime node`
 - `--server-deploy` is not used for `--backend self`, because fullstack backends deploy with the web app
 

@@ -162,6 +162,7 @@ Important field rules:
 - `addons` must be an explicit array. Use `[]` when none are requested.
 - `examples` must be an explicit array. Use `[]` when none are requested.
 - `dbSetup`, `webDeploy`, and `serverDeploy` should be explicit even when the answer is `none`.
+- Accepted values: `runtime` is one of `bun`, `node`, `workers`, `lambda`, or `none`; `dbSetup` is one of `turso`, `d1`, `neon`, `supabase`, `prisma-postgres`, `planetscale`, `aurora`, `mongodb-atlas`, `docker`, or `none`; `webDeploy` and `serverDeploy` are one of `cloudflare`, `prisma`, `aws`, `docker`, `vercel`, or `none`.
 - `git`, `install`, and `packageManager` should always be set explicitly.
 - `install` should usually be `false` for `bts_create_project`, because dependency installation can exceed common MCP client timeouts. Run `npm install`, `pnpm install`, or `bun install` separately after scaffolding.
 - If a request is still ambiguous after reading the guidance, the agent should resolve that ambiguity before calling `bts_plan_project`.
@@ -286,7 +287,7 @@ create-better-t-stack create-json --input '{
 
 Current behavior:
 
-- When the database-consuming application deploys through Alchemy and the selected setup is Neon, PlanetScale, or Prisma Postgres, provisioning defaults to `alchemy`.
+- When the database-consuming application deploys through Alchemy and the selected setup is Neon, PlanetScale, Prisma Postgres, or Aurora, provisioning defaults to `alchemy`.
 
 - Otherwise, providers with automatic cloud provisioning default to `manual` in silent/agent flows:
   - `turso`
