@@ -250,6 +250,7 @@ export function processVarlock(
   if (
     config.auth === "better-auth" &&
     config.backend !== "convex" &&
+    vfs.exists(`${server}/package.json`) &&
     vfs.exists("packages/db/package.json") &&
     (config.orm === "drizzle" || config.orm === "prisma") &&
     config.runtime !== "workers" &&
