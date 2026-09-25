@@ -395,6 +395,17 @@ export function supportsPaymentsAuth(payments?: Payments, auth?: Auth) {
   return payments !== "polar" || auth === "better-auth";
 }
 
+export const EMAIL_DEPLOY_CLOUDFLARE_REQUIRES_WORKERS =
+  "'--email-deploy cloudflare' requires a Cloudflare Workers deployment (--server-deploy cloudflare, or --backend self --web-deploy cloudflare).";
+
+export function supportsCloudflareEmailDeploy(
+  backend?: Backend,
+  webDeploy?: WebDeploy,
+  serverDeploy?: ServerDeploy,
+) {
+  return serverDeploy === "cloudflare" || (backend === "self" && webDeploy === "cloudflare");
+}
+
 const BACKEND_DISABLED_OPTIONS = {
   convex: ["runtime", "database", "orm", "api", "dbSetup", "serverDeploy"],
   none: ["runtime", "database", "orm", "api", "auth", "payments", "dbSetup", "serverDeploy"],

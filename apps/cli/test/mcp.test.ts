@@ -43,6 +43,8 @@ function getExplicitCreateInput(projectPath: string) {
     api: "trpc" as const,
     auth: "better-auth" as const,
     payments: "none" as const,
+    emailRenderer: "none" as const,
+    emailDeploy: "none" as const,
     addons: ["turborepo"] as const,
     examples: [] as const,
     git: true,

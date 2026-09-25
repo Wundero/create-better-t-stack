@@ -430,6 +430,7 @@ function buildServerVars(
   serverDeploy: ProjectConfig["serverDeploy"],
   payments: ProjectConfig["payments"],
   examples: ProjectConfig["examples"],
+  emailDeploy: ProjectConfig["emailDeploy"],
 ): EnvVariable[] {
   const hasReactRouter = frontend.includes("react-router");
   const hasSvelte = frontend.includes("svelte");
@@ -535,6 +536,26 @@ function buildServerVars(
       key: "POLAR_SUCCESS_URL",
       value: polarSuccessUrl,
       condition: payments === "polar",
+    },
+    {
+      key: "EMAIL_FROM",
+      value: "",
+      condition: emailDeploy !== "none",
+    },
+    {
+      key: "AWS_REGION",
+      value: "",
+      condition: emailDeploy === "ses",
+    },
+    {
+      key: "AWS_ACCESS_KEY_ID",
+      value: "",
+      condition: emailDeploy === "ses",
+    },
+    {
+      key: "AWS_SECRET_ACCESS_KEY",
+      value: "",
+      condition: emailDeploy === "ses",
     },
     {
       key: "CORS_ORIGIN",
@@ -691,6 +712,7 @@ export function processEnvVariables(vfs: VirtualFileSystem, config: ProjectConfi
     serverDeploy,
     payments,
     examples,
+    config.emailDeploy,
   );
 
   if (backend === "self") {

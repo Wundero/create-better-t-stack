@@ -2,6 +2,8 @@ import { describe, expect, test } from "bun:test";
 
 import {
   ADDONS_VALUES,
+  EMAIL_DEPLOY_VALUES,
+  EMAIL_RENDERER_VALUES,
   SERVER_DEPLOY_VALUES,
   WEB_DEPLOY_VALUES,
 } from "../../../packages/types/src/schemas";
@@ -587,6 +589,12 @@ describe("stack builder option parity", () => {
     expect(TECH_OPTIONS.serverDeploy.map((option) => option.id).sort()).toEqual(
       [...SERVER_DEPLOY_VALUES].sort(),
     );
+    expect(TECH_OPTIONS.emailRenderer.map((option) => option.id).sort()).toEqual(
+      [...EMAIL_RENDERER_VALUES].sort(),
+    );
+    expect(TECH_OPTIONS.emailDeploy.map((option) => option.id).sort()).toEqual(
+      [...EMAIL_DEPLOY_VALUES].sort(),
+    );
   });
 
   test("marks only Vercel deployment as experimental", () => {
@@ -599,6 +607,52 @@ describe("stack builder option parity", () => {
         expect(isExperimental).toBe(option.id === "vercel");
       }
     }
+  });
+});
+
+describe("stack builder email compatibility", () => {
+  test("allows Cloudflare email deploy only with a Cloudflare Workers deployment", () => {
+    const workersStack = createStack({
+      backend: "hono",
+      runtime: "workers",
+      database: "sqlite",
+      orm: "drizzle",
+      dbSetup: "d1",
+      serverDeploy: "cloudflare",
+    });
+    const selfStack = createStack({
+      webFrontend: ["next"],
+      backend: "self-next",
+      runtime: "none",
+      webDeploy: "cloudflare",
+      serverDeploy: "none",
+    });
+    const plainStack = createStack({});
+
+    expect(getDisabledReason(workersStack, "emailDeploy", "cloudflare")).toBeNull();
+    expect(getDisabledReason(selfStack, "emailDeploy", "cloudflare")).toBeNull();
+    expect(getDisabledReason(plainStack, "emailDeploy", "cloudflare")).toBe(
+      "Cloudflare Email Sending requires a Cloudflare Workers deployment",
+    );
+    expect(getDisabledReason(plainStack, "emailDeploy", "ses")).toBeNull();
+    expect(getDisabledReason(plainStack, "emailDeploy", "none")).toBeNull();
+  });
+
+  test("coerces unsupported Cloudflare email deploy back to None", () => {
+    const stack = createStack({ emailDeploy: "cloudflare" });
+    const result = analyzeStackCompatibility(stack);
+
+    expect(result.adjustedStack?.emailDeploy).toBe("none");
+    expect(resolveStackCompatibility(stack).stack.emailDeploy).toBe("none");
+  });
+
+  test("generates email renderer and deploy flags", () => {
+    const command = generateStackCommand(
+      createStack({ emailRenderer: "react-email", emailDeploy: "ses" }),
+    );
+
+    expect(command).toContain("--email-renderer react-email");
+    expect(command).toContain("--email-deploy ses");
   });
 });
 
