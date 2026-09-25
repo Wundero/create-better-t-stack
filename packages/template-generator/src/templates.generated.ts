@@ -15097,7 +15097,7 @@ import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { devToolsMiddleware } from "@ai-sdk/devtools";
 {{/if}}
 
-const app = new Hono();
+export const app = new Hono();
 
 app.use(logger());
 app.use(
@@ -15254,7 +15254,11 @@ app.get("/", (c) => {
 	return c.text("OK");
 });
 
-{{#if (eq runtime "node")}}
+{{#if (eq runtime "lambda")}}
+import { handle } from "hono/aws-lambda";
+
+export const handler = handle(app);
+{{else if (eq runtime "node")}}
 import { serve } from "@hono/node-server";
 
 {{#if (eq serverDeploy "vercel")}}
@@ -15363,6 +15367,299 @@ temp
   ["base/tsconfig.json.hbs", `{
   "extends": "@{{projectName}}/config/tsconfig.base.json",
 }
+`],
+  ["db-setup/aurora/drizzle/src/migrate-aurora.ts.hbs", `import { fileURLToPath } from "node:url";
+
+import { ExecuteStatementCommand, RDSDataClient, type SqlParameter } from "@aws-sdk/client-rds-data";
+import { readMigrationFiles } from "drizzle-orm/migrator";
+
+const resourceArn = process.env.DATABASE_CLUSTER_ARN;
+const secretArn = process.env.DATABASE_SECRET_ARN;
+const database = process.env.DATABASE_NAME ?? "app";
+const region = process.env.AWS_REGION ?? "us-east-1";
+
+if (!resourceArn || !secretArn) {
+	throw new Error(
+		"DATABASE_CLUSTER_ARN and DATABASE_SECRET_ARN are required to run Aurora migrations",
+	);
+}
+
+const client = new RDSDataClient({ region });
+
+function param(name: string, value: SqlParameter["value"]): SqlParameter {
+	return { name, value };
+}
+
+async function run(sql: string, parameters?: SqlParameter[]) {
+	await client.send(
+		new ExecuteStatementCommand({
+			resourceArn,
+			secretArn,
+			database,
+			sql,
+			parameters,
+			includeResultMetadata: false,
+		}),
+	);
+}
+
+async function select(sql: string): Promise<string[]> {
+	const response = await client.send(
+		new ExecuteStatementCommand({
+			resourceArn,
+			secretArn,
+			database,
+			sql,
+			includeResultMetadata: true,
+		}),
+	);
+	return (response.records ?? [])
+		.map((row) => row[0]?.stringValue)
+		.filter((value): value is string => typeof value === "string");
+}
+
+const migrationsFolder = fileURLToPath(new URL("./migrations", import.meta.url));
+const migrations = readMigrationFiles({ migrationsFolder });
+
+{{#if (eq database "mysql")}}
+const ledgerTable = "__drizzle_migrations";
+
+await run(
+	\`CREATE TABLE IF NOT EXISTS \${ledgerTable} (id SERIAL PRIMARY KEY, hash TEXT NOT NULL, created_at BIGINT, name TEXT, applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)\`,
+);
+
+const applied = new Set(await select(\`SELECT name FROM \${ledgerTable}\`));
+
+for (const migration of migrations) {
+	if (applied.has(migration.name)) continue;
+
+	for (const statement of migration.sql) {
+		await run(statement);
+	}
+
+	await run(\`insert into \${ledgerTable} (hash, created_at, name) values (:1, :2, :3)\`, [
+		param("1", { stringValue: migration.hash }),
+		param("2", { longValue: migration.folderMillis }),
+		param("3", { stringValue: migration.name }),
+	]);
+}
+{{else}}
+const ledgerSchema = "drizzle";
+const ledgerTable = "__drizzle_migrations";
+
+await run(\`CREATE SCHEMA IF NOT EXISTS "\${ledgerSchema}"\`);
+await run(
+	\`CREATE TABLE IF NOT EXISTS "\${ledgerSchema}"."\${ledgerTable}" (id SERIAL PRIMARY KEY, hash TEXT NOT NULL, created_at BIGINT, name TEXT, applied_at TIMESTAMP WITH TIME ZONE DEFAULT now())\`,
+);
+
+const applied = new Set(await select(\`SELECT name FROM "\${ledgerSchema}"."\${ledgerTable}"\`));
+
+for (const migration of migrations) {
+	if (applied.has(migration.name)) continue;
+
+	for (const statement of migration.sql) {
+		await run(statement);
+	}
+
+	await run(
+		\`insert into "\${ledgerSchema}"."\${ledgerTable}" (hash, created_at, name) values (:1, :2, :3)\`,
+		[
+			param("1", { stringValue: migration.hash }),
+			param("2", { longValue: migration.folderMillis }),
+			param("3", { stringValue: migration.name }),
+		],
+	);
+}
+{{/if}}
+
+client.destroy();
+`],
+  ["db-setup/aurora/prisma/src/migrate-aurora.ts.hbs", `import { createHash, randomUUID } from "node:crypto";
+import { existsSync } from "node:fs";
+import { readFile, readdir } from "node:fs/promises";
+import { join } from "node:path";
+import { fileURLToPath } from "node:url";
+
+import { ExecuteStatementCommand, RDSDataClient, type SqlParameter } from "@aws-sdk/client-rds-data";
+
+const resourceArn = process.env.DATABASE_CLUSTER_ARN;
+const secretArn = process.env.DATABASE_SECRET_ARN;
+const database = process.env.DATABASE_NAME ?? "app";
+const region = process.env.AWS_REGION ?? "us-east-1";
+
+if (!resourceArn || !secretArn) {
+	throw new Error(
+		"DATABASE_CLUSTER_ARN and DATABASE_SECRET_ARN are required to run Aurora migrations",
+	);
+}
+
+const client = new RDSDataClient({ region });
+
+function param(name: string, value: SqlParameter["value"]): SqlParameter {
+	return { name, value };
+}
+
+async function run(sql: string, parameters?: SqlParameter[]) {
+	await client.send(
+		new ExecuteStatementCommand({
+			resourceArn,
+			secretArn,
+			database,
+			sql,
+			parameters,
+			includeResultMetadata: false,
+		}),
+	);
+}
+
+async function select(sql: string): Promise<string[]> {
+	const response = await client.send(
+		new ExecuteStatementCommand({
+			resourceArn,
+			secretArn,
+			database,
+			sql,
+			includeResultMetadata: true,
+		}),
+	);
+	return (response.records ?? [])
+		.map((row) => row[0]?.stringValue)
+		.filter((value): value is string => typeof value === "string");
+}
+
+function splitStatements(script: string): string[] {
+	const statements: string[] = [];
+	let current = "";
+	let index = 0;
+
+	while (index < script.length) {
+		const char = script[index];
+
+		if (char === "-" && script[index + 1] === "-") {
+			const end = script.indexOf("\\n", index);
+			index = end === -1 ? script.length : end + 1;
+			current += "\\n";
+			continue;
+		}
+
+		if (char === "/" && script[index + 1] === "*") {
+			const end = script.indexOf("*/", index + 2);
+			index = end === -1 ? script.length : end + 2;
+			current += " ";
+			continue;
+		}
+
+		if (char === "'" || char === '"' || char === "\`") {
+			current += char;
+			index += 1;
+			while (index < script.length) {
+				if (script[index] === char) {
+					if (script[index + 1] === char) {
+						current += char + char;
+						index += 2;
+						continue;
+					}
+					current += char;
+					index += 1;
+					break;
+				}
+				if (script[index] === "\\\\" && char !== "\`") {
+					current += script.slice(index, index + 2);
+					index += 2;
+					continue;
+				}
+				current += script[index];
+				index += 1;
+			}
+			continue;
+		}
+
+		if (char === "$") {
+			const match = /^\\$[A-Za-z0-9_]*\\$/.exec(script.slice(index));
+			if (match) {
+				const tag = match[0];
+				const end = script.indexOf(tag, index + tag.length);
+				if (end !== -1) {
+					current += script.slice(index, end + tag.length);
+					index = end + tag.length;
+					continue;
+				}
+			}
+		}
+
+		if (char === ";") {
+			if (current.trim().length > 0) statements.push(current);
+			current = "";
+			index += 1;
+			continue;
+		}
+
+		current += char;
+		index += 1;
+	}
+
+	if (current.trim().length > 0) statements.push(current);
+	return statements;
+}
+
+const migrationsFolder = fileURLToPath(new URL("../prisma/migrations", import.meta.url));
+
+{{#if (eq database "mysql")}}
+await run(
+	\`CREATE TABLE IF NOT EXISTS _prisma_migrations (id VARCHAR(36) PRIMARY KEY NOT NULL, checksum VARCHAR(64) NOT NULL, finished_at DATETIME(3), migration_name VARCHAR(255) NOT NULL, logs TEXT, rolled_back_at DATETIME(3), started_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3), applied_steps_count INTEGER UNSIGNED NOT NULL DEFAULT 0) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci\`,
+);
+{{else}}
+await run(
+	\`CREATE TABLE IF NOT EXISTS _prisma_migrations (id VARCHAR(36) PRIMARY KEY NOT NULL, checksum VARCHAR(64) NOT NULL, finished_at TIMESTAMPTZ, migration_name VARCHAR(255) NOT NULL, logs TEXT, rolled_back_at TIMESTAMPTZ, started_at TIMESTAMPTZ NOT NULL DEFAULT now(), applied_steps_count INTEGER NOT NULL DEFAULT 0)\`,
+);
+{{/if}}
+
+const applied = new Set(
+	await select(
+		"SELECT migration_name FROM _prisma_migrations WHERE finished_at IS NOT NULL AND rolled_back_at IS NULL",
+	),
+);
+
+const migrationNames = (await readdir(migrationsFolder, { withFileTypes: true }))
+	.filter((entry) => entry.isDirectory())
+	.map((entry) => entry.name)
+	.filter((name) => existsSync(join(migrationsFolder, name, "migration.sql")))
+	.sort();
+
+for (const name of migrationNames) {
+	if (applied.has(name)) continue;
+
+	const script = await readFile(join(migrationsFolder, name, "migration.sql"), "utf8");
+
+	for (const statement of splitStatements(script)) {
+		if (statement.trim().length === 0) continue;
+		await run(statement);
+	}
+
+	const checksum = createHash("sha256").update(script).digest("hex");
+
+{{#if (eq database "mysql")}}
+	await run(
+		"insert into _prisma_migrations (id, checksum, finished_at, migration_name, started_at, applied_steps_count) values (:1, :2, CURRENT_TIMESTAMP(3), :3, CURRENT_TIMESTAMP(3), 1)",
+		[
+			param("1", { stringValue: randomUUID() }),
+			param("2", { stringValue: checksum }),
+			param("3", { stringValue: name }),
+		],
+	);
+{{else}}
+	await run(
+		"insert into _prisma_migrations (id, checksum, finished_at, migration_name, started_at, applied_steps_count) values (:1, :2, now(), :3, now(), 1)",
+		[
+			param("1", { stringValue: randomUUID() }),
+			param("2", { stringValue: checksum }),
+			param("3", { stringValue: name }),
+		],
+	);
+{{/if}}
+}
+
+client.destroy();
 `],
   ["db-setup/docker-compose/mongodb/docker-compose.yml.hbs", `name: {{projectName}}
 
@@ -15480,9 +15777,12 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
   "scripts": {
     {{#if (eq api "orpc")}}
     "build": "tsc -b",
-    "check-types": "tsc -b"
+    "check-types": "tsc -b"{{#if (and (eq dbSetup "aurora") (usesAlchemyDatabase backend dbSetup webDeploy serverDeploy dbSetupOptions))}},{{/if}}
     {{else}}
-    "check-types": "tsc --noEmit"
+    "check-types": "tsc --noEmit"{{#if (and (eq dbSetup "aurora") (usesAlchemyDatabase backend dbSetup webDeploy serverDeploy dbSetupOptions))}},{{/if}}
+    {{/if}}
+    {{#if (and (eq dbSetup "aurora") (usesAlchemyDatabase backend dbSetup webDeploy serverDeploy dbSetupOptions))}}
+    "db:migrate:aurora": "tsx src/migrate-aurora.ts"
     {{/if}}
   },
   "devDependencies": {}
@@ -15497,6 +15797,10 @@ export type DatabaseConfig = {
   DATABASE_HOST: string;
   DATABASE_USERNAME: string;
   DATABASE_PASSWORD: string;
+{{else if (and (eq dbSetup "aurora") (or (eq runtime "workers") (and (eq backend "self") (eq webDeploy "cloudflare"))))}}
+  DATABASE_CLUSTER_ARN: string;
+  DATABASE_SECRET_ARN: string;
+  DATABASE_NAME: string;
 {{else}}
   DATABASE_URL: string;
 {{#if (eq dbSetup "turso")}}
@@ -15555,7 +15859,7 @@ export default defineConfig({
 });
 `],
   ["db/drizzle/mysql/src/index.ts.hbs", `import type { DatabaseConfig } from "./config";
-{{#if (or (eq runtime "bun") (eq runtime "node") (eq runtime "none"))}}
+{{#if (or (eq runtime "bun") (eq runtime "node") (eq runtime "lambda") (eq runtime "none"))}}
 import { relations } from "./relations";
 
 {{#if (eq dbSetup "planetscale")}}
@@ -15634,7 +15938,7 @@ export default defineConfig({
 });
 `],
   ["db/drizzle/postgres/src/index.ts.hbs", `import type { DatabaseConfig } from "./config";
-{{#if (or (eq runtime "bun") (eq runtime "node") (eq runtime "none"))}}
+{{#if (or (eq runtime "bun") (eq runtime "node") (eq runtime "lambda") (eq runtime "none"))}}
 import { relations } from "./relations";
 
 {{#if (eq dbSetup "neon")}}
@@ -15644,6 +15948,21 @@ import { drizzle } from 'drizzle-orm/neon-http';
 export function createDb(env: DatabaseConfig) {
 	const sql = neon(env.DATABASE_URL);
 	return drizzle({ client: sql, relations });
+}
+{{else if (and (eq dbSetup "aurora") (eq backend "self") (eq webDeploy "cloudflare"))}}
+import { RDSDataClient } from "@aws-sdk/client-rds-data";
+import { drizzle } from "drizzle-orm/aws-data-api/pg";
+
+export function createDb(env: DatabaseConfig) {
+	const client = new RDSDataClient({ region: env.DATABASE_CLUSTER_ARN.split(":")[3] ?? "us-east-1" });
+
+	return drizzle({
+		client,
+		database: env.DATABASE_NAME,
+		resourceArn: env.DATABASE_CLUSTER_ARN,
+		secretArn: env.DATABASE_SECRET_ARN,
+		relations,
+	});
 }
 {{else}}
 {{#if (and (eq backend "self") (eq webDeploy "cloudflare"))}}
@@ -15676,6 +15995,21 @@ import { drizzle } from 'drizzle-orm/neon-http';
 export function createDb(env: DatabaseConfig) {
 	const sql = neon(env.DATABASE_URL || "");
 	return drizzle({ client: sql, relations });
+}
+{{else if (eq dbSetup "aurora")}}
+import { RDSDataClient } from "@aws-sdk/client-rds-data";
+import { drizzle } from "drizzle-orm/aws-data-api/pg";
+
+export function createDb(env: DatabaseConfig) {
+	const client = new RDSDataClient({ region: env.DATABASE_CLUSTER_ARN.split(":")[3] ?? "us-east-1" });
+
+	return drizzle({
+		client,
+		database: env.DATABASE_NAME,
+		resourceArn: env.DATABASE_CLUSTER_ARN,
+		secretArn: env.DATABASE_SECRET_ARN,
+		relations,
+	});
 }
 {{else}}
 import { drizzle } from "drizzle-orm/postgres-js";
@@ -15723,7 +16057,7 @@ import { drizzle } from "drizzle-orm/d1";
 export function createDb(env: DatabaseConfig) {
 	return drizzle(env.DB, { relations });
 }
-{{else if (or (eq runtime "bun") (eq runtime "node") (eq runtime "none"))}}
+{{else if (or (eq runtime "bun") (eq runtime "node") (eq runtime "lambda") (eq runtime "none"))}}
 import { relations } from "./relations";
 import { drizzle } from "drizzle-orm/libsql";
 import { createClient } from "@libsql/client";
@@ -16281,6 +16615,84 @@ export function createPrismaClient(env: DatabaseConfig) {
 {{/if}}
 
 export type Database = ReturnType<typeof createPrismaClient>;
+`],
+  ["deploy/aws/lambda/lambda.ts.hbs", `import { handle } from "hono/aws-lambda";
+
+import { app } from "./index";
+
+export const handler = handle(app);
+`],
+  ["deploy/aws/root/_dockerignore", `**/node_modules
+.git
+
+**/dist
+**/build
+**/.next
+**/.nuxt
+**/.output
+**/.svelte-kit
+**/.astro
+**/.turbo
+.turbo
+
+**/.wrangler
+**/.alchemy
+**/.expo
+**/.vercel
+*.log
+
+Dockerfile
+**/Dockerfile
+
+# Env value files stay out of COPY layers; runtime env is injected by ECS
+**/.env
+**/.env.*
+!**/.env.example
+!**/.env.schema
+
+local.db
+local.db-*
+.data
+`],
+  ["deploy/aws/server/Dockerfile.hbs", `{{#if (eq packageManager "bun")}}
+FROM oven/bun:1 AS builder
+{{else}}
+FROM node:24-slim AS builder
+{{/if}}
+{{#if (eq packageManager "pnpm")}}
+RUN npm install -g pnpm@11
+{{/if}}
+WORKDIR /app
+
+COPY . .
+{{#if (eq packageManager "bun")}}
+RUN bun install
+{{else if (eq packageManager "pnpm")}}
+RUN pnpm install --store-dir /pnpm-store
+{{else}}
+RUN npm install
+{{/if}}
+
+ENV NODE_ENV=production
+RUN cd apps/server && {{packageManager}} run build
+
+{{#if (eq runtime "bun")}}
+FROM oven/bun:1 AS runner
+{{else}}
+FROM node:24-slim AS runner
+{{/if}}
+WORKDIR /app
+ENV NODE_ENV=production
+COPY --from=builder /app /app
+
+EXPOSE 3000
+
+WORKDIR /app/apps/server
+{{#if (eq runtime "bun")}}
+CMD ["bun", "dist/index.mjs"]
+{{else}}
+CMD ["node", "dist/index.mjs"]
+{{/if}}
 `],
   ["deploy/docker/compose/_dockerignore", `**/node_modules
 .git
@@ -33046,7 +33458,7 @@ export default defineConfig({
       extensions: [".jsx", ".tsx"],
     }),
 {{#unless (eq webDeploy "cloudflare")}}
-    nitro({ serverEntry: false }),
+    nitro({ serverEntry: false{{#if (eq webDeploy "aws")}}, preset: "aws-lambda", awsLambda: { streaming: true }{{/if}} }),
 {{/unless}}
     fileRoutes({ httpMethods: true }),
     tailwindcss(),
@@ -35512,4 +35924,4 @@ export default function Success() {
 `]
 ]);
 
-export const TEMPLATE_COUNT = 529;
+export const TEMPLATE_COUNT = 534;

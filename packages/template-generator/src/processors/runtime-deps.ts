@@ -54,7 +54,18 @@ export function processRuntimeDeps(vfs: VirtualFileSystem, config: ProjectConfig
         dependencies: ["@elysiajs/node"],
       });
     }
+  } else if (runtime === "lambda") {
+    pkgJson.scripts.dev = "bun run --hot src/lambda.ts";
+    pkgJson.scripts.start = "bun run src/lambda.ts";
   }
 
   vfs.writeJson(serverPath, pkgJson);
+
+  if (runtime === "lambda") {
+    addPackageDependency({
+      vfs,
+      packagePath: serverPath,
+      customDevDependencies: { "@types/aws-lambda": "^8.10.163" },
+    });
+  }
 }
