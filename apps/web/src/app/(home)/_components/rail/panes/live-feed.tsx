@@ -1,8 +1,10 @@
 "use client";
 
-import { api } from "@better-t-stack/backend/convex/_generated/api";
-import { useQuery } from "convex/react";
+import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
+
+import type { AnalyticsEvent } from "@/lib/api-client";
+import { recentEventsQuery } from "@/lib/queries";
 
 import { GroupHeader } from "../chrome";
 
@@ -23,20 +25,7 @@ function ago(createdAt: number, now: number): string {
   return `${Math.round(hours / 24)}d ago`;
 }
 
-type FeedEvent = {
-  _id: string;
-  _creationTime: number;
-  frontend?: string[];
-  backend?: string;
-  runtime?: string;
-  database?: string;
-  orm?: string;
-  api?: string;
-  auth?: string;
-  dbSetup?: string;
-  webDeploy?: string;
-  serverDeploy?: string;
-};
+type FeedEvent = AnalyticsEvent;
 
 function pick(value: string | undefined): string | null {
   return value && value !== "none" ? value : null;
@@ -67,9 +56,7 @@ function summarize(event: FeedEvent): string {
 }
 
 export default function LiveFeed() {
-  const events = useQuery(api.analytics.getRecentEvents, { limit: FEED_LIMIT }) as
-    | FeedEvent[]
-    | undefined;
+  const { data: events } = useQuery(recentEventsQuery(FEED_LIMIT));
 
   // The clock lives in state rather than being read during render: events age
   // out without a new query arriving, and Date.now() is not a dependency the
@@ -84,7 +71,7 @@ export default function LiveFeed() {
 
   const inLastHour =
     events && now !== null
-      ? events.filter((event) => now - event._creationTime < ONE_HOUR_MS).length
+      ? events.filter((event) => now - event.createdAt < ONE_HOUR_MS).length
       : null;
   // Every fetched row falling inside the window means the query cap clipped it,
   // so the number is a floor rather than a total.
@@ -110,9 +97,9 @@ export default function LiveFeed() {
 
       <ol aria-label="Recent project starts" className="font-mono text-[11px] leading-[1.7]">
         {events?.slice(0, VISIBLE_ROWS).map((event) => (
-          <li key={event._id} className="flex items-baseline gap-3 py-px">
+          <li key={event.id} className="flex items-baseline gap-3 py-px">
             <span className="w-[7ch] shrink-0 text-right text-fd-muted-foreground/60 tabular-nums">
-              {now === null ? "" : ago(event._creationTime, now)}
+              {now === null ? "" : ago(event.createdAt, now)}
             </span>
             {/* Wraps rather than truncates: a clipped stack hides the very picks
                 the feed exists to show. Fewer rows, none of them lying. */}

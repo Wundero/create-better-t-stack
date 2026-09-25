@@ -1,8 +1,10 @@
 "use client";
 
-import { api } from "@better-t-stack/backend/convex/_generated/api";
-import { type Preloaded, useConvexConnectionState, usePreloadedQuery } from "convex/react";
+import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
+
+import type { AnalyticsStats, DailyStat, MonthlyStats } from "@/lib/api-client";
+import { analyticsStatsQuery, dailyStatsQuery, monthlyStatsQuery } from "@/lib/queries";
 
 import {
   buildWeekdayDistribution,
@@ -12,57 +14,22 @@ import {
 import AnalyticsPage from "./_components/analytics-page";
 import type { AggregatedAnalyticsData, Distribution, TimeSeriesPoint } from "./_components/types";
 
-type PrecomputedStats = {
-  totalProjects: number;
-  lastEventTime: number;
-  backend: Record<string, number>;
-  frontend: Record<string, number>;
-  database: Record<string, number>;
-  orm: Record<string, number>;
-  api: Record<string, number>;
-  auth: Record<string, number>;
-  runtime: Record<string, number>;
-  packageManager: Record<string, number>;
-  platform: Record<string, number>;
-  addons: Record<string, number>;
-  examples: Record<string, number>;
-  dbSetup: Record<string, number>;
-  webDeploy: Record<string, number>;
-  serverDeploy: Record<string, number>;
-  payments: Record<string, number>;
-  git: Record<string, number>;
-  install: Record<string, number>;
-  nodeVersion: Record<string, number>;
-  cliVersion: Record<string, number>;
-  hourlyDistribution: Record<string, number>;
-  stackCombinations: Record<string, number>;
-  dbOrmCombinations: Record<string, number>;
-  /** Absent until the Convex deployment that added it is live. */
-  mode?: Record<string, number>;
-};
-
-type DailyStats = { date: string; count: number };
-type MonthlyStats = {
-  monthly: Array<{ month: string; totalProjects: number }>;
-  firstDate: string | null;
-  lastDate: string | null;
-};
 type ConnectionStatus = "online" | "connecting" | "reconnecting" | "offline";
 
 const MILLISECONDS_PER_DAY = 24 * 60 * 60 * 1000;
 
 function getConnectionStatus({
-  isWebSocketConnected,
-  hasEverConnected,
-  connectionRetries,
+  isError,
+  isFetching,
+  isSuccess,
 }: {
-  isWebSocketConnected: boolean;
-  hasEverConnected: boolean;
-  connectionRetries: number;
+  isError: boolean;
+  isFetching: boolean;
+  isSuccess: boolean;
 }): ConnectionStatus {
-  if (isWebSocketConnected) return "online";
-  if (hasEverConnected) return "reconnecting";
-  if (connectionRetries > 0) return "offline";
+  if (isError) return "offline";
+  if (isFetching) return "reconnecting";
+  if (isSuccess) return "online";
   return "connecting";
 }
 
@@ -76,7 +43,7 @@ function getMostPopular(dist: Distribution) {
   return dist.length > 0 ? dist[0].name : "none";
 }
 
-function getCalendarDaySpan(timeSeries: DailyStats[]): number {
+function getCalendarDaySpan(timeSeries: DailyStat[]): number {
   if (timeSeries.length === 0) return 1;
 
   const firstDate = timeSeries[0]?.date;
@@ -96,7 +63,7 @@ function getCalendarDaySpan(timeSeries: DailyStats[]): number {
 function getCalendarDaySpanFromRange(
   firstDate: string | null,
   lastDate: string | null,
-  fallbackSeries: DailyStats[],
+  fallbackSeries: DailyStat[],
 ): number {
   if (!firstDate || !lastDate) {
     return getCalendarDaySpan(fallbackSeries);
@@ -112,7 +79,7 @@ function getCalendarDaySpanFromRange(
   return Math.floor((end - start) / MILLISECONDS_PER_DAY) + 1;
 }
 
-function buildTimeSeries(dailyStats: DailyStats[]): TimeSeriesPoint[] {
+function buildTimeSeries(dailyStats: DailyStat[]): TimeSeriesPoint[] {
   const sorted = [...dailyStats].sort((a, b) => a.date.localeCompare(b.date));
   let cumulativeProjects = 0;
 
@@ -149,8 +116,8 @@ function buildMonthlyTimeSeries(monthlyStats: MonthlyStats["monthly"]) {
 }
 
 function buildFromPrecomputed(
-  stats: PrecomputedStats,
-  dailyStats: DailyStats[],
+  stats: AnalyticsStats,
+  dailyStats: DailyStat[],
   monthlyStats: MonthlyStats,
 ): AggregatedAnalyticsData {
   const totalProjects = stats.totalProjects;
@@ -341,28 +308,60 @@ const emptyData: AggregatedAnalyticsData = {
   },
 };
 
+const emptyMonthlyStats: MonthlyStats = { monthly: [], firstDate: null, lastDate: null };
+
 export function AnalyticsClient({
-  preloadedStats,
-  preloadedDailyStats,
-  preloadedMonthlyStats,
+  initialStats,
+  initialDailyStats,
+  initialMonthlyStats,
 }: {
-  preloadedStats: Preloaded<typeof api.analytics.getStats>;
-  preloadedDailyStats: Preloaded<typeof api.analytics.getDailyStats>;
-  preloadedMonthlyStats: Preloaded<typeof api.analytics.getMonthlyStats>;
+  initialStats: AnalyticsStats | null;
+  initialDailyStats: DailyStat[];
+  initialMonthlyStats: MonthlyStats;
 }) {
-  const stats = usePreloadedQuery(preloadedStats);
-  const dailyStats = usePreloadedQuery(preloadedDailyStats);
-  const monthlyStats = usePreloadedQuery(preloadedMonthlyStats);
-  const connectionState = useConvexConnectionState();
+  const statsQuery = useQuery({
+    ...analyticsStatsQuery(),
+    initialData: initialStats ?? undefined,
+    initialDataUpdatedAt: 0,
+    refetchInterval: 30_000,
+    refetchOnMount: "always",
+  });
+  const dailyQuery = useQuery({
+    ...dailyStatsQuery(30),
+    initialData: initialDailyStats,
+    initialDataUpdatedAt: 0,
+    refetchInterval: 30_000,
+    refetchOnMount: "always",
+  });
+  const monthlyQuery = useQuery({
+    ...monthlyStatsQuery(),
+    initialData: initialMonthlyStats,
+    initialDataUpdatedAt: 0,
+    refetchInterval: 30_000,
+    refetchOnMount: "always",
+  });
   const [hasHydrated, setHasHydrated] = useState(false);
 
   useEffect(() => {
     setHasHydrated(true);
   }, []);
 
-  const connectionStatus = hasHydrated ? getConnectionStatus(connectionState) : "connecting";
+  const queries = [statsQuery, dailyQuery, monthlyQuery];
+  const connectionStatus = hasHydrated
+    ? getConnectionStatus({
+        isError: queries.some((query) => query.isError),
+        isFetching: queries.some((query) => query.isFetching),
+        isSuccess: queries.every((query) => query.isSuccess),
+      })
+    : "connecting";
 
-  const data = stats ? buildFromPrecomputed(stats, dailyStats, monthlyStats) : emptyData;
+  const data = statsQuery.data
+    ? buildFromPrecomputed(
+        statsQuery.data,
+        dailyQuery.data ?? [],
+        monthlyQuery.data ?? emptyMonthlyStats,
+      )
+    : emptyData;
 
   return <AnalyticsPage data={data} connectionStatus={connectionStatus} />;
 }

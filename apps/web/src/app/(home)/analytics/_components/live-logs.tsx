@@ -1,14 +1,14 @@
 "use client";
 
-import { api } from "@better-t-stack/backend/convex/_generated/api";
-import { useQuery } from "convex/react";
-import type { FunctionReturnType } from "convex/server";
+import { useQuery } from "@tanstack/react-query";
 import { Activity, ChevronRight, Radio } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { useState } from "react";
 
 import { ScrollArea } from "@/components/ui/scroll-area";
+import type { AnalyticsEvent } from "@/lib/api-client";
 import { track } from "@/lib/analytics";
+import { recentEventsQuery } from "@/lib/queries";
 import { cn } from "@/lib/utils";
 
 const LOG_FIELD_ORDER = [
@@ -34,7 +34,7 @@ const LOG_FIELD_ORDER = [
   "install",
 ] as const;
 
-type RecentAnalyticsEvent = FunctionReturnType<typeof api.analytics.getRecentEvents>[number];
+type RecentAnalyticsEvent = AnalyticsEvent;
 type LogValue = RecentAnalyticsEvent[(typeof LOG_FIELD_ORDER)[number]];
 
 const eventTimeFormatter = new Intl.DateTimeFormat("en-US", {
@@ -70,7 +70,7 @@ function formatStackSummary(event: RecentAnalyticsEvent) {
 
 export function LiveLogs() {
   const [isOpen, setIsOpen] = useState(false);
-  const events = useQuery(api.analytics.getRecentEvents, isOpen ? { limit: 25 } : "skip");
+  const { data: events } = useQuery(recentEventsQuery(25, isOpen));
 
   return (
     <div className="rounded-[4px] border">
@@ -143,15 +143,15 @@ export function LiveLogs() {
                 <div className="divide-y">
                   <AnimatePresence initial={false} mode="popLayout">
                     {events.map((event, index) => {
-                      const time = eventTimeFormatter.format(new Date(event._creationTime));
+                      const time = eventTimeFormatter.format(new Date(event.createdAt));
                       const logFields = LOG_FIELD_ORDER.flatMap((key) =>
                         hasLogValue(event[key]) ? [{ key, value: formatValue(event[key]) }] : [],
                       );
-                      const eventId = String(event._id).slice(-6);
+                      const eventId = String(event.id).slice(-6);
 
                       return (
                         <motion.div
-                          key={event._id}
+                          key={event.id}
                           initial={{ opacity: 0 }}
                           animate={{ opacity: 1 }}
                           transition={{ duration: 0.2, delay: Math.min(index * 0.035, 0.35) }}

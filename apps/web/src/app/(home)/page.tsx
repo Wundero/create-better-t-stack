@@ -1,10 +1,9 @@
 export const dynamic = "force-static";
 
-import { api } from "@better-t-stack/backend/convex/_generated/api";
-import { fetchQuery } from "convex/nextjs";
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 
+import { fetchTweets, fetchVideos, fetchWithFallback } from "@/lib/api-client";
 import { fetchSponsors } from "@/lib/sponsors";
 
 import Pane from "./_components/rail/pane";
@@ -27,8 +26,10 @@ export const metadata: Metadata = {
 
 export default async function HomePage() {
   const sponsorsData = await fetchSponsors();
-  const fetchedTweets = await fetchQuery(api.testimonials.getTweets);
-  const fetchedVideos = await fetchQuery(api.testimonials.getVideos);
+  const [fetchedTweets, fetchedVideos] = await Promise.all([
+    fetchWithFallback(() => fetchTweets({ cache: "force-cache" }), []),
+    fetchWithFallback(() => fetchVideos({ cache: "force-cache" }), []),
+  ]);
   const videos = fetchedVideos.map((v) => ({ embedId: v.embedId, title: v.title }));
   const tweets = fetchedTweets.map((t) => ({ tweetId: t.tweetId }));
 
