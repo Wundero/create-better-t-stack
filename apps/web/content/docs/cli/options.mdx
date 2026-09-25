@@ -343,10 +343,15 @@ Additional features to include:
 - `skills`: Install AI agent skills for coding assistants (Cursor, Claude Code, GitHub Copilot, etc.)
 - `evlog`: Structured request logging for Hono, Express, Fastify, Elysia, or fullstack web backends
 - `axiom`: Managed Axiom observability through Evlog and Alchemy (select during project creation)
+- `turnstile`: Cloudflare Turnstile CAPTCHA on Better Auth sign-in/sign-up (select during project creation)
 
 ```bash
 create-better-t-stack --addons pwa biome husky
 ```
+
+### Cloudflare Turnstile
+
+The `turnstile` addon enables Cloudflare Turnstile CAPTCHA on Better Auth sign-in and sign-up. The widget is provisioned with Alchemy and requires `--auth better-auth`, `--web-deploy cloudflare`, and either `--backend self` or `--server-deploy cloudflare`. It supports web frontends only and is creation-only: it cannot be added to an existing project with the `add` command. Before deploying, set `TURNSTILE_DOMAINS` in `.env` to a comma-separated list of the production hostname(s); it defaults to `localhost,127.0.0.1` and local development uses Cloudflare's always-pass test keys automatically.
 
 ## Examples
 
