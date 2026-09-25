@@ -86,6 +86,16 @@ export default defineNuxtConfig({
     serverUrl: "",
     public: {
       serverUrl: process.env.NUXT_PUBLIC_SERVER_URL ?? "",
+      {{#if (includes addons "turnstile")}}
+      turnstileSiteKey: process.env.NUXT_PUBLIC_TURNSTILE_SITE_KEY ?? "",
+      {{/if}}
+    }
+  },
+  {{/if}}
+  {{#if (and (includes addons "turnstile") (eq backend "self"))}}
+  runtimeConfig: {
+    public: {
+      turnstileSiteKey: process.env.NUXT_PUBLIC_TURNSTILE_SITE_KEY ?? "",
     }
   },
   {{/if}}

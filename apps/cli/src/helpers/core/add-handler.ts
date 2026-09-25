@@ -326,6 +326,15 @@ async function addHandlerInternal(
     );
   }
 
+  if (addonsToAdd.includes("turnstile")) {
+    return Result.err(
+      new CLIError({
+        message:
+          "The turnstile addon must be selected during project creation because it configures Alchemy infrastructure and deployment bindings.",
+      }),
+    );
+  }
+
   // Build config for addon setup
   const updatedAddons = [...existingConfig.addons, ...addonsToAdd];
   const addonsValidationResult = validateAddonsAgainstConfig(updatedAddons, existingConfig);

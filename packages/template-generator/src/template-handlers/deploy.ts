@@ -20,6 +20,7 @@ export async function processDeployTemplates(
     isAlchemyDeployTarget(config.webDeploy) ||
     isAlchemyDeployTarget(config.serverDeploy) ||
     config.addons.includes("axiom") ||
+    config.addons.includes("turnstile") ||
     config.emailDeploy === "ses"
   ) {
     processTemplatesFromPrefix(vfs, templates, "packages/infra", "packages/infra", config);

@@ -77,6 +77,7 @@ const VALUE_LABELS = {
   mcp: "MCP servers",
   evlog: "evlog",
   axiom: "Axiom",
+  turnstile: "Cloudflare Turnstile",
   todo: "Todo app",
   ai: "AI chat",
   turso: "Turso",

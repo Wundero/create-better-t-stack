@@ -772,6 +772,14 @@ export const TECH_OPTIONS: TechOptions = {
       color: "from-violet-500 to-indigo-700",
       default: false,
     },
+    {
+      id: "turnstile",
+      name: "Cloudflare Turnstile",
+      description: "CAPTCHA on Better Auth sign-in/sign-up, provisioned by Alchemy",
+      icon: `${ICON_BASE_URL}/workers.svg`,
+      color: "from-orange-500 to-orange-700",
+      default: false,
+    },
   ],
   examples: [
     {

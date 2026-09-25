@@ -32,6 +32,28 @@ export async function processAddonTemplates(
       continue;
     }
 
+    if (addon === "turnstile") {
+      const isReactWeb = config.frontend.some((frontend) =>
+        ["next", "tanstack-router", "tanstack-start", "react-router"].includes(frontend),
+      );
+      if (isReactWeb) {
+        processTemplatesFromPrefix(vfs, templates, "addons/turnstile/react", "", config);
+      }
+      if (config.frontend.includes("svelte")) {
+        processTemplatesFromPrefix(vfs, templates, "addons/turnstile/svelte", "", config);
+      }
+      if (config.frontend.includes("solid")) {
+        processTemplatesFromPrefix(vfs, templates, "addons/turnstile/solid", "", config);
+      }
+      if (config.frontend.includes("astro")) {
+        processTemplatesFromPrefix(vfs, templates, "addons/turnstile/astro", "", config);
+      }
+      if (config.frontend.includes("nuxt")) {
+        processTemplatesFromPrefix(vfs, templates, "addons/turnstile/nuxt", "", config);
+      }
+      continue;
+    }
+
     processTemplatesFromPrefix(vfs, templates, `addons/${addon}`, "", config);
   }
 }
