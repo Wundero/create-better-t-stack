@@ -668,7 +668,9 @@ ${packageManagerRunCmd} db:generate
         ? "Prisma Postgres"
         : dbSetup === "planetscale"
           ? "PlanetScale"
-          : "Neon";
+          : dbSetup === "aurora"
+            ? "Aurora Serverless V2"
+            : "Neon";
     const migrationWorkflow =
       orm === "prisma"
         ? `The scaffold includes an initial Prisma migration when generated models need one. Create and commit later migrations with \`${packageManagerRunCmd} db:migrate\`; deployment applies checked-in migrations with \`prisma migrate deploy\`.`
@@ -676,7 +678,9 @@ ${packageManagerRunCmd} db:generate
     const costNote =
       dbSetup === "planetscale"
         ? "\n\nThe generated PlanetScale resource uses the `PS_DEV` size. PlanetScale may charge for this database; adjust `clusterSize` in `packages/infra/alchemy.run.ts` before deployment if needed."
-        : "";
+        : dbSetup === "aurora"
+          ? "\n\nAurora Serverless V2 bills per ACU-hour and keeps a 0.5 ACU minimum while idle. The generated network also creates a NAT gateway, and a Fargate server deployment adds an Application Load Balancer — both bill hourly even without traffic. Run `destroy` when the stage is no longer needed to stop these charges."
+          : "";
 
     return `${setup}Alchemy provisions ${provider}, passes its connection credentials directly to the deployed application, and manages database deployment in the same stack as the consuming app. You do not need to copy a hosted \`DATABASE_URL\` into the app environment.
 
@@ -902,6 +906,13 @@ function generateScriptsList(
   return scripts;
 }
 
+function getAlchemyTargetLabel(target: ProjectConfig["webDeploy"]): string {
+  if (target === "cloudflare") return "Cloudflare";
+  if (target === "prisma") return "Prisma";
+  if (target === "aws") return "AWS";
+  return target;
+}
+
 function generateDeploymentCommands(
   packageManagerRunCmd: string,
   webDeploy: ProjectConfig["webDeploy"],
@@ -913,10 +924,8 @@ function generateDeploymentCommands(
   dbSetup: ProjectConfig["dbSetup"],
   addons: ProjectConfig["addons"],
 ): string {
-  const hasCloudflare = webDeploy === "cloudflare" || serverDeploy === "cloudflare";
-  const hasPrismaCompute = webDeploy === "prisma" || serverDeploy === "prisma";
   const hasAxiom = addons.includes("axiom");
-  const hasAlchemyCompute = hasCloudflare || hasPrismaCompute;
+  const hasAlchemyCompute = isAlchemyDeployTarget(webDeploy) || isAlchemyDeployTarget(serverDeploy);
   const hasAlchemy = hasAlchemyCompute || hasAxiom;
   const hasDocker = webDeploy === "docker" || serverDeploy === "docker";
   const hasVercel = webDeploy === "vercel" || serverDeploy === "vercel";
@@ -929,11 +938,9 @@ function generateDeploymentCommands(
 
   if (hasAlchemy) {
     const targetLabel = [
-      ...(isAlchemyDeployTarget(webDeploy)
-        ? [`web on ${webDeploy === "cloudflare" ? "Cloudflare" : "Prisma"}`]
-        : []),
+      ...(isAlchemyDeployTarget(webDeploy) ? [`web on ${getAlchemyTargetLabel(webDeploy)}`] : []),
       ...(isAlchemyDeployTarget(serverDeploy) && backend !== "self"
-        ? [`server on ${serverDeploy === "cloudflare" ? "Cloudflare" : "Prisma"}`]
+        ? [`server on ${getAlchemyTargetLabel(serverDeploy)}`]
         : []),
       ...(hasAxiom ? ["Axiom observability"] : []),
     ].join(" + ");

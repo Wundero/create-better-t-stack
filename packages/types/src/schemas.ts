@@ -13,7 +13,7 @@ export const BackendSchema = z
   .describe("Backend framework");
 
 export const RuntimeSchema = z
-  .enum(["bun", "node", "workers", "none"])
+  .enum(["bun", "node", "workers", "lambda", "none"])
   .describe("Runtime environment");
 
 export const FrontendSchema = z
@@ -101,6 +101,7 @@ export const DatabaseSetupSchema = z
     "supabase",
     "d1",
     "docker",
+    "aurora",
     "none",
   ])
   .describe("Database hosting setup");
@@ -118,11 +119,11 @@ export const EmailRendererSchema = z.enum(["react-email", "none"]).describe("Ema
 export const EmailDeploySchema = z.enum(["cloudflare", "ses", "none"]).describe("Email deploy");
 
 export const WebDeploySchema = z
-  .enum(["cloudflare", "prisma", "docker", "vercel", "none"])
+  .enum(["cloudflare", "prisma", "aws", "docker", "vercel", "none"])
   .describe("Web deployment");
 
 export const ServerDeploySchema = z
-  .enum(["cloudflare", "prisma", "docker", "vercel", "none"])
+  .enum(["cloudflare", "prisma", "aws", "docker", "vercel", "none"])
   .describe("Server deployment");
 
 export const DirectoryConflictSchema = z

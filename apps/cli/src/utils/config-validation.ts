@@ -34,8 +34,12 @@ import {
   validateServerDeployRequiresBackend,
   validateVercelServerDeploy,
   validatePrismaServerDeploy,
+  validateAwsServerDeploy,
+  validateLambdaRuntime,
   validatePrismaWebDeploy,
+  validateAwsWebDeploy,
   validatePrismaWebDeployDesktopAddons,
+  validateAuroraDatabaseSetup,
   validateCloudflareWebDeployKnownIssues,
   validateWebDeployRequiresWebFrontend,
   validateWorkersCompatibility,
@@ -152,6 +156,10 @@ export function validateDatabaseSetup(
       errorMessage:
         "PlanetScale setup requires PostgreSQL or MySQL database. Please use '--database postgres' or '--database mysql' or choose a different setup.",
     },
+    aurora: {
+      errorMessage:
+        "AWS Aurora setup requires PostgreSQL or MySQL database. Please use '--database postgres' or '--database mysql' or choose a different setup.",
+    },
     "mongodb-atlas": {
       errorMessage:
         "MongoDB Atlas setup requires MongoDB database. Please use '--database mongodb' or choose a different setup.",
@@ -216,6 +224,12 @@ export function validateDatabaseProvisioningMode(config: Partial<ProjectConfig>)
   if (config.dbSetup === "planetscale" && config.dbSetupOptions?.mode === "auto") {
     return validationErr(
       "PlanetScale does not support automatic database setup. Use dbSetupOptions.mode 'alchemy' or 'manual'.",
+    );
+  }
+
+  if (config.dbSetup === "aurora" && config.dbSetupOptions?.mode === "auto") {
+    return validationErr(
+      "AWS Aurora does not support automatic database setup. Use dbSetupOptions.mode 'alchemy' or 'manual'.",
     );
   }
 
@@ -475,7 +489,11 @@ export function validateFullConfig(
     yield* validateDockerServerDeploy(config.serverDeploy, config.backend, config.runtime);
     yield* validateVercelServerDeploy(config.serverDeploy, config.backend, config.runtime);
     yield* validatePrismaServerDeploy(config.serverDeploy, config.backend, config.runtime);
+    yield* validateAwsServerDeploy(config.serverDeploy, config.backend, config.runtime);
+    yield* validateLambdaRuntime(config.runtime, config.serverDeploy, config.backend);
     yield* validatePrismaWebDeploy(config.webDeploy, config.frontend);
+    yield* validateAwsWebDeploy(config.webDeploy, config.frontend);
+    yield* validateAuroraDatabaseSetup(config);
     yield* validateCloudflareWebDeployKnownIssues(config);
     yield* validateDockerWebDeployDesktopAddons(
       config.webDeploy,

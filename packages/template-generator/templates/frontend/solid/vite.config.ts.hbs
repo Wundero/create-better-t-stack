@@ -50,7 +50,7 @@ export default defineConfig({
       extensions: [".jsx", ".tsx"],
     }),
 {{#unless (eq webDeploy "cloudflare")}}
-    nitro({ serverEntry: false }),
+    nitro({ serverEntry: false{{#if (eq webDeploy "aws")}}, preset: "aws-lambda", awsLambda: { streaming: true }{{/if}} }),
 {{/unless}}
     fileRoutes({ httpMethods: true }),
     tailwindcss(),

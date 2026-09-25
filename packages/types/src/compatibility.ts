@@ -357,6 +357,7 @@ const DATABASE_SETUP_DATABASES = {
   planetscale: ["postgres", "mysql"],
   "mongodb-atlas": ["mongodb"],
   docker: ["postgres", "mysql", "mongodb"],
+  aurora: ["postgres", "mysql"],
 } as const satisfies Record<Exclude<DatabaseSetup, "none">, readonly Database[]>;
 
 export function supportsDatabaseSetup(dbSetup: DatabaseSetup, database: Database | undefined) {
@@ -366,11 +367,14 @@ export function supportsDatabaseSetup(dbSetup: DatabaseSetup, database: Database
   );
 }
 
+const FUNCTION_RUNTIMES: readonly Runtime[] = ["workers", "lambda"];
+
 export function supportsRuntimeBackend(runtime: Runtime | undefined, backend: Backend | undefined) {
   if (!runtime || !backend) return true;
   if (getBackendDisabledOptions(backend).some((key) => key === "runtime"))
     return runtime === "none";
-  return runtime !== "none" && (runtime !== "workers" || backend === "hono");
+  if (FUNCTION_RUNTIMES.some((value) => value === runtime)) return backend === "hono";
+  return runtime !== "none";
 }
 
 export function supportsRuntimeDatabase(
@@ -395,8 +399,9 @@ export function supportsServerDeployRuntime(
   runtime: Runtime | undefined,
 ) {
   if (!deploy) return true;
-  if (deploy === "none") return runtime !== "workers";
+  if (deploy === "none") return runtime !== "workers" && runtime !== "lambda";
   if (deploy === "cloudflare") return runtime === "workers";
+  if (deploy === "aws") return runtime === "bun" || runtime === "node" || runtime === "lambda";
   return runtime === "bun" || runtime === "node";
 }
 

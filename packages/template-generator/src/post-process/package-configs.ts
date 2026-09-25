@@ -3,7 +3,12 @@
  * Updates package names, scripts, and workspaces after template generation
  */
 
-import { getLocalD1Owner, webFrontends, type ProjectConfig } from "@better-t-stack/types";
+import {
+  getLocalD1Owner,
+  isAlchemyDeployTarget,
+  webFrontends,
+  type ProjectConfig,
+} from "@better-t-stack/types";
 
 import type { JsonValue } from "../core/json-types";
 import type { VirtualFileSystem } from "../core/virtual-fs";
@@ -183,10 +188,8 @@ function updateRootPackageJson(vfs: VirtualFileSystem, config: ProjectConfig): v
 
   // Add deploy/destroy scripts when using an Alchemy deployment provider.
   const infraPackageName = `@${projectName}/infra`;
-  const hasCloudflareDeploy =
-    config.webDeploy === "cloudflare" || config.serverDeploy === "cloudflare";
-  const hasPrismaDeploy = config.webDeploy === "prisma" || config.serverDeploy === "prisma";
-  const hasAlchemyDeploy = hasCloudflareDeploy || hasPrismaDeploy;
+  const hasAlchemyDeploy =
+    isAlchemyDeployTarget(config.webDeploy) || isAlchemyDeployTarget(config.serverDeploy);
   const hasAxiom = addons.includes("axiom");
   const hasVercelDeploy = config.webDeploy === "vercel" || config.serverDeploy === "vercel";
   const hasDockerDeploy = config.webDeploy === "docker" || config.serverDeploy === "docker";
@@ -195,7 +198,7 @@ function updateRootPackageJson(vfs: VirtualFileSystem, config: ProjectConfig): v
   const isMixedCloud = hasAlchemyDeploy && hasVercelDeploy;
   if (hasAlchemyDeploy) {
     const alchemyDeployScript = isMixedCloud
-      ? ["cloudflare", "prisma"].includes(config.webDeploy)
+      ? isAlchemyDeployTarget(config.webDeploy)
         ? "deploy:web"
         : "deploy:server"
       : "deploy";
@@ -650,10 +653,7 @@ export function finalizeAlchemyDevScripts(vfs: VirtualFileSystem, config: Projec
   });
 
   // Alchemy owns the selected app's development process.
-  if (
-    (["cloudflare", "prisma"].includes(serverDeploy) || hasAxiomServerRuntime) &&
-    backend !== "self"
-  ) {
+  if ((isAlchemyDeployTarget(serverDeploy) || hasAxiomServerRuntime) && backend !== "self") {
     const serverPkgPath = "apps/server/package.json";
     const serverPkg = vfs.readJson<PackageJson>(serverPkgPath);
     if (serverPkg?.scripts?.dev) {
@@ -670,7 +670,7 @@ export function finalizeAlchemyDevScripts(vfs: VirtualFileSystem, config: Projec
     }
   }
 
-  if (["cloudflare", "prisma"].includes(webDeploy) || hasAxiomWebRuntime) {
+  if (isAlchemyDeployTarget(webDeploy) || hasAxiomWebRuntime) {
     const webPkgPath = "apps/web/package.json";
     const webPkg = vfs.readJson<PackageJson>(webPkgPath);
     if (webPkg?.scripts?.dev) {
