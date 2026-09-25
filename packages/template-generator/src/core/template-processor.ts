@@ -1,6 +1,9 @@
 import { type ProjectConfig, usesAlchemyManagedDatabase } from "@better-t-stack/types";
-import Handlebars from "handlebars";
+import Handlebars from "handlebars/runtime.js";
 import isBinaryPath from "is-binary-path";
+
+import { EMBEDDED_PARTIALS } from "../templates.generated";
+import type { CompiledTemplate, TemplateEntry } from "./template-spec";
 
 Handlebars.registerHelper("eq", (a, b) => a === b);
 Handlebars.registerHelper("ne", (a, b) => a !== b);
@@ -101,55 +104,12 @@ Handlebars.registerHelper(
     (frontend.includes("nuxt") || frontend.includes("svelte")),
 );
 
-const getServerUrlSource = `{{#if (and (eq webDeploy serverDeploy) (or (eq webDeploy "vercel") (eq webDeploy "docker")))}}
-function getServerUrl(url: string | undefined) {
-	const processEnv = (globalThis as {
-		process?: { env?: Record<string, string | undefined> };
-	}).process?.env;
-	if (typeof window === "undefined" && processEnv?.SERVER_URL) {
-		return processEnv.SERVER_URL.endsWith("/")
-			? processEnv.SERVER_URL.slice(0, -1)
-			: processEnv.SERVER_URL;
-	}
-
-	if (url === undefined) {
-		throw new Error(
-			"getServerUrl: server URL is not set. Set NEXT_PUBLIC_SERVER_URL (or the frontend-specific public server URL variable) for web deployments, or SERVER_URL on the server.",
-		);
-	}
-
-{{#if (eq webDeploy "vercel")}}
-	const normalized = url.endsWith("/") ? url.slice(0, -1) : url;
-
-	if (!normalized.startsWith("/")) {
-		return normalized;
-	}
-
-	if (typeof window !== "undefined") {
-		return \`\${window.location.origin}\${normalized}\`;
-	}
-
-	const vercelUrl =
-		processEnv?.VERCEL_ENV === "production"
-			? (processEnv?.VERCEL_PROJECT_PRODUCTION_URL ?? processEnv?.VERCEL_URL)
-			: (processEnv?.VERCEL_URL ?? processEnv?.VERCEL_PROJECT_PRODUCTION_URL);
-	if (vercelUrl) {
-		const origin = vercelUrl.startsWith("http") ? vercelUrl : \`https://\${vercelUrl}\`;
-		return \`\${origin}\${normalized}\`;
-	}
-
-	return \`http://localhost:3000\${normalized}\`;
-{{else}}
-	return url.endsWith("/") ? url.slice(0, -1) : url;
-{{/if}}
+for (const [name, spec] of EMBEDDED_PARTIALS) {
+  Handlebars.registerPartial(name, Handlebars.template(spec));
 }
-{{/if}}`;
 
-Handlebars.registerPartial("getServerUrl", getServerUrlSource);
-Handlebars.registerPartial("getServerUrlSpaces", getServerUrlSource.replaceAll("\t", "  "));
-
-export function processTemplateString(content: string, context: ProjectConfig): string {
-  return Handlebars.compile(content)(context);
+export function processTemplateString(spec: CompiledTemplate, context: ProjectConfig): string {
+  return Handlebars.template(spec)(context);
 }
 
 export function isBinaryFile(filePath: string): boolean {
@@ -170,22 +130,23 @@ export function transformFilename(filename: string): string {
 
 export function processFileContent(
   filePath: string,
-  content: string,
+  content: TemplateEntry,
   context: ProjectConfig,
 ): string {
   if (isBinaryFile(filePath)) return "[Binary file]";
 
   const originalPath = filePath.endsWith(".hbs") ? filePath : filePath + ".hbs";
   if (filePath !== originalPath || filePath.includes(".hbs")) {
+    if (content.kind === "raw") return content.content;
     try {
       return processTemplateString(content, context);
     } catch (error) {
       console.warn(`Template processing failed for ${filePath}:`, error);
-      return content;
+      return "";
     }
   }
 
-  return content;
+  return content.kind === "raw" ? content.content : "";
 }
 
 export { Handlebars };

@@ -6,7 +6,6 @@ import { DEFAULT_PRESETS, encodePreset, type ProjectConfig } from "@better-t-sta
 import { Result } from "better-result";
 
 import { processTemplateString } from "../src/core/template-processor";
-import { loadTemplates } from "../src/core/template-reader";
 import { generate } from "../src/generator";
 import {
   ShadcnRegistryError,
@@ -15,6 +14,7 @@ import {
   type ShadcnRegistryClient,
 } from "../src/shadcn";
 import type { TemplateData } from "../src/template-handlers";
+import { EMBEDDED_TEMPLATES } from "../src/templates.generated";
 import type { GeneratorOptions, VirtualDirectory, VirtualFileTree } from "../src/types";
 
 const fixturesDir = fileURLToPath(new URL("./fixtures/shadcn/", import.meta.url));
@@ -75,7 +75,7 @@ let origin = "";
 let templates: TemplateData;
 
 beforeAll(async () => {
-  templates = await loadTemplates();
+  templates = EMBEDDED_TEMPLATES;
   server = Bun.serve({
     port: 0,
     fetch: async (request) => {
@@ -383,11 +383,11 @@ describe("no shadcn config parity", () => {
       const tree = await generateTree({ config, templates });
 
       for (const { template, generated } of files) {
-        const raw = templates.get(template);
-        expect(raw, template).toBeDefined();
-        if (raw === undefined) continue;
+        const entry = templates.get(template);
+        expect(entry, template).toBeDefined();
+        if (entry === undefined || entry.kind !== "template") continue;
         const content = readTreeFile(tree, generated);
-        expect(content, generated).toBe(processTemplateString(raw, config));
+        expect(content, generated).toBe(processTemplateString(entry, config));
         expect(content, generated).not.toContain('dir="rtl"');
         expect(content, generated).not.toContain("DirectionProvider");
       }

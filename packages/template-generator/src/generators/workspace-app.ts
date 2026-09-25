@@ -1,5 +1,6 @@
 import type { Backend, Frontend, ProjectConfig } from "@better-t-stack/types";
 
+import type { TemplateData } from "../core/template-spec";
 import { VirtualFileSystem } from "../core/virtual-fs";
 import { processCatalogs } from "../post-process/catalogs";
 import { processEnvDeps } from "../processors/env-deps";
@@ -37,7 +38,7 @@ export interface PlanWorkspaceAppInput {
   /** Preloaded EXISTING project files (packages/*, root package.json, pnpm-workspace.yaml). */
   existingFiles: Map<string, string>;
   /** Embedded Handlebars templates. */
-  templates: Map<string, string>;
+  templates: TemplateData;
 }
 
 export interface PlanWorkspaceAppResult {

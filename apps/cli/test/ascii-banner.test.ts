@@ -1,6 +1,9 @@
 import { describe, expect, it } from "bun:test";
+import { readdirSync, readFileSync } from "node:fs";
+import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 
-import { EMBEDDED_TEMPLATES } from "@better-t-stack/template-generator";
+import { isBinaryFile } from "@better-t-stack/template-generator";
 
 import { createVirtual } from "../src/index";
 import { collectFiles } from "./setup";
@@ -8,6 +11,17 @@ import { collectFiles } from "./setup";
 type CreateOptions = Parameters<typeof createVirtual>[0];
 
 const BLOCK_RANGE = /[\u2500-\u25FF]/u;
+
+const TEMPLATES_ROOT = fileURLToPath(
+  new URL("../../../packages/template-generator/templates", import.meta.url),
+);
+
+function collectSourceFiles(dir: string): string[] {
+  return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
+    const fullPath = join(dir, entry.name);
+    return entry.isDirectory() ? collectSourceFiles(fullPath) : [fullPath];
+  });
+}
 
 async function generateFiles(config: CreateOptions): Promise<Map<string, string>> {
   const result = await createVirtual({
@@ -155,10 +169,11 @@ describe("ASCII-only banner", () => {
     });
   }
 
-  it("keeps every embedded template free of block-drawing characters", () => {
-    const offenders = [...EMBEDDED_TEMPLATES.entries()]
-      .filter(([, content]) => BLOCK_RANGE.test(content))
-      .map(([name]) => name);
+  it("keeps every template source free of block-drawing characters", () => {
+    const offenders = collectSourceFiles(TEMPLATES_ROOT)
+      .filter((file) => !isBinaryFile(file))
+      .filter((file) => BLOCK_RANGE.test(readFileSync(file, "utf8")))
+      .map((file) => file.slice(TEMPLATES_ROOT.length + 1));
 
     expect(offenders).toEqual([]);
   });

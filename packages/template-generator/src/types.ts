@@ -1,6 +1,7 @@
 import type { ProjectConfig } from "@better-t-stack/types";
 import { TaggedError } from "better-result";
 
+import type { TemplateData } from "./core/template-spec";
 import type { ResolvedShadcnTheme } from "./shadcn/resolve";
 import type { ShadcnRegistryClient } from "./shadcn/types";
 
@@ -32,7 +33,7 @@ export interface VirtualFileTree {
 export interface GeneratorOptions {
   config: ProjectConfig;
   templateBasePath?: string;
-  templates?: Map<string, string>;
+  templates?: TemplateData;
   /** CLI version string for bts.jsonc */
   version?: string;
   /** Injectable registry client; defaults to the HTTP client when omitted. */

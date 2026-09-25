@@ -6,10 +6,10 @@ import { fileURLToPath } from "node:url";
 
 import type { ProjectConfig } from "@better-t-stack/types";
 
-import { loadTemplates } from "../src/core/template-reader";
 import { writeTree } from "../src/fs-writer";
 import { generate } from "../src/generator";
 import { createHttpShadcnRegistryClient } from "../src/shadcn";
+import { EMBEDDED_TEMPLATES } from "../src/templates.generated";
 
 const fixturesDir = fileURLToPath(new URL("./fixtures/shadcn/", import.meta.url));
 const enabled = process.env.BTS_SHADCN_BUILD_SAMPLE === "1";
@@ -84,7 +84,7 @@ describe("generated shadcn project build sample", () => {
 
       const dir = await mkdtemp(path.join(os.tmpdir(), "bts-shadcn-build-"));
       try {
-        const templates = await loadTemplates();
+        const templates = EMBEDDED_TEMPLATES;
         const result = await generate({
           config: BUILD_SAMPLE_CONFIG,
           templates,

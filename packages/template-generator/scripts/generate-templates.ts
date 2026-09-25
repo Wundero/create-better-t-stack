@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import Handlebars from "handlebars";
 import isBinaryPath from "is-binary-path";
 import { glob } from "tinyglobby";
 
@@ -9,8 +10,31 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const TEMPLATES_DIR = path.join(__dirname, "../templates");
+const PARTIALS_DIR = path.join(__dirname, "../partials");
 const OUTPUT_FILE = path.join(__dirname, "../src/templates.generated.ts");
 const BINARY_OUTPUT_DIR = path.join(__dirname, "../templates-binary");
+
+// Handlebars emits this fallback in every compiled program. Annotating it lets the generated file
+// type-check under `strict`; the compiled function's own parameters receive `any` contextually.
+const FALLBACK_SIGNATURE = "|| function(parent, propertyName) {";
+const TYPED_FALLBACK_SIGNATURE = "|| function(parent: any, propertyName: any) {";
+
+function escapeTemplateLiteral(content: string): string {
+  return content.replace(/\\/g, "\\\\").replace(/`/g, "\\`").replace(/\$\{/g, "\\${");
+}
+
+/**
+ * Compiles a Handlebars source into an embedded spec object literal.
+ *
+ * Handlebars `compile()` emits code via `new Function`, which Cloudflare workerd forbids. Compiling
+ * here, at build time in Node, and rendering the spec through `handlebars/runtime` keeps the
+ * request path eval-free.
+ */
+function precompileEntryBody(source: string): string {
+  const spec = Handlebars.precompile(source);
+  const typed = spec.replaceAll(FALLBACK_SIGNATURE, TYPED_FALLBACK_SIGNATURE);
+  return `{ kind: "template", ${typed.slice(1)}`;
+}
 
 async function generateTemplates() {
   console.log("📦 Generating embedded templates...");
@@ -31,23 +55,41 @@ async function generateTemplates() {
 
     if (isBinaryPath(file)) {
       binaryFiles.push(normalizedPath);
-      entries.push(`  ["${normalizedPath}", \`[Binary file]\`]`);
+      entries.push(`  ["${normalizedPath}", { kind: "raw", content: \`[Binary file]\` }]`);
     } else {
       const content = fs.readFileSync(fullPath, "utf-8");
-      const escapedContent = content
-        .replace(/\\/g, "\\\\")
-        .replace(/`/g, "\\`")
-        .replace(/\$\{/g, "\\${");
-      entries.push(`  ["${normalizedPath}", \`${escapedContent}\`]`);
+      if (normalizedPath.endsWith(".hbs")) {
+        entries.push(`  ["${normalizedPath}", ${precompileEntryBody(content)}]`);
+      } else {
+        entries.push(
+          `  ["${normalizedPath}", { kind: "raw", content: \`${escapeTemplateLiteral(content)}\` }]`,
+        );
+      }
     }
   }
+
+  const partialSource = fs.readFileSync(path.join(PARTIALS_DIR, "getServerUrl.hbs"), "utf-8");
+  const partialEntries = [
+    `  ["getServerUrl", ${precompileEntryBody(partialSource)}]`,
+    `  ["getServerUrlSpaces", ${precompileEntryBody(partialSource.replaceAll("\t", "  "))}]`,
+  ];
 
   const output = `// Auto-generated - DO NOT EDIT
 // Run 'bun run generate-templates' to regenerate
 
-export const EMBEDDED_TEMPLATES: Map<string, string> = new Map([
+import type { CompiledTemplate, TemplateEntry } from "./core/template-spec";
+
+const RAW_TEMPLATE_ENTRIES: ReadonlyArray<readonly [string, TemplateEntry]> = [
 ${entries.join(",\n")}
-]);
+];
+
+const RAW_PARTIAL_ENTRIES: ReadonlyArray<readonly [string, CompiledTemplate]> = [
+${partialEntries.join(",\n")}
+];
+
+export const EMBEDDED_TEMPLATES: Map<string, TemplateEntry> = new Map(RAW_TEMPLATE_ENTRIES);
+
+export const EMBEDDED_PARTIALS: Map<string, CompiledTemplate> = new Map(RAW_PARTIAL_ENTRIES);
 
 export const TEMPLATE_COUNT = ${files.length};
 `;

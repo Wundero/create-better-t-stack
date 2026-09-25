@@ -129,7 +129,7 @@ function shouldRefreshLefthook(addonsToAdd: Addons[], updatedAddons: Addons[]): 
 
 function refreshLefthookTemplate(vfs: VirtualFileSystem, config: ProjectConfig): void {
   const template = EMBEDDED_TEMPLATES.get("addons/lefthook/lefthook.yml.hbs");
-  if (!template) return;
+  if (!template || template.kind !== "template") return;
 
   vfs.writeFile("lefthook.yml", processTemplateString(template, config));
 }
