@@ -61,8 +61,12 @@ jobs:
           git fetch origin main --no-tags
           if git merge-base --is-ancestor origin/main HEAD; then
             echo "next already contains origin/main"
+          elif git merge --no-ff --no-edit origin/main -m "merge(next): sync main"; then
+            echo "merged origin/main"
           else
-            git merge --no-ff --no-edit origin/main -m "merge(next): sync main"
+            syncfiles=$(git diff --name-only --diff-filter=U | paste -sd, -)
+            git merge --abort
+            conflicted+="- origin/main: CONFLICT in ${syncfiles:-unknown}"$'\n'
           fi
 
           # 2) aggregate every open, non-draft PR targeting main
