@@ -417,6 +417,630 @@ export default defineConfig({
   images: ["public/logo.png"],
 });
 `],
+  ["addons/turnstile/astro/apps/web/src/components/Turnstile.astro.hbs", `{{#if (includes addons "turnstile")}}
+---
+interface Props {
+  action?: string;
+}
+
+const { action } = Astro.props;
+---
+
+<div class="cf-turnstile-container" data-action={action}></div>
+
+<script>
+  type TurnstileWidgetId = string;
+
+  interface TurnstileRenderOptions {
+    sitekey: string;
+    action?: string;
+    callback: (token: string) => void;
+    "expired-callback": () => void;
+    "error-callback": () => void;
+  }
+
+  interface TurnstileApi {
+    render: (container: HTMLElement, options: TurnstileRenderOptions) => TurnstileWidgetId;
+    remove: (widgetId: TurnstileWidgetId) => void;
+    reset: (widgetId: TurnstileWidgetId) => void;
+    getResponse: (widgetId?: TurnstileWidgetId) => string | undefined;
+  }
+
+  declare global {
+    interface Window {
+      turnstile?: TurnstileApi;
+      __resetTurnstile?: () => void;
+    }
+  }
+
+  const TURNSTILE_SCRIPT_SRC =
+    "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
+
+  let turnstileScriptPromise: Promise<void> | null = null;
+
+  function loadTurnstileScript(): Promise<void> {
+    if (window.turnstile) {
+      return Promise.resolve();
+    }
+
+    if (turnstileScriptPromise) {
+      return turnstileScriptPromise;
+    }
+
+    turnstileScriptPromise = new Promise<void>((resolve, reject) => {
+      const existingScript = document.querySelector<HTMLScriptElement>(
+        \`script[src="\${TURNSTILE_SCRIPT_SRC}"]\`,
+      );
+
+      if (existingScript) {
+        existingScript.addEventListener("load", () => resolve());
+        existingScript.addEventListener("error", () => {
+          turnstileScriptPromise = null;
+          reject(new Error("Failed to load the Turnstile script"));
+        });
+        return;
+      }
+
+      const script = document.createElement("script");
+      script.src = TURNSTILE_SCRIPT_SRC;
+      script.async = true;
+      script.defer = true;
+      script.addEventListener("load", () => resolve());
+      script.addEventListener("error", () => {
+        turnstileScriptPromise = null;
+        reject(new Error("Failed to load the Turnstile script"));
+      });
+      document.head.appendChild(script);
+    });
+
+    return turnstileScriptPromise;
+  }
+
+  function renderWidget(container: HTMLElement): void {
+    if (container.dataset.turnstileRendered === "true") {
+      return;
+    }
+
+    container.dataset.turnstileRendered = "true";
+
+    void loadTurnstileScript()
+      .then(() => {
+        if (!window.turnstile) {
+          return;
+        }
+
+        const widgetId = window.turnstile.render(container, {
+          sitekey: import.meta.env.PUBLIC_TURNSTILE_SITE_KEY,
+          action: container.dataset.action,
+          callback: (token) => {
+            document.dispatchEvent(
+              new CustomEvent("turnstile-token", { detail: { token } }),
+            );
+          },
+          "expired-callback": () => {
+            document.dispatchEvent(
+              new CustomEvent("turnstile-token", { detail: { token: null } }),
+            );
+          },
+          "error-callback": () => {
+            document.dispatchEvent(
+              new CustomEvent("turnstile-token", { detail: { token: null } }),
+            );
+          },
+        });
+
+        container.dataset.turnstileWidgetId = widgetId;
+        window.__resetTurnstile = () => {
+          window.turnstile?.reset(widgetId);
+        };
+      })
+      .catch((error) => {
+        container.dataset.turnstileRendered = "false";
+        console.error(error);
+      });
+  }
+
+  function initTurnstileWidgets(): void {
+    document
+      .querySelectorAll<HTMLElement>(".cf-turnstile-container")
+      .forEach(renderWidget);
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", initTurnstileWidgets);
+  } else {
+    initTurnstileWidgets();
+  }
+
+  document.addEventListener("astro:page-load", initTurnstileWidgets);
+</script>
+{{/if}}
+`],
+  ["addons/turnstile/nuxt/apps/web/app/components/Turnstile.client.vue.hbs", `{{#if (includes addons "turnstile")}}
+<script setup lang="ts">
+const props = withDefaults(
+  defineProps<{
+    siteKey: string
+    action?: string
+    resetKey?: number
+  }>(),
+  {
+    resetKey: 0,
+  },
+)
+
+const emit = defineEmits<{
+  "update:token": [token: string | null]
+}>()
+
+type TurnstileWidgetId = string
+
+interface TurnstileRenderOptions {
+  sitekey: string
+  action?: string
+  callback: (token: string) => void
+  "expired-callback": () => void
+  "error-callback": () => void
+}
+
+interface TurnstileApi {
+  render: (container: HTMLElement, options: TurnstileRenderOptions) => TurnstileWidgetId
+  remove: (widgetId: TurnstileWidgetId) => void
+  reset: (widgetId: TurnstileWidgetId) => void
+}
+
+const TURNSTILE_SCRIPT_SRC = "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit"
+
+let turnstileScriptPromise: Promise<void> | null = null
+
+function getTurnstile(): TurnstileApi | undefined {
+  if (typeof window === "undefined") {
+    return undefined
+  }
+
+  return (window as Window & { turnstile?: TurnstileApi }).turnstile
+}
+
+function loadTurnstileScript(): Promise<void> {
+  if (typeof window === "undefined") {
+    return Promise.reject(new Error("Turnstile can only load in the browser"))
+  }
+
+  if (getTurnstile()) {
+    return Promise.resolve()
+  }
+
+  if (turnstileScriptPromise) {
+    return turnstileScriptPromise
+  }
+
+  turnstileScriptPromise = new Promise<void>((resolve, reject) => {
+    const existingScript = document.querySelector<HTMLScriptElement>(
+      \`script[src="\${TURNSTILE_SCRIPT_SRC}"]\`,
+    )
+
+    if (existingScript) {
+      existingScript.addEventListener("load", () => resolve())
+      existingScript.addEventListener("error", () => {
+        turnstileScriptPromise = null
+        reject(new Error("Failed to load the Turnstile script"))
+      })
+      return
+    }
+
+    const script = document.createElement("script")
+    script.src = TURNSTILE_SCRIPT_SRC
+    script.async = true
+    script.defer = true
+    script.addEventListener("load", () => resolve())
+    script.addEventListener("error", () => {
+      turnstileScriptPromise = null
+      reject(new Error("Failed to load the Turnstile script"))
+    })
+    document.head.appendChild(script)
+  })
+
+  return turnstileScriptPromise
+}
+
+const container = ref<HTMLDivElement | null>(null)
+let widgetId: TurnstileWidgetId | null = null
+
+onMounted(() => {
+  if (!container.value) {
+    return
+  }
+
+  void loadTurnstileScript()
+    .then(() => {
+      const turnstile = getTurnstile()
+
+      if (!turnstile || !container.value) {
+        return
+      }
+
+      widgetId = turnstile.render(container.value, {
+        sitekey: props.siteKey,
+        action: props.action,
+        callback: (token) => emit("update:token", token),
+        "expired-callback": () => emit("update:token", null),
+        "error-callback": () => emit("update:token", null),
+      })
+    })
+    .catch(() => {
+      emit("update:token", null)
+    })
+})
+
+onBeforeUnmount(() => {
+  const turnstile = getTurnstile()
+
+  if (widgetId !== null && turnstile) {
+    turnstile.remove(widgetId)
+  }
+
+  widgetId = null
+})
+
+watch(
+  () => props.resetKey,
+  () => {
+    emit("update:token", null)
+
+    const turnstile = getTurnstile()
+
+    if (widgetId !== null && turnstile) {
+      turnstile.reset(widgetId)
+    }
+  },
+)
+</script>
+
+<template>
+  <div ref="container"></div>
+</template>
+{{/if}}
+`],
+  ["addons/turnstile/react/apps/web/src/components/turnstile-widget.tsx.hbs", `"use client";
+
+import { useEffect, useRef } from "react";
+
+const TURNSTILE_SCRIPT_SRC =
+  "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
+
+type TurnstileWidgetId = string;
+
+interface TurnstileRenderOptions {
+  sitekey: string;
+  action?: string;
+  callback: (token: string) => void;
+  "expired-callback": () => void;
+  "error-callback": () => void;
+}
+
+interface TurnstileApi {
+  render: (container: HTMLElement, options: TurnstileRenderOptions) => TurnstileWidgetId;
+  remove: (widgetId: TurnstileWidgetId) => void;
+  reset: (widgetId: TurnstileWidgetId) => void;
+}
+
+declare global {
+  interface Window {
+    turnstile?: TurnstileApi;
+  }
+}
+
+interface TurnstileWidgetProps {
+  siteKey: string;
+  action?: string;
+  onToken: (token: string | null) => void;
+  resetKey?: number;
+}
+
+let turnstileScriptPromise: Promise<void> | null = null;
+
+function loadTurnstileScript(): Promise<void> {
+  if (typeof window === "undefined") {
+    return Promise.resolve();
+  }
+
+  if (window.turnstile) {
+    return Promise.resolve();
+  }
+
+  if (turnstileScriptPromise) {
+    return turnstileScriptPromise;
+  }
+
+  turnstileScriptPromise = new Promise<void>((resolve, reject) => {
+    const existingScript = document.querySelector<HTMLScriptElement>(
+      \`script[src="\${TURNSTILE_SCRIPT_SRC}"]\`,
+    );
+
+    if (existingScript) {
+      existingScript.addEventListener("load", () => resolve());
+      existingScript.addEventListener("error", () => {
+        turnstileScriptPromise = null;
+        reject(new Error("Failed to load the Turnstile script"));
+      });
+      return;
+    }
+
+    const script = document.createElement("script");
+    script.src = TURNSTILE_SCRIPT_SRC;
+    script.async = true;
+    script.defer = true;
+    script.addEventListener("load", () => resolve());
+    script.addEventListener("error", () => {
+      turnstileScriptPromise = null;
+      reject(new Error("Failed to load the Turnstile script"));
+    });
+    document.head.appendChild(script);
+  });
+
+  return turnstileScriptPromise;
+}
+
+export function TurnstileWidget({ siteKey, action, onToken, resetKey }: TurnstileWidgetProps) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const widgetIdRef = useRef<TurnstileWidgetId | null>(null);
+  const onTokenRef = useRef(onToken);
+  const previousResetKeyRef = useRef(resetKey);
+
+  useEffect(() => {
+    onTokenRef.current = onToken;
+  }, [onToken]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    loadTurnstileScript()
+      .then(() => {
+        if (cancelled || !containerRef.current || !window.turnstile) {
+          return;
+        }
+
+        widgetIdRef.current = window.turnstile.render(containerRef.current, {
+          sitekey: siteKey,
+          action,
+          callback: (token) => onTokenRef.current(token),
+          "expired-callback": () => onTokenRef.current(null),
+          "error-callback": () => onTokenRef.current(null),
+        });
+      })
+      .catch(() => {
+        onTokenRef.current(null);
+      });
+
+    return () => {
+      cancelled = true;
+      if (widgetIdRef.current !== null && window.turnstile) {
+        window.turnstile.remove(widgetIdRef.current);
+      }
+      widgetIdRef.current = null;
+    };
+  }, [siteKey, action]);
+
+  useEffect(() => {
+    if (previousResetKeyRef.current === resetKey) {
+      return;
+    }
+
+    previousResetKeyRef.current = resetKey;
+    onTokenRef.current(null);
+
+    if (widgetIdRef.current !== null && window.turnstile) {
+      window.turnstile.reset(widgetIdRef.current);
+    }
+  }, [resetKey]);
+
+  return <div ref={containerRef} />;
+}
+`],
+  ["addons/turnstile/solid/apps/web/src/components/Turnstile.tsx.hbs", `import { createEffect, on, onCleanup, onMount } from "solid-js";
+
+type TurnstileWidgetOptions = {
+  sitekey: string;
+  action?: string;
+  callback?: (token: string) => void;
+  "expired-callback"?: () => void;
+  "error-callback"?: () => void;
+};
+
+type TurnstileApi = {
+  render: (container: HTMLElement, options: TurnstileWidgetOptions) => string;
+  reset: (widgetId?: string) => void;
+  remove: (widgetId?: string) => void;
+};
+
+declare global {
+  interface Window {
+    turnstile?: TurnstileApi;
+  }
+}
+
+const SCRIPT_URL = "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
+
+// Module-level singleton so multiple widgets share one script load.
+let scriptPromise: Promise<void> | null = null;
+
+function loadScript(): Promise<void> {
+  if (typeof window === "undefined") return Promise.resolve();
+  if (window.turnstile) return Promise.resolve();
+  if (scriptPromise) return scriptPromise;
+
+  scriptPromise = new Promise<void>((resolve, reject) => {
+    const existing = document.querySelector<HTMLScriptElement>(\`script[src="\${SCRIPT_URL}"]\`);
+    if (existing) {
+      existing.addEventListener("load", () => resolve(), { once: true });
+      return;
+    }
+
+    const script = document.createElement("script");
+    script.src = SCRIPT_URL;
+    script.async = true;
+    script.defer = true;
+    script.addEventListener("load", () => resolve(), { once: true });
+    script.addEventListener("error", () => reject(new Error("Failed to load Turnstile")), {
+      once: true,
+    });
+    document.head.appendChild(script);
+  });
+
+  return scriptPromise;
+}
+
+export default function Turnstile(props: {
+  siteKey: string;
+  action?: string;
+  onToken: (token: string | null) => void;
+  resetKey?: number;
+}) {
+  let container: HTMLDivElement | undefined;
+  let widgetId: string | undefined;
+  let disposed = false;
+
+  onMount(() => {
+    loadScript()
+      .then(() => {
+        if (disposed || !container || typeof window === "undefined" || !window.turnstile) {
+          return;
+        }
+        widgetId = window.turnstile.render(container, {
+          sitekey: props.siteKey,
+          action: props.action,
+          callback: (token) => props.onToken(token),
+          "expired-callback": () => props.onToken(null),
+          "error-callback": () => props.onToken(null),
+        });
+      })
+      .catch(() => props.onToken(null));
+  });
+
+  onCleanup(() => {
+    disposed = true;
+    if (widgetId && typeof window !== "undefined" && window.turnstile) {
+      window.turnstile.remove(widgetId);
+    }
+  });
+
+  createEffect(
+    on(
+      () => props.resetKey,
+      () => {
+        if (!widgetId || typeof window === "undefined" || !window.turnstile) return;
+        props.onToken(null);
+        window.turnstile.reset(widgetId);
+      },
+      { defer: true },
+    ),
+  );
+
+  return <div ref={container} />;
+}
+`],
+  ["addons/turnstile/svelte/apps/web/src/components/Turnstile.svelte.hbs", `<script lang="ts">
+	import { onDestroy, onMount } from 'svelte';
+
+	export let siteKey: string;
+	export let action: string | undefined = undefined;
+	export let resetKey = 0;
+	export let onToken: (token: string | null) => void = () => {};
+
+	type TurnstileWidgetOptions = {
+		sitekey: string;
+		action?: string;
+		callback?: (token: string) => void;
+		'expired-callback'?: () => void;
+		'error-callback'?: () => void;
+	};
+
+	type TurnstileApi = {
+		render: (container: HTMLElement, options: TurnstileWidgetOptions) => string;
+		reset: (widgetId?: string) => void;
+		remove: (widgetId?: string) => void;
+	};
+
+	declare global {
+		interface Window {
+			turnstile?: TurnstileApi;
+		}
+	}
+
+	const SCRIPT_URL = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit';
+
+	let scriptPromise: Promise<void> | null = null;
+
+	let container: HTMLDivElement | undefined = undefined;
+	let widgetId: string | undefined = undefined;
+
+	function loadScript(): Promise<void> {
+		if (typeof window === 'undefined') return Promise.resolve();
+		if (window.turnstile) return Promise.resolve();
+		if (scriptPromise) return scriptPromise;
+
+		scriptPromise = new Promise<void>((resolve, reject) => {
+			const existing = document.querySelector<HTMLScriptElement>(\`script[src="\${SCRIPT_URL}"]\`);
+			if (existing) {
+				existing.addEventListener('load', () => resolve(), { once: true });
+				return;
+			}
+
+			const script = document.createElement('script');
+			script.src = SCRIPT_URL;
+			script.async = true;
+			script.defer = true;
+			script.addEventListener('load', () => resolve(), { once: true });
+			script.addEventListener('error', () => reject(new Error('Failed to load Turnstile')), {
+				once: true,
+			});
+			document.head.appendChild(script);
+		});
+
+		return scriptPromise;
+	}
+
+	onMount(() => {
+		let cancelled = false;
+
+		loadScript()
+			.then(() => {
+				if (cancelled || !container || typeof window === 'undefined' || !window.turnstile) {
+					return;
+				}
+				widgetId = window.turnstile.render(container, {
+					sitekey: siteKey,
+					action,
+					callback: (token) => onToken(token),
+					'expired-callback': () => onToken(null),
+					'error-callback': () => onToken(null),
+				});
+			})
+			.catch(() => onToken(null));
+
+		return () => {
+			cancelled = true;
+		};
+	});
+
+	onDestroy(() => {
+		if (widgetId && typeof window !== 'undefined' && window.turnstile) {
+			window.turnstile.remove(widgetId);
+		}
+	});
+
+	$: if (resetKey > 0 && widgetId && typeof window !== 'undefined' && window.turnstile) {
+		onToken(null);
+		window.turnstile.reset(widgetId);
+	}
+</script>
+
+<div bind:this={container}></div>
+`],
   ["api/orpc/context.ts.hbs", `import type { Context as ApiContext } from "@{{projectName}}/api/context";
 {{#if (ne database "none")}}
 import { {{#if (or (eq runtime "workers") (eq serverDeploy "cloudflare") (and (eq backend "self") (eq webDeploy "cloudflare")))}}getDb{{else}}db{{/if}} } from "@{{projectName}}/app-services";
@@ -8289,6 +8913,9 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
   "devDependencies": {}
 }`],
   ["auth/better-auth/server/base/src/index.ts.hbs", `import { betterAuth } from "better-auth";
+{{#if (includes addons "turnstile")}}
+import { captcha } from "better-auth/plugins";
+{{/if}}
 {{#if (eq orm "prisma")}}
 import { prismaAdapter } from "better-auth/adapters/prisma";
 {{else if (eq orm "drizzle")}}
@@ -8314,6 +8941,9 @@ export type AuthConfig = {
 {{#if (eq payments "polar")}}
   POLAR_ACCESS_TOKEN: string;
   POLAR_SUCCESS_URL: string;
+{{/if}}
+{{#if (includes addons "turnstile")}}
+  TURNSTILE_SECRET_KEY: string;
 {{/if}}
 };
 
@@ -8353,6 +8983,13 @@ export function createAuth(env: AuthConfig{{#if (ne database "none")}}, database
     },
 {{/if}}
     plugins: [
+{{#if (includes addons "turnstile")}}
+      captcha({
+        provider: "cloudflare-turnstile",
+        secretKey: env.TURNSTILE_SECRET_KEY,
+        endpoints: ["/sign-in/email", "/sign-up/email"],
+      }),
+{{/if}}
 {{#if (eq payments "polar")}}
       polar({
         client: createPolarClient(env),
@@ -9050,6 +9687,9 @@ model Verification {
 `],
   ["auth/better-auth/web/astro/src/components/SignInForm.astro.hbs", `---
 import { authClient } from "../lib/auth-client";
+{{#if (includes addons "turnstile")}}
+import Turnstile from "./Turnstile.astro";
+{{/if}}
 ---
 
 <div class="mx-auto mt-10 w-full max-w-md p-6">
@@ -9081,6 +9721,9 @@ import { authClient } from "../lib/auth-client";
       />
       <p id="password-error" class="text-sm text-red-500 hidden"></p>
     </div>
+    {{#if (includes addons "turnstile")}}
+    <Turnstile action="sign-in" />
+    {{/if}}
 
     <p id="form-error" class="text-sm text-red-500 hidden"></p>
 
@@ -9107,6 +9750,14 @@ import { authClient } from "../lib/auth-client";
   const passwordInput = document.getElementById("password") as HTMLInputElement;
   const formError = document.getElementById("form-error") as HTMLParagraphElement;
   const submitButton = form.querySelector('button[type="submit"]') as HTMLButtonElement;
+{{#if (includes addons "turnstile")}}
+  const getTurnstileToken = () => window.turnstile?.getResponse?.() ?? null;
+  submitButton.disabled = !getTurnstileToken();
+  document.addEventListener("turnstile-token", (event) => {
+    const token = (event as CustomEvent<{ token: string | null }>).detail?.token ?? null;
+    submitButton.disabled = !token;
+  });
+{{/if}}
 
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
@@ -9116,10 +9767,16 @@ import { authClient } from "../lib/auth-client";
     submitButton.textContent = "Signing in...";
 
     try {
+{{#if (includes addons "turnstile")}}
+      const token = getTurnstileToken();
+{{/if}}
       await authClient.signIn.email(
         {
           email: emailInput.value,
           password: passwordInput.value,
+{{#if (includes addons "turnstile")}}
+          fetchOptions: { headers: token ? { "x-captcha-response": token } : undefined },
+{{/if}}
         },
         {
           onSuccess: () => {
@@ -9128,6 +9785,9 @@ import { authClient } from "../lib/auth-client";
           onError: (ctx) => {
             formError.textContent = ctx.error.message || "Sign in failed. Please try again.";
             formError.classList.remove("hidden");
+{{#if (includes addons "turnstile")}}
+            window.__resetTurnstile?.();
+{{/if}}
           },
         }
       );
@@ -9135,7 +9795,11 @@ import { authClient } from "../lib/auth-client";
       formError.textContent = "An unexpected error occurred.";
       formError.classList.remove("hidden");
     } finally {
+{{#if (includes addons "turnstile")}}
+      submitButton.disabled = !getTurnstileToken();
+{{else}}
       submitButton.disabled = false;
+{{/if}}
       submitButton.textContent = "Sign In";
     }
   });
@@ -9143,6 +9807,9 @@ import { authClient } from "../lib/auth-client";
 `],
   ["auth/better-auth/web/astro/src/components/SignUpForm.astro.hbs", `---
 import { authClient } from "../lib/auth-client";
+{{#if (includes addons "turnstile")}}
+import Turnstile from "./Turnstile.astro";
+{{/if}}
 ---
 
 <div class="mx-auto mt-10 w-full max-w-md p-6">
@@ -9186,6 +9853,9 @@ import { authClient } from "../lib/auth-client";
       />
       <p class="text-xs text-neutral-500">Must be at least 8 characters</p>
     </div>
+    {{#if (includes addons "turnstile")}}
+    <Turnstile action="sign-up" />
+    {{/if}}
 
     <p id="form-error" class="text-sm text-red-500 hidden"></p>
 
@@ -9213,6 +9883,14 @@ import { authClient } from "../lib/auth-client";
   const passwordInput = document.getElementById("password") as HTMLInputElement;
   const formError = document.getElementById("form-error") as HTMLParagraphElement;
   const submitButton = form.querySelector('button[type="submit"]') as HTMLButtonElement;
+{{#if (includes addons "turnstile")}}
+  const getTurnstileToken = () => window.turnstile?.getResponse?.() ?? null;
+  submitButton.disabled = !getTurnstileToken();
+  document.addEventListener("turnstile-token", (event) => {
+    const token = (event as CustomEvent<{ token: string | null }>).detail?.token ?? null;
+    submitButton.disabled = !token;
+  });
+{{/if}}
 
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
@@ -9222,11 +9900,17 @@ import { authClient } from "../lib/auth-client";
     submitButton.textContent = "Creating account...";
 
     try {
+{{#if (includes addons "turnstile")}}
+      const token = getTurnstileToken();
+{{/if}}
       await authClient.signUp.email(
         {
           name: nameInput.value,
           email: emailInput.value,
           password: passwordInput.value,
+{{#if (includes addons "turnstile")}}
+          fetchOptions: { headers: token ? { "x-captcha-response": token } : undefined },
+{{/if}}
         },
         {
           onSuccess: () => {
@@ -9235,6 +9919,9 @@ import { authClient } from "../lib/auth-client";
           onError: (ctx) => {
             formError.textContent = ctx.error.message || "Sign up failed. Please try again.";
             formError.classList.remove("hidden");
+{{#if (includes addons "turnstile")}}
+            window.__resetTurnstile?.();
+{{/if}}
           },
         }
       );
@@ -9242,7 +9929,11 @@ import { authClient } from "../lib/auth-client";
       formError.textContent = "An unexpected error occurred.";
       formError.classList.remove("hidden");
     } finally {
+{{#if (includes addons "turnstile")}}
+      submitButton.disabled = !getTurnstileToken();
+{{else}}
       submitButton.disabled = false;
+{{/if}}
       submitButton.textContent = "Sign Up";
     }
   });
@@ -9443,6 +10134,11 @@ const emit = defineEmits(['switchToSignUp'])
 
 const toast = useToast()
 const loading = ref(false)
+{{#if (includes addons "turnstile")}}
+const turnstileToken = ref<string | null>(null)
+const turnstileResetKey = ref(0)
+const turnstileSiteKey = useRuntimeConfig().public.turnstileSiteKey
+{{/if}}
 
 const fields: AuthFormField[] = [
   {
@@ -9475,6 +10171,11 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
       {
         email: event.data.email,
         password: event.data.password,
+{{#if (includes addons "turnstile")}}
+        fetchOptions: turnstileToken.value
+          ? { headers: { "x-captcha-response": turnstileToken.value } }
+          : undefined,
+{{/if}}
       },
       {
         onSuccess: () => {
@@ -9483,6 +10184,10 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
         },
         onError: (error) => {
           toast.add({ title: 'Sign in failed', description: error.error.message })
+{{#if (includes addons "turnstile")}}
+          turnstileToken.value = null
+          turnstileResetKey.value += 1
+{{/if}}
         },
       },
     )
@@ -9502,7 +10207,7 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
         :fields="fields"
         title="Welcome Back"
         icon="i-lucide-log-in"
-        :submit="{ label: 'Sign In', loading }"
+        :submit="{ label: 'Sign In', loading{{#if (includes addons "turnstile")}}, disabled: !turnstileToken{{/if}} }"
         @submit="onSubmit"
       >
         <template #description>
@@ -9511,6 +10216,16 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
             Sign Up
           </ULink>
         </template>
+{{#if (includes addons "turnstile")}}
+        <template #footer>
+          <Turnstile
+            :site-key="turnstileSiteKey"
+            action="sign-in"
+            @update:token="(t) => (turnstileToken = t)"
+            :reset-key="turnstileResetKey"
+          />
+        </template>
+{{/if}}
       </UAuthForm>
     </UPageCard>
   </div>
@@ -9526,6 +10241,11 @@ const emit = defineEmits(['switchToSignIn'])
 
 const toast = useToast()
 const loading = ref(false)
+{{#if (includes addons "turnstile")}}
+const turnstileToken = ref<string | null>(null)
+const turnstileResetKey = ref(0)
+const turnstileSiteKey = useRuntimeConfig().public.turnstileSiteKey
+{{/if}}
 
 const fields: AuthFormField[] = [
   {
@@ -9567,6 +10287,11 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
         name: event.data.name,
         email: event.data.email,
         password: event.data.password,
+{{#if (includes addons "turnstile")}}
+        fetchOptions: turnstileToken.value
+          ? { headers: { "x-captcha-response": turnstileToken.value } }
+          : undefined,
+{{/if}}
       },
       {
         onSuccess: () => {
@@ -9575,6 +10300,10 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
         },
         onError: (error) => {
           toast.add({ title: 'Sign up failed', description: error.error.message })
+{{#if (includes addons "turnstile")}}
+          turnstileToken.value = null
+          turnstileResetKey.value += 1
+{{/if}}
         },
       },
     )
@@ -9594,7 +10323,7 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
         :fields="fields"
         title="Create Account"
         icon="i-lucide-user-plus"
-        :submit="{ label: 'Sign Up', loading }"
+        :submit="{ label: 'Sign Up', loading{{#if (includes addons "turnstile")}}, disabled: !turnstileToken{{/if}} }"
         @submit="onSubmit"
       >
         <template #description>
@@ -9603,6 +10332,16 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
             Sign In
           </ULink>
         </template>
+{{#if (includes addons "turnstile")}}
+        <template #footer>
+          <Turnstile
+            :site-key="turnstileSiteKey"
+            action="sign-up"
+            @update:token="(t) => (turnstileToken = t)"
+            :reset-key="turnstileResetKey"
+          />
+        </template>
+{{/if}}
       </UAuthForm>
     </UPageCard>
   </div>
@@ -10037,6 +10776,10 @@ import { Button } from "@{{projectName}}/ui/components/button";
 import { Input } from "@{{projectName}}/ui/components/input";
 import { Label } from "@{{projectName}}/ui/components/label";
 import { useRouter } from "next/navigation";
+{{#if (includes addons "turnstile")}}
+import { useState } from "react";
+import { TurnstileWidget } from "./turnstile-widget";
+{{/if}}
 
 export default function SignInForm({
   onSwitchToSignUp,
@@ -10045,6 +10788,10 @@ export default function SignInForm({
 }) {
   const router = useRouter()
   const { isPending } = authClient.useSession();
+{{#if (includes addons "turnstile")}}
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const [turnstileResetKey, setTurnstileResetKey] = useState(0);
+{{/if}}
 
   const form = useForm({
     defaultValues: {
@@ -10056,6 +10803,9 @@ export default function SignInForm({
         {
           email: value.email,
           password: value.password,
+{{#if (includes addons "turnstile")}}
+          fetchOptions: turnstileToken ? { headers: { "x-captcha-response": turnstileToken } } : undefined,
+{{/if}}
         },
         {
           onSuccess: () => {
@@ -10064,6 +10814,10 @@ export default function SignInForm({
           },
           onError: (error) => {
             toast.error(error.error.message || error.error.statusText);
+{{#if (includes addons "turnstile")}}
+            setTurnstileToken(null);
+            setTurnstileResetKey((key) => key + 1);
+{{/if}}
           },
         },
       );
@@ -10138,12 +10892,24 @@ export default function SignInForm({
           </form.Field>
         </div>
 
+{{#if (includes addons "turnstile")}}
+        <TurnstileWidget
+          siteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY!}
+          action="sign-in"
+          onToken={setTurnstileToken}
+          resetKey={turnstileResetKey}
+        />
+{{/if}}
         <form.Subscribe selector={(state) => ({ canSubmit: state.canSubmit, isSubmitting: state.isSubmitting })}>
           {({ canSubmit, isSubmitting }) => (
             <Button
               type="submit"
               className="w-full"
+{{#if (includes addons "turnstile")}}
+              disabled={!canSubmit || isSubmitting || !turnstileToken}
+{{else}}
               disabled={!canSubmit || isSubmitting}
+{{/if}}
             >
               {isSubmitting ? "Submitting..." : "Sign In"}
             </Button>
@@ -10173,6 +10939,10 @@ import { Button } from "@{{projectName}}/ui/components/button";
 import { Input } from "@{{projectName}}/ui/components/input";
 import { Label } from "@{{projectName}}/ui/components/label";
 import { useRouter } from "next/navigation";
+{{#if (includes addons "turnstile")}}
+import { useState } from "react";
+import { TurnstileWidget } from "./turnstile-widget";
+{{/if}}
 
 export default function SignUpForm({
   onSwitchToSignIn,
@@ -10181,6 +10951,10 @@ export default function SignUpForm({
 }) {
   const router = useRouter();
   const { isPending } = authClient.useSession();
+{{#if (includes addons "turnstile")}}
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const [turnstileResetKey, setTurnstileResetKey] = useState(0);
+{{/if}}
 
   const form = useForm({
     defaultValues: {
@@ -10194,6 +10968,9 @@ export default function SignUpForm({
           email: value.email,
           password: value.password,
           name: value.name,
+{{#if (includes addons "turnstile")}}
+          fetchOptions: turnstileToken ? { headers: { "x-captcha-response": turnstileToken } } : undefined,
+{{/if}}
         },
         {
           onSuccess: () => {
@@ -10202,6 +10979,10 @@ export default function SignUpForm({
           },
           onError: (error) => {
             toast.error(error.error.message || error.error.statusText);
+{{#if (includes addons "turnstile")}}
+            setTurnstileToken(null);
+            setTurnstileResetKey((key) => key + 1);
+{{/if}}
           },
         },
       );
@@ -10299,12 +11080,24 @@ export default function SignUpForm({
           </form.Field>
         </div>
 
+{{#if (includes addons "turnstile")}}
+        <TurnstileWidget
+          siteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY!}
+          action="sign-up"
+          onToken={setTurnstileToken}
+          resetKey={turnstileResetKey}
+        />
+{{/if}}
         <form.Subscribe selector={(state) => ({ canSubmit: state.canSubmit, isSubmitting: state.isSubmitting })}>
           {({ canSubmit, isSubmitting }) => (
             <Button
               type="submit"
               className="w-full"
+{{#if (includes addons "turnstile")}}
+              disabled={!canSubmit || isSubmitting || !turnstileToken}
+{{else}}
               disabled={!canSubmit || isSubmitting}
+{{/if}}
             >
               {isSubmitting ? "Submitting..." : "Sign Up"}
             </Button>
@@ -10397,6 +11190,10 @@ import Loader from "./loader";
 import { Button } from "@{{projectName}}/ui/components/button";
 import { Input } from "@{{projectName}}/ui/components/input";
 import { Label } from "@{{projectName}}/ui/components/label";
+{{#if (includes addons "turnstile")}}
+import { useState } from "react";
+import { TurnstileWidget } from "./turnstile-widget";
+{{/if}}
 
 export default function SignInForm({
   onSwitchToSignUp,
@@ -10405,6 +11202,10 @@ export default function SignInForm({
 }) {
   const navigate = useNavigate();
   const { isPending } = authClient.useSession();
+{{#if (includes addons "turnstile")}}
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const [turnstileResetKey, setTurnstileResetKey] = useState(0);
+{{/if}}
 
   const form = useForm({
     defaultValues: {
@@ -10416,6 +11217,9 @@ export default function SignInForm({
         {
           email: value.email,
           password: value.password,
+{{#if (includes addons "turnstile")}}
+          fetchOptions: turnstileToken ? { headers: { "x-captcha-response": turnstileToken } } : undefined,
+{{/if}}
         },
         {
           onSuccess: () => {
@@ -10424,6 +11228,10 @@ export default function SignInForm({
           },
           onError: (error) => {
             toast.error(error.error.message || error.error.statusText);
+{{#if (includes addons "turnstile")}}
+            setTurnstileToken(null);
+            setTurnstileResetKey((key) => key + 1);
+{{/if}}
           },
         }
       );
@@ -10498,12 +11306,24 @@ export default function SignInForm({
           </form.Field>
         </div>
 
+{{#if (includes addons "turnstile")}}
+        <TurnstileWidget
+          siteKey={import.meta.env.VITE_TURNSTILE_SITE_KEY}
+          action="sign-in"
+          onToken={setTurnstileToken}
+          resetKey={turnstileResetKey}
+        />
+{{/if}}
         <form.Subscribe selector={(state) => ({ canSubmit: state.canSubmit, isSubmitting: state.isSubmitting })}>
           {({ canSubmit, isSubmitting }) => (
             <Button
               type="submit"
               className="w-full"
+{{#if (includes addons "turnstile")}}
+              disabled={!canSubmit || isSubmitting || !turnstileToken}
+{{else}}
               disabled={!canSubmit || isSubmitting}
+{{/if}}
             >
               {isSubmitting ? "Submitting..." : "Sign In"}
             </Button>
@@ -10533,6 +11353,10 @@ import Loader from "./loader";
 import { Button } from "@{{projectName}}/ui/components/button";
 import { Input } from "@{{projectName}}/ui/components/input";
 import { Label } from "@{{projectName}}/ui/components/label";
+{{#if (includes addons "turnstile")}}
+import { useState } from "react";
+import { TurnstileWidget } from "./turnstile-widget";
+{{/if}}
 
 export default function SignUpForm({
   onSwitchToSignIn,
@@ -10541,6 +11365,10 @@ export default function SignUpForm({
 }) {
   const navigate = useNavigate();
   const { isPending } = authClient.useSession();
+{{#if (includes addons "turnstile")}}
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const [turnstileResetKey, setTurnstileResetKey] = useState(0);
+{{/if}}
 
   const form = useForm({
     defaultValues: {
@@ -10554,6 +11382,9 @@ export default function SignUpForm({
           email: value.email,
           password: value.password,
           name: value.name,
+{{#if (includes addons "turnstile")}}
+          fetchOptions: turnstileToken ? { headers: { "x-captcha-response": turnstileToken } } : undefined,
+{{/if}}
         },
         {
           onSuccess: () => {
@@ -10562,6 +11393,10 @@ export default function SignUpForm({
           },
           onError: (error) => {
             toast.error(error.error.message || error.error.statusText);
+{{#if (includes addons "turnstile")}}
+            setTurnstileToken(null);
+            setTurnstileResetKey((key) => key + 1);
+{{/if}}
           },
         }
       );
@@ -10659,12 +11494,24 @@ export default function SignUpForm({
           </form.Field>
         </div>
 
+{{#if (includes addons "turnstile")}}
+        <TurnstileWidget
+          siteKey={import.meta.env.VITE_TURNSTILE_SITE_KEY}
+          action="sign-up"
+          onToken={setTurnstileToken}
+          resetKey={turnstileResetKey}
+        />
+{{/if}}
         <form.Subscribe selector={(state) => ({ canSubmit: state.canSubmit, isSubmitting: state.isSubmitting })}>
           {({ canSubmit, isSubmitting }) => (
             <Button
               type="submit"
               className="w-full"
+{{#if (includes addons "turnstile")}}
+              disabled={!canSubmit || isSubmitting || !turnstileToken}
+{{else}}
               disabled={!canSubmit || isSubmitting}
+{{/if}}
             >
               {isSubmitting ? "Submitting..." : "Sign Up"}
             </Button>
@@ -10853,12 +11700,20 @@ import Loader from "./loader";
 import { Button } from "@{{projectName}}/ui/components/button";
 import { Input } from "@{{projectName}}/ui/components/input";
 import { Label } from "@{{projectName}}/ui/components/label";
+{{#if (includes addons "turnstile")}}
+import { useState } from "react";
+import { TurnstileWidget } from "./turnstile-widget";
+{{/if}}
 
 export default function SignInForm({ onSwitchToSignUp }: { onSwitchToSignUp: () => void }) {
   const navigate = useNavigate({
     from: "/",
   });
   const { isPending } = authClient.useSession();
+{{#if (includes addons "turnstile")}}
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const [turnstileResetKey, setTurnstileResetKey] = useState(0);
+{{/if}}
 
   const form = useForm({
     defaultValues: {
@@ -10870,6 +11725,9 @@ export default function SignInForm({ onSwitchToSignUp }: { onSwitchToSignUp: () 
         {
           email: value.email,
           password: value.password,
+{{#if (includes addons "turnstile")}}
+          fetchOptions: turnstileToken ? { headers: { "x-captcha-response": turnstileToken } } : undefined,
+{{/if}}
         },
         {
           onSuccess: () => {
@@ -10880,6 +11738,10 @@ export default function SignInForm({ onSwitchToSignUp }: { onSwitchToSignUp: () 
           },
           onError: (error) => {
             toast.error(error.error.message || error.error.statusText);
+{{#if (includes addons "turnstile")}}
+            setTurnstileToken(null);
+            setTurnstileResetKey((key) => key + 1);
+{{/if}}
           },
         },
       );
@@ -10954,12 +11816,24 @@ export default function SignInForm({ onSwitchToSignUp }: { onSwitchToSignUp: () 
           </form.Field>
         </div>
 
+{{#if (includes addons "turnstile")}}
+        <TurnstileWidget
+          siteKey={import.meta.env.VITE_TURNSTILE_SITE_KEY}
+          action="sign-in"
+          onToken={setTurnstileToken}
+          resetKey={turnstileResetKey}
+        />
+{{/if}}
         <form.Subscribe selector={(state) => ({ canSubmit: state.canSubmit, isSubmitting: state.isSubmitting })}>
           {({ canSubmit, isSubmitting }) => (
             <Button
               type="submit"
               className="w-full"
+{{#if (includes addons "turnstile")}}
+              disabled={!canSubmit || isSubmitting || !turnstileToken}
+{{else}}
               disabled={!canSubmit || isSubmitting}
+{{/if}}
             >
               {isSubmitting ? "Submitting..." : "Sign In"}
             </Button>
@@ -10989,12 +11863,20 @@ import Loader from "./loader";
 import { Button } from "@{{projectName}}/ui/components/button";
 import { Input } from "@{{projectName}}/ui/components/input";
 import { Label } from "@{{projectName}}/ui/components/label";
+{{#if (includes addons "turnstile")}}
+import { useState } from "react";
+import { TurnstileWidget } from "./turnstile-widget";
+{{/if}}
 
 export default function SignUpForm({ onSwitchToSignIn }: { onSwitchToSignIn: () => void }) {
   const navigate = useNavigate({
     from: "/",
   });
   const { isPending } = authClient.useSession();
+{{#if (includes addons "turnstile")}}
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const [turnstileResetKey, setTurnstileResetKey] = useState(0);
+{{/if}}
 
   const form = useForm({
     defaultValues: {
@@ -11008,6 +11890,9 @@ export default function SignUpForm({ onSwitchToSignIn }: { onSwitchToSignIn: () 
           email: value.email,
           password: value.password,
           name: value.name,
+{{#if (includes addons "turnstile")}}
+          fetchOptions: turnstileToken ? { headers: { "x-captcha-response": turnstileToken } } : undefined,
+{{/if}}
         },
         {
           onSuccess: () => {
@@ -11018,6 +11903,10 @@ export default function SignUpForm({ onSwitchToSignIn }: { onSwitchToSignIn: () 
           },
           onError: (error) => {
             toast.error(error.error.message || error.error.statusText);
+{{#if (includes addons "turnstile")}}
+            setTurnstileToken(null);
+            setTurnstileResetKey((key) => key + 1);
+{{/if}}
           },
         },
       );
@@ -11115,12 +12004,24 @@ export default function SignUpForm({ onSwitchToSignIn }: { onSwitchToSignIn: () 
           </form.Field>
         </div>
 
+{{#if (includes addons "turnstile")}}
+        <TurnstileWidget
+          siteKey={import.meta.env.VITE_TURNSTILE_SITE_KEY}
+          action="sign-up"
+          onToken={setTurnstileToken}
+          resetKey={turnstileResetKey}
+        />
+{{/if}}
         <form.Subscribe selector={(state) => ({ canSubmit: state.canSubmit, isSubmitting: state.isSubmitting })}>
           {({ canSubmit, isSubmitting }) => (
             <Button
               type="submit"
               className="w-full"
+{{#if (includes addons "turnstile")}}
+              disabled={!canSubmit || isSubmitting || !turnstileToken}
+{{else}}
               disabled={!canSubmit || isSubmitting}
+{{/if}}
             >
               {isSubmitting ? "Submitting..." : "Sign Up"}
             </Button>
@@ -11314,12 +12215,20 @@ import Loader from "./loader";
 import { Button } from "@{{projectName}}/ui/components/button";
 import { Input } from "@{{projectName}}/ui/components/input";
 import { Label } from "@{{projectName}}/ui/components/label";
+{{#if (includes addons "turnstile")}}
+import { useState } from "react";
+import { TurnstileWidget } from "./turnstile-widget";
+{{/if}}
 
 export default function SignInForm({ onSwitchToSignUp }: { onSwitchToSignUp: () => void }) {
   const navigate = useNavigate({
     from: "/",
   });
   const { isPending } = authClient.useSession();
+{{#if (includes addons "turnstile")}}
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const [turnstileResetKey, setTurnstileResetKey] = useState(0);
+{{/if}}
 
   const form = useForm({
     defaultValues: {
@@ -11331,6 +12240,9 @@ export default function SignInForm({ onSwitchToSignUp }: { onSwitchToSignUp: () 
         {
           email: value.email,
           password: value.password,
+{{#if (includes addons "turnstile")}}
+          fetchOptions: turnstileToken ? { headers: { "x-captcha-response": turnstileToken } } : undefined,
+{{/if}}
         },
         {
           onSuccess: () => {
@@ -11341,6 +12253,10 @@ export default function SignInForm({ onSwitchToSignUp }: { onSwitchToSignUp: () 
           },
           onError: (error) => {
             toast.error(error.error.message || error.error.statusText);
+{{#if (includes addons "turnstile")}}
+            setTurnstileToken(null);
+            setTurnstileResetKey((key) => key + 1);
+{{/if}}
           },
         },
       );
@@ -11415,12 +12331,24 @@ export default function SignInForm({ onSwitchToSignUp }: { onSwitchToSignUp: () 
           </form.Field>
         </div>
 
+{{#if (includes addons "turnstile")}}
+        <TurnstileWidget
+          siteKey={import.meta.env.VITE_TURNSTILE_SITE_KEY}
+          action="sign-in"
+          onToken={setTurnstileToken}
+          resetKey={turnstileResetKey}
+        />
+{{/if}}
         <form.Subscribe selector={(state) => ({ canSubmit: state.canSubmit, isSubmitting: state.isSubmitting })}>
           {({ canSubmit, isSubmitting }) => (
             <Button
               type="submit"
               className="w-full"
+{{#if (includes addons "turnstile")}}
+              disabled={!canSubmit || isSubmitting || !turnstileToken}
+{{else}}
               disabled={!canSubmit || isSubmitting}
+{{/if}}
             >
               {isSubmitting ? "Submitting..." : "Sign In"}
             </Button>
@@ -11450,12 +12378,20 @@ import Loader from "./loader";
 import { Button } from "@{{projectName}}/ui/components/button";
 import { Input } from "@{{projectName}}/ui/components/input";
 import { Label } from "@{{projectName}}/ui/components/label";
+{{#if (includes addons "turnstile")}}
+import { useState } from "react";
+import { TurnstileWidget } from "./turnstile-widget";
+{{/if}}
 
 export default function SignUpForm({ onSwitchToSignIn }: { onSwitchToSignIn: () => void }) {
   const navigate = useNavigate({
     from: "/",
   });
   const { isPending } = authClient.useSession();
+{{#if (includes addons "turnstile")}}
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const [turnstileResetKey, setTurnstileResetKey] = useState(0);
+{{/if}}
 
   const form = useForm({
     defaultValues: {
@@ -11469,6 +12405,9 @@ export default function SignUpForm({ onSwitchToSignIn }: { onSwitchToSignIn: () 
           email: value.email,
           password: value.password,
           name: value.name,
+{{#if (includes addons "turnstile")}}
+          fetchOptions: turnstileToken ? { headers: { "x-captcha-response": turnstileToken } } : undefined,
+{{/if}}
         },
         {
           onSuccess: () => {
@@ -11479,6 +12418,10 @@ export default function SignUpForm({ onSwitchToSignIn }: { onSwitchToSignIn: () 
           },
           onError: (error) => {
             toast.error(error.error.message || error.error.statusText);
+{{#if (includes addons "turnstile")}}
+            setTurnstileToken(null);
+            setTurnstileResetKey((key) => key + 1);
+{{/if}}
           },
         },
       );
@@ -11576,12 +12519,24 @@ export default function SignUpForm({ onSwitchToSignIn }: { onSwitchToSignIn: () 
           </form.Field>
         </div>
 
+{{#if (includes addons "turnstile")}}
+        <TurnstileWidget
+          siteKey={import.meta.env.VITE_TURNSTILE_SITE_KEY}
+          action="sign-up"
+          onToken={setTurnstileToken}
+          resetKey={turnstileResetKey}
+        />
+{{/if}}
         <form.Subscribe selector={(state) => ({ canSubmit: state.canSubmit, isSubmitting: state.isSubmitting })}>
           {({ canSubmit, isSubmitting }) => (
             <Button
               type="submit"
               className="w-full"
+{{#if (includes addons "turnstile")}}
+              disabled={!canSubmit || isSubmitting || !turnstileToken}
+{{else}}
               disabled={!canSubmit || isSubmitting}
+{{/if}}
             >
               {isSubmitting ? "Submitting..." : "Sign Up"}
             </Button>
@@ -11857,7 +12812,8 @@ function RouteComponent() {
 }
 `],
   ["auth/better-auth/web/solid/src/components/sign-in-form.tsx.hbs", `import { useNavigate } from "@solidjs/router";
-import { createSignal, Show } from "solid-js";
+import { createSignal, Show } from "solid-js";{{#if (includes addons "turnstile")}}
+import Turnstile from "./Turnstile";{{/if}}
 import { authClient } from "~/lib/auth-client";
 import z from "zod";
 
@@ -11869,7 +12825,10 @@ const signInSchema = z.object({
 export default function SignInForm({ onSwitchToSignUp }: { onSwitchToSignUp: () => void }) {
   const navigate = useNavigate();
   const [error, setError] = createSignal<string>();
-  const [isSubmitting, setIsSubmitting] = createSignal(false);
+  const [isSubmitting, setIsSubmitting] = createSignal(false);{{#if (includes addons "turnstile")}}
+
+  const [turnstileToken, setTurnstileToken] = createSignal<string | null>(null);
+  const [turnstileResetKey, setTurnstileResetKey] = createSignal(0);{{/if}}
 
   const submit = async (event: SubmitEvent & { currentTarget: HTMLFormElement }) => {
     event.preventDefault();
@@ -11880,9 +12839,16 @@ export default function SignInForm({ onSwitchToSignUp }: { onSwitchToSignUp: () 
     }
 
     setIsSubmitting(true);
-    setError();
+    setError();{{#if (includes addons "turnstile")}}
+    const captchaToken = turnstileToken();{{/if}}
     try {
-      await authClient.signIn.email(result.data, {
+      await authClient.signIn.email({{#if (includes addons "turnstile")}}
+        {
+          ...result.data,
+          fetchOptions: captchaToken
+            ? { headers: { "x-captcha-response": captchaToken } }
+            : undefined,
+        }, {{else}}result.data, {{/if}}{
         onSuccess: async () => {
           await authClient.useSession.get().refetch();
           const session = authClient.useSession.get();
@@ -11893,7 +12859,9 @@ export default function SignInForm({ onSwitchToSignUp }: { onSwitchToSignUp: () 
           navigate("/dashboard");
         },
         onError: ({ error }) => {
-          setError(error.message);
+          setError(error.message);{{#if (includes addons "turnstile")}}
+          setTurnstileToken(null);
+          setTurnstileResetKey((key) => key + 1);{{/if}}
         },
       });
     } finally {
@@ -11920,11 +12888,17 @@ export default function SignInForm({ onSwitchToSignUp }: { onSwitchToSignUp: () 
             class="w-full rounded border p-2"
           />
         </div>
-        <Show when={error()}>{(message) => <p class="text-sm text-red-600">{message()}</p>}</Show>
+        <Show when={error()}>{(message) => <p class="text-sm text-red-600">{message()}</p>}</Show>{{#if (includes addons "turnstile")}}
+        <Turnstile
+          siteKey={import.meta.env.VITE_TURNSTILE_SITE_KEY}
+          action="sign-in"
+          onToken={setTurnstileToken}
+          resetKey={turnstileResetKey()}
+        />{{/if}}
         <button
           type="submit"
           class="w-full rounded bg-indigo-600 p-2 text-white hover:bg-indigo-700 disabled:opacity-50"
-          disabled={isSubmitting()}
+          disabled={{#if (includes addons "turnstile")}}{isSubmitting() || !turnstileToken()}{{else}}{isSubmitting()}{{/if}}
         >
           {isSubmitting() ? "Submitting..." : "Sign In"}
         </button>
@@ -11943,7 +12917,8 @@ export default function SignInForm({ onSwitchToSignUp }: { onSwitchToSignUp: () 
 }
 `],
   ["auth/better-auth/web/solid/src/components/sign-up-form.tsx.hbs", `import { useNavigate } from "@solidjs/router";
-import { createSignal, Show } from "solid-js";
+import { createSignal, Show } from "solid-js";{{#if (includes addons "turnstile")}}
+import Turnstile from "./Turnstile";{{/if}}
 import { authClient } from "~/lib/auth-client";
 import z from "zod";
 
@@ -11956,7 +12931,10 @@ const signUpSchema = z.object({
 export default function SignUpForm({ onSwitchToSignIn }: { onSwitchToSignIn: () => void }) {
   const navigate = useNavigate();
   const [error, setError] = createSignal<string>();
-  const [isSubmitting, setIsSubmitting] = createSignal(false);
+  const [isSubmitting, setIsSubmitting] = createSignal(false);{{#if (includes addons "turnstile")}}
+
+  const [turnstileToken, setTurnstileToken] = createSignal<string | null>(null);
+  const [turnstileResetKey, setTurnstileResetKey] = createSignal(0);{{/if}}
 
   const submit = async (event: SubmitEvent & { currentTarget: HTMLFormElement }) => {
     event.preventDefault();
@@ -11967,9 +12945,16 @@ export default function SignUpForm({ onSwitchToSignIn }: { onSwitchToSignIn: () 
     }
 
     setIsSubmitting(true);
-    setError();
+    setError();{{#if (includes addons "turnstile")}}
+    const captchaToken = turnstileToken();{{/if}}
     try {
-      await authClient.signUp.email(result.data, {
+      await authClient.signUp.email({{#if (includes addons "turnstile")}}
+        {
+          ...result.data,
+          fetchOptions: captchaToken
+            ? { headers: { "x-captcha-response": captchaToken } }
+            : undefined,
+        }, {{else}}result.data, {{/if}}{
         onSuccess: async () => {
           await authClient.useSession.get().refetch();
           const session = authClient.useSession.get();
@@ -11980,7 +12965,9 @@ export default function SignUpForm({ onSwitchToSignIn }: { onSwitchToSignIn: () 
           navigate("/dashboard");
         },
         onError: ({ error }) => {
-          setError(error.message);
+          setError(error.message);{{#if (includes addons "turnstile")}}
+          setTurnstileToken(null);
+          setTurnstileResetKey((key) => key + 1);{{/if}}
         },
       });
     } finally {
@@ -12011,11 +12998,17 @@ export default function SignUpForm({ onSwitchToSignIn }: { onSwitchToSignIn: () 
             class="w-full rounded border p-2"
           />
         </div>
-        <Show when={error()}>{(message) => <p class="text-sm text-red-600">{message()}</p>}</Show>
+        <Show when={error()}>{(message) => <p class="text-sm text-red-600">{message()}</p>}</Show>{{#if (includes addons "turnstile")}}
+        <Turnstile
+          siteKey={import.meta.env.VITE_TURNSTILE_SITE_KEY}
+          action="sign-up"
+          onToken={setTurnstileToken}
+          resetKey={turnstileResetKey()}
+        />{{/if}}
         <button
           type="submit"
           class="w-full rounded bg-indigo-600 p-2 text-white hover:bg-indigo-700 disabled:opacity-50"
-          disabled={isSubmitting()}
+          disabled={{#if (includes addons "turnstile")}}{isSubmitting() || !turnstileToken()}{{else}}{isSubmitting()}{{/if}}
         >
           {isSubmitting() ? "Submitting..." : "Sign Up"}
         </button>
@@ -12195,9 +13188,14 @@ export default function Login() {
 	import { createForm } from '@tanstack/svelte-form';
 	import { z } from 'zod';
 	import { authClient } from '$lib/auth-client';
-	import { goto } from '$app/navigation';
+	import { goto } from '$app/navigation';{{#if (includes addons "turnstile")}}
+	import { PUBLIC_TURNSTILE_SITE_KEY } from '$env/static/public';
+	import Turnstile from './Turnstile.svelte';{{/if}}
 
-	let { switchToSignUp } = $props<{ switchToSignUp: () => void }>();
+	let { switchToSignUp } = $props<{ switchToSignUp: () => void }>();{{#if (includes addons "turnstile")}}
+
+	let turnstileToken = $state<string | null>(null);
+	let turnstileResetKey = $state(0);{{/if}}
 
 	const validationSchema = z.object({
 		email: z.email('Invalid email address'),
@@ -12207,12 +13205,21 @@ export default function Login() {
 	const form = createForm(() => ({
 		defaultValues: { email: '', password: '' },
 		onSubmit: async ({ value }) => {
-				await authClient.signIn.email(
-					{ email: value.email, password: value.password },
+				await authClient.signIn.email({{#if (includes addons "turnstile")}}
+					{
+						email: value.email,
+						password: value.password,
+						fetchOptions: turnstileToken
+							? { headers: { 'x-captcha-response': turnstileToken } }
+							: undefined,
+					},{{else}}
+					{ email: value.email, password: value.password },{{/if}}
 					{
 						onSuccess: () => goto('/dashboard'),
 						onError: (error) => {
-							console.log(error.error.message || 'Sign in failed. Please try again.');
+							console.log(error.error.message || 'Sign in failed. Please try again.');{{#if (includes addons "turnstile")}}
+							turnstileToken = null;
+							turnstileResetKey += 1;{{/if}}
 						},
 					}
 				);
@@ -12285,11 +13292,18 @@ export default function Login() {
 					{/if}
 				</div>
 			{/snippet}
-		</form.Field>
+		</form.Field>{{#if (includes addons "turnstile")}}
+
+		<Turnstile
+			siteKey={PUBLIC_TURNSTILE_SITE_KEY}
+			action="sign-in"
+			onToken={(t) => (turnstileToken = t)}
+			resetKey={turnstileResetKey}
+		/>{{/if}}
 
 		<form.Subscribe selector={(state: typeof form.state): SubmitState => ({ canSubmit: state.canSubmit, isSubmitting: state.isSubmitting })}>
 			{#snippet children(state: SubmitState)}
-				<button type="submit" class="w-full" disabled={!state.canSubmit || state.isSubmitting}>
+				<button type="submit" class="w-full" disabled={{#if (includes addons "turnstile")}}{!state.canSubmit || state.isSubmitting || !turnstileToken}{{else}}{!state.canSubmit || state.isSubmitting}{{/if}}>
 					{state.isSubmitting ? 'Submitting...' : 'Sign In'}
 				</button>
 			{/snippet}
@@ -12307,9 +13321,14 @@ export default function Login() {
 	import { createForm } from '@tanstack/svelte-form';
 	import { z } from 'zod';
 	import { authClient } from '$lib/auth-client';
-	import { goto } from '$app/navigation';
+	import { goto } from '$app/navigation';{{#if (includes addons "turnstile")}}
+	import { PUBLIC_TURNSTILE_SITE_KEY } from '$env/static/public';
+	import Turnstile from './Turnstile.svelte';{{/if}}
 
-	let { switchToSignIn } = $props<{ switchToSignIn: () => void }>();
+	let { switchToSignIn } = $props<{ switchToSignIn: () => void }>();{{#if (includes addons "turnstile")}}
+
+	let turnstileToken = $state<string | null>(null);
+	let turnstileResetKey = $state(0);{{/if}}
 
 	const validationSchema = z.object({
 		name: z.string().min(2, 'Name must be at least 2 characters'),
@@ -12325,14 +13344,19 @@ export default function Login() {
 					{
 						email: value.email,
 						password: value.password,
-						name: value.name,
+						name: value.name,{{#if (includes addons "turnstile")}}
+						fetchOptions: turnstileToken
+							? { headers: { 'x-captcha-response': turnstileToken } }
+							: undefined,{{/if}}
 					},
 					{
 						onSuccess: () => {
 							goto('/dashboard');
 						},
 						onError: (error) => {
-							console.log(error.error.message || 'Sign up failed. Please try again.');
+							console.log(error.error.message || 'Sign up failed. Please try again.');{{#if (includes addons "turnstile")}}
+							turnstileToken = null;
+							turnstileResetKey += 1;{{/if}}
 						},
 					}
 				);
@@ -12430,11 +13454,18 @@ export default function Login() {
 					{/if}
 				</div>
 			{/snippet}
-		</form.Field>
+		</form.Field>{{#if (includes addons "turnstile")}}
+
+		<Turnstile
+			siteKey={PUBLIC_TURNSTILE_SITE_KEY}
+			action="sign-up"
+			onToken={(t) => (turnstileToken = t)}
+			resetKey={turnstileResetKey}
+		/>{{/if}}
 
 		<form.Subscribe selector={(state: typeof form.state): SubmitState => ({ canSubmit: state.canSubmit, isSubmitting: state.isSubmitting })}>
 			{#snippet children(state: SubmitState)}
-				<button type="submit" class="w-full" disabled={!state.canSubmit || state.isSubmitting}>
+				<button type="submit" class="w-full" disabled={{#if (includes addons "turnstile")}}{!state.canSubmit || state.isSubmitting || !turnstileToken}{{else}}{!state.canSubmit || state.isSubmitting}{{/if}}>
 					{state.isSubmitting ? 'Submitting...' : 'Sign Up'}
 				</button>
 			{/snippet}
@@ -14571,7 +15602,7 @@ const apiHandler = new OpenAPIHandler(appRouter, {
 			origin: {{#if (and (ne backend "self") (or (includes addons "electrobun") (includes addons "tauri")))}}[ENV.CORS_ORIGIN, ...desktopOrigins]{{else}}ENV.CORS_ORIGIN{{/if}},
 			methods: ["GET", "POST", "OPTIONS"],
 {{#if (or (eq auth "better-auth") (eq auth "clerk"))}}
-			allowedHeaders: ["Content-Type", "Authorization"],
+			allowedHeaders: ["Content-Type", "Authorization"{{#if (includes addons "turnstile")}}, "x-captcha-response"{{/if}}],
 {{/if}}
 {{#if (eq auth "better-auth")}}
 			credentials: true,
@@ -14725,7 +15756,7 @@ app.use(
 		origin: {{#if (and (ne backend "self") (or (includes addons "electrobun") (includes addons "tauri")))}}[ENV.CORS_ORIGIN, ...desktopOrigins]{{else}}ENV.CORS_ORIGIN{{/if}},
 		methods: ["GET", "POST", "OPTIONS"],
 {{#if (or (eq auth "better-auth") (eq auth "clerk"))}}
-		allowedHeaders: ["Content-Type", "Authorization"],
+		allowedHeaders: ["Content-Type", "Authorization"{{#if (includes addons "turnstile")}}, "x-captcha-response"{{/if}}],
 {{/if}}
 {{#if (eq auth "better-auth")}}
 		credentials: true,
@@ -14881,7 +15912,8 @@ const baseCorsConfig = {
 	allowedHeaders: [
 		"Content-Type",
 		"Authorization",
-		"X-Requested-With"
+		"X-Requested-With"{{#if (includes addons "turnstile")}},
+		"x-captcha-response"{{/if}}
 	],
 	credentials: true,
 	maxAge: 86400,
@@ -15106,7 +16138,7 @@ app.use(
 		origin: {{#if (and (ne backend "self") (or (includes addons "electrobun") (includes addons "tauri")))}}[ENV.CORS_ORIGIN, ...desktopOrigins]{{else}}ENV.CORS_ORIGIN{{/if}},
 		allowMethods: ["GET", "POST", "OPTIONS"],
 {{#if (or (eq auth "better-auth") (eq auth "clerk"))}}
-		allowHeaders: ["Content-Type", "Authorization"],
+		allowHeaders: ["Content-Type", "Authorization"{{#if (includes addons "turnstile")}}, "x-captcha-response"{{/if}}],
 {{/if}}
 {{#if (eq auth "better-auth")}}
 		credentials: true,
@@ -30353,6 +31385,16 @@ export default defineNuxtConfig({
     serverUrl: "",
     public: {
       serverUrl: process.env.NUXT_PUBLIC_SERVER_URL ?? "",
+      {{#if (includes addons "turnstile")}}
+      turnstileSiteKey: process.env.NUXT_PUBLIC_TURNSTILE_SITE_KEY ?? "",
+      {{/if}}
+    }
+  },
+  {{/if}}
+  {{#if (and (includes addons "turnstile") (eq backend "self"))}}
+  runtimeConfig: {
+    public: {
+      turnstileSiteKey: process.env.NUXT_PUBLIC_TURNSTILE_SITE_KEY ?? "",
     }
   },
   {{/if}}
@@ -35512,4 +36554,4 @@ export default function Success() {
 `]
 ]);
 
-export const TEMPLATE_COUNT = 529;
+export const TEMPLATE_COUNT = 534;
