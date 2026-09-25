@@ -33,6 +33,8 @@ const baseProject = {
   api: "trpc",
   webDeploy: "vercel",
   serverDeploy: "none",
+  emailRenderer: "none",
+  emailDeploy: "none",
 } as const;
 
 const baseConfig = {
