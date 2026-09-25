@@ -5,7 +5,9 @@ import { processFlags } from "../src/utils/config-processing";
 
 const createInputSchema = router.create["~orpc"].inputSchema;
 
-function parseCreateInput(value: unknown) {
+type CreateInputArgs = Parameters<NonNullable<typeof createInputSchema>["safeParse"]>[0];
+
+function parseCreateInput(value: CreateInputArgs) {
   if (!createInputSchema) {
     throw new Error("create procedure is missing its input schema");
   }

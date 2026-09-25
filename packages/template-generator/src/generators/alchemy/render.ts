@@ -129,7 +129,7 @@ function writeStackOptions(writer: AlchemyWriter, plan: AlchemyDeploymentPlan): 
             ? "state: Cloudflare.state(),"
             : plan.emailSes
               ? "state: AWS.state(),"
-            : "state: Alchemy.localState(),",
+              : "state: Alchemy.localState(),",
       );
     },
     "},",

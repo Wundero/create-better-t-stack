@@ -25,6 +25,11 @@ type PortlessContext = {
   hasServerApp: boolean;
 };
 
+type PortlessNames = {
+  web: string;
+  server: string;
+};
+
 function sanitizeProjectName(projectName: string): string {
   const sanitized = projectName
     .toLowerCase()
@@ -33,7 +38,7 @@ function sanitizeProjectName(projectName: string): string {
   return sanitized.length > 0 ? sanitized : "app";
 }
 
-export function getPortlessNames(projectName: string): { web: string; server: string } {
+export function getPortlessNames(projectName: string): PortlessNames {
   const slug = sanitizeProjectName(projectName);
   return { web: slug, server: `api.${slug}` };
 }

@@ -1,8 +1,4 @@
-import {
-  isAlchemyDeployTarget,
-  supportsDatabaseSetup,
-  supportsDatabaseSetupRuntime,
-} from "@better-t-stack/types";
+import { supportsDatabaseSetup, supportsDatabaseSetupRuntime } from "@better-t-stack/types";
 
 import {
   supportsAlchemyManagedDatabase,

@@ -5,7 +5,6 @@ import {
   supportsRuntimeDatabase,
   supportsDatabaseSetupRuntime,
   supportsServerDeployRuntime,
-  supportsPaymentsAuth,
   supportsCloudflareEmailDeploy,
   NATIVE_FRONTENDS,
   PORTLESS_BLOCKED_ADDONS,
