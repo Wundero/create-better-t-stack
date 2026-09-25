@@ -49,7 +49,9 @@ export default defineNuxtConfig({
   {{/unless}}
   css: ['~/assets/css/main.css'],
   devServer: {
+{{#unless portless}}
     port: 3001
+{{/unless}}
   },
   {{#if (or (and (eq api "orpc") (ne backend "convex") (ne backend "none")) (and (eq webDeploy "cloudflare") (eq backend "self") (eq orm "prisma")))}}
   nitro: {

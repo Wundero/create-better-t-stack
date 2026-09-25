@@ -49,6 +49,14 @@ export const FULLSTACK_FRONTENDS = [
 
 export type FullstackFrontend = (typeof FULLSTACK_FRONTENDS)[number];
 
+export const NATIVE_FRONTENDS: readonly Frontend[] = [
+  "native-bare",
+  "native-uniwind",
+  "native-unistyles",
+];
+
+export const PORTLESS_BLOCKED_ADDONS: readonly Addons[] = ["tauri", "electrobun"];
+
 export const SERVER_BACKENDS: readonly Backend[] = ["hono", "express", "fastify", "elysia"];
 const EVLOG_FULLSTACK_FRONTENDS: readonly Frontend[] = [
   "next",
@@ -409,4 +417,33 @@ export function getBackendDisabledOptions(backend: Backend) {
 
 export function getDatabaseSetupDatabases(dbSetup: DatabaseSetup) {
   return dbSetup === "none" ? [] : DATABASE_SETUP_DATABASES[dbSetup];
+}
+
+/**
+ * Portless dev mode relies on a local web dev server, so it is denied when:
+ * - a native frontend is selected (native-bare, native-uniwind, native-unistyles)
+ * - a desktop addon is selected (tauri, electrobun)
+ * - backend is convex (runs its own dev server)
+ * - runtime is workers (not a long-running local process)
+ * - webDeploy or serverDeploy is docker (container-based, not local dev)
+ */
+export function supportsPortlessMode(input: {
+  frontend: readonly string[];
+  addons: readonly string[];
+  backend: string;
+  runtime: string;
+  webDeploy: string;
+  serverDeploy: string;
+}): boolean {
+  if (input.frontend.some((value) => NATIVE_FRONTENDS.some((frontend) => frontend === value))) {
+    return false;
+  }
+  if (input.addons.some((value) => PORTLESS_BLOCKED_ADDONS.some((addon) => addon === value))) {
+    return false;
+  }
+  if (input.backend === "convex") return false;
+  if (input.runtime === "workers") return false;
+  if (input.webDeploy === "docker") return false;
+  if (input.serverDeploy === "docker") return false;
+  return true;
 }

@@ -54,6 +54,9 @@ export function generateReproducibleCommand(config: ProjectConfig): string {
   }
   flags.push(`--web-deploy ${config.webDeploy}`);
   flags.push(`--server-deploy ${config.serverDeploy}`);
+  if (config.portless) {
+    flags.push("--portless");
+  }
   flags.push(config.git ? "--git" : "--no-git");
   flags.push(`--package-manager ${config.packageManager}`);
   flags.push(config.install ? "--install" : "--no-install");

@@ -44,6 +44,9 @@ export const stackParsers = {
   install: parseAsStringEnum<StackState["install"]>(["true", "false"]).withDefault(
     DEFAULT_STACK.install,
   ),
+  portless: parseAsStringEnum<StackState["portless"]>(["true", "false"]).withDefault(
+    DEFAULT_STACK.portless,
+  ),
   webDeploy: parseAsStringEnum<StackState["webDeploy"]>(getStackOptionIds("webDeploy")).withDefault(
     DEFAULT_STACK.webDeploy,
   ),
@@ -82,6 +85,7 @@ function getStackFromQueryState(queryState: RawStackLists): StackState {
     examples: queryState.examples,
     git: queryState.git,
     install: queryState.install,
+    portless: queryState.portless,
     webDeploy: queryState.webDeploy,
     serverDeploy: queryState.serverDeploy,
     yolo: queryState.yolo,

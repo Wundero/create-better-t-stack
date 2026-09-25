@@ -14678,12 +14678,12 @@ export default app;
 // Elysia's default export is not auto-served by Bun or Node, so start a local
 // server outside Vercel while still exporting the app for Vercel functions.
 if (!process.env.VERCEL) {
-	app.listen(3000, () => {
+	app.listen({{#if portless}}Number(process.env.PORT) || 3000{{else}}3000{{/if}}, () => {
 		console.log("Server is running on http://localhost:3000");
 	});
 }
 {{else}}
-	.listen(3000, () => {
+	.listen({{#if portless}}Number(process.env.PORT) || 3000{{else}}3000{{/if}}, () => {
 		console.log("Server is running on http://localhost:3000");
 	});
 {{/if}}
@@ -14838,7 +14838,7 @@ app.get("/", (_req, res) => {
 	res.status(200).send("OK");
 });
 
-app.listen(3000, () => {
+app.listen({{#if portless}}Number(process.env.PORT) || 3000{{else}}3000{{/if}}, () => {
 	console.log("Server is running on http://localhost:3000");
 });
 `],
@@ -15053,7 +15053,7 @@ fastify.get('/', async () => {
 	return 'OK';
 });
 
-fastify.listen({ port: 3000{{#if (or (eq serverDeploy "docker") (eq serverDeploy "prisma"))}}, host: "0.0.0.0"{{/if}} }, (err) => {
+fastify.listen({ port: {{#if portless}}Number(process.env.PORT) || 3000{{else}}3000{{/if}}{{#if (or (eq serverDeploy "docker") (eq serverDeploy "prisma"))}}, host: "0.0.0.0"{{/if}} }, (err) => {
 	if (err) {
 		fastify.log.error(err);
 		process.exit(1);
@@ -15265,7 +15265,7 @@ if (!process.env.VERCEL) {
 	serve(
 		{
 			fetch: app.fetch,
-			port: 3000,
+			port: {{#if portless}}Number(process.env.PORT) || 3000{{else}}3000{{/if}},
 		},
 		(info) => {
 			console.log(\`Server is running on http://localhost:\${info.port}\`);
@@ -30318,7 +30318,9 @@ export default defineNuxtConfig({
   {{/unless}}
   css: ['~/assets/css/main.css'],
   devServer: {
+{{#unless portless}}
     port: 3001
+{{/unless}}
   },
   {{#if (or (and (eq api "orpc") (ne backend "convex") (ne backend "none")) (and (eq webDeploy "cloudflare") (eq backend "self") (eq orm "prisma")))}}
   nitro: {
@@ -30463,7 +30465,7 @@ initOpenNextCloudflareForDev();
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev --port 3001",
+    "dev": "next dev{{#unless portless}} --port 3001{{/unless}}",
     "build": "{{#if (and (eq api "orpc") (ne backend "convex") (ne backend "none"))}}tsc -b ../../packages/api && {{/if}}next build",
     "check-types": "{{#if (and (eq api "orpc") (ne backend "convex") (ne backend "none"))}}tsc -b ../../packages/api && {{/if}}tsc --noEmit",
     "start": "next start"
@@ -31881,7 +31883,9 @@ import { defineConfig } from "{{#if (includes addons "vite-plus")}}vite-plus{{el
 
 export default defineConfig({
   server: {
+{{#unless portless}}
     port: 3001,
+{{/unless}}
   },
   resolve: {
     tsconfigPaths: true,
@@ -32503,7 +32507,9 @@ const prismaWasm =
 
 export default defineConfig({
   server: {
+{{#unless portless}}
     port: 3001,
+{{/unless}}
   },
 {{#if (and (eq webDeploy "cloudflare") (eq backend "self"))}}
   build: {
@@ -33052,7 +33058,9 @@ export default defineConfig({
     tailwindcss(),
   ],
   server: {
+{{#unless portless}}
     port: 3001,
+{{/unless}}
   },
 {{#if (eq webDeploy "cloudflare")}}
   build: {
