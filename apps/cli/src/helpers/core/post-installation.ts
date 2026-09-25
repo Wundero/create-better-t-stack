@@ -130,6 +130,8 @@ export async function displayPostInstallInstructions(
     config.auth,
     frontend || [],
     addons || [],
+    dbSetup,
+    runtime,
   );
 
   const hasWeb = frontend?.some((f) => (webFrontends as readonly string[]).includes(f));
@@ -699,6 +701,12 @@ function getPolarInstructions(backend: Backend, packageManager: string) {
   return `${pc.bold("Polar Payments Setup:")}\n${pc.cyan("•")} Get access token & product ID from ${pc.underline("https://sandbox.polar.sh/")}\n${pc.cyan("•")} Set POLAR_ACCESS_TOKEN in ${envPath}`;
 }
 
+function getAlchemyTargetLabel(deploy: WebDeploy | ServerDeploy) {
+  if (deploy === "cloudflare") return "Cloudflare";
+  if (deploy === "aws") return "AWS";
+  return "Prisma";
+}
+
 function getAlchemyDeployInstructions(
   runCmd: string,
   webDeploy: WebDeploy,
@@ -707,19 +715,22 @@ function getAlchemyDeployInstructions(
   auth: ProjectConfig["auth"],
   frontend: Frontend[],
   addons: ProjectConfig["addons"],
+  dbSetup: DatabaseSetup,
+  runtime: Runtime,
 ) {
   const instructions: string[] = [];
   const isBackendSelf = backend === "self";
   const hasAlchemyWeb = isAlchemyDeployTarget(webDeploy);
   const hasAlchemyServer = isAlchemyDeployTarget(serverDeploy);
   const hasAxiom = addons.includes("axiom");
+  const hasAwsTarget = webDeploy === "aws" || serverDeploy === "aws";
   const alchemyExec = runCmd === "npm run" ? "npx" : runCmd === "pnpm run" ? "pnpm exec" : "bunx";
 
   if (hasAlchemyWeb || hasAlchemyServer || hasAxiom) {
     const targetParts = [
-      ...(hasAlchemyWeb ? [`web on ${webDeploy === "cloudflare" ? "Cloudflare" : "Prisma"}`] : []),
+      ...(hasAlchemyWeb ? [`web on ${getAlchemyTargetLabel(webDeploy)}`] : []),
       ...(hasAlchemyServer && !isBackendSelf
-        ? [`server on ${serverDeploy === "cloudflare" ? "Cloudflare" : "Prisma"}`]
+        ? [`server on ${getAlchemyTargetLabel(serverDeploy)}`]
         : []),
       ...(hasAxiom ? ["Axiom observability"] : []),
     ];
@@ -759,6 +770,24 @@ function getAlchemyDeployInstructions(
     instructions.push(
       `${pc.bold(`Deploy with Alchemy (${targetParts.join(" + ")}):`)}\n${pc.cyan("•")} Configure provider accounts: ${`cd packages/infra && ${alchemyExec} alchemy profile edit`}\n${hasAxiom && (webDeploy === "vercel" || serverDeploy === "vercel") ? `${pc.cyan("•")} For Axiom, deploy from packages/infra with alchemy deploy --stage preview or --stage production. Link Vercel first: ${`${runCmd} deploy:setup`}\n` : ""}${pc.cyan("•")} Dev: ${`${runCmd} dev`}\n${pc.cyan("•")} Deploy: ${`${runCmd} ${deployScript}`}\n${originSteps.join("\n")}${originSteps.length > 0 ? "\n" : ""}${pc.cyan("•")} Destroy: ${`${runCmd} destroy`}`,
     );
+
+    if (hasAwsTarget) {
+      instructions.push(
+        `${pc.bold("AWS setup:")}\n${pc.cyan("•")} Configure AWS credentials: ${`cd packages/infra && ${alchemyExec} alchemy profile edit --add AWS`}\n${pc.cyan("•")} The first deploy prompts for an AWS region`,
+      );
+    }
+
+    if (runtime === "lambda") {
+      instructions.push(
+        `${pc.bold("AWS Lambda:")}\n${pc.cyan("•")} The first deploy returns the function URL${hasWeb && !isBackendSelf ? `; set CORS_ORIGIN in apps/server/.env to the deployed web origin, then deploy again` : ""}`,
+      );
+    }
+
+    if (dbSetup === "aurora") {
+      instructions.push(
+        `${pc.bold("AWS Aurora:")}\n${pc.yellow("NOTE:")} Aurora is not reachable from the deploy host, so migrations are not applied automatically. Run ${`${runCmd} db:migrate:deploy`} from a host with VPC access`,
+      );
+    }
   }
 
   if (webDeploy === "docker" || serverDeploy === "docker") {
