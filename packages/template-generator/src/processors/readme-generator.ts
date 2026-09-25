@@ -594,6 +594,7 @@ function generateFeaturesList(
     nx: "- **Nx** - Smart monorepo task orchestration and caching",
     "vite-plus":
       "- **Vite+** - Unified Vite toolchain, workspace task runner, linting, and formatting",
+    turnstile: "- **Cloudflare Turnstile** - CAPTCHA on Better Auth sign-in/sign-up",
   } satisfies Record<string, string>;
 
   for (const addon of addons) {
@@ -883,6 +884,7 @@ function generateDeploymentCommands(
   const hasCloudflare = webDeploy === "cloudflare" || serverDeploy === "cloudflare";
   const hasPrismaCompute = webDeploy === "prisma" || serverDeploy === "prisma";
   const hasAxiom = addons.includes("axiom");
+  const hasTurnstile = addons.includes("turnstile");
   const hasAlchemyCompute = hasCloudflare || hasPrismaCompute;
   const hasAlchemy = hasAlchemyCompute || hasAxiom;
   const hasDocker = webDeploy === "docker" || serverDeploy === "docker";
@@ -952,6 +954,13 @@ function generateDeploymentCommands(
           "For a deployed Docker image, pass `AXIOM_API_KEY`, `AXIOM_DATASET`, and `AXIOM_EDGE_URL` through the target platform's secret manager. Local observed development runs through Alchemy with the credentials injected in memory.",
         );
       }
+    }
+
+    if (hasTurnstile) {
+      lines.push(
+        "",
+        "Alchemy creates a Cloudflare Turnstile widget and injects its public sitekey and secret into the deployed apps. Set `TURNSTILE_DOMAINS` in `.env` to a comma-separated list of the production hostname(s) before deploying; it defaults to `localhost,127.0.0.1` and development uses Cloudflare's always-pass test keys automatically.",
+      );
     }
 
     const hasWeb = hasWebFrontend(frontend);
