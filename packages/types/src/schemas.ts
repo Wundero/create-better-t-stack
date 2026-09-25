@@ -113,6 +113,10 @@ export const AuthSchema = z
 
 export const PaymentsSchema = z.enum(["polar", "none"]).describe("Payments provider");
 
+export const EmailRendererSchema = z.enum(["react-email", "none"]).describe("Email renderer");
+
+export const EmailDeploySchema = z.enum(["cloudflare", "ses", "none"]).describe("Email deploy");
+
 export const WebDeploySchema = z
   .enum(["cloudflare", "prisma", "docker", "vercel", "none"])
   .describe("Web deployment");
@@ -534,6 +538,8 @@ export const CreateInputSchema = z
     orm: ORMSchema.optional(),
     auth: AuthSchema.optional(),
     payments: PaymentsSchema.optional(),
+    emailRenderer: EmailRendererSchema.optional(),
+    emailDeploy: EmailDeploySchema.optional(),
     frontend: z.array(FrontendSchema).optional(),
     addons: AddonsListSchema.optional(),
     examples: z.array(ExamplesSchema).optional(),
@@ -575,6 +581,8 @@ export const AddInputSchema = z
     package: WorkspacePackageNameSchema.optional(),
     envValidation: z.boolean().optional(),
     addonOptions: AddonOptionsSchema.optional(),
+    emailRenderer: EmailRendererSchema.optional(),
+    emailDeploy: EmailDeploySchema.optional(),
     webDeploy: WebDeploySchema.optional(),
     serverDeploy: ServerDeploySchema.optional(),
     projectDir: z.string().optional(),
@@ -727,6 +735,8 @@ export const ProjectConfigSchema = z.object({
   examples: z.array(ExamplesSchema),
   auth: AuthSchema,
   payments: PaymentsSchema,
+  emailRenderer: EmailRendererSchema,
+  emailDeploy: EmailDeploySchema,
   git: z.boolean(),
   packageManager: PackageManagerSchema,
   install: z.boolean(),
@@ -752,6 +762,8 @@ export const BetterTStackConfigSchema = z.object({
   examples: z.array(ExamplesSchema),
   auth: AuthSchema,
   payments: PaymentsSchema,
+  emailRenderer: EmailRendererSchema.optional(),
+  emailDeploy: EmailDeploySchema.optional(),
   packageManager: PackageManagerSchema,
   dbSetup: DatabaseSetupSchema,
   api: APISchema,
@@ -793,6 +805,8 @@ export const DATABASE_SETUP_VALUES = DatabaseSetupSchema.options;
 export const API_VALUES = APISchema.options;
 export const AUTH_VALUES = AuthSchema.options;
 export const PAYMENTS_VALUES = PaymentsSchema.options;
+export const EMAIL_RENDERER_VALUES = EmailRendererSchema.options;
+export const EMAIL_DEPLOY_VALUES = EmailDeploySchema.options;
 export const WEB_DEPLOY_VALUES = WebDeploySchema.options;
 export const SERVER_DEPLOY_VALUES = ServerDeploySchema.options;
 export const DIRECTORY_CONFLICT_VALUES = DirectoryConflictSchema.options;

@@ -40,6 +40,8 @@ const getBadgeColors = (category: string): string => {
     case "git":
     case "webDeploy":
     case "serverDeploy":
+    case "emailRenderer":
+    case "emailDeploy":
     case "install":
       return "border-gray-300 bg-gray-100 text-gray-700 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-400";
     default:

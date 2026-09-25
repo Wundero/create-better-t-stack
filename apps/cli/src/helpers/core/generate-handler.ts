@@ -106,6 +106,8 @@ function buildProjectConfig(
     api: detected.api,
     webDeploy: detected.webDeploy,
     serverDeploy: detected.serverDeploy,
+    emailRenderer: detected.emailRenderer,
+    emailDeploy: detected.emailDeploy,
   };
 }
 

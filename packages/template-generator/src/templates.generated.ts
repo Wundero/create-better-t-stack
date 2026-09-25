@@ -33605,6 +33605,606 @@ export default defineConfig({
     ]
   }
 }`],
+  ["packages/email/base/src/index.ts.hbs", `{{#if (eq emailRenderer "react-email")}}
+export * from "./render";
+{{/if}}
+{{#if (ne emailDeploy "none")}}
+export * from "./send";
+{{/if}}
+`],
+  ["packages/email/deploy/cloudflare/src/send.ts.hbs", `export type EmailAddress = string | string[];
+
+export type EmailMessage = {
+  from: string;
+  to: EmailAddress;
+  subject: string;
+  html?: string;
+  text?: string;
+  cc?: EmailAddress;
+  bcc?: EmailAddress;
+  replyTo?: string;
+};
+
+export type CloudflareEmailBinding = {
+  send(message: EmailMessage): Promise<unknown>;
+};
+
+export type CloudflareEmailEnv = {
+  EMAIL: CloudflareEmailBinding;
+};
+
+export type CloudflareEmailSender = {
+  send(message: EmailMessage): Promise<void>;
+};
+
+export function createCloudflareEmailSender(env: CloudflareEmailEnv): CloudflareEmailSender {
+  return {
+    async send(message: EmailMessage): Promise<void> {
+      await env.EMAIL.send(message);
+    },
+  };
+}
+`],
+  ["packages/email/deploy/ses/src/send.ts.hbs", `import { SendEmailCommand, SESv2Client } from "@aws-sdk/client-sesv2";
+
+export type EmailAddress = string | string[];
+
+export type SesEmailMessage = {
+  from?: string;
+  to: EmailAddress;
+  subject: string;
+  html?: string;
+  text?: string;
+  cc?: EmailAddress;
+  bcc?: EmailAddress;
+  replyTo?: string;
+};
+
+export type SesEmailSenderConfig = {
+  region?: string;
+  from?: string;
+  client?: SESv2Client;
+};
+
+export type SesEmailSender = {
+  send(message: SesEmailMessage): Promise<void>;
+};
+
+function readEnv(key: string): string | undefined {
+  const runtime = globalThis as { process?: { env?: Record<string, string | undefined> } };
+  return runtime.process?.env?.[key];
+}
+
+function toAddressList(value: EmailAddress | undefined): string[] | undefined {
+  if (!value) return undefined;
+  return Array.isArray(value) ? value : [value];
+}
+
+export function createSesEmailSender(config: SesEmailSenderConfig = {}): SesEmailSender {
+  const region = config.region ?? readEnv("AWS_REGION");
+  const defaultFrom = config.from ?? readEnv("EMAIL_FROM");
+  const client = config.client ?? new SESv2Client({ region });
+
+  return {
+    async send(message: SesEmailMessage): Promise<void> {
+      const from = message.from ?? defaultFrom;
+      if (!from) {
+        throw new Error("EMAIL_FROM is required to send email through SES");
+      }
+
+      const to = toAddressList(message.to);
+      if (!to || to.length === 0) {
+        throw new Error("At least one recipient is required to send email through SES");
+      }
+
+      await client.send(
+        new SendEmailCommand({
+          FromEmailAddress: from,
+          Destination: {
+            ToAddresses: to,
+            CcAddresses: toAddressList(message.cc),
+            BccAddresses: toAddressList(message.bcc),
+          },
+          ReplyToAddresses: message.replyTo ? [message.replyTo] : undefined,
+          Content: {
+            Simple: {
+              Subject: { Data: message.subject },
+              Body: {
+                Html: message.html ? { Data: message.html } : undefined,
+                Text: message.text ? { Data: message.text } : undefined,
+              },
+            },
+          },
+        }),
+      );
+    },
+  };
+}
+`],
+  ["packages/email/package.json.hbs", `{
+  "name": "@{{projectName}}/email",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"{{#if (eq emailRenderer "react-email")}},
+    "./render": "./src/render.ts",
+    "./templates/*": "./src/templates/*.tsx",
+    "./components/*": "./src/components/*.tsx"{{/if}}{{#if (ne emailDeploy "none")}},
+    "./send": "./src/send.ts"{{/if}}
+  },
+  "dependencies": {
+{{#if (eq emailRenderer "react-email")}}
+    "react-email": "^6.11.0",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8"{{#if (eq emailDeploy "ses")}},{{/if}}
+{{/if}}{{#if (eq emailDeploy "ses")}}
+    "@aws-sdk/client-sesv2": "^3.910.0"
+{{/if}}
+  },
+  "devDependencies": {
+{{#if (eq emailRenderer "react-email")}}
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.7",
+{{/if}}
+    "typescript": "^6.0.3"
+  },
+  "scripts": {
+    "check-types": "tsc --noEmit"
+  }
+}
+`],
+  ["packages/email/render/src/components/button.tsx.hbs", `import { Button as EmailButton } from "react-email";
+import type { CSSProperties, ReactNode } from "react";
+
+export type ButtonVariant = "default" | "secondary" | "outline" | "ghost" | "destructive" | "link";
+export type ButtonSize = "default" | "sm" | "lg";
+
+const baseStyle: CSSProperties = {
+  display: "inline-block",
+  borderRadius: "6px",
+  fontSize: "14px",
+  fontWeight: 600,
+  lineHeight: "1",
+  textDecoration: "none",
+  textAlign: "center",
+};
+
+const variantStyles = {
+  default: { backgroundColor: "#18181b", color: "#fafafa" },
+  secondary: { backgroundColor: "#f4f4f5", color: "#18181b" },
+  outline: { backgroundColor: "transparent", color: "#18181b", border: "1px solid #d4d4d8" },
+  ghost: { backgroundColor: "transparent", color: "#18181b" },
+  destructive: { backgroundColor: "#dc2626", color: "#fafafa" },
+  link: { backgroundColor: "transparent", color: "#2563eb", textDecoration: "underline" },
+} satisfies Record<ButtonVariant, CSSProperties>;
+
+const sizeStyles = {
+  default: { paddingTop: "10px", paddingBottom: "10px", paddingLeft: "20px", paddingRight: "20px" },
+  sm: {
+    paddingTop: "8px",
+    paddingBottom: "8px",
+    paddingLeft: "14px",
+    paddingRight: "14px",
+    fontSize: "13px",
+  },
+  lg: {
+    paddingTop: "12px",
+    paddingBottom: "12px",
+    paddingLeft: "24px",
+    paddingRight: "24px",
+    fontSize: "15px",
+  },
+} satisfies Record<ButtonSize, CSSProperties>;
+
+export type ButtonProps = {
+  children: ReactNode;
+  href?: string;
+  variant?: ButtonVariant;
+  size?: ButtonSize;
+  style?: CSSProperties;
+};
+
+export function Button({
+  children,
+  href,
+  variant = "default",
+  size = "default",
+  style,
+}: ButtonProps) {
+  const computedStyle = {
+    ...baseStyle,
+    ...variantStyles[variant],
+    ...sizeStyles[size],
+    ...style,
+  };
+
+  return (
+    <EmailButton href={href} style={computedStyle}>
+      {children}
+    </EmailButton>
+  );
+}
+`],
+  ["packages/email/render/src/components/card.tsx.hbs", `import { Heading, Section, Text } from "react-email";
+import type { CSSProperties, ReactNode } from "react";
+
+export type CardProps = {
+  children: ReactNode;
+  style?: CSSProperties;
+};
+
+export function Card({ children, style }: CardProps) {
+  const cardStyle = {
+    backgroundColor: "#ffffff",
+    border: "1px solid #e4e4e7",
+    borderRadius: "8px",
+    paddingTop: "24px",
+    paddingBottom: "24px",
+    paddingLeft: "24px",
+    paddingRight: "24px",
+    ...style,
+  };
+
+  return <Section style={cardStyle}>{children}</Section>;
+}
+
+export function CardHeader({ children, style }: CardProps) {
+  return (
+    <Section style=\\{{ marginBottom: "16px", ...style }}>{children}</Section>
+  );
+}
+
+export function CardTitle({ children, style }: CardProps) {
+  return (
+    <Heading
+      as="h2"
+      style=\\{{ margin: "0 0 4px", fontSize: "18px", fontWeight: 600, color: "#18181b", ...style }}
+    >
+      {children}
+    </Heading>
+  );
+}
+
+export function CardDescription({ children, style }: CardProps) {
+  return (
+    <Text style=\\{{ margin: 0, fontSize: "14px", lineHeight: "20px", color: "#71717a", ...style }}>
+      {children}
+    </Text>
+  );
+}
+
+export function CardContent({ children, style }: CardProps) {
+  return <Section style=\\{{ margin: "16px 0", ...style }}>{children}</Section>;
+}
+
+export function CardFooter({ children, style }: CardProps) {
+  return (
+    <Section style=\\{{ borderTop: "1px solid #e4e4e7", paddingTop: "16px", ...style }}>
+      {children}
+    </Section>
+  );
+}
+`],
+  ["packages/email/render/src/components/index.ts.hbs", `export * from "./button";
+export * from "./card";
+export * from "./input";
+export * from "./label";
+export * from "./textarea";
+`],
+  ["packages/email/render/src/components/input.tsx.hbs", `import { Section, Text } from "react-email";
+import type { CSSProperties } from "react";
+
+export type InputProps = {
+  value?: string;
+  placeholder?: string;
+  style?: CSSProperties;
+};
+
+export function Input({ value, placeholder, style }: InputProps) {
+  const inputStyle = {
+    border: "1px solid #d4d4d8",
+    borderRadius: "6px",
+    paddingTop: "10px",
+    paddingBottom: "10px",
+    paddingLeft: "12px",
+    paddingRight: "12px",
+    ...style,
+  };
+
+  return (
+    <Section style={inputStyle}>
+      <Text style=\\{{ margin: 0, fontSize: "14px", color: value ? "#18181b" : "#a1a1aa" }}>
+        {value || placeholder || ""}
+      </Text>
+    </Section>
+  );
+}
+`],
+  ["packages/email/render/src/components/label.tsx.hbs", `import { Text } from "react-email";
+import type { CSSProperties, ReactNode } from "react";
+
+export type LabelProps = {
+  children: ReactNode;
+  style?: CSSProperties;
+};
+
+export function Label({ children, style }: LabelProps) {
+  const labelStyle = {
+    margin: "0 0 6px",
+    fontSize: "12px",
+    fontWeight: 600,
+    color: "#3f3f46",
+    ...style,
+  };
+
+  return <Text style={labelStyle}>{children}</Text>;
+}
+`],
+  ["packages/email/render/src/components/textarea.tsx.hbs", `import { Section, Text } from "react-email";
+import type { CSSProperties } from "react";
+
+export type TextareaProps = {
+  value?: string;
+  placeholder?: string;
+  rows?: number;
+  style?: CSSProperties;
+};
+
+export function Textarea({ value, placeholder, rows = 4, style }: TextareaProps) {
+  const textareaStyle = {
+    border: "1px solid #d4d4d8",
+    borderRadius: "6px",
+    paddingTop: "10px",
+    paddingBottom: "10px",
+    paddingLeft: "12px",
+    paddingRight: "12px",
+    ...style,
+  };
+
+  return (
+    <Section style={textareaStyle}>
+      <Text
+        style=\\{{ margin: 0, fontSize: "14px", lineHeight: "20px", minHeight: \`\${rows * 20}px\`, color: value ? "#18181b" : "#a1a1aa" }}
+      >
+        {value || placeholder || ""}
+      </Text>
+    </Section>
+  );
+}
+`],
+  ["packages/email/render/src/render.ts.hbs", `import { render, toPlainText } from "react-email";
+import type { ReactElement } from "react";
+
+import { ResetPasswordEmail } from "./templates/reset-password";
+import { VerifyEmail } from "./templates/verify-email";
+import { WelcomeEmail } from "./templates/welcome";
+
+export { render, toPlainText };
+
+export type RenderedEmail = {
+  html: string;
+  text: string;
+};
+
+export async function renderEmail(element: ReactElement): Promise<RenderedEmail> {
+  const html = await render(element);
+  const text = await render(element, { plainText: true });
+  return { html, text };
+}
+
+export function renderHtml(element: ReactElement): Promise<string> {
+  return render(element);
+}
+
+export function renderText(element: ReactElement): Promise<string> {
+  return render(element, { plainText: true });
+}
+
+export const emailTemplates = [
+  { id: "welcome", name: "Welcome", component: WelcomeEmail },
+  { id: "verify-email", name: "Verify email", component: VerifyEmail },
+  { id: "reset-password", name: "Reset password", component: ResetPasswordEmail },
+] as const;
+
+export type EmailTemplate = (typeof emailTemplates)[number];
+export type EmailTemplateId = EmailTemplate["id"];
+`],
+  ["packages/email/render/src/templates/index.ts.hbs", `export * from "./reset-password";
+export * from "./verify-email";
+export * from "./welcome";
+`],
+  ["packages/email/render/src/templates/reset-password.tsx.hbs", `import { Body, Container, Head, Hr, Html, Preview, Text } from "react-email";
+
+import { Button } from "../components/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "../components/card";
+
+export type ResetPasswordEmailProps = {
+  name: string;
+  url: string;
+  expiresIn?: string;
+};
+
+export function ResetPasswordEmail({
+  name,
+  url,
+  expiresIn = "1 hour",
+}: ResetPasswordEmailProps) {
+  return (
+    <Html>
+      <Head />
+      <Preview>Reset your password</Preview>
+      <Body
+        style=\\{{ backgroundColor: "#f4f4f5", margin: 0, padding: "24px 0", fontFamily: "Arial, Helvetica, sans-serif" }}
+      >
+        <Container style=\\{{ maxWidth: "560px", margin: "0 auto" }}>
+          <Card>
+            <CardHeader>
+              <CardTitle>Reset your password</CardTitle>
+              <CardDescription>Hi {name}, we received a request to reset your password.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Text style=\\{{ margin: 0, fontSize: "14px", lineHeight: "22px", color: "#3f3f46" }}>
+                This link expires in {expiresIn}. If you did not request a reset, no action is
+                needed.
+              </Text>
+            </CardContent>
+            <CardFooter>
+              <Button href={url}>Reset password</Button>
+            </CardFooter>
+          </Card>
+          <Hr style=\\{{ borderColor: "#e4e4e7", margin: "24px 0" }} />
+          <Text style=\\{{ margin: 0, fontSize: "12px", color: "#71717a", textAlign: "center" }}>
+            For your security, never share this link with anyone.
+          </Text>
+        </Container>
+      </Body>
+    </Html>
+  );
+}
+
+export default ResetPasswordEmail;
+`],
+  ["packages/email/render/src/templates/verify-email.tsx.hbs", `import { Body, Container, Head, Heading, Hr, Html, Preview, Section, Text } from "react-email";
+
+import { Button } from "../components/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "../components/card";
+
+export type VerifyEmailProps = {
+  name: string;
+  url: string;
+  otp?: string;
+  expiresIn?: string;
+};
+
+export function VerifyEmail({ name, url, otp, expiresIn = "10 minutes" }: VerifyEmailProps) {
+  return (
+    <Html>
+      <Head />
+      <Preview>Verify your email address</Preview>
+      <Body
+        style=\\{{ backgroundColor: "#f4f4f5", margin: 0, padding: "24px 0", fontFamily: "Arial, Helvetica, sans-serif" }}
+      >
+        <Container style=\\{{ maxWidth: "560px", margin: "0 auto" }}>
+          <Card>
+            <CardHeader>
+              <CardTitle>Verify your email</CardTitle>
+              <CardDescription>Hi {name}, confirm your email address to continue.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Text style=\\{{ margin: 0, fontSize: "14px", lineHeight: "22px", color: "#3f3f46" }}>
+                This link expires in {expiresIn}.
+              </Text>
+              {otp ? (
+                <Section
+                  style=\\{{ marginTop: "16px", backgroundColor: "#f4f4f5", borderRadius: "6px", paddingTop: "16px", paddingBottom: "16px", textAlign: "center" }}
+                >
+                  <Heading
+                    as="h2"
+                    style=\\{{ margin: 0, fontSize: "24px", letterSpacing: "6px", color: "#18181b" }}
+                  >
+                    {otp}
+                  </Heading>
+                </Section>
+              ) : null}
+            </CardContent>
+            <CardFooter>
+              <Button href={url}>Verify email</Button>
+            </CardFooter>
+          </Card>
+          <Hr style=\\{{ borderColor: "#e4e4e7", margin: "24px 0" }} />
+          <Text style=\\{{ margin: 0, fontSize: "12px", color: "#71717a", textAlign: "center" }}>
+            If you did not request this, you can safely ignore this email.
+          </Text>
+        </Container>
+      </Body>
+    </Html>
+  );
+}
+
+export default VerifyEmail;
+`],
+  ["packages/email/render/src/templates/welcome.tsx.hbs", `import { Body, Container, Head, Hr, Html, Preview, Text } from "react-email";
+
+import { Button } from "../components/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "../components/card";
+
+export type WelcomeEmailProps = {
+  name: string;
+  url: string;
+  productName?: string;
+};
+
+export function WelcomeEmail({ name, url, productName = "Better T Stack" }: WelcomeEmailProps) {
+  return (
+    <Html>
+      <Head />
+      <Preview>Welcome to {productName}</Preview>
+      <Body
+        style=\\{{ backgroundColor: "#f4f4f5", margin: 0, padding: "24px 0", fontFamily: "Arial, Helvetica, sans-serif" }}
+      >
+        <Container style=\\{{ maxWidth: "560px", margin: "0 auto" }}>
+          <Card>
+            <CardHeader>
+              <CardTitle>Welcome, {name}</CardTitle>
+              <CardDescription>Your account is ready to go.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Text style=\\{{ margin: 0, fontSize: "14px", lineHeight: "22px", color: "#3f3f46" }}>
+                Thanks for signing up for {productName}. Use the button below to get started.
+              </Text>
+            </CardContent>
+            <CardFooter>
+              <Button href={url}>Get started</Button>
+            </CardFooter>
+          </Card>
+          <Hr style=\\{{ borderColor: "#e4e4e7", margin: "24px 0" }} />
+          <Text style=\\{{ margin: 0, fontSize: "12px", color: "#71717a", textAlign: "center" }}>
+            If you did not create an account, you can safely ignore this email.
+          </Text>
+        </Container>
+      </Body>
+    </Html>
+  );
+}
+
+export default WelcomeEmail;
+`],
+  ["packages/email/tsconfig.json.hbs", `{
+  "extends": "@{{projectName}}/config/tsconfig.base.json",
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "lib": ["ESNext", "DOM", "DOM.Iterable"],
+    "types": [],
+    "paths": {
+      "@{{projectName}}/email/*": ["./src/*"]
+    }
+  },
+  "include": ["src/**/*.ts", "src/**/*.tsx"],
+  "exclude": ["node_modules"]
+}
+`],
   ["packages/infra/package.json.hbs", `{
   "name": "@{{projectName}}/infra",
   "private": true,
@@ -35607,4 +36207,4 @@ export default function Success() {
 `]
 ]);
 
-export const TEMPLATE_COUNT = 531;
+export const TEMPLATE_COUNT = 547;

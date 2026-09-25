@@ -456,6 +456,33 @@ create-better-t-stack --server-deploy docker
 
 **Note:** The CLI displays this target simply as **Prisma**. The generated infrastructure uses Alchemy's Prisma provider. See the [Alchemy deployment guide](/docs/guides/cloudflare-alchemy) for details.
 
+## Email
+
+### `--email-renderer <renderer>`
+
+Email rendering setup. When set to `react-email`, the CLI adds a `packages/email` workspace that renders emails with [React Email](https://react.email):
+
+- `none`: No email package (default)
+- `react-email`: Add `packages/email` with email-safe components and Welcome, Verify Email, and Reset Password templates, plus `renderEmail`, `renderHtml`, and `renderText` helpers
+
+```bash
+create-better-t-stack --email-renderer react-email
+```
+
+### `--email-deploy <target>`
+
+Email sending infrastructure. When not `none`, the CLI generates a `@<project>/email` send helper and Alchemy infrastructure in `packages/infra/alchemy.run.ts`:
+
+- `none`: No email deployment (default)
+- `cloudflare`: Cloudflare Email Sending via Alchemy, exposing an `EMAIL` binding in the Cloudflare Worker env (requires `--server-deploy cloudflare`, or `--backend self --web-deploy cloudflare`)
+- `ses`: AWS SES via Alchemy, provisioning an email identity and configuration set; runtime sending uses the AWS SDK with `EMAIL_FROM`, `AWS_REGION`, `AWS_ACCESS_KEY_ID`, and `AWS_SECRET_ACCESS_KEY`
+
+```bash
+create-better-t-stack --email-deploy ses
+```
+
+The renderer and sender are independent: `--email-renderer` works without a sending provider, and `--email-deploy` works without the renderer.
+
 ## History
 
 ### `history`

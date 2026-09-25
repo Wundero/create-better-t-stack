@@ -13,6 +13,7 @@ export const WORKSPACE_PACKAGE_DIRS = [
   "packages/auth",
   "packages/backend",
   "packages/config",
+  "packages/email",
   "packages/env",
   "packages/infra",
   "packages/ui",

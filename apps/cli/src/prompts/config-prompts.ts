@@ -8,6 +8,8 @@ import type {
   Database,
   DatabaseSetup,
   DbSetupOptions,
+  EmailDeploy,
+  EmailRenderer,
   Examples,
   Frontend,
   ORM,
@@ -27,6 +29,8 @@ import { getAuthChoice } from "./auth";
 import { getBackendFrameworkChoice } from "./backend";
 import { getDatabaseChoice } from "./database";
 import { getDBSetupChoice, getDbProvisioningChoice } from "./database-setup";
+import { getEmailDeployChoice } from "./email-deploy";
+import { getEmailsChoice } from "./emails";
 import { getExamplesChoice } from "./examples";
 import { getFrontendChoice } from "./frontend";
 import { getGitChoice } from "./git";
@@ -49,6 +53,7 @@ type PromptGroupResults = {
   api: API;
   auth: Auth;
   payments: Payments;
+  emails: EmailRenderer;
   addons: Addons[];
   examples: Examples[];
   dbSetup: DatabaseSetup;
@@ -58,6 +63,7 @@ type PromptGroupResults = {
   webDeploy: WebDeploy;
   serverDeploy: ServerDeploy;
   shadcn: ShadcnConfig | undefined;
+  emailDeploy: EmailDeploy;
   dbSetupMode: DbSetupOptions["mode"];
 };
 
@@ -82,6 +88,8 @@ export async function gatherConfig(
       orm: flags.orm ?? DEFAULT_CONFIG.orm,
       auth: flags.auth ?? DEFAULT_CONFIG.auth,
       payments: flags.payments ?? DEFAULT_CONFIG.payments,
+      emailRenderer: flags.emailRenderer ?? DEFAULT_CONFIG.emailRenderer,
+      emailDeploy: flags.emailDeploy ?? DEFAULT_CONFIG.emailDeploy,
       addons: flags.addons ?? [...DEFAULT_CONFIG.addons],
       examples: flags.examples ?? [...DEFAULT_CONFIG.examples],
       git: flags.git ?? DEFAULT_CONFIG.git,
@@ -135,6 +143,7 @@ export async function gatherConfig(
           results.frontend,
           previousAnswer,
         ),
+      emails: ({ previousAnswer }) => getEmailsChoice(flags.emailRenderer, previousAnswer),
       addons: ({ results, previousAnswer }) =>
         getAddonsChoice(
           flags.addons,
@@ -175,6 +184,14 @@ export async function gatherConfig(
         ),
       shadcn: ({ results, previousAnswer }) =>
         getShadcnChoice(flags.shadcn, results.frontend ?? [], previousAnswer),
+      emailDeploy: ({ results, previousAnswer }) =>
+        getEmailDeployChoice(
+          flags.emailDeploy,
+          results.backend,
+          results.webDeploy,
+          results.serverDeploy,
+          previousAnswer,
+        ),
       dbSetupMode: ({ results, previousAnswer }) =>
         getDbProvisioningChoice(
           flags.dbSetupOptions?.mode ?? (options.manualDb === true ? "manual" : undefined),
@@ -194,10 +211,21 @@ export async function gatherConfig(
       sections: [
         { label: "App", prompts: ["frontend", "backend", "runtime", "api"] },
         { label: "Data", prompts: ["database", "orm", "dbSetup"] },
-        { label: "Product", prompts: ["auth", "payments", "addons", "examples", "shadcn"] },
+        {
+          label: "Product",
+          prompts: ["auth", "payments", "emails", "addons", "examples", "shadcn"],
+        },
         {
           label: "Ship",
-          prompts: ["webDeploy", "serverDeploy", "dbSetupMode", "git", "packageManager", "install"],
+          prompts: [
+            "webDeploy",
+            "serverDeploy",
+            "emailDeploy",
+            "dbSetupMode",
+            "git",
+            "packageManager",
+            "install",
+          ],
         },
       ],
       onCancel: () => {
@@ -219,6 +247,8 @@ export async function gatherConfig(
     orm: result.orm,
     auth: result.auth,
     payments: result.payments,
+    emailRenderer: result.emails,
+    emailDeploy: result.emailDeploy,
     addons: result.addons,
     examples: result.examples,
     git: result.git,

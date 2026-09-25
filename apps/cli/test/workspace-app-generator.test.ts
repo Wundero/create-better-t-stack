@@ -28,6 +28,8 @@ const baseConfig: ProjectConfig = {
   api: "trpc",
   webDeploy: "none",
   serverDeploy: "none",
+  emailRenderer: "none",
+  emailDeploy: "none",
 };
 
 const SERVER_ENV_COMMAND = "varlock codegen --path ./apps/server/";

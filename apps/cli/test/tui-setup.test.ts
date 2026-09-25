@@ -22,6 +22,8 @@ function createTuiConfig(overrides: Partial<ProjectConfig> = {}): ProjectConfig 
     examples: ["none"],
     auth: "none",
     payments: "none",
+    emailRenderer: "none",
+    emailDeploy: "none",
     git: true,
     packageManager: "bun",
     install: false,

@@ -45,6 +45,12 @@ const serverStackParsers = {
   payments: parseAsStringEnumServer<StackState["payments"]>(
     getStackOptionIds("payments"),
   ).withDefault(DEFAULT_STACK.payments),
+  emailRenderer: parseAsStringEnumServer<StackState["emailRenderer"]>(
+    getStackOptionIds("emailRenderer"),
+  ).withDefault(DEFAULT_STACK.emailRenderer),
+  emailDeploy: parseAsStringEnumServer<StackState["emailDeploy"]>(
+    getStackOptionIds("emailDeploy"),
+  ).withDefault(DEFAULT_STACK.emailDeploy),
   packageManager: parseAsStringEnumServer<StackState["packageManager"]>(
     getStackOptionIds("packageManager"),
   ).withDefault(DEFAULT_STACK.packageManager),

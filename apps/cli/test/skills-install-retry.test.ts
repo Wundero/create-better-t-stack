@@ -55,6 +55,8 @@ function createProjectConfig(overrides: Partial<ProjectConfig> = {}): ProjectCon
     api: "trpc",
     webDeploy: "none",
     serverDeploy: "none",
+    emailRenderer: "none",
+    emailDeploy: "none",
     ...overrides,
   };
 }

@@ -3,6 +3,8 @@ import {
   supportsRuntimeDatabase,
   supportsPaymentsAuth,
   supportsServerDeployRuntime,
+  supportsCloudflareEmailDeploy,
+  EMAIL_DEPLOY_CLOUDFLARE_REQUIRES_WORKERS,
   SERVER_BACKENDS,
   CONVEX_AI_INCOMPATIBLE_FRONTENDS,
 } from "@better-t-stack/types";
@@ -436,6 +438,18 @@ export function validatePaymentsCompatibility(
         "Polar payments requires Better Auth. Please use '--auth better-auth' or choose a different payments provider.",
       );
     }
+  }
+
+  return Result.ok(undefined);
+}
+
+export function validateEmailDeployCompatibility(
+  config: Partial<Pick<ProjectConfig, "emailDeploy" | "backend" | "webDeploy" | "serverDeploy">>,
+): ValidationResult {
+  if (config.emailDeploy !== "cloudflare") return Result.ok(undefined);
+
+  if (!supportsCloudflareEmailDeploy(config.backend, config.webDeploy, config.serverDeploy)) {
+    return validationErr(EMAIL_DEPLOY_CLOUDFLARE_REQUIRES_WORKERS);
   }
 
   return Result.ok(undefined);

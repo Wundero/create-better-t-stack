@@ -15,6 +15,8 @@ export type StackState = Pick<
   | "dbSetup"
   | "auth"
   | "payments"
+  | "emailRenderer"
+  | "emailDeploy"
   | "packageManager"
   | "addons"
   | "examples"
