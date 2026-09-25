@@ -48,6 +48,9 @@ export type AlchemyDeploymentPlan = {
   hasAxiomServerRuntime: boolean;
   hasAxiomWebRuntime: boolean;
   hasAxiomVercelRuntime: boolean;
+  hasEmail: boolean;
+  emailCloudflare: boolean;
+  emailSes: boolean;
   needsStandaloneServerDev: boolean;
   needsStandaloneWebDev: boolean;
 };
@@ -121,6 +124,8 @@ export function createAlchemyDeploymentPlan(config: ProjectConfig): AlchemyDeplo
   const hasAxiomVercelRuntime =
     (hasAxiomWebRuntime && config.webDeploy === "vercel") ||
     (hasAxiomServerRuntime && config.serverDeploy === "vercel");
+  const emailCloudflare = config.emailDeploy === "cloudflare";
+  const emailSes = config.emailDeploy === "ses";
 
   const web: AlchemyWebPlan = isAlchemyDeployTarget(config.webDeploy)
     ? {
@@ -150,6 +155,9 @@ export function createAlchemyDeploymentPlan(config: ProjectConfig): AlchemyDeplo
     hasAxiomServerRuntime,
     hasAxiomWebRuntime,
     hasAxiomVercelRuntime,
+    hasEmail: emailCloudflare || emailSes,
+    emailCloudflare,
+    emailSes,
     needsStandaloneServerDev: hasAxiomServerRuntime && server.target === "none",
     needsStandaloneWebDev: hasAxiomWebRuntime && web.target === "none",
   };

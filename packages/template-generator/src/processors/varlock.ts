@@ -46,6 +46,14 @@ function schemaKeys(vfs: VirtualFileSystem, app: string, config: ProjectConfig):
       } else keys.add("DATABASE_URL");
       if (config.dbSetup === "turso") keys.add("DATABASE_AUTH_TOKEN");
     }
+    if (config.emailDeploy !== "none") {
+      keys.add("EMAIL_FROM");
+      if (config.emailDeploy === "ses") {
+        for (const key of ["AWS_REGION", "AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY"]) {
+          keys.add(key);
+        }
+      }
+    }
   }
   return keys;
 }
@@ -123,6 +131,14 @@ function processAlchemySchema(vfs: VirtualFileSystem, config: ProjectConfig): vo
     "NODE_ENV",
     ...Array.from(source.matchAll(/Config\.(?:String|Redacted)\("([A-Z_]+)"\)/g), (m) => m[1]!),
   ]);
+  if (config.emailDeploy !== "none") {
+    inputs.add("EMAIL_FROM");
+    if (config.emailDeploy === "ses") {
+      for (const key of ["AWS_REGION", "AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY"]) {
+        inputs.add(key);
+      }
+    }
+  }
   const imports: string[] = [];
   for (const app of ["apps/server", "apps/web"]) {
     if (!vfs.exists(`${app}/.env.schema`)) continue;
