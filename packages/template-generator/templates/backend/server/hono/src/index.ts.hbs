@@ -34,7 +34,7 @@ import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { devToolsMiddleware } from "@ai-sdk/devtools";
 {{/if}}
 
-const app = new Hono();
+export const app = new Hono();
 
 app.use(logger());
 app.use(
@@ -191,7 +191,11 @@ app.get("/", (c) => {
 	return c.text("OK");
 });
 
-{{#if (eq runtime "node")}}
+{{#if (eq runtime "lambda")}}
+import { handle } from "hono/aws-lambda";
+
+export const handler = handle(app);
+{{else if (eq runtime "node")}}
 import { serve } from "@hono/node-server";
 
 {{#if (eq serverDeploy "vercel")}}

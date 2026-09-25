@@ -1,4 +1,8 @@
-import { supportsDatabaseSetup, supportsDatabaseSetupRuntime } from "@better-t-stack/types";
+import {
+  isAlchemyDeployTarget,
+  supportsDatabaseSetup,
+  supportsDatabaseSetupRuntime,
+} from "@better-t-stack/types";
 
 import {
   supportsAlchemyManagedDatabase,
@@ -14,6 +18,14 @@ import {
 import { UserCancelledError } from "../utils/errors";
 import { isCancel, navigableSelect, preferValidInitial } from "./navigable";
 
+function isAwsDeployTarget(
+  backend: Backend | undefined,
+  webDeploy: WebDeploy | undefined,
+  serverDeploy: ServerDeploy | undefined,
+) {
+  return backend === "self" ? webDeploy === "aws" : serverDeploy === "aws";
+}
+
 export async function getDBSetupChoice(
   databaseType: Database,
   dbSetup: DatabaseSetup | undefined,
@@ -21,6 +33,8 @@ export async function getDBSetupChoice(
   backend?: Backend,
   runtime?: Runtime,
   previousValue?: DatabaseSetup,
+  webDeploy?: WebDeploy,
+  serverDeploy?: ServerDeploy,
 ) {
   if (backend === "convex") {
     return "none";
@@ -50,6 +64,11 @@ export async function getDBSetupChoice(
       hint: "Postgres & Vitess (MySQL) on NVMe",
     },
     {
+      value: "aurora" as const,
+      label: "AWS Aurora",
+      hint: "Serverless PostgreSQL/MySQL on AWS via Alchemy",
+    },
+    {
       value: "supabase" as const,
       label: "Supabase",
       hint: "Local Supabase stack (requires Docker)",
@@ -69,7 +88,8 @@ export async function getDBSetupChoice(
   ].filter(
     ({ value }) =>
       supportsDatabaseSetup(value, databaseType) &&
-      supportsDatabaseSetupRuntime(value, runtime, backend),
+      supportsDatabaseSetupRuntime(value, runtime, backend) &&
+      (value !== "aurora" || isAwsDeployTarget(backend, webDeploy, serverDeploy)),
   );
 
   const response = await navigableSelect<DatabaseSetup>({
@@ -89,6 +109,7 @@ const providerLabels = {
   neon: "Neon",
   planetscale: "PlanetScale",
   "prisma-postgres": "Prisma Postgres",
+  aurora: "AWS Aurora",
 } as const satisfies Partial<Record<DatabaseSetup, string>>;
 
 export async function getDbProvisioningChoice(
@@ -114,7 +135,12 @@ export async function getDbProvisioningChoice(
 
   if (mode !== undefined) return mode;
 
-  if (dbSetup !== "neon" && dbSetup !== "planetscale" && dbSetup !== "prisma-postgres") {
+  if (
+    dbSetup !== "neon" &&
+    dbSetup !== "planetscale" &&
+    dbSetup !== "prisma-postgres" &&
+    dbSetup !== "aurora"
+  ) {
     return undefined;
   }
   const provider = providerLabels[dbSetup];
