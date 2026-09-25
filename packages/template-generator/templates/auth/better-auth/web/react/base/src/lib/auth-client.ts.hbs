@@ -2,6 +2,21 @@ import { createAuthClient } from "better-auth/react";
 {{#if (eq payments "polar")}}
 import { polarClient } from "@polar-sh/better-auth/client";
 {{/if}}
+{{#if (eq payments "stripe")}}
+import { stripeClient } from "@better-auth/stripe/client";
+{{/if}}
+{{#if (eq payments "dodo")}}
+import { dodopaymentsClient } from "@dodopayments/better-auth/client";
+{{/if}}
+{{#if (eq payments "creem")}}
+import { creemClient } from "@creem_io/better-auth/client";
+{{/if}}
+{{#if (eq payments "chargebee")}}
+import { chargebeeClient } from "@chargebee/better-auth/client";
+{{/if}}
+{{#if (eq payments "commet")}}
+import { commetClient } from "@commet/better-auth/client";
+{{/if}}
 {{#unless (eq backend "self")}}
 {{#unless (includes frontend "next")}}
 import { ENV } from "../env{{#if (eq webDeploy "cloudflare")}}.public{{/if}}";
@@ -20,5 +35,20 @@ export const authClient = createAuthClient({
 {{/unless}}
 {{#if (eq payments "polar")}}
 	plugins: [polarClient()]
+{{/if}}
+{{#if (eq payments "stripe")}}
+	plugins: [stripeClient({ subscription: true })]
+{{/if}}
+{{#if (eq payments "dodo")}}
+	plugins: [dodopaymentsClient()]
+{{/if}}
+{{#if (eq payments "creem")}}
+	plugins: [creemClient()]
+{{/if}}
+{{#if (eq payments "chargebee")}}
+	plugins: [chargebeeClient({ subscription: true })]
+{{/if}}
+{{#if (eq payments "commet")}}
+	plugins: [commetClient()]
 {{/if}}
 });

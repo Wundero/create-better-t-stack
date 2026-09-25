@@ -1,0 +1,51 @@
+import { createMemo, createSignal, onMount, type Accessor } from "solid-js";
+import { authClient } from "~/lib/auth-client";
+
+export interface PaymentState {
+  isActive: boolean;
+  planLabel: string;
+}
+
+export function usePayment(): {
+  state: Accessor<PaymentState>;
+  isLoading: Accessor<boolean>;
+  checkout: () => Promise<void>;
+  portal: () => Promise<void>;
+} {
+  const [isActive, setIsActive] = createSignal(false);
+  const [isLoading, setIsLoading] = createSignal(true);
+
+  onMount(async () => {
+    const { data, error } = await authClient.subscription.list();
+    setIsActive(
+      !error &&
+        (data?.some(
+          (subscription) => subscription.status === "active" || subscription.status === "trialing",
+        ) ?? false),
+    );
+    setIsLoading(false);
+  });
+
+  const state = createMemo<PaymentState>(() => ({
+    isActive: isActive(),
+    planLabel: isActive() ? "Pro" : "Free",
+  }));
+
+  const checkout = async (): Promise<void> => {
+    const { error } = await authClient.subscription.upgrade({
+      plan: "pro",
+      successUrl: "/success",
+      cancelUrl: "/dashboard",
+    });
+    if (error) return;
+  };
+
+  const portal = async (): Promise<void> => {
+    const { error } = await authClient.subscription.billingPortal({
+      returnUrl: "/dashboard",
+    });
+    if (error) return;
+  };
+
+  return { state, isLoading, checkout, portal };
+}

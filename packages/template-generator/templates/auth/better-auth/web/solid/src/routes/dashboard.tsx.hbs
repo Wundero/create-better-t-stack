@@ -11,6 +11,10 @@ import {
 	Show,
 } from "solid-js";
 import { {{#if (eq payments "polar")}}authClient, {{/if}}useSession } from "~/lib/auth-client";
+{{#if (and (ne payments "none") (ne payments "polar"))}}
+import { PaymentActions } from "~/components/payment-actions";
+import { usePayment } from "~/lib/payments";
+{{/if}}
 
 export default function Dashboard() {
 	const navigate = useNavigate();
@@ -20,6 +24,8 @@ export default function Dashboard() {
 		if (!session().data?.user.id) return;
 		return (await authClient.customer.state()).data;
 	});
+	{{else if (and (ne payments "none") (ne payments "polar"))}}
+	const { state, isLoading, checkout, portal } = usePayment();
 	{{/if}}
 
 	createEffect(
@@ -57,6 +63,14 @@ export default function Dashboard() {
 					Upgrade to Pro
 				</button>
 			)}
+			{{else if (and (ne payments "none") (ne payments "polar"))}}
+			<PaymentActions
+				isActive={state().isActive}
+				planLabel={state().planLabel}
+				pending={isLoading()}
+				onCheckout={checkout}
+				onPortal={portal}
+			/>
 			{{/if}}
 			</div>
 		</Show>

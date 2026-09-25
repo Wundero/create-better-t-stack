@@ -1,3 +1,8 @@
+import {
+  getPaymentProvider,
+  isPaymentProvider,
+  type PaymentProviderId,
+} from "@better-t-stack/types";
 import { box, log } from "@clack/prompts";
 import pc from "picocolors";
 
@@ -148,9 +153,9 @@ export async function displayPostInstallInstructions(
     isConvex && config.auth === "better-auth"
       ? getBetterAuthConvexInstructions(hasWeb ?? false, webPort, packageManager, runCmd)
       : "";
-  const polarInstructions =
-    config.payments === "polar" && config.auth === "better-auth"
-      ? getPolarInstructions(backend, packageManager)
+  const paymentsInstructions =
+    config.auth === "better-auth" && isPaymentProvider(config.payments)
+      ? getPaymentsInstructions(config.payments, backend, packageManager, runCmd)
       : "";
 
   const bunWebNativeWarning =
@@ -277,7 +282,7 @@ export async function displayPostInstallInstructions(
   if (starlightInstructions) output += `\n${starlightInstructions.trim()}\n`;
   if (clerkInstructions) output += `\n${clerkInstructions.trim()}\n`;
   if (betterAuthConvexInstructions) output += `\n${betterAuthConvexInstructions.trim()}\n`;
-  if (polarInstructions) output += `\n${polarInstructions.trim()}\n`;
+  if (paymentsInstructions) output += `\n${paymentsInstructions.trim()}\n`;
   // Deploy steps come last so env sync happens after auth/payment keys exist
   if (alchemyDeployInstructions) output += `\n${alchemyDeployInstructions.trim()}\n`;
 
@@ -678,6 +683,40 @@ function getBetterAuthConvexInstructions(
     `${pc.white(`   ${cmd} convex env set BETTER_AUTH_SECRET=$(openssl rand -base64 32)`)}\n` +
     (hasWeb ? `${pc.white(`   ${cmd} convex env set SITE_URL http://localhost:${webPort}`)}\n` : "")
   );
+}
+
+function getPaymentsInstructions(
+  payments: PaymentProviderId,
+  backend: Backend,
+  packageManager: string,
+  runCmd: string,
+) {
+  if (payments === "polar") {
+    return getPolarInstructions(backend, packageManager);
+  }
+
+  const provider = getPaymentProvider(payments);
+  const envPath = backend === "self" ? "apps/web/.env" : "apps/server/.env";
+  const lines: string[] = [`${pc.bold(`${provider.label} Setup:`)}`];
+
+  if (provider.env.length > 0) {
+    lines.push(`${pc.cyan("•")} Set the following env vars in ${pc.white(envPath)}:`);
+    lines.push(
+      provider.env
+        .map(({ key, comment }) => `${pc.white(`   ${key}`)}${pc.dim(` — ${comment}`)}`)
+        .join("\n"),
+    );
+  }
+
+  if (provider.requiresMigration) {
+    lines.push(
+      `${pc.cyan("•")} Generate the auth schema with ${pc.white(
+        `${runCmd} auth:generate`,
+      )}, then apply the migration with your ORM`,
+    );
+  }
+
+  return lines.join("\n");
 }
 
 function getPolarInstructions(backend: Backend, packageManager: string) {

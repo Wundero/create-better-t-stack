@@ -1,0 +1,42 @@
+{{#if (ne backend "self")}}
+import { ENV } from "../env{{#if (eq webDeploy "cloudflare")}}.public{{/if}}";
+{{/if}}
+import { authClient } from "./auth-client";
+
+const PRO_PLAN_CODE = "pro";
+const ACTIVE_STATUSES = ["active", "trialing"];
+
+{{#if (eq backend "self")}}
+const COMMET_CHECKOUT_URL = "/api/payments/commet/checkout";
+{{else}}
+const COMMET_CHECKOUT_URL = `${ENV.PUBLIC_SERVER_URL.replace(/\/$/, "")}/api/payments/commet/checkout`;
+{{/if}}
+
+export interface PaymentState {
+  isActive: boolean;
+  planLabel: string;
+}
+
+export async function getPaymentState(): Promise<PaymentState> {
+  const { data, error } = await authClient.subscription.get();
+  const isActive = !error && ACTIVE_STATUSES.includes(data?.status ?? "");
+  return { isActive, planLabel: isActive ? "Pro" : "Free" };
+}
+
+export async function checkout(): Promise<void> {
+  const response = await fetch(COMMET_CHECKOUT_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ planCode: PRO_PLAN_CODE }),
+  });
+  if (response.status === 204 || !response.ok) return;
+  const data = (await response.json()) as { url?: string };
+  if (!data.url) return;
+  window.location.href = data.url;
+}
+
+export async function portal(): Promise<void> {
+  const { data, error } = await authClient.customer.portal();
+  if (error || !data?.url) return;
+  window.location.href = data.url;
+}
