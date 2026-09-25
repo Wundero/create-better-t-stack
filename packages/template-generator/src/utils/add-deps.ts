@@ -44,6 +44,8 @@ export const dependencyVersionMap = {
   "@types/ws": "^8.18.1",
   ws: "^8.21.3",
 
+  "@aws-sdk/client-rds-data": "^3.1140.0",
+
   mysql2: "^3.24.3",
 
   "@prisma/client": "^7.10.0",

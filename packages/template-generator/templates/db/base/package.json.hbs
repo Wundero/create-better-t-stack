@@ -8,9 +8,12 @@
   "scripts": {
     {{#if (eq api "orpc")}}
     "build": "tsc -b",
-    "check-types": "tsc -b"
+    "check-types": "tsc -b"{{#if (and (eq dbSetup "aurora") (usesAlchemyDatabase backend dbSetup webDeploy serverDeploy dbSetupOptions))}},{{/if}}
     {{else}}
-    "check-types": "tsc --noEmit"
+    "check-types": "tsc --noEmit"{{#if (and (eq dbSetup "aurora") (usesAlchemyDatabase backend dbSetup webDeploy serverDeploy dbSetupOptions))}},{{/if}}
+    {{/if}}
+    {{#if (and (eq dbSetup "aurora") (usesAlchemyDatabase backend dbSetup webDeploy serverDeploy dbSetupOptions))}}
+    "db:migrate:aurora": "tsx src/migrate-aurora.ts"
     {{/if}}
   },
   "devDependencies": {}
