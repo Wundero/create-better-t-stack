@@ -365,6 +365,7 @@ async function addHandlerInternal(
     api: existingConfig.api,
     webDeploy: existingConfig.webDeploy,
     serverDeploy: existingConfig.serverDeploy,
+    portless: false,
   };
   const updatedConfig: ProjectConfig = {
     ...config,

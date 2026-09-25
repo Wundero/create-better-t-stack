@@ -25,6 +25,7 @@ const CATEGORY_ORDER: Array<keyof typeof TECH_OPTIONS> = [
   "examples",
   "git",
   "install",
+  "portless",
 ];
 
 const desktopAddonNames = {
@@ -208,6 +209,10 @@ export function generateStackCommand(stack: StackState) {
 
   if (stack.yolo === "true") {
     flags.push("--yolo");
+  }
+
+  if (stack.portless === "true") {
+    flags.push("--portless");
   }
 
   return `${base} ${projectName} ${flags.join(" ")}`;

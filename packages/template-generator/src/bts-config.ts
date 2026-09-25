@@ -37,6 +37,7 @@ export function writeBtsConfigToVfs(
     api: projectConfig.api,
     webDeploy: projectConfig.webDeploy,
     serverDeploy: projectConfig.serverDeploy,
+    portless: projectConfig.portless,
   };
 
   const baseContent = {

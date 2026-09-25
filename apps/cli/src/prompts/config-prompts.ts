@@ -39,6 +39,7 @@ import { navigableGroup } from "./navigable-group";
 import { getORMChoice } from "./orm";
 import { getPackageManagerChoice } from "./package-manager";
 import { getPaymentsChoice } from "./payments";
+import { getPortlessChoice } from "./portless";
 import { getRuntimeChoice } from "./runtime";
 import { getServerDeploymentChoice } from "./server-deploy";
 import { getShadcnChoice } from "./shadcn";
@@ -60,6 +61,7 @@ type PromptGroupResults = {
   git: boolean;
   packageManager: PackageManager;
   install: boolean;
+  portless: boolean;
   webDeploy: WebDeploy;
   serverDeploy: ServerDeploy;
   shadcn: ShadcnConfig | undefined;
@@ -95,6 +97,7 @@ export async function gatherConfig(
       git: flags.git ?? DEFAULT_CONFIG.git,
       packageManager: flags.packageManager ?? DEFAULT_CONFIG.packageManager,
       install: flags.install ?? DEFAULT_CONFIG.install,
+      portless: flags.portless ?? DEFAULT_CONFIG.portless,
       dbSetup: flags.dbSetup ?? DEFAULT_CONFIG.dbSetup,
       api: flags.api ?? DEFAULT_CONFIG.api,
       webDeploy: flags.webDeploy ?? DEFAULT_CONFIG.webDeploy,
@@ -205,6 +208,7 @@ export async function gatherConfig(
       packageManager: ({ previousAnswer }) =>
         getPackageManagerChoice(flags.packageManager, previousAnswer),
       install: ({ previousAnswer }) => getinstallChoice(flags.install, previousAnswer),
+      portless: ({ previousAnswer }) => getPortlessChoice(flags.portless, previousAnswer),
     },
     {
       preselected: options.skipCompatibilityChecks ? flags : undefined,
@@ -225,6 +229,7 @@ export async function gatherConfig(
             "git",
             "packageManager",
             "install",
+            "portless",
           ],
         },
       ],
@@ -254,6 +259,7 @@ export async function gatherConfig(
     git: result.git,
     packageManager: result.packageManager,
     install: result.install,
+    portless: result.portless,
     dbSetup: result.dbSetup,
     api: result.api,
     webDeploy: result.webDeploy,

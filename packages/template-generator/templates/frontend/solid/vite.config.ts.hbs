@@ -56,7 +56,9 @@ export default defineConfig({
     tailwindcss(),
   ],
   server: {
+{{#unless portless}}
     port: 3001,
+{{/unless}}
   },
 {{#if (eq webDeploy "cloudflare")}}
   build: {

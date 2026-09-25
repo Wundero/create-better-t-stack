@@ -71,6 +71,7 @@ export async function displayPostInstallInstructions(
     webDeploy,
     serverDeploy,
     dbSetupOptions,
+    portless,
   } = config;
 
   const isConvex = backend === "convex";
@@ -273,6 +274,16 @@ export async function displayPostInstallInstructions(
     }
   }
 
+  const portlessInstructions =
+    portless === true
+      ? getPortlessInstructions(
+          config.projectName,
+          hasWeb === true,
+          hasStandaloneBackend && !isConvex && !isBackendSelf,
+        )
+      : "";
+
+  if (portlessInstructions) output += `\n${portlessInstructions.trim()}\n`;
   if (nativeInstructions) output += `\n${nativeInstructions.trim()}\n`;
   if (databaseInstructions) output += `\n${databaseInstructions.trim()}\n`;
   if (tauriInstructions) output += `\n${tauriInstructions.trim()}\n`;
@@ -548,6 +559,46 @@ function getPwaInstructions() {
   return `\n${pc.bold("PWA with React Router:")}\n${pc.yellow(
     "NOTE:",
   )} Verify PWA behavior with a production build on HTTPS or localhost.\n   Offline navigation shows a precached fallback page.\n   Server-rendered pages require a connection.`;
+}
+
+function sanitizePortlessName(projectName: string): string {
+  const sanitized = projectName
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+
+  return sanitized.length > 0 ? sanitized : "app";
+}
+
+function getPortlessInstructions(projectName: string, hasWeb: boolean, hasServer: boolean) {
+  const slug = sanitizePortlessName(projectName);
+  const urls: Array<{ label: string; url: string }> = [];
+
+  if (hasWeb) {
+    urls.push({ label: "Web", url: `https://${slug}.localhost` });
+  }
+
+  if (hasServer) {
+    urls.push({ label: "API", url: `https://api.${slug}.localhost` });
+  }
+
+  const lines = [
+    pc.bold("Portless dev mode (experimental):"),
+    `${pc.cyan("•")} Requires Node.js 24 or newer`,
+    `${pc.cyan("•")} Install the CLI: ${pc.white("npm i -g portless")} ${pc.dim(
+      "(or use the project devDependency)",
+    )}`,
+    `${pc.cyan("•")} Trust the local CA once: ${pc.white("portless trust")}`,
+  ];
+
+  if (urls.length > 0) {
+    const labelWidth = Math.max(...urls.map(({ label }) => label.length));
+    lines.push(
+      ...urls.map(({ label, url }) => `${pc.dim(label.padEnd(labelWidth))}  ${pc.cyan(url)}`),
+    );
+  }
+
+  return lines.join("\n");
 }
 
 function getStarlightInstructions(runCmd: string) {

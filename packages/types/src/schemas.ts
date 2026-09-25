@@ -556,6 +556,7 @@ export const CreateInputSchema = z
     renderTitle: z.boolean().optional(),
     disableAnalytics: z.boolean().optional(),
     manualDb: z.boolean().optional(),
+    portless: z.boolean().optional(),
   })
   .strict()
   .refine((input) => !(input.manualDb !== undefined && input.dbSetupOptions?.mode !== undefined), {
@@ -744,6 +745,7 @@ export const ProjectConfigSchema = z.object({
   api: APISchema,
   webDeploy: WebDeploySchema,
   serverDeploy: ServerDeploySchema,
+  portless: z.boolean().optional(),
 });
 
 export const BetterTStackConfigSchema = z.object({
@@ -769,6 +771,7 @@ export const BetterTStackConfigSchema = z.object({
   api: APISchema,
   webDeploy: WebDeploySchema,
   serverDeploy: ServerDeploySchema,
+  portless: z.boolean().optional(),
 });
 
 export const BetterTStackConfigFileSchema = BetterTStackConfigSchema.safeExtend({

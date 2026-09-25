@@ -33,6 +33,7 @@ export const DEFAULT_CONFIG_BASE = {
   api: "trpc",
   webDeploy: "none",
   serverDeploy: "none",
+  portless: false,
 } as const;
 
 export function getDefaultConfig() {

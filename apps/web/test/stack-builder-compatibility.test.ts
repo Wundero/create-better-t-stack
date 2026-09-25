@@ -14,6 +14,7 @@ import {
 import { DEFAULT_STACK, type StackState, TECH_OPTIONS } from "../src/lib/constant";
 import { sanitizeAddons } from "../src/lib/sanitize-stack-addons";
 import { applyStackUpdate, resolveStackCompatibility } from "../src/lib/stack-compatibility";
+import { stackStateToConfig } from "../src/lib/stack-schema";
 import { formatStackCommandForDisplay, generateStackCommand } from "../src/lib/stack-utils";
 import { analyzeStackCompatibility, getDisabledReason } from "../src/lib/stack-validation";
 
@@ -778,4 +779,111 @@ test("changing one builder field preserves unrelated settings", () => {
 test("ignores option IDs belonging to a different builder category", () => {
   expect(getTechSelectionUpdate(DEFAULT_STACK, "runtime", "next")).toEqual({});
   expect(getTechSelectionUpdate(DEFAULT_STACK, "addons", "postgres")).toEqual({});
+});
+
+describe("stack builder portless mode compatibility", () => {
+  test("exposes portless as a string-boolean category with an experimental opt-in", () => {
+    expect(TECH_OPTIONS.portless.map((option) => option.id)).toEqual(["false", "true"]);
+    expect(TECH_OPTIONS.portless.find((option) => option.id === "false")).toMatchObject({
+      name: "Standard localhost",
+      default: true,
+    });
+    expect(TECH_OPTIONS.portless.find((option) => option.id === "true")).toMatchObject({
+      name: "Portless",
+      experimental: true,
+    });
+    expect(
+      "experimental" in (TECH_OPTIONS.portless.find((option) => option.id === "false") ?? {}),
+    ).toBe(false);
+  });
+
+  test("emits --portless only when portless mode is selected", () => {
+    expect(generateStackCommand(createStack({ portless: "true" }))).toContain("--portless");
+    expect(generateStackCommand(createStack({ portless: "false" }))).not.toContain("--portless");
+    expect(generateStackCommand(DEFAULT_STACK)).not.toContain("--portless");
+  });
+
+  test("maps portless builder state to a boolean config field", () => {
+    expect(stackStateToConfig(createStack({ portless: "true" })).portless).toBe(true);
+    expect(stackStateToConfig(createStack({ portless: "false" })).portless).toBe(false);
+  });
+
+  test("allows portless for a standard local web stack", () => {
+    const stack = createStack();
+
+    expect(getDisabledReason(stack, "portless", "true")).toBeNull();
+    expect(getDisabledReason(stack, "portless", "false")).toBeNull();
+    expect(resolveStackCompatibility({ ...stack, portless: "true" }).stack.portless).toBe("true");
+  });
+
+  test("disables portless for native frontends", () => {
+    const stack = createStack({ nativeFrontend: ["native-bare"] });
+
+    expect(getDisabledReason(stack, "portless", "true")).toBe(
+      "Portless mode is not compatible with native frontends",
+    );
+  });
+
+  test("disables portless for desktop addons", () => {
+    const stack = createStack({ addons: ["tauri"] });
+
+    expect(getDisabledReason(stack, "portless", "true")).toBe(
+      "Portless mode is not compatible with the Tauri addon",
+    );
+  });
+
+  test("disables portless for the Convex backend", () => {
+    const stack = createStack({
+      backend: "convex",
+      runtime: "none",
+      database: "none",
+      orm: "none",
+      api: "none",
+      dbSetup: "none",
+      auth: "none",
+      serverDeploy: "none",
+    });
+
+    expect(getDisabledReason(stack, "portless", "true")).toBe(
+      "Portless mode is not compatible with the Convex backend",
+    );
+  });
+
+  test("disables portless for the Workers runtime and Docker deployments", () => {
+    const workersStack = createStack({
+      backend: "hono",
+      runtime: "workers",
+      database: "sqlite",
+      orm: "drizzle",
+      dbSetup: "d1",
+      serverDeploy: "cloudflare",
+    });
+    expect(getDisabledReason(workersStack, "portless", "true")).toBe(
+      "Portless mode is not compatible with the Workers runtime",
+    );
+
+    const dockerWebStack = createStack({ webDeploy: "docker" });
+    expect(getDisabledReason(dockerWebStack, "portless", "true")).toBe(
+      "Portless mode is not compatible with Docker deployment",
+    );
+
+    const dockerServerStack = createStack({ serverDeploy: "docker" });
+    expect(getDisabledReason(dockerServerStack, "portless", "true")).toBe(
+      "Portless mode is not compatible with Docker deployment",
+    );
+  });
+
+  test("repairs portless when the resolved stack cannot run a local dev server", () => {
+    const result = resolveStackCompatibility(
+      createStack({ portless: "true", nativeFrontend: ["native-bare"] }),
+    );
+
+    expect(result.stack.portless).toBe("false");
+    expect(result.changes).toContainEqual(
+      expect.objectContaining({
+        category: "portless",
+        message: expect.stringContaining("Portless"),
+      }),
+    );
+  });
 });

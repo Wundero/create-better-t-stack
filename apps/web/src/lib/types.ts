@@ -35,6 +35,7 @@ export type StackState = Pick<
   shadcnBase: ShadcnBase;
   shadcnRtl: boolean;
   shadcnPointer: boolean;
+  portless: "true" | "false";
 };
 
 export type TechCategory = Exclude<

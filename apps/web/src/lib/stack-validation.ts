@@ -1,11 +1,14 @@
 import {
   getBackendDisabledOptions,
+  supportsPortlessMode,
   supportsRuntimeBackend,
   supportsRuntimeDatabase,
   supportsDatabaseSetupRuntime,
   supportsServerDeployRuntime,
   supportsPaymentsAuth,
   supportsCloudflareEmailDeploy,
+  NATIVE_FRONTENDS,
+  PORTLESS_BLOCKED_ADDONS,
 } from "@better-t-stack/types";
 import { ProjectNameSchema } from "@better-t-stack/types";
 import {
@@ -80,6 +83,47 @@ const getPrismaDesktopConflict = (
   addons: StackState["addons"],
   frontend: StackState["webFrontend"],
 ) => getDesktopDeployConflict("prisma", addons, frontend);
+
+const getPortlessDisabledReason = (stack: StackState): string | null => {
+  const isPortlessSupported = supportsPortlessMode({
+    frontend: getStackFrontends(stack),
+    addons: stack.addons,
+    backend: getStackBackend(stack.backend),
+    runtime: stack.runtime,
+    webDeploy: stack.webDeploy,
+    serverDeploy: stack.serverDeploy,
+  });
+
+  if (isPortlessSupported) {
+    return null;
+  }
+
+  const nativeFrontend = [...stack.webFrontend, ...stack.nativeFrontend].find((frontend) =>
+    NATIVE_FRONTENDS.some((native) => native === frontend),
+  );
+  if (nativeFrontend) {
+    return "Portless mode is not compatible with native frontends";
+  }
+
+  const blockedAddon = stack.addons.find((addon) =>
+    PORTLESS_BLOCKED_ADDONS.some((blocked) => blocked === addon),
+  );
+  if (blockedAddon) {
+    const addonName =
+      TECH_OPTIONS.addons.find((option) => option.id === blockedAddon)?.name ?? blockedAddon;
+    return `Portless mode is not compatible with the ${addonName} addon`;
+  }
+
+  if (getStackBackend(stack.backend) === "convex") {
+    return "Portless mode is not compatible with the Convex backend";
+  }
+
+  if (stack.runtime === "workers") {
+    return "Portless mode is not compatible with the Workers runtime";
+  }
+
+  return "Portless mode is not compatible with Docker deployment";
+};
 
 function getAddonIssue(stack: StackState, addon: StackState["addons"][number]) {
   const result = validateAddonCompatibility(
@@ -554,6 +598,15 @@ export const analyzeStackCompatibility = (stack: StackState): CompatibilityResul
     });
   }
 
+  if (nextStack.portless === "true" && getPortlessDisabledReason(nextStack)) {
+    nextStack.portless = "false";
+    changed = true;
+    changes.push({
+      category: "portless",
+      message: "Portless mode set to 'false' (incompatible with the selected stack)",
+    });
+  }
+
   return {
     adjustedStack: changed ? nextStack : null,
     notes,
@@ -885,6 +938,11 @@ export const getDisabledReason = (
     ) {
       return "Cloudflare Email Sending requires a Cloudflare Workers deployment";
     }
+  }
+
+  if (category === "portless" && optionId === "true") {
+    const reason = getPortlessDisabledReason(currentStack);
+    if (reason) return reason;
   }
 
   return null;

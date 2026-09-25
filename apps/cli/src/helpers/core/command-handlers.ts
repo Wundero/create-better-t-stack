@@ -111,6 +111,7 @@ function createEmptyResult(
       api: "none",
       webDeploy: "none",
       serverDeploy: "none",
+      portless: false,
     } satisfies ProjectConfig,
     reproducibleCommand: "",
     timeScaffolded,

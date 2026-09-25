@@ -15,6 +15,7 @@ import {
   processAlchemyPlugins,
   processPwaPlugins,
   processEnvVariables,
+  processPortlessMode,
 } from "./processors";
 import { processVarlock } from "./processors/varlock";
 import { createHttpShadcnRegistryClient, resolveShadcnTheme } from "./shadcn";
@@ -115,6 +116,7 @@ export async function generate(
 
       processPackageConfigs(vfs, config);
       processDependencies(vfs, config);
+      processPortlessMode(vfs, config);
       finalizeAlchemyDevScripts(vfs, config);
       processEnvVariables(vfs, config);
       processAuthPlugins(vfs, config);

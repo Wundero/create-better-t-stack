@@ -135,6 +135,10 @@ export function processFlags(options: ShadcnFlaggedInput, projectName?: string) 
     config.install = options.install;
   }
 
+  if (options.portless !== undefined) {
+    config.portless = options.portless;
+  }
+
   if (options.runtime) {
     config.runtime = options.runtime as Runtime;
   }
