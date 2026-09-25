@@ -110,6 +110,9 @@ jobs:
             (cd packages/template-generator && bun run generate-templates)
           git add -A
 
+      - name: Build workspace dependencies for typecheck
+        run: bun run --filter web prebuild
+
       - name: Verify aggregated tree (no secrets in this step)
         run: |
           set -euo pipefail
