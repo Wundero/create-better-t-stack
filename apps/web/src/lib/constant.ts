@@ -163,6 +163,13 @@ export const TECH_OPTIONS: TechOptions = {
       color: "from-orange-400 to-orange-600",
     },
     {
+      id: "lambda",
+      name: "AWS Lambda",
+      description: "Serverless functions on AWS",
+      icon: "",
+      color: "from-amber-500 to-orange-600",
+    },
+    {
       id: "none",
       name: "No Runtime",
       description: "No specific runtime",
@@ -384,6 +391,13 @@ export const TECH_OPTIONS: TechOptions = {
       color: "from-blue-500 to-blue-700",
     },
     {
+      id: "aurora",
+      name: "AWS Aurora",
+      description: "Managed Aurora Serverless Postgres or MySQL on AWS",
+      icon: "",
+      color: "from-amber-500 to-orange-600",
+    },
+    {
       id: "none",
       name: "Basic Setup",
       description: "No cloud DB integration",
@@ -406,6 +420,13 @@ export const TECH_OPTIONS: TechOptions = {
       description: "Deploy with Prisma using Alchemy",
       icon: `${ICON_BASE_URL}/prisma.svg`,
       color: "from-indigo-400 to-indigo-600",
+    },
+    {
+      id: "aws",
+      name: "AWS",
+      description: "Deploy to AWS using Alchemy",
+      icon: "",
+      color: "from-amber-500 to-orange-600",
     },
     {
       id: "docker",
@@ -445,6 +466,13 @@ export const TECH_OPTIONS: TechOptions = {
       description: "Deploy with Prisma using Alchemy",
       icon: `${ICON_BASE_URL}/prisma.svg`,
       color: "from-indigo-400 to-indigo-600",
+    },
+    {
+      id: "aws",
+      name: "AWS",
+      description: "Deploy to AWS using Alchemy",
+      icon: "",
+      color: "from-amber-500 to-orange-600",
     },
     {
       id: "docker",
