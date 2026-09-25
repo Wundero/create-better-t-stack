@@ -19,6 +19,8 @@ const categoryChipColors = {
   dbSetup: "#f5c2e7",
   auth: "#a6e3a1",
   payments: "#eba0ac",
+  emailRenderer: "#cba6f7",
+  emailDeploy: "#f5c2e7",
   packageManager: "#f9e2af",
   addons: "#cba6f7",
   examples: "#94e2d5",
