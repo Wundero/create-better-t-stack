@@ -1,0 +1,46 @@
+import type { ComputedRef, Ref } from "vue";
+
+export interface PaymentState {
+  isActive: boolean;
+  planLabel: string;
+}
+
+export function usePayment(): {
+  state: ComputedRef<PaymentState>;
+  isLoading: Ref<boolean>;
+  checkout: () => Promise<void>;
+  portal: () => Promise<void>;
+} {
+  const { $authClient } = useNuxtApp();
+  const isActive = ref(false);
+  const isLoading = ref(true);
+
+  onMounted(async () => {
+    const { data, error } = await $authClient.creem.hasAccessGranted();
+    isActive.value = !error && (data?.hasAccessGranted ?? false);
+    isLoading.value = false;
+  });
+
+  const checkout = async () => {
+    // Replace "prod_..." with the Creem product ID for your Pro plan.
+    const { data, error } = await $authClient.creem.createCheckout({
+      productId: "prod_...",
+      successUrl: "/success",
+    });
+    if (error || !data?.url) return;
+    window.location.href = data.url;
+  };
+
+  const portal = async () => {
+    const { data, error } = await $authClient.creem.createPortal();
+    if (error || !data?.url) return;
+    window.location.href = data.url;
+  };
+
+  const state = computed<PaymentState>(() => ({
+    isActive: isActive.value,
+    planLabel: isActive.value ? "Pro" : "Free",
+  }));
+
+  return { state, isLoading, checkout, portal };
+}

@@ -22,7 +22,10 @@ import { devToolsMiddleware } from "@ai-sdk/devtools";
 {{/if}}
 {{#if (eq auth "better-auth")}}
 import { auth } from "@{{projectName}}/auth";
-import { toNodeHandler } from "better-auth/node";
+import { toNodeHandler{{#if (eq payments "commet")}}, fromNodeHeaders{{/if}} } from "better-auth/node";
+{{/if}}
+{{#if (eq payments "commet")}}
+import { createCommetCheckoutUrl } from "@{{projectName}}/auth/lib/payments";
 {{/if}}
 {{#if (eq auth "clerk")}}
 import { clerkMiddleware } from "@clerk/express";
@@ -125,6 +128,30 @@ app.use(async (req, res, next) => {
 {{/if}}
 
 app.use(express.json());
+
+{{#if (eq payments "commet")}}
+app.post("/api/payments/commet/checkout", async (req, res) => {
+	const session = await auth.api.getSession({ headers: fromNodeHeaders(req.headers) });
+	if (!session?.user) {
+		res.status(401).json({ error: "Unauthorized" });
+		return;
+	}
+
+	const body = (req.body ?? {}) as { planCode?: string };
+	const planCode = body.planCode ?? "pro";
+	const successUrl = `${ENV.CORS_ORIGIN}/success`;
+	const url = await createCommetCheckoutUrl({
+		userId: session.user.id,
+		planCode,
+		successUrl,
+	});
+	if (!url) {
+		res.status(204).send();
+		return;
+	}
+	res.json({ url });
+});
+{{/if}}
 
 {{#if (includes examples "ai")}}
 app.post("/ai", async (req, res) => {

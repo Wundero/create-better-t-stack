@@ -1,3 +1,5 @@
+import { ALL_PAYMENT_IDS, getPaymentProvider } from "@better-t-stack/types";
+
 import type { StackState, TechOptions, TechCategory, StackOptionId } from "./types";
 export type { StackState } from "./types";
 
@@ -522,24 +524,27 @@ export const TECH_OPTIONS: TechOptions = {
       color: "from-red-400 to-red-600",
     },
   ],
-  payments: [
-    {
-      id: "polar",
-      name: "Polar",
-      description: "Turn your software into a business. 6 lines of code.",
-      icon: `${ICON_BASE_URL}/polar.svg`,
-      color: "from-purple-400 to-purple-600",
+  payments: ALL_PAYMENT_IDS.map((id) => {
+    if (id === "none") {
+      return {
+        id,
+        name: "No Payments",
+        description: "Skip payments integration",
+        icon: "",
+        color: "from-gray-400 to-gray-600",
+        default: true,
+      };
+    }
+    const meta = getPaymentProvider(id);
+    return {
+      id,
+      name: meta.label,
+      description: meta.description,
+      icon: meta.iconSlug ? `${ICON_BASE_URL}/${meta.iconSlug}.svg` : "",
+      color: meta.color,
       default: false,
-    },
-    {
-      id: "none",
-      name: "No Payments",
-      description: "Skip payments integration",
-      icon: "",
-      color: "from-gray-400 to-gray-600",
-      default: true,
-    },
-  ],
+    };
+  }),
   emailRenderer: [
     {
       id: "react-email",

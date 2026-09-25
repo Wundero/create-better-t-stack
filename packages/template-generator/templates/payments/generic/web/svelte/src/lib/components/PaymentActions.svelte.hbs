@@ -1,0 +1,24 @@
+<script lang="ts">
+	interface Props {
+		isActive: boolean;
+		planLabel: string;
+		pending: boolean;
+		onCheckout: () => Promise<void>;
+		onPortal: () => Promise<void>;
+	}
+
+	let { isActive, planLabel, pending, onCheckout, onPortal }: Props = $props();
+</script>
+
+<div>
+	<p>Plan: {planLabel}</p>
+	{#if isActive}
+		<button disabled={pending} onclick={() => void onPortal()}>
+			Manage Subscription
+		</button>
+	{:else}
+		<button disabled={pending} onclick={() => void onCheckout()}>
+			Upgrade to Pro
+		</button>
+	{/if}
+</div>

@@ -1,0 +1,34 @@
+{{#if (or (eq runtime "workers") (eq serverDeploy "cloudflare") (and (eq backend "self") (eq webDeploy "cloudflare")))}}
+import { createAuth } from "@{{projectName}}/auth";
+{{else}}
+import { auth } from "@{{projectName}}/auth";
+{{/if}}
+{{#if (eq webDeploy "cloudflare")}}
+import type { CloudflareEnv } from "../../../src/env.server";
+{{/if}}
+import { createCommetCheckoutUrl } from "@{{projectName}}/auth/lib/payments";
+
+export default defineEventHandler(async (event) => {
+{{#if (or (eq runtime "workers") (eq serverDeploy "cloudflare") (and (eq backend "self") (eq webDeploy "cloudflare")))}}
+  const auth = (await createAuth({{#if (eq webDeploy "cloudflare")}}(event.context.cloudflare as { env: CloudflareEnv }).env{{/if}}));
+{{/if}}
+  const session = await auth.api.getSession({ headers: toWebRequest(event).headers });
+  if (!session?.user) {
+    setResponseStatus(event, 401);
+    return { error: "Unauthorized" };
+  }
+
+  const body = await readBody<{ planCode?: string }>(event).catch(() => undefined);
+  const planCode = body?.planCode ?? "pro";
+  const successUrl = new URL("/success", toWebRequest(event).url).toString();
+  const url = await createCommetCheckoutUrl({
+    userId: session.user.id,
+    planCode,
+    successUrl,
+  });
+  if (!url) {
+    setResponseStatus(event, 204);
+    return null;
+  }
+  return { url };
+});

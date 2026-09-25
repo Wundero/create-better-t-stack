@@ -1,0 +1,44 @@
+{{#if (or (eq runtime "workers") (eq serverDeploy "cloudflare") (and (eq backend "self") (eq webDeploy "cloudflare")))}}
+import { createAuth } from "@{{projectName}}/auth";
+{{else}}
+import { auth } from "@{{projectName}}/auth";
+{{/if}}
+import { createCommetCheckoutUrl } from "@{{projectName}}/auth/lib/payments";
+import type { APIRoute } from "astro";
+
+export const POST: APIRoute = async (ctx) => {
+{{#if (or (eq runtime "workers") (eq serverDeploy "cloudflare") (and (eq backend "self") (eq webDeploy "cloudflare")))}}
+  const authInstance = await createAuth();
+{{else}}
+  const authInstance = auth;
+{{/if}}
+  const session = await authInstance.api.getSession({ headers: ctx.request.headers });
+  if (!session?.user) {
+    return new Response(JSON.stringify({ error: "Unauthorized" }), {
+      status: 401,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
+  let planCode = "pro";
+  try {
+    const body = (await ctx.request.json()) as { planCode?: string };
+    planCode = body.planCode ?? planCode;
+  } catch {
+    // No JSON body was provided; fall back to the default plan.
+  }
+
+  const successUrl = new URL("/success", ctx.request.url).toString();
+  const url = await createCommetCheckoutUrl({
+    userId: session.user.id,
+    planCode,
+    successUrl,
+  });
+  if (!url) {
+    return new Response(null, { status: 204 });
+  }
+  return new Response(JSON.stringify({ url }), {
+    status: 200,
+    headers: { "Content-Type": "application/json" },
+  });
+};

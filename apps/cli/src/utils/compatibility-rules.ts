@@ -1,7 +1,7 @@
 import {
   supportsRuntimeBackend,
   supportsRuntimeDatabase,
-  supportsPaymentsAuth,
+  getPaymentsCapabilityIssue,
   supportsServerDeployRuntime,
   supportsCloudflareEmailDeploy,
   EMAIL_DEPLOY_CLOUDFLARE_REQUIRES_WORKERS,
@@ -632,17 +632,19 @@ export function validateAddonsAgainstConfig(
 export function validatePaymentsCompatibility(
   payments: Payments | undefined,
   auth: Auth | undefined,
-  _backend: Backend | undefined,
-  _frontends: Frontend[] = [],
+  backend: Backend | undefined,
+  frontends: Frontend[] = [],
 ): ValidationResult {
   if (!payments || payments === "none") return Result.ok(undefined);
 
-  if (payments === "polar") {
-    if (!supportsPaymentsAuth(payments, auth)) {
-      return validationErr(
-        "Polar payments requires Better Auth. Please use '--auth better-auth' or choose a different payments provider.",
-      );
-    }
+  const issue = getPaymentsCapabilityIssue(payments, {
+    auth,
+    backend,
+    frontend: frontends,
+  });
+
+  if (issue) {
+    return validationErr(issue);
   }
 
   return Result.ok(undefined);

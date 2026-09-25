@@ -27,6 +27,9 @@ import { devToolsMiddleware } from "@ai-sdk/devtools";
 {{#if (eq auth "better-auth")}}
 import { auth } from "@{{projectName}}/auth";
 {{/if}}
+{{#if (eq payments "commet")}}
+import { createCommetCheckoutUrl } from "@{{projectName}}/auth/lib/payments";
+{{/if}}
 {{#if (eq auth "clerk")}}
 import { clerkPlugin } from "@clerk/fastify";
 {{/if}}
@@ -167,6 +170,34 @@ fastify.route({
 			});
 		}
 	}
+});
+{{/if}}
+
+{{#if (eq payments "commet")}}
+fastify.post("/api/payments/commet/checkout", async (request, reply) => {
+	const headers = new Headers();
+	Object.entries(request.headers).forEach(([key, value]) => {
+		if (value) headers.append(key, value.toString());
+	});
+	const session = await auth.api.getSession({ headers });
+	if (!session?.user) {
+		reply.status(401).send({ error: "Unauthorized" });
+		return;
+	}
+
+	const body = (request.body ?? {}) as { planCode?: string };
+	const planCode = body.planCode ?? "pro";
+	const successUrl = `${ENV.CORS_ORIGIN}/success`;
+	const url = await createCommetCheckoutUrl({
+		userId: session.user.id,
+		planCode,
+		successUrl,
+	});
+	if (!url) {
+		reply.status(204).send();
+		return;
+	}
+	reply.send({ url });
 });
 {{/if}}
 

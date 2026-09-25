@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import { TASK_RUNNER_ADDONS, OBSERVABILITY_ADDONS } from "./compatibility";
+import { ALL_PAYMENT_IDS } from "./payment-providers";
 
 export const DatabaseSchema = z
   .enum(["none", "sqlite", "postgres", "mysql", "mongodb"])
@@ -113,7 +114,7 @@ export const AuthSchema = z
   .enum(["better-auth", "clerk", "none"])
   .describe("Authentication provider");
 
-export const PaymentsSchema = z.enum(["polar", "none"]).describe("Payments provider");
+export const PaymentsSchema = z.enum(ALL_PAYMENT_IDS).describe("Payments provider");
 
 export const EmailRendererSchema = z.enum(["react-email", "none"]).describe("Email renderer");
 

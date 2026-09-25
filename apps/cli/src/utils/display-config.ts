@@ -1,3 +1,4 @@
+import { getPaymentProvider, isPaymentProviderId } from "@better-t-stack/types";
 import pc from "picocolors";
 
 import type { ProjectConfig } from "../types";
@@ -114,6 +115,7 @@ export function formatConfigValue(value: ConfigDisplayValue): string {
   }
 
   const text = String(value);
+  if (isPaymentProviderId(text)) return getPaymentProvider(text).label;
   if (isKnownValueLabel(text)) return VALUE_LABELS[text];
   return text
     .split("-")

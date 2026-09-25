@@ -9,6 +9,7 @@ import {
   supportsCloudflareEmailDeploy,
   NATIVE_FRONTENDS,
   PORTLESS_BLOCKED_ADDONS,
+  getPaymentsCapabilityIssue,
 } from "@better-t-stack/types";
 import { ProjectNameSchema } from "@better-t-stack/types";
 import {
@@ -506,14 +507,16 @@ export const analyzeStackCompatibility = (stack: StackState): CompatibilityResul
     }
   }
 
-  if (nextStack.payments === "polar") {
-    if (!supportsPaymentsAuth(nextStack.payments, nextStack.auth)) {
+  if (nextStack.payments !== "none" && nextStack.payments !== undefined) {
+    const issue = getPaymentsCapabilityIssue(nextStack.payments, {
+      auth: nextStack.auth,
+      backend: getStackBackend(nextStack.backend),
+      frontend: [...nextStack.webFrontend, ...nextStack.nativeFrontend],
+    });
+    if (issue) {
       nextStack.payments = "none";
       changed = true;
-      changes.push({
-        category: "payments",
-        message: "Payments set to 'None' (Polar requires Better Auth)",
-      });
+      changes.push({ category: "payments", message: `Payments set to 'None' (${issue})` });
     }
   }
 
@@ -902,10 +905,13 @@ export const getDisabledReason = (
     }
   }
 
-  if (category === "payments" && optionId === "polar") {
-    if (!supportsPaymentsAuth(optionId, currentStack.auth)) {
-      return "Polar requires Better Auth";
-    }
+  if (category === "payments" && isStackOption("payments", optionId)) {
+    const issue = getPaymentsCapabilityIssue(optionId, {
+      auth: currentStack.auth,
+      backend: getStackBackend(currentStack.backend),
+      frontend: [...currentStack.webFrontend, ...currentStack.nativeFrontend],
+    });
+    if (issue) return issue;
   }
 
   if (category === "addons" && isStackOption("addons", optionId)) {

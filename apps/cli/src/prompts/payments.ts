@@ -1,13 +1,41 @@
+import {
+  ALL_PAYMENT_IDS,
+  getPaymentProvider,
+  getPaymentsCapabilityIssue,
+  isPaymentProvider,
+  type PaymentProviderId,
+} from "@better-t-stack/types";
+
 import { DEFAULT_CONFIG } from "../constants";
 import type { Auth, Backend, Frontend, Payments } from "../types";
 import { UserCancelledError } from "../utils/errors";
 import { isCancel, navigableSelect, preferValidInitial } from "./navigable";
 
+type PaymentsOption = {
+  value: Payments;
+  label: string;
+  hint: string;
+};
+
+/** Concrete providers the current auth/backend/frontend selection supports. */
+export function getAvailablePaymentsProviders(
+  auth?: Auth,
+  backend?: Backend,
+  frontend: readonly Frontend[] = [],
+): PaymentProviderId[] {
+  if (backend === "none") return [];
+
+  return ALL_PAYMENT_IDS.filter(
+    (id): id is PaymentProviderId =>
+      isPaymentProvider(id) && getPaymentsCapabilityIssue(id, { auth, backend, frontend }) === null,
+  );
+}
+
 export async function getPaymentsChoice(
   payments?: Payments,
   auth?: Auth,
   backend?: Backend,
-  _frontends?: Frontend[],
+  frontends: Frontend[] = [],
   previousValue?: Payments,
 ) {
   if (payments !== undefined) return payments;
@@ -16,24 +44,18 @@ export async function getPaymentsChoice(
     return "none" as Payments;
   }
 
-  const isPolarCompatible = auth === "better-auth";
+  const options: PaymentsOption[] = getAvailablePaymentsProviders(auth, backend, frontends).map(
+    (id) => {
+      const provider = getPaymentProvider(id);
+      return { value: id, label: provider.label, hint: provider.description };
+    },
+  );
 
-  if (!isPolarCompatible) {
+  if (options.length === 0) {
     return "none" as Payments;
   }
 
-  const options = [
-    {
-      value: "polar" as Payments,
-      label: "Polar",
-      hint: "Turn your software into a business. 6 lines of code.",
-    },
-    {
-      value: "none" as Payments,
-      label: "None",
-      hint: "No payments integration",
-    },
-  ];
+  options.push({ value: "none", label: "None", hint: "No payments integration" });
 
   const response = await navigableSelect<Payments>({
     message: "Add payments?",

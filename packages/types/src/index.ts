@@ -7,3 +7,4 @@ export * from "./shadcn-preset";
 export * from "./shadcn-presets";
 export * from "./types";
 export * from "./compatibility";
+export * from "./payment-providers";

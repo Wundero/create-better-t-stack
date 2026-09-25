@@ -1,6 +1,15 @@
 import type { ProjectConfig } from "@better-t-stack/types";
+import { getPaymentProvider, isPaymentProvider } from "@better-t-stack/types";
 
 import type { AlchemyDeploymentPlan, DeployedWebFramework } from "./plan";
+
+function providerEnvEntries(payments: ProjectConfig["payments"]): string[] {
+  if (!isPaymentProvider(payments) || payments === "polar") return [];
+  return getPaymentProvider(payments).env.map((entry) => {
+    const accessor = /(SECRET|TOKEN|PASSWORD|API_KEY)/i.test(entry.key) ? "Redacted" : "String";
+    return `${entry.key}: Config.${accessor}("${entry.key}"),`;
+  });
+}
 
 function hasExample(
   plan: AlchemyDeploymentPlan,
@@ -48,6 +57,7 @@ function commonRuntimeEntries(plan: AlchemyDeploymentPlan, includeCorsOrigin = t
       'POLAR_SUCCESS_URL: Config.String("POLAR_SUCCESS_URL"),',
     );
   }
+  entries.push(...providerEnvEntries(payments));
   if (dbSetup === "turso") {
     entries.push('DATABASE_AUTH_TOKEN: Config.Redacted("DATABASE_AUTH_TOKEN"),');
   }
@@ -111,6 +121,7 @@ export function prismaServerEnvEntries(plan: AlchemyDeploymentPlan): string[] {
       'POLAR_SUCCESS_URL: Config.String("POLAR_SUCCESS_URL"),',
     );
   }
+  entries.push(...providerEnvEntries(payments));
   if (dbSetup === "turso") {
     entries.push('DATABASE_AUTH_TOKEN: Config.Redacted("DATABASE_AUTH_TOKEN"),');
   }
@@ -265,6 +276,7 @@ export function prismaWebEnvEntries(
         'POLAR_SUCCESS_URL: Config.String("POLAR_SUCCESS_URL"),',
       );
     }
+    entries.push(...providerEnvEntries(payments));
     if (dbSetup === "turso") {
       entries.push('DATABASE_AUTH_TOKEN: Config.Redacted("DATABASE_AUTH_TOKEN"),');
     }

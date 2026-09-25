@@ -1,4 +1,5 @@
 import type { ProjectConfig } from "@better-t-stack/types";
+import { getPaymentProvider, isPaymentProvider } from "@better-t-stack/types";
 
 import type { VirtualFileSystem } from "../core/virtual-fs";
 import { isDatabaseConsumedByDocker } from "../utils/docker-database";
@@ -554,6 +555,13 @@ function buildServerVars(
       value: polarSuccessUrl,
       condition: payments === "polar",
     },
+    ...(isPaymentProvider(payments) && payments !== "polar"
+      ? getPaymentProvider(payments).env.map((entry) => ({
+          key: entry.key,
+          value: entry.value,
+          condition: true,
+        }))
+      : []),
     {
       key: "EMAIL_FROM",
       value: "",

@@ -3,6 +3,9 @@ import type { CustomerState } from "@polar-sh/sdk/models/components/customerstat
 {{/if}}
 {{#if (eq payments "polar")}}
 import { Button } from "@{{projectName}}/ui/components/button";
+{{else if (and (ne payments "none") (ne payments "polar"))}}
+import { PaymentActions } from "@/components/payment-actions";
+import { usePayment } from "@/lib/payments";
 {{/if}}
 import { authClient } from "@/lib/auth-client";
 {{#if (eq api "orpc")}}
@@ -26,6 +29,8 @@ export default function Dashboard() {
   const navigate = useNavigate();
   {{#if (eq payments "polar")}}
   const [customerState, setCustomerState] = useState<CustomerState | null>(null);
+  {{else if (and (ne payments "none") (ne payments "polar"))}}
+  const { state, isLoading, checkout, portal } = usePayment();
   {{/if}}
 
   {{#if (eq api "orpc")}}
@@ -80,6 +85,14 @@ export default function Dashboard() {
           Upgrade to Pro
         </Button>
       )}
+      {{else if (and (ne payments "none") (ne payments "polar"))}}
+      <PaymentActions
+        isActive={state.isActive}
+        planLabel={state.planLabel}
+        pending={isLoading}
+        onCheckout={checkout}
+        onPortal={portal}
+      />
       {{/if}}
     </div>
   );

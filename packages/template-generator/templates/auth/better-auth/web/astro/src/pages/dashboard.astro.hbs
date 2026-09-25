@@ -1,5 +1,8 @@
 ---
 import Layout from "../layouts/Layout.astro";
+{{#if (and (ne payments "none") (ne payments "polar"))}}
+import PaymentActions from "../components/PaymentActions.astro";
+{{/if}}
 ---
 
 <Layout title="Dashboard - {{projectName}}">
@@ -33,6 +36,11 @@ import Layout from "../layouts/Layout.astro";
               <p class="text-white">Loading...</p>
             </div>
           </div>
+          {{else if (and (ne payments "none") (ne payments "polar"))}}
+          <div class="rounded-lg bg-neutral-800/50 p-4">
+            <p class="text-sm text-neutral-400 mb-2">Subscription</p>
+            <PaymentActions />
+          </div>
           {{/if}}
         </div>
       </div>
@@ -52,6 +60,9 @@ import Layout from "../layouts/Layout.astro";
   import { authClient } from "../lib/auth-client";
   {{#if (eq api "orpc")}}
   import { orpc } from "../lib/orpc";
+  {{/if}}
+  {{#if (and (ne payments "none") (ne payments "polar"))}}
+  import { checkout, getPaymentState, portal } from "../lib/payments";
   {{/if}}
 
   const dashboardContent = document.getElementById("dashboard-content")!;
@@ -119,6 +130,30 @@ import Layout from "../layouts/Layout.astro";
         }
       } catch (e) {
         console.error("Failed to load subscription info", e);
+      }
+      {{else if (and (ne payments "none") (ne payments "polar"))}}
+      try {
+        const paymentState = await getPaymentState();
+        const planLabel = document.getElementById("payment-plan-label");
+        const checkoutButton = document.getElementById("payment-checkout");
+        const portalButton = document.getElementById("payment-portal");
+        if (planLabel) {
+          planLabel.textContent = `Plan: ${paymentState.planLabel}`;
+        }
+        if (checkoutButton) {
+          checkoutButton.hidden = paymentState.isActive;
+          checkoutButton.addEventListener("click", () => {
+            void checkout();
+          });
+        }
+        if (portalButton) {
+          portalButton.hidden = !paymentState.isActive;
+          portalButton.addEventListener("click", () => {
+            void portal();
+          });
+        }
+      } catch (e) {
+        console.error("Failed to load payment info", e);
       }
       {{/if}}
 

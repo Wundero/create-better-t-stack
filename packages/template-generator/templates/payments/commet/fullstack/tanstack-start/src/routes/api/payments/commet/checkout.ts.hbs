@@ -1,0 +1,42 @@
+{{#if (or (eq runtime "workers") (eq serverDeploy "cloudflare") (and (eq backend "self") (eq webDeploy "cloudflare")))}}
+import { createAuth } from '@{{projectName}}/auth'
+{{else}}
+import { auth } from '@{{projectName}}/auth'
+{{/if}}
+import { createCommetCheckoutUrl } from '@{{projectName}}/auth/lib/payments'
+import { createFileRoute } from '@tanstack/react-router'
+
+export const Route = createFileRoute('/api/payments/commet/checkout')({
+  server: {
+    handlers: {
+      POST: async ({ request }) => {
+        {{#if (or (eq runtime "workers") (eq serverDeploy "cloudflare") (and (eq backend "self") (eq webDeploy "cloudflare")))}}
+        const auth = await createAuth()
+        {{/if}}
+        const session = await auth.api.getSession({ headers: request.headers })
+        if (!session?.user) {
+          return Response.json({ error: 'Unauthorized' }, { status: 401 })
+        }
+
+        let planCode = 'pro'
+        try {
+          const body = (await request.json()) as { planCode?: string }
+          planCode = body.planCode ?? planCode
+        } catch {
+          // No JSON body was provided; fall back to the default plan.
+        }
+
+        const successUrl = new URL('/success', request.url).toString()
+        const url = await createCommetCheckoutUrl({
+          userId: session.user.id,
+          planCode,
+          successUrl,
+        })
+        if (!url) {
+          return new Response(null, { status: 204 })
+        }
+        return Response.json({ url })
+      },
+    },
+  },
+})

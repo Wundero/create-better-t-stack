@@ -13,7 +13,10 @@ import { ThemeProvider } from "./components/theme-provider";
 import { ThemeScript } from "@wrksz/themes/script";
 import { Toaster } from "@{{projectName}}/ui/components/sonner";
 {{#if shadcn.rtl}}import { DirectionProvider } from "@{{projectName}}/ui/components/direction";
-{{/if}}{{#if (eq auth "clerk")}}
+{{/if}}{{#if (eq payments "autumn")}}
+import { AutumnProvider } from "autumn-js/react";
+{{/if}}
+{{#if (eq auth "clerk")}}
 import { ClerkProvider{{#if (or (eq backend "convex") (ne api "none"))}}, useAuth{{/if}} } from "@clerk/react-router";
 import { clerkMiddleware, rootAuthLoader } from "@clerk/react-router/server";
 {{/if}}
@@ -90,9 +93,12 @@ export function Layout({ children }: { children: React.ReactNode }) {
       </head>
       <body>
         {{#if shadcn.rtl}}<DirectionProvider direction="rtl">
-        {{/if}}{children}
+        {{/if}}{{#if (eq payments "autumn")}}<AutumnProvider useBetterAuth={true}>
+{{/if}}
+        {children}
         <ScrollRestoration />
-        <Scripts />{{#if shadcn.rtl}}
+        <Scripts />{{#if (eq payments "autumn")}}
+        </AutumnProvider>{{/if}}{{#if shadcn.rtl}}
         </DirectionProvider>{{/if}}
       </body>
     </html>
