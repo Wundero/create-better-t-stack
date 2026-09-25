@@ -102,7 +102,7 @@ Handlebars.registerHelper(
 );
 
 const getServerUrlSource = `{{#if (and (eq webDeploy serverDeploy) (or (eq webDeploy "vercel") (eq webDeploy "docker")))}}
-function getServerUrl(url: string) {
+function getServerUrl(url: string | undefined) {
 	const processEnv = (globalThis as {
 		process?: { env?: Record<string, string | undefined> };
 	}).process?.env;
@@ -110,6 +110,12 @@ function getServerUrl(url: string) {
 		return processEnv.SERVER_URL.endsWith("/")
 			? processEnv.SERVER_URL.slice(0, -1)
 			: processEnv.SERVER_URL;
+	}
+
+	if (url === undefined) {
+		throw new Error(
+			"getServerUrl: server URL is not set. Set NEXT_PUBLIC_SERVER_URL (or the frontend-specific public server URL variable) for web deployments, or SERVER_URL on the server.",
+		);
 	}
 
 {{#if (eq webDeploy "vercel")}}

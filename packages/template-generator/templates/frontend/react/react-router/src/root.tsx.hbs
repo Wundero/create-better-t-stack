@@ -10,6 +10,7 @@ import type { Route } from "./+types/root";
 import "./index.css";
 import Header from "./components/header";
 import { ThemeProvider } from "./components/theme-provider";
+import { ThemeScript } from "@wrksz/themes/script";
 import { Toaster } from "@{{projectName}}/ui/components/sonner";
 {{#if (eq auth "clerk")}}
 import { ClerkProvider{{#if (or (eq backend "convex") (ne api "none"))}}, useAuth{{/if}} } from "@clerk/react-router";
@@ -78,12 +79,13 @@ export const links: Route.LinksFunction = () => [
 
 export function Layout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <head>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <Meta />
         <Links />
+        <ThemeScript />
       </head>
       <body>
         {children}
