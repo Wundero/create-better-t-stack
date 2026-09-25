@@ -1,0 +1,75 @@
+name: Deploy next (Cloudflare)
+
+# `push` workflows run from the pushed branch, so this file lives on `next`.
+# Triggered by aggregate-next.yml pushing `next` with NEXT_SYNC_TOKEN.
+#
+# Order matters: force-static pages in apps/web fetch from the API at BUILD time,
+# so bts-api must be deployed (and D1 migrated) before bts-web is built.
+
+on:
+  push:
+    branches: [next]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-next
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Build and deploy bts-web + bts-api
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: package.json
+          check-latest: true
+          package-manager-cache: false
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: package.json
+
+      - run: bun install --frozen-lockfile
+
+      - name: Apply D1 migrations
+        working-directory: packages/backend
+        run: bunx wrangler d1 migrations apply bts-analytics --remote
+
+      - name: Deploy bts-api
+        uses: cloudflare/wrangler-action@v4
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: packages/backend
+          packageManager: bun
+          command: deploy
+
+      - name: Build web deps (types + template-generator)
+        run: bun run --filter web prebuild
+
+      - name: Build OpenNext worker
+        working-directory: apps/web
+        env:
+          NEXT_PUBLIC_API_URL: https://api.create.1d.gg
+        run: bunx opennextjs-cloudflare build
+
+      - name: Deploy bts-web
+        uses: cloudflare/wrangler-action@v4
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: apps/web
+          packageManager: bun
+          command: deploy
