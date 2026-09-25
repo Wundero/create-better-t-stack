@@ -1,0 +1,31 @@
+import { Section, Text } from "react-email";
+import type { CSSProperties } from "react";
+
+export type TextareaProps = {
+  value?: string;
+  placeholder?: string;
+  rows?: number;
+  style?: CSSProperties;
+};
+
+export function Textarea({ value, placeholder, rows = 4, style }: TextareaProps) {
+  const textareaStyle = {
+    border: "1px solid #d4d4d8",
+    borderRadius: "6px",
+    paddingTop: "10px",
+    paddingBottom: "10px",
+    paddingLeft: "12px",
+    paddingRight: "12px",
+    ...style,
+  };
+
+  return (
+    <Section style={textareaStyle}>
+      <Text
+        style=\{{ margin: 0, fontSize: "14px", lineHeight: "20px", minHeight: `${rows * 20}px`, color: value ? "#18181b" : "#a1a1aa" }}
+      >
+        {value || placeholder || ""}
+      </Text>
+    </Section>
+  );
+}

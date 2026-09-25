@@ -1,0 +1,59 @@
+import { Heading, Section, Text } from "react-email";
+import type { CSSProperties, ReactNode } from "react";
+
+export type CardProps = {
+  children: ReactNode;
+  style?: CSSProperties;
+};
+
+export function Card({ children, style }: CardProps) {
+  const cardStyle = {
+    backgroundColor: "#ffffff",
+    border: "1px solid #e4e4e7",
+    borderRadius: "8px",
+    paddingTop: "24px",
+    paddingBottom: "24px",
+    paddingLeft: "24px",
+    paddingRight: "24px",
+    ...style,
+  };
+
+  return <Section style={cardStyle}>{children}</Section>;
+}
+
+export function CardHeader({ children, style }: CardProps) {
+  return (
+    <Section style=\{{ marginBottom: "16px", ...style }}>{children}</Section>
+  );
+}
+
+export function CardTitle({ children, style }: CardProps) {
+  return (
+    <Heading
+      as="h2"
+      style=\{{ margin: "0 0 4px", fontSize: "18px", fontWeight: 600, color: "#18181b", ...style }}
+    >
+      {children}
+    </Heading>
+  );
+}
+
+export function CardDescription({ children, style }: CardProps) {
+  return (
+    <Text style=\{{ margin: 0, fontSize: "14px", lineHeight: "20px", color: "#71717a", ...style }}>
+      {children}
+    </Text>
+  );
+}
+
+export function CardContent({ children, style }: CardProps) {
+  return <Section style=\{{ margin: "16px 0", ...style }}>{children}</Section>;
+}
+
+export function CardFooter({ children, style }: CardProps) {
+  return (
+    <Section style=\{{ borderTop: "1px solid #e4e4e7", paddingTop: "16px", ...style }}>
+      {children}
+    </Section>
+  );
+}
