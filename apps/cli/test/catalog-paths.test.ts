@@ -20,6 +20,7 @@ const LEGACY_ADD_PACKAGE_JSON_PATHS = [
   "packages/auth/package.json",
   "packages/backend/package.json",
   "packages/config/package.json",
+  "packages/email/package.json",
   "packages/env/package.json",
   "packages/infra/package.json",
   "packages/ui/package.json",

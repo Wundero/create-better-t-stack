@@ -33,6 +33,8 @@ const PROJECT_CONFIG = {
   api: "trpc",
   webDeploy: "none",
   serverDeploy: "none",
+  emailRenderer: "none",
+  emailDeploy: "none",
 } as const;
 
 type PortlessInput = Parameters<typeof supportsPortlessMode>[0];
