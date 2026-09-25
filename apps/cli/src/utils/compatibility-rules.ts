@@ -18,6 +18,7 @@ import {
   TRPC_INCOMPATIBLE_FRONTENDS,
   isExampleAIAllowed,
   isExampleTodoAllowed,
+  validateTurnstileCompatibility,
 } from "@better-t-stack/types";
 export {
   TASK_RUNNER_ADDONS,
@@ -33,6 +34,7 @@ export {
   PRISMA_COMPUTE_WEB_FRONTENDS,
   supportsPrismaWebDeploy,
   validateAddonCompatibility,
+  validateTurnstileCompatibility,
   type AddonCompatibility,
 } from "@better-t-stack/types";
 import { Result } from "better-result";
@@ -56,7 +58,15 @@ import { ValidationError } from "./errors";
 type ValidationResult = Result<void, ValidationError>;
 type AddonCompatibilityConfig = Pick<
   ProjectConfig,
-  "frontend" | "auth" | "backend" | "runtime" | "webDeploy" | "database" | "orm" | "dbSetup"
+  | "frontend"
+  | "auth"
+  | "backend"
+  | "runtime"
+  | "webDeploy"
+  | "serverDeploy"
+  | "database"
+  | "orm"
+  | "dbSetup"
 >;
 function validationErr(message: string): ValidationResult {
   return Result.err(new ValidationError({ message }));
@@ -397,6 +407,15 @@ export function validateAddonsAgainstConfig(
     config.runtime,
   );
   if (addonResult.isErr()) return addonResult;
+
+  if (addons.includes("turnstile")) {
+    const turnstile = validateTurnstileCompatibility({
+      webDeploy: config.webDeploy,
+      serverDeploy: config.serverDeploy,
+      backend: config.backend,
+    });
+    if (!turnstile.isCompatible) return validationErr(turnstile.reason);
+  }
 
   const cloudflareResult = validateCloudflareWebDeployKnownIssues(config);
   if (cloudflareResult.isErr()) return cloudflareResult;

@@ -7,6 +7,10 @@ import Loader from "./loader";
 import { Button } from "@{{projectName}}/ui/components/button";
 import { Input } from "@{{projectName}}/ui/components/input";
 import { Label } from "@{{projectName}}/ui/components/label";
+{{#if (includes addons "turnstile")}}
+import { useState } from "react";
+import { TurnstileWidget } from "./turnstile-widget";
+{{/if}}
 
 export default function SignInForm({
   onSwitchToSignUp,
@@ -15,6 +19,10 @@ export default function SignInForm({
 }) {
   const navigate = useNavigate();
   const { isPending } = authClient.useSession();
+{{#if (includes addons "turnstile")}}
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const [turnstileResetKey, setTurnstileResetKey] = useState(0);
+{{/if}}
 
   const form = useForm({
     defaultValues: {
@@ -26,6 +34,9 @@ export default function SignInForm({
         {
           email: value.email,
           password: value.password,
+{{#if (includes addons "turnstile")}}
+          fetchOptions: turnstileToken ? { headers: { "x-captcha-response": turnstileToken } } : undefined,
+{{/if}}
         },
         {
           onSuccess: () => {
@@ -34,6 +45,10 @@ export default function SignInForm({
           },
           onError: (error) => {
             toast.error(error.error.message || error.error.statusText);
+{{#if (includes addons "turnstile")}}
+            setTurnstileToken(null);
+            setTurnstileResetKey((key) => key + 1);
+{{/if}}
           },
         }
       );
@@ -108,12 +123,24 @@ export default function SignInForm({
           </form.Field>
         </div>
 
+{{#if (includes addons "turnstile")}}
+        <TurnstileWidget
+          siteKey={import.meta.env.VITE_TURNSTILE_SITE_KEY}
+          action="sign-in"
+          onToken={setTurnstileToken}
+          resetKey={turnstileResetKey}
+        />
+{{/if}}
         <form.Subscribe selector={(state) => ({ canSubmit: state.canSubmit, isSubmitting: state.isSubmitting })}>
           {({ canSubmit, isSubmitting }) => (
             <Button
               type="submit"
               className="w-full"
+{{#if (includes addons "turnstile")}}
+              disabled={!canSubmit || isSubmitting || !turnstileToken}
+{{else}}
               disabled={!canSubmit || isSubmitting}
+{{/if}}
             >
               {isSubmitting ? "Submitting..." : "Sign In"}
             </Button>
