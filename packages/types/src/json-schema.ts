@@ -28,6 +28,7 @@ import {
   BetterTStackConfigSchema,
   BetterTStackConfigFileSchema,
   InitResultSchema,
+  ShadcnConfigSchema,
 } from "./schemas";
 
 // Generate JSON schemas for each type
@@ -139,6 +140,10 @@ export function getInitResultJsonSchema() {
   return z.toJSONSchema(InitResultSchema);
 }
 
+export function getShadcnConfigJsonSchema() {
+  return z.toJSONSchema(ShadcnConfigSchema);
+}
+
 // Get all JSON schemas as a single object
 export function getAllJsonSchemas() {
   return {
@@ -169,5 +174,6 @@ export function getAllJsonSchemas() {
     betterTStackConfig: getBetterTStackConfigJsonSchema(),
     betterTStackConfigFile: getBetterTStackConfigFileJsonSchema(),
     initResult: getInitResultJsonSchema(),
+    shadcnConfig: getShadcnConfigJsonSchema(),
   };
 }

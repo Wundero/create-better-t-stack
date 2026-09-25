@@ -30581,7 +30581,8 @@ export default config;
   ["frontend/react/next/src/app/layout.tsx.hbs", `import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "../index.css";
-{{#if (eq auth "clerk")}}import { ClerkProvider } from "@clerk/nextjs";
+{{#if shadcn.rtl}}import { DirectionProvider } from "@{{projectName}}/ui/components/direction";
+{{/if}}{{#if (eq auth "clerk")}}import { ClerkProvider } from "@clerk/nextjs";
 {{/if}}{{#if (and (eq backend "convex") (eq auth "better-auth"))}}
 import { getToken } from "@/lib/auth-server";
 {{/if}}
@@ -30612,7 +30613,7 @@ export default async function RootLayout({
 }>) {
   const token = await getToken();
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en" suppressHydrationWarning{{#if shadcn.rtl}} dir="rtl"{{/if}}>
       <body
         className={\`\${geistSans.variable} \${geistMono.variable} antialiased\`}
       >
@@ -30622,12 +30623,14 @@ export default async function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          <Providers initialToken={token}>
+          {{#if shadcn.rtl}}<DirectionProvider direction="rtl">
+          {{/if}}<Providers initialToken={token}>
             <div className="grid grid-rows-[auto_1fr] h-svh">
               <Header />
               {children}
             </div>
-          </Providers>
+          </Providers>{{#if shadcn.rtl}}
+          </DirectionProvider>{{/if}}
         </ThemeProvider>
       </body>
     </html>
@@ -30640,7 +30643,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
 	return (
-		<html lang="en" suppressHydrationWarning>
+		<html lang="en" suppressHydrationWarning{{#if shadcn.rtl}} dir="rtl"{{/if}}>
 			<body
 				className={\`\${geistSans.variable} \${geistMono.variable} antialiased\`}
 			>
@@ -30650,7 +30653,8 @@ export default function RootLayout({
 					enableSystem
 					disableTransitionOnChange
 				>
-					{{#if (eq auth "clerk")}}<ClerkProvider>
+					{{#if shadcn.rtl}}<DirectionProvider direction="rtl">
+					{{/if}}{{#if (eq auth "clerk")}}<ClerkProvider>
 						<Providers>
 							<div className="grid grid-rows-[auto_1fr] h-svh">
 								<Header />
@@ -30662,7 +30666,8 @@ export default function RootLayout({
 							<Header />
 							{children}
 						</div>
-					</Providers>{{/if}}
+					</Providers>{{/if}}{{#if shadcn.rtl}}
+					</DirectionProvider>{{/if}}
 				</ThemeProvider>
 			</body>
 		</html>
@@ -31046,7 +31051,8 @@ import Header from "./components/header";
 import { ThemeProvider } from "./components/theme-provider";
 import { ThemeScript } from "@wrksz/themes/script";
 import { Toaster } from "@{{projectName}}/ui/components/sonner";
-{{#if (eq auth "clerk")}}
+{{#if shadcn.rtl}}import { DirectionProvider } from "@{{projectName}}/ui/components/direction";
+{{/if}}{{#if (eq auth "clerk")}}
 import { ClerkProvider{{#if (or (eq backend "convex") (ne api "none"))}}, useAuth{{/if}} } from "@clerk/react-router";
 import { clerkMiddleware, rootAuthLoader } from "@clerk/react-router/server";
 {{/if}}
@@ -31113,7 +31119,7 @@ export const links: Route.LinksFunction = () => [
 
 export function Layout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en" suppressHydrationWarning{{#if shadcn.rtl}} dir="rtl"{{/if}}>
       <head>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -31122,9 +31128,11 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <ThemeScript />
       </head>
       <body>
-        {children}
+        {{#if shadcn.rtl}}<DirectionProvider direction="rtl">
+        {{/if}}{children}
         <ScrollRestoration />
-        <Scripts />
+        <Scripts />{{#if shadcn.rtl}}
+        </DirectionProvider>{{/if}}
       </body>
     </html>
   );
@@ -31509,7 +31517,7 @@ export default defineConfig({{#if (and (or (eq webDeploy "vercel") (eq webDeploy
 }{{#if (and (or (eq webDeploy "vercel") (eq webDeploy "prisma")) (not (or (includes addons "tauri") (includes addons "electrobun"))))}}){{/if}});
 `],
   ["frontend/react/tanstack-router/index.html.hbs", `<!DOCTYPE html>
-<html lang="en">
+<html lang="en"{{#if shadcn.rtl}} dir="rtl"{{/if}}>
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -31741,7 +31749,8 @@ if (!rootElement.innerHTML) {
   ["frontend/react/tanstack-router/src/routes/__root.tsx.hbs", `import Header from "@/components/header";
 import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "@{{projectName}}/ui/components/sonner";
-{{#if (eq api "orpc")}}
+{{#if shadcn.rtl}}import { DirectionProvider } from "@{{projectName}}/ui/components/direction";
+{{/if}}{{#if (eq api "orpc")}}
 import { link, orpc } from "@/utils/orpc";
 import type { QueryClient } from "@tanstack/react-query";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
@@ -31805,7 +31814,8 @@ function RootComponent() {
   {{/if}}
 
   return (
-    <>
+    {{#if shadcn.rtl}}<DirectionProvider direction="rtl">
+    {{/if}}<>
       <HeadContent />
       {{#if (eq api "orpc")}}
         <ThemeProvider
@@ -31838,7 +31848,8 @@ function RootComponent() {
       {{#if (or (eq api "orpc") (eq api "trpc"))}}
       <ReactQueryDevtools position="bottom" buttonPosition="bottom-right" />
       {{/if}}
-    </>
+    </>{{#if shadcn.rtl}}
+    </DirectionProvider>{{/if}}
   );
 }
 `],
@@ -32185,7 +32196,8 @@ declare module "@tanstack/react-router" {
 }
 `],
   ["frontend/react/tanstack-start/src/routes/__root.tsx.hbs", `import { Toaster } from "@{{projectName}}/ui/components/sonner";
-{{#unless (eq backend "convex")}} {{#unless (eq api "none")}}
+{{#if shadcn.rtl}}import { DirectionProvider } from "@{{projectName}}/ui/components/direction";
+{{/if}}{{#unless (eq backend "convex")}} {{#unless (eq api "none")}}
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 {{/unless}} {{/unless}}
 import {
@@ -32331,18 +32343,20 @@ function RootDocument() {
   return (
     <ClerkProvider>
       <ConvexProviderWithClerk client={context.convexQueryClient.convexClient} useAuth={useAuth}>
-        <html lang="en" className="dark">
+        <html lang="en" className="dark"{{#if shadcn.rtl}} dir="rtl"{{/if}}>
           <head>
             <HeadContent />
           </head>
           <body>
-            <div className="grid h-svh grid-rows-[auto_1fr]">
+            {{#if shadcn.rtl}}<DirectionProvider direction="rtl">
+            {{/if}}<div className="grid h-svh grid-rows-[auto_1fr]">
               <Header />
               <Outlet />
             </div>
             <Toaster richColors />
             <TanStackRouterDevtools position="bottom-left" />
-            <Scripts />
+            <Scripts />{{#if shadcn.rtl}}
+            </DirectionProvider>{{/if}}
           </body>
         </html>
       </ConvexProviderWithClerk>
@@ -32356,18 +32370,20 @@ function RootDocument() {
       authClient={authClient}
       initialToken={context.token}
     >
-      <html lang="en" className="dark">
+      <html lang="en" className="dark"{{#if shadcn.rtl}} dir="rtl"{{/if}}>
         <head>
           <HeadContent />
         </head>
         <body>
-          <div className="grid h-svh grid-rows-[auto_1fr]">
+          {{#if shadcn.rtl}}<DirectionProvider direction="rtl">
+          {{/if}}<div className="grid h-svh grid-rows-[auto_1fr]">
             <Header />
             <Outlet />
           </div>
           <Toaster richColors />
           <TanStackRouterDevtools position="bottom-left" />
-          <Scripts />
+          <Scripts />{{#if shadcn.rtl}}
+          </DirectionProvider>{{/if}}
         </body>
       </html>
     </ConvexBetterAuthProvider>
@@ -32378,12 +32394,13 @@ function RootDocument() {
       {{#unless (eq api "none")}}
       <ClerkApiAuthBridge />
       {{/unless}}
-      <html lang="en" className="dark">
+      <html lang="en" className="dark"{{#if shadcn.rtl}} dir="rtl"{{/if}}>
         <head>
           <HeadContent />
         </head>
         <body>
-          <div className="grid h-svh grid-rows-[auto_1fr]">
+          {{#if shadcn.rtl}}<DirectionProvider direction="rtl">
+          {{/if}}<div className="grid h-svh grid-rows-[auto_1fr]">
             <Header />
             <Outlet />
           </div>
@@ -32392,7 +32409,8 @@ function RootDocument() {
           {{#unless (eq api "none")}}
           <ReactQueryDevtools position="bottom" buttonPosition="bottom-right" />
           {{/unless}}
-          <Scripts />
+          <Scripts />{{#if shadcn.rtl}}
+          </DirectionProvider>{{/if}}
         </body>
       </html>
     </ClerkProvider>
@@ -32401,30 +32419,33 @@ function RootDocument() {
   const { convexQueryClient } = Route.useRouteContext();
   return (
     <ConvexProvider client={convexQueryClient.convexClient}>
-      <html lang="en" className="dark">
+      <html lang="en" className="dark"{{#if shadcn.rtl}} dir="rtl"{{/if}}>
         <head>
           <HeadContent />
         </head>
         <body>
-          <div className="grid h-svh grid-rows-[auto_1fr]">
+          {{#if shadcn.rtl}}<DirectionProvider direction="rtl">
+          {{/if}}<div className="grid h-svh grid-rows-[auto_1fr]">
             <Header />
             <Outlet />
           </div>
           <Toaster richColors />
           <TanStackRouterDevtools position="bottom-left" />
-          <Scripts />
+          <Scripts />{{#if shadcn.rtl}}
+          </DirectionProvider>{{/if}}
         </body>
       </html>
     </ConvexProvider>
   );
   {{else}}
   return (
-    <html lang="en" className="dark">
+    <html lang="en" className="dark"{{#if shadcn.rtl}} dir="rtl"{{/if}}>
       <head>
         <HeadContent />
       </head>
       <body>
-        <div className="grid h-svh grid-rows-[auto_1fr]">
+        {{#if shadcn.rtl}}<DirectionProvider direction="rtl">
+        {{/if}}<div className="grid h-svh grid-rows-[auto_1fr]">
           <Header />
           <Outlet />
         </div>
@@ -32433,7 +32454,8 @@ function RootDocument() {
         {{#unless (eq api "none")}}
         <ReactQueryDevtools position="bottom" buttonPosition="bottom-right" />
         {{/unless}}
-        <Scripts />
+        <Scripts />{{#if shadcn.rtl}}
+        </DirectionProvider>{{/if}}
       </body>
     </html>
   );

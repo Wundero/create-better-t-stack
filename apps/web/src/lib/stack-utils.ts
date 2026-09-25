@@ -1,4 +1,5 @@
 import { DEFAULT_STACK, isStackDefault, type StackState, TECH_OPTIONS } from "@/lib/constant";
+import { DEFAULT_SHADCN_BASE, DEFAULT_SHADCN_PRESET, getShadcnConfig } from "@/lib/shadcn-config";
 import { SITE_URL } from "@/lib/site";
 import { stackUrlKeys } from "@/lib/stack-url-keys";
 
@@ -60,7 +61,7 @@ export function getSelectedTechs(stack: StackState): SelectedTech[] {
   const selected: SelectedTech[] = [];
   for (const category of CATEGORY_ORDER) {
     const options = TECH_OPTIONS[category];
-    const value = stack[category as keyof StackState];
+    const value = stack[category];
     if (!options || value === undefined) continue;
 
     const ids = Array.isArray(value) ? value : [value];
@@ -84,7 +85,7 @@ export function getSelectedTechs(stack: StackState): SelectedTech[] {
 export function generateStackSummary(stack: StackState) {
   const selectedTechs = CATEGORY_ORDER.flatMap((category) => {
     const options = TECH_OPTIONS[category];
-    const selectedValue = stack[category as keyof StackState];
+    const selectedValue = stack[category];
 
     if (!options) return [];
 
@@ -186,6 +187,20 @@ export function generateStackCommand(stack: StackState) {
     }`,
     `--examples ${stack.examples.join(" ") || "none"}`,
   ];
+
+  const shadcn = getShadcnConfig(stack);
+  if (shadcn) {
+    flags.push(`--shadcn-preset ${shadcn.preset ?? DEFAULT_SHADCN_PRESET}`);
+    if (shadcn.base && shadcn.base !== DEFAULT_SHADCN_BASE) {
+      flags.push(`--shadcn-base ${shadcn.base}`);
+    }
+    if (shadcn.rtl) {
+      flags.push("--shadcn-rtl");
+    }
+    if (shadcn.pointer) {
+      flags.push("--shadcn-pointer");
+    }
+  }
 
   if (stack.yolo === "true") {
     flags.push("--yolo");

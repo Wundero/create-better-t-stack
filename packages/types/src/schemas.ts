@@ -502,8 +502,26 @@ export const ProjectNameSchema = z
   .refine((name) => name.toLowerCase() !== "node_modules", "Project name is reserved")
   .describe("Project name or path");
 
+export const SHADCN_BASE_VALUES = ["baseui", "radixui", "react-aria"] as const;
+
+export const ShadcnBaseSchema = z.enum(SHADCN_BASE_VALUES).describe("shadcn component base");
+
+export const SHADCN_BASE_TO_REGISTRY = {
+  baseui: "base",
+  radixui: "radix",
+  "react-aria": "aria",
+} as const;
+
+export const ShadcnConfigSchema = z.strictObject({
+  preset: z.string().min(2).optional(),
+  base: ShadcnBaseSchema.optional(),
+  rtl: z.boolean().optional(),
+  pointer: z.boolean().optional(),
+});
+
 export const CreateInputSchema = z
   .object({
+    shadcn: ShadcnConfigSchema.optional(),
     projectName: z.string().optional(),
     template: TemplateSchema.optional(),
     yes: z.boolean().optional(),
@@ -552,6 +570,7 @@ export const WorkspacePackageNameSchema = z
 
 export const AddInputSchema = z
   .object({
+    shadcn: ShadcnConfigSchema.optional(),
     addons: AddonsListSchema.optional(),
     package: WorkspacePackageNameSchema.optional(),
     envValidation: z.boolean().optional(),
@@ -693,6 +712,7 @@ export const CLIInputSchema = CreateInputSchema.safeExtend({
 }).strict();
 
 export const ProjectConfigSchema = z.object({
+  shadcn: ShadcnConfigSchema.optional(),
   projectName: z.string(),
   projectDir: z.string(),
   relativePath: z.string(),
@@ -717,6 +737,7 @@ export const ProjectConfigSchema = z.object({
 });
 
 export const BetterTStackConfigSchema = z.object({
+  shadcn: ShadcnConfigSchema.optional(),
   version: z.string().describe("CLI version used to create this project"),
   createdAt: z.string().describe("Timestamp when the project was created"),
   reproducibleCommand: z.string().optional().describe("Command to reproduce this project setup"),

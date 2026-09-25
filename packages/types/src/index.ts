@@ -3,5 +3,7 @@ export * from "./analytics";
 export * from "./constants";
 export * from "./deployment";
 export * from "./schemas";
+export * from "./shadcn-preset";
+export * from "./shadcn-presets";
 export * from "./types";
 export * from "./compatibility";
