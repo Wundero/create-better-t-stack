@@ -40,7 +40,7 @@
     "release": "bun run scripts/release.ts",
     "bump": "bun run scripts/bump-version.ts",
     "canary": "bun run scripts/canary-release.ts",
-    "deploy:convex": "turbo run --filter=@better-t-stack/backend deploy",
+    "deploy:backend": "turbo run --filter=@better-t-stack/backend deploy",
     "deploy:web": "turbo run deploy --filter=web",
     "generate": "turbo run generate-schema --filter=web",
     "deploy": "turbo run deploy --filter=web",
