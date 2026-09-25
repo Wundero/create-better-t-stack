@@ -10,9 +10,16 @@ import { Database } from "bun:sqlite";
 
 type SqlParam = string | number | boolean | null | undefined;
 
+type SqlRow = { readonly [column: string]: string | number | boolean | null };
+
+export function asBinding<T>(testDouble: T): unknown {
+  return testDouble;
+}
+
 function normalize(param: SqlParam): string | number | null {
   if (param === undefined || param === null) return null;
-  if (typeof param === "boolean") return param ? 1 : 0;
+  if (param === true) return 1;
+  if (param === false) return 0;
   return param;
 }
 
@@ -26,7 +33,7 @@ export type ShimbResultMeta = {
   duration: number;
 };
 
-export type ShimResult<T = Record<string, unknown>> = {
+export type ShimResult<T = SqlRow> = {
   results: T[];
   success: true;
   meta: ShimbResultMeta;
@@ -46,12 +53,12 @@ class ShimStatement {
     return this;
   }
 
-  async first<T = Record<string, unknown>>(): Promise<T | null> {
+  async first<T = SqlRow>(): Promise<T | null> {
     const row = this.db.query(this.sql).get(...this.params);
     return (row as T | null) ?? null;
   }
 
-  async all<T = Record<string, unknown>>(): Promise<ShimResult<T>> {
+  async all<T = SqlRow>(): Promise<ShimResult<T>> {
     const rows = this.db.query(this.sql).all(...this.params) as T[];
     return { results: rows, success: true, meta: { changes: 0, last_row_id: 0, duration: 0 } };
   }

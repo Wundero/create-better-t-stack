@@ -1,6 +1,10 @@
 import { EVENT_INSERT_COLUMNS, eventInsertValues } from "../db/mapping";
 import type { StatsRow } from "../types";
-import type { AnalyticsEventFields, AnalyticsStatsFields, TimestampedAnalyticsEvent } from "./helpers";
+import type {
+  AnalyticsEventFields,
+  AnalyticsStatsFields,
+  TimestampedAnalyticsEvent,
+} from "./helpers";
 import { adjustAnalyticsStats, createEmptyAnalyticsStats } from "./helpers";
 
 const MAX_UPDATE_ATTEMPTS = 8;

@@ -14,7 +14,43 @@
 import { readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
-type ConvexDoc = Record<string, unknown> & { _creationTime?: number; _table?: string };
+type ConvexDoc = {
+  _id?: string;
+  _creationTime?: number;
+  _table?: string;
+  date?: string;
+  count?: number;
+  database?: string;
+  orm?: string;
+  backend?: string;
+  runtime?: string;
+  frontend?: string[];
+  addons?: string[];
+  examples?: string[];
+  auth?: string;
+  payments?: string;
+  git?: boolean;
+  packageManager?: string;
+  install?: boolean;
+  dbSetup?: string;
+  api?: string;
+  webDeploy?: string;
+  serverDeploy?: string;
+  cli_version?: string;
+  node_version?: string;
+  platform?: string;
+  mode?: string;
+  quarantinedAt?: number;
+  quarantineReason?: string;
+  title?: string;
+  description?: string;
+  imageUrl?: string;
+  liveUrl?: string;
+  tags?: string[];
+  embedId?: string;
+  tweetId?: string;
+  order?: number;
+};
 
 const EVENT_COLUMNS =
   "created_at, database, orm, backend, runtime, frontend, addons, examples, auth, payments, git, package_manager, install, db_setup, api, web_deploy, server_deploy, cli_version, node_version, platform, mode, quarantined_at, quarantine_reason";
@@ -36,7 +72,7 @@ function readDocuments(root: string): Map<string, ConvexDoc[]> {
     for (const line of readFileSync(file.path, "utf8").split("\n")) {
       if (!line.trim()) continue;
       const doc = JSON.parse(line) as ConvexDoc;
-      const table = typeof doc._table === "string" ? doc._table : fallbackTable;
+      const table = doc._table ?? fallbackTable;
       const bucket = byTable.get(table) ?? [];
       bucket.push(doc);
       byTable.set(table, bucket);
@@ -45,15 +81,18 @@ function readDocuments(root: string): Map<string, ConvexDoc[]> {
   return byTable;
 }
 
-function quote(value: unknown): string {
+type ConvexScalar = string | number | boolean | null | undefined;
+
+function quote(value: ConvexScalar): string {
   if (value === undefined || value === null) return "NULL";
-  if (typeof value === "number") return String(value);
-  if (typeof value === "boolean") return value ? "1" : "0";
+  if (value === true) return "1";
+  if (value === false) return "0";
+  if (Number.isFinite(value)) return String(value);
   return `'${String(value).replace(/'/g, "''")}'`;
 }
 
-function jsonOrNull(value: unknown): string {
-  return Array.isArray(value) ? quote(JSON.stringify(value)) : "NULL";
+function jsonOrNull(value: readonly string[] | undefined): string {
+  return value === undefined ? "NULL" : quote(JSON.stringify(value));
 }
 
 function eventInsert(doc: ConvexDoc): string {
@@ -113,7 +152,9 @@ function contentInsert(table: string, doc: ConvexDoc): string | null {
 
 const [root, ...flags] = process.argv.slice(2);
 if (!root) {
-  console.error("Usage: bun scripts/migrate-convex.ts <convex-export-dir|documents.jsonl> [--out file]");
+  console.error(
+    "Usage: bun scripts/migrate-convex.ts <convex-export-dir|documents.jsonl> [--out file]",
+  );
   process.exit(1);
 }
 

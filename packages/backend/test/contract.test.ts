@@ -1,10 +1,9 @@
-import { readFileSync } from "node:fs";
-
 import { beforeEach, describe, expect, test } from "bun:test";
+import { readFileSync } from "node:fs";
 
 import { app } from "../src/app";
 import type { Bindings } from "../src/types";
-import { D1Shim } from "./db-shim";
+import { D1Shim, asBinding } from "./db-shim";
 
 const MIGRATION = readFileSync(new URL("../migrations/0001_init.sql", import.meta.url), "utf8");
 
@@ -22,7 +21,30 @@ class MemoryKV {
   }
 }
 
-const validEvent = {
+type AnalyticsEventPayload = {
+  database?: string;
+  orm?: string;
+  backend?: string;
+  runtime?: string;
+  frontend?: string[];
+  addons?: string[];
+  examples?: string[];
+  auth?: string;
+  payments?: string;
+  git?: boolean;
+  packageManager?: string;
+  install?: boolean;
+  dbSetup?: string;
+  api?: string;
+  webDeploy?: string;
+  serverDeploy?: string;
+  cli_version?: string;
+  node_version?: string;
+  platform?: string;
+  mode?: string;
+};
+
+const validEvent: AnalyticsEventPayload = {
   database: "postgres",
   orm: "drizzle",
   backend: "hono",
@@ -50,23 +72,27 @@ let env: Bindings;
 
 function makeEnv(shim: D1Shim, overrides: Partial<Bindings> = {}): Bindings {
   return {
-    DB: shim as unknown as D1Database,
-    OSS_STATS_KV: new MemoryKV() as unknown as KVNamespace,
+    DB: asBinding(shim) as D1Database,
+    OSS_STATS_KV: asBinding(new MemoryKV()) as KVNamespace,
     ADMIN_TOKEN: "secret",
     ...overrides,
   };
 }
 
-function ingest(body: string | object, target: Bindings = env) {
+function ingestRaw(body: string, target: Bindings = env) {
   return app.request(
     "http://localhost/api/analytics/ingest",
     {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: typeof body === "string" ? body : JSON.stringify(body),
+      body,
     },
     target,
   );
+}
+
+function ingest(body: AnalyticsEventPayload, target: Bindings = env) {
+  return ingestRaw(JSON.stringify(body), target);
 }
 
 beforeEach(() => {
@@ -90,7 +116,10 @@ describe("analytics ingest contract", () => {
     expect(await res.text()).toBe("ok");
 
     const stats = await app.request("http://localhost/api/analytics/stats", undefined, env);
-    const statsBody = (await stats.json()) as { totalProjects: number; mode: Record<string, number> };
+    const statsBody = (await stats.json()) as {
+      totalProjects: number;
+      mode: Record<string, number>;
+    };
     expect(statsBody.totalProjects).toBe(1);
     expect(statsBody.mode).toEqual({ flags: 1 });
 
@@ -109,13 +138,13 @@ describe("analytics ingest contract", () => {
   });
 
   test("payload over 16 KiB returns 413", async () => {
-    const res = await ingest(`${JSON.stringify(validEvent)}${" ".repeat(17 * 1024)}`);
+    const res = await ingestRaw(`${JSON.stringify(validEvent)}${" ".repeat(17 * 1024)}`);
     expect(res.status).toBe(413);
     expect(await res.text()).toBe("Payload Too Large");
   });
 
   test("malformed JSON returns 400", async () => {
-    const res = await ingest("{not json");
+    const res = await ingestRaw("{not json");
     expect(res.status).toBe(400);
     expect(await res.text()).toBe("Bad Request");
   });
@@ -130,14 +159,19 @@ describe("analytics reads", () => {
   test("recent excludes quarantined events and orders newest first", async () => {
     const base = Date.UTC(2026, 0, 1);
     await ingest(validEvent, makeEnv(db, { now: () => base }));
-    await ingest({ ...validEvent, backend: "express" }, makeEnv(db, { now: () => base + 3_600_000 }));
+    await ingest(
+      { ...validEvent, backend: "express" },
+      makeEnv(db, { now: () => base + 3_600_000 }),
+    );
 
     const before = (await (
       await app.request("http://localhost/api/analytics/recent", undefined, env)
     ).json()) as { backend: string }[];
     expect(before.map((event) => event.backend)).toEqual(["express", "hono"]);
 
-    db.prepare("UPDATE analytics_events SET quarantined_at = ? WHERE id = 1").bind(Date.now()).run();
+    db.prepare("UPDATE analytics_events SET quarantined_at = ? WHERE id = 1")
+      .bind(Date.now())
+      .run();
 
     const after = (await (
       await app.request("http://localhost/api/analytics/recent", undefined, env)
@@ -161,7 +195,11 @@ describe("analytics reads", () => {
     expect(github).toEqual({ starCount: 0, contributorCount: 0 });
 
     const npm = (await (
-      await app.request("http://localhost/api/stats/npm?names=create-better-t-stack", undefined, env)
+      await app.request(
+        "http://localhost/api/stats/npm?names=create-better-t-stack",
+        undefined,
+        env,
+      )
     ).json()) as { packages: { name: string; total: number }[] };
     expect(npm.packages).toEqual([
       { name: "create-better-t-stack", dayOfWeekAverages: [0, 0, 0, 0, 0, 0, 0], total: 0 },

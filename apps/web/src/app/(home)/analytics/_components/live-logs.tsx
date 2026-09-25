@@ -6,8 +6,8 @@ import { AnimatePresence, motion } from "motion/react";
 import { useState } from "react";
 
 import { ScrollArea } from "@/components/ui/scroll-area";
-import type { AnalyticsEvent } from "@/lib/api-client";
 import { track } from "@/lib/analytics";
+import type { AnalyticsEvent } from "@/lib/api-client";
 import { recentEventsQuery } from "@/lib/queries";
 import { cn } from "@/lib/utils";
 

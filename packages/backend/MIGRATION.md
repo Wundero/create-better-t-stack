@@ -10,17 +10,17 @@ piece went.
 
 ## Mapping
 
-| Convex | Worker |
-| --- | --- |
-| `convex/analytics_helpers.ts` | `src/analytics/helpers.ts` (verbatim behaviour) |
-| `convex/analytics_date_utils.ts` | `src/analytics/date-utils.ts` (verbatim) |
-| `convex/schema.ts` | `migrations/0001_init.sql` |
-| `convex/analytics.ts` `ingestEvent` | `src/analytics/ingest.ts` (optimistic `version` CAS) |
-| `convex/analytics.ts` queries | `src/routes/analytics.ts` + `src/db/analytics.ts` |
-| `convex/http.ts` (ingest + 16 KiB cap) | `src/routes/analytics.ts` |
-| `convex/showcase.ts`, `testimonials.ts` | `src/routes/content.ts` + `src/db/content.ts` |
-| `convex/stats.ts` (`@erquhart/convex-oss-stats`) | `src/oss-stats.ts` + `scheduled()` → KV |
-| `convex/analytics.ts` quarantine/repair actions | `POST /api/admin/quarantine` (token-gated) + `scripts/migrate-convex.ts` |
+| Convex                                           | Worker                                                                   |
+| ------------------------------------------------ | ------------------------------------------------------------------------ |
+| `convex/analytics_helpers.ts`                    | `src/analytics/helpers.ts` (verbatim behaviour)                          |
+| `convex/analytics_date_utils.ts`                 | `src/analytics/date-utils.ts` (verbatim)                                 |
+| `convex/schema.ts`                               | `migrations/0001_init.sql`                                               |
+| `convex/analytics.ts` `ingestEvent`              | `src/analytics/ingest.ts` (optimistic `version` CAS)                     |
+| `convex/analytics.ts` queries                    | `src/routes/analytics.ts` + `src/db/analytics.ts`                        |
+| `convex/http.ts` (ingest + 16 KiB cap)           | `src/routes/analytics.ts`                                                |
+| `convex/showcase.ts`, `testimonials.ts`          | `src/routes/content.ts` + `src/db/content.ts`                            |
+| `convex/stats.ts` (`@erquhart/convex-oss-stats`) | `src/oss-stats.ts` + `scheduled()` → KV                                  |
+| `convex/analytics.ts` quarantine/repair actions  | `POST /api/admin/quarantine` (token-gated) + `scripts/migrate-convex.ts` |
 
 ## Decisions
 

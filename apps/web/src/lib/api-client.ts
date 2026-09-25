@@ -169,7 +169,7 @@ export type NpmPackageStats = z.infer<typeof npmStatsSchema>["packages"][number]
 /** Server code prefers `API_URL`; the browser only ever sees `NEXT_PUBLIC_API_URL`. */
 export function resolveApiBaseUrl(): string {
   const configured =
-    typeof window === "undefined"
+    globalThis.window === undefined
       ? (process.env.API_URL ?? process.env.NEXT_PUBLIC_API_URL)
       : process.env.NEXT_PUBLIC_API_URL;
 
@@ -212,7 +212,9 @@ async function requestJson<T>(
   if (!parsed.success) {
     throw new ApiValidationError({
       path,
-      issues: parsed.error.issues.map((issue) => `${issue.path.join(".") || "<root>"}: ${issue.message}`),
+      issues: parsed.error.issues.map(
+        (issue) => `${issue.path.join(".") || "<root>"}: ${issue.message}`,
+      ),
     });
   }
 
@@ -244,17 +246,18 @@ export const fetchGithubStats = (name: string, options?: ApiRequestOptions) =>
   requestJson(`/api/stats/github?name=${encodeURIComponent(name)}`, githubStatsSchema, options);
 
 export const fetchNpmStats = (names: readonly string[], options?: ApiRequestOptions) =>
-  requestJson(`/api/stats/npm?names=${encodeURIComponent(names.join(","))}`, npmStatsSchema, options);
+  requestJson(
+    `/api/stats/npm?names=${encodeURIComponent(names.join(","))}`,
+    npmStatsSchema,
+    options,
+  );
 
 /**
  * Build-time helper: a static page must still render when the API is
  * unreachable (CI builds before the worker exists), so failures fall back to an
  * explicit empty value instead of failing the build.
  */
-export async function fetchWithFallback<T>(
-  loader: () => Promise<T>,
-  fallback: T,
-): Promise<T> {
+export async function fetchWithFallback<T>(loader: () => Promise<T>, fallback: T): Promise<T> {
   try {
     return await loader();
   } catch (error) {

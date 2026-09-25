@@ -1,10 +1,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 
-import {
-  ApiValidationError,
-  fetchAnalyticsStats,
-  fetchDailyStats,
-} from "../src/lib/api-client";
+import { ApiValidationError, fetchAnalyticsStats, fetchDailyStats } from "../src/lib/api-client";
 
 type StubMode = "valid" | "null" | "malformed";
 

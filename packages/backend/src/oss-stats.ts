@@ -11,8 +11,14 @@ export function npmKey(name: string): string {
   return `npm:${name}`;
 }
 
-function githubHeaders(env: Bindings): Record<string, string> {
-  const headers: Record<string, string> = {
+type GithubHeaders = {
+  accept: string;
+  "user-agent": string;
+  authorization?: string;
+};
+
+function githubHeaders(env: Bindings): GithubHeaders {
+  const headers: GithubHeaders = {
     accept: "application/vnd.github+json",
     "user-agent": "bts-api",
   };

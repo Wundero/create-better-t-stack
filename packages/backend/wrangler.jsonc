@@ -9,11 +9,11 @@
       "binding": "DB",
       "database_name": "bts-analytics",
       "database_id": "00000000-0000-0000-0000-000000000000",
-      "migrations_dir": "migrations"
-    }
+      "migrations_dir": "migrations",
+    },
   ],
   "kv_namespaces": [{ "binding": "OSS_STATS_KV", "id": "00000000000000000000000000000000" }],
   "triggers": { "crons": ["0 */6 * * *"] },
   "routes": [{ "pattern": "api.create.1d.gg", "custom_domain": true }],
-  "observability": { "enabled": true }
+  "observability": { "enabled": true },
 }

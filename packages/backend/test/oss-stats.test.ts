@@ -2,6 +2,7 @@ import { afterEach, describe, expect, test } from "bun:test";
 
 import { readGithub, readNpm, syncGithub, syncNpm } from "../src/oss-stats";
 import type { Bindings } from "../src/types";
+import { asBinding } from "./db-shim";
 
 class MemoryKV {
   readonly store = new Map<string, string>();
@@ -24,7 +25,7 @@ afterEach(() => {
 });
 
 function makeEnv(kv: MemoryKV): Bindings {
-  return { DB: {} as unknown as D1Database, OSS_STATS_KV: kv as unknown as KVNamespace };
+  return { DB: asBinding({}) as D1Database, OSS_STATS_KV: asBinding(kv) as KVNamespace };
 }
 
 describe("oss stats KV cache", () => {
@@ -53,8 +54,7 @@ describe("oss stats KV cache", () => {
       day: new Date(Date.UTC(2026, 0, 5 + index)).toISOString().slice(0, 10),
       downloads: index + 1,
     }));
-    globalThis.fetch = (async () =>
-      new Response(JSON.stringify({ downloads }))) as unknown as typeof fetch;
+    globalThis.fetch = (async () => new Response(JSON.stringify({ downloads }))) as typeof fetch;
 
     await syncNpm(makeEnv(kv), "create-better-t-stack");
 

@@ -33,7 +33,8 @@ adminRoutes.post("/quarantine", async (c) => {
     .prepare("SELECT * FROM analytics_events ORDER BY id ASC")
     .all<AnalyticsEventRow>();
   const invalid = rows.results.filter(
-    (row) => row.quarantined_at === null && !AnalyticsEventSchema.safeParse(rowToEvent(row)).success,
+    (row) =>
+      row.quarantined_at === null && !AnalyticsEventSchema.safeParse(rowToEvent(row)).success,
   );
 
   if (!dryRun && invalid.length > 0) {
