@@ -1,5 +1,9 @@
+{{#if (includes examples "todo")}}
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
+{{else}}
+import { defineSchema } from "convex/server";
+{{/if}}
 
 export default defineSchema({
 {{#if (includes examples "todo")}}
