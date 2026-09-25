@@ -141,6 +141,12 @@ describe("stack builder D1 compatibility", () => {
     expect(sanitizeAddons(["axiom", "evlog"])).toEqual(["evlog"]);
   });
 
+  test("keeps ESLint and Vite+ mutually exclusive", () => {
+    expect(sanitizeAddons(["eslint", "vite-plus"])).toEqual(["vite-plus"]);
+    expect(sanitizeAddons(["vite-plus", "eslint"])).toEqual(["eslint"]);
+    expect(sanitizeAddons(["eslint", "biome"])).toEqual(["eslint", "biome"]);
+  });
+
   test("renders long CLI commands with visible flag separators", () => {
     const command = generateStackCommand(
       createStack({ addons: ["vite-plus"], examples: ["none"] }),

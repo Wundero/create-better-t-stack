@@ -787,6 +787,151 @@ describe("Addon Configurations", () => {
     });
   });
 
+  describe("ESLint Addon", () => {
+    it("should wire ESLint + Prettier config, deps, and check script", async () => {
+      const result = await runCreateTest({
+        projectName: "eslint-addon",
+        addons: ["eslint"],
+      });
+
+      expectSuccess(result);
+      const projectDir = result.projectDir;
+      expect(projectDir).toBeDefined();
+
+      const rootPackageJson = JSON.parse(await readFile(join(projectDir!, "package.json"), "utf8"));
+      const eslintConfig = await readFile(join(projectDir!, "eslint.config.js"), "utf8");
+      const prettierConfig = await readFile(join(projectDir!, ".prettierrc"), "utf8");
+      const prettierIgnore = await readFile(join(projectDir!, ".prettierignore"), "utf8");
+
+      expect(rootPackageJson.devDependencies.eslint).toBeDefined();
+      expect(rootPackageJson.devDependencies.prettier).toBeDefined();
+      expect(rootPackageJson.devDependencies["typescript-eslint"]).toBeDefined();
+      expect(rootPackageJson.devDependencies["@eslint/js"]).toBeDefined();
+      expect(rootPackageJson.devDependencies["eslint-config-prettier"]).toBeDefined();
+      expect(rootPackageJson.devDependencies.globals).toBeDefined();
+      expect(rootPackageJson.scripts.check).toBe("eslint --fix . && prettier --write .");
+      expect(eslintConfig).toContain('import js from "@eslint/js";');
+      expect(eslintConfig).toContain("tseslint.configs.recommended");
+      expect(eslintConfig).toContain("eslintConfigPrettier");
+      expect(eslintConfig).toContain('"@typescript-eslint/no-empty-object-type"');
+      expect(eslintConfig).toContain('"@typescript-eslint/ban-ts-comment"');
+      expect(prettierConfig).toContain('"singleQuote": false');
+      expect(prettierIgnore).toContain("**/convex/_generated");
+    });
+
+    it("should wire ESLint into Git hook addons", async () => {
+      const result = await runCreateTest({
+        projectName: "eslint-hooks",
+        addons: ["eslint", "lefthook", "husky"],
+      });
+
+      expectSuccess(result);
+      const projectDir = result.projectDir;
+      expect(projectDir).toBeDefined();
+
+      const rootPackageJson = JSON.parse(await readFile(join(projectDir!, "package.json"), "utf8"));
+      const lefthookConfig = await readFile(join(projectDir!, "lefthook.yml"), "utf8");
+
+      expect(rootPackageJson["lint-staged"]).toEqual({
+        "*.{js,jsx,ts,tsx,mjs,cjs,mts,cts,json,jsonc,css,scss,md,mdx,yml,yaml,html,vue,svelte,astro}":
+          ["eslint --fix", "prettier --write"],
+      });
+      expect(lefthookConfig).toContain("name: eslint");
+      expect(lefthookConfig).toContain("name: prettier");
+      expect(lefthookConfig).toContain("bun eslint --fix");
+    });
+
+    it("should wire ESLint addon when added later", async () => {
+      const created = await runCreateTest({
+        projectName: "eslint-add-later",
+      });
+
+      expectSuccess(created);
+      const projectDir = created.result?.projectDirectory;
+      if (!projectDir) throw new Error("Expected generated project directory");
+
+      const addResult = await add({
+        projectDir,
+        addons: ["eslint"],
+        install: false,
+      });
+
+      expect(addResult?.success).toBe(true);
+
+      const rootPackageJson = JSON.parse(await readFile(join(projectDir, "package.json"), "utf8"));
+      const eslintConfig = await readFile(join(projectDir, "eslint.config.js"), "utf8");
+
+      expect(rootPackageJson.devDependencies.eslint).toBeDefined();
+      expect(rootPackageJson.scripts.check).toBe("eslint --fix . && prettier --write .");
+      expect(eslintConfig).toContain("tseslint.configs.recommended");
+    });
+
+    it("should reject ESLint + Vite+ combination", async () => {
+      const result = await runCreateTest({
+        projectName: "eslint-vite-plus-conflict",
+        addons: ["eslint", "vite-plus"],
+      });
+
+      expectError(result, "`eslint` and `vite-plus` cannot be used together");
+    });
+
+    it("should hide Vite+ when ESLint is installed and hide ESLint when Vite+ is installed", () => {
+      const withEslint = getCompatibleAddons(
+        ["eslint", "vite-plus", "biome"] as Addons[],
+        ["tanstack-router"] as Frontend[],
+        ["eslint"] as Addons[],
+      );
+      expect(withEslint).not.toContain("vite-plus");
+      expect(withEslint).toContain("biome");
+
+      const withVitePlus = getCompatibleAddons(
+        ["eslint", "vite-plus", "biome"] as Addons[],
+        ["tanstack-router"] as Frontend[],
+        ["vite-plus"] as Addons[],
+      );
+      expect(withVitePlus).not.toContain("eslint");
+      expect(withVitePlus).toContain("biome");
+    });
+
+    it("should reject adding Vite+ to an ESLint project", async () => {
+      const created = await runCreateTest({
+        projectName: "eslint-add-vite-plus-conflict",
+        addons: ["eslint"],
+      });
+
+      expectSuccess(created);
+      const projectDir = created.result?.projectDirectory;
+      if (!projectDir) throw new Error("Expected generated project directory");
+
+      const addResult = await add({
+        projectDir,
+        addons: ["vite-plus"],
+        install: false,
+      });
+
+      expect(addResult?.success).toBe(false);
+      expect(addResult?.error).toContain("Cannot combine 'eslint' and 'vite-plus' addons");
+    });
+
+    it("should keep preferred linter precedence when ESLint is combined with Biome", async () => {
+      const result = await runCreateTest({
+        projectName: "eslint-biome-hooks",
+        addons: ["eslint", "biome", "lefthook"],
+      });
+
+      expectSuccess(result);
+      const projectDir = result.projectDir;
+      expect(projectDir).toBeDefined();
+
+      const rootPackageJson = JSON.parse(await readFile(join(projectDir!, "package.json"), "utf8"));
+      const lefthookConfig = await readFile(join(projectDir!, "lefthook.yml"), "utf8");
+
+      expect(rootPackageJson.scripts.check).toBe("biome check --write .");
+      expect(lefthookConfig).toContain("name: biome");
+      expect(lefthookConfig).not.toContain("name: eslint");
+    });
+  });
+
   describe("Evlog Addon", () => {
     it("should not offer evlog for Convex projects", () => {
       const compatibleAddons = getCompatibleAddons(
