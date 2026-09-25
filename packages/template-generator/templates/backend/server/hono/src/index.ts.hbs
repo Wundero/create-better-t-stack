@@ -20,6 +20,9 @@ import { createAuth } from "@{{projectName}}/auth";
 import { auth } from "@{{projectName}}/auth";
 {{/if}}
 {{/if}}
+{{#if (eq payments "commet")}}
+import { createCommetCheckoutUrl } from "@{{projectName}}/auth/lib/payments";
+{{/if}}
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { logger } from "hono/logger";
@@ -62,6 +65,33 @@ app.on(
 		auth.handler(c.req.raw)
 {{/if}}
 );
+{{/if}}
+
+{{#if (eq payments "commet")}}
+app.post("/api/payments/commet/checkout", async (c) => {
+{{#if (or (eq runtime "workers") (eq serverDeploy "cloudflare") (and (eq backend "self") (eq webDeploy "cloudflare")))}}
+	const authInstance = await createAuth();
+{{else}}
+	const authInstance = auth;
+{{/if}}
+	const session = await authInstance.api.getSession({ headers: c.req.raw.headers });
+	if (!session?.user) {
+		return c.json({ error: "Unauthorized" }, 401);
+	}
+
+	const body = (await c.req.json().catch(() => ({}))) as { planCode?: string };
+	const planCode = body.planCode ?? "pro";
+	const successUrl = `${ENV.CORS_ORIGIN}/success`;
+	const url = await createCommetCheckoutUrl({
+		userId: session.user.id,
+		planCode,
+		successUrl,
+	});
+	if (!url) {
+		return c.body(null, 204);
+	}
+	return c.json({ url });
+});
 {{/if}}
 
 {{#if (and (eq auth "better-auth") (eq payments "polar") (or (includes frontend "native-bare") (includes frontend "native-uniwind") (includes frontend "native-unistyles")))}}

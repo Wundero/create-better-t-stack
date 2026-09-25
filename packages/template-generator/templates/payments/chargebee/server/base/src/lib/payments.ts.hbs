@@ -1,0 +1,8 @@
+import Chargebee from "chargebee";
+
+export function createChargebeeClient(config: { CHARGEBEE_API_KEY: string; CHARGEBEE_SITE: string }) {
+  return new Chargebee({
+    apiKey: config.CHARGEBEE_API_KEY,
+    site: config.CHARGEBEE_SITE,
+  });
+}

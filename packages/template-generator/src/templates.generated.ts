@@ -2729,11 +2729,41 @@ export const trpc = createTRPCOptionsProxy<AppRouter>({
 {{#if (eq payments "polar")}}
 import { polarClient } from "@polar-sh/better-auth/client";
 {{/if}}
+{{#if (eq payments "stripe")}}
+import { stripeClient } from "@better-auth/stripe/client";
+{{/if}}
+{{#if (eq payments "dodo")}}
+import { dodopaymentsClient } from "@dodopayments/better-auth/client";
+{{/if}}
+{{#if (eq payments "creem")}}
+import { creemClient } from "@creem_io/better-auth/client";
+{{/if}}
+{{#if (eq payments "chargebee")}}
+import { chargebeeClient } from "@chargebee/better-auth/client";
+{{/if}}
+{{#if (eq payments "commet")}}
+import { commetClient } from "@commet/better-auth/client";
+{{/if}}
 
 type ClientOptions = {
   baseURL?: string;
 {{#if (eq payments "polar")}}
   plugins: ReturnType<typeof polarClient>[];
+{{/if}}
+{{#if (eq payments "stripe")}}
+  plugins: ReturnType<typeof stripeClient>[];
+{{/if}}
+{{#if (eq payments "dodo")}}
+  plugins: ReturnType<typeof dodopaymentsClient>[];
+{{/if}}
+{{#if (eq payments "creem")}}
+  plugins: ReturnType<typeof creemClient>[];
+{{/if}}
+{{#if (eq payments "chargebee")}}
+  plugins: ReturnType<typeof chargebeeClient>[];
+{{/if}}
+{{#if (eq payments "commet")}}
+  plugins: ReturnType<typeof commetClient>[];
 {{/if}}
 };
 
@@ -2742,6 +2772,21 @@ export function createClient(baseURL?: string): ReturnType<typeof createAuthClie
     baseURL,
 {{#if (eq payments "polar")}}
     plugins: [polarClient()],
+{{/if}}
+{{#if (eq payments "stripe")}}
+    plugins: [stripeClient({ subscription: true })],
+{{/if}}
+{{#if (eq payments "dodo")}}
+    plugins: [dodopaymentsClient()],
+{{/if}}
+{{#if (eq payments "creem")}}
+    plugins: [creemClient()],
+{{/if}}
+{{#if (eq payments "chargebee")}}
+    plugins: [chargebeeClient({ subscription: true })],
+{{/if}}
+{{#if (eq payments "commet")}}
+    plugins: [commetClient()],
 {{/if}}
   });
 }
@@ -8304,6 +8349,28 @@ import type { Database } from "@{{projectName}}/db";
 import { polar, checkout, portal } from "@polar-sh/better-auth";
 import { createPolarClient } from "./lib/payments";
 {{/if}}
+{{#if (eq payments "stripe")}}
+import { stripe } from "@better-auth/stripe";
+import Stripe from "stripe";
+{{/if}}
+{{#if (eq payments "autumn")}}
+import { autumn } from "autumn-js/better-auth";
+{{/if}}
+{{#if (eq payments "dodo")}}
+import { dodopayments, checkout, portal, webhooks } from "@dodopayments/better-auth";
+import DodoPayments from "dodopayments";
+{{/if}}
+{{#if (eq payments "creem")}}
+import { creem } from "@creem_io/better-auth";
+{{/if}}
+{{#if (eq payments "chargebee")}}
+import { chargebee } from "@chargebee/better-auth";
+import Chargebee from "chargebee";
+{{/if}}
+{{#if (eq payments "commet")}}
+import { commet, portal, subscriptions, features, usage, seats } from "@commet/better-auth";
+import { Commet } from "@commet/node";
+{{/if}}
 
 export type AuthConfig = {
   BETTER_AUTH_URL: string;
@@ -8315,9 +8382,54 @@ export type AuthConfig = {
   POLAR_ACCESS_TOKEN: string;
   POLAR_SUCCESS_URL: string;
 {{/if}}
+{{#if (eq payments "stripe")}}
+  STRIPE_SECRET_KEY: string;
+  STRIPE_WEBHOOK_SECRET: string;
+{{/if}}
+{{#if (eq payments "autumn")}}
+  AUTUMN_SECRET_KEY: string;
+{{/if}}
+{{#if (eq payments "dodo")}}
+  DODO_PAYMENTS_API_KEY: string;
+  DODO_PAYMENTS_WEBHOOK_SECRET: string;
+{{/if}}
+{{#if (eq payments "creem")}}
+  CREEM_API_KEY: string;
+  CREEM_WEBHOOK_SECRET: string;
+{{/if}}
+{{#if (eq payments "chargebee")}}
+  CHARGEBEE_API_KEY: string;
+  CHARGEBEE_SITE: string;
+  CHARGEBEE_WEBHOOK_USERNAME: string;
+  CHARGEBEE_WEBHOOK_PASSWORD: string;
+{{/if}}
+{{#if (eq payments "commet")}}
+  COMMET_API_KEY: string;
+  COMMET_WEBHOOK_SECRET: string;
+{{/if}}
 };
 
 export function createAuth(env: AuthConfig{{#if (ne database "none")}}, database: Database{{/if}}{{#if (ne backend "self")}}, desktopOrigins: readonly string[] = []{{/if}}) {
+{{#if (eq payments "stripe")}}
+  const stripeClient = new Stripe(env.STRIPE_SECRET_KEY, {
+    apiVersion: "2026-08-26.dahlia",
+  });
+{{/if}}
+{{#if (eq payments "dodo")}}
+  const dodoPayments = new DodoPayments({
+    bearerToken: env.DODO_PAYMENTS_API_KEY,
+    environment: "test_mode",
+  });
+{{/if}}
+{{#if (eq payments "chargebee")}}
+  const chargebeeClient = new Chargebee({
+    apiKey: env.CHARGEBEE_API_KEY,
+    site: env.CHARGEBEE_SITE,
+  });
+{{/if}}
+{{#if (eq payments "commet")}}
+  const commetClient = new Commet({ apiKey: env.COMMET_API_KEY });
+{{/if}}
   return betterAuth({
 {{#if (eq orm "prisma")}}
     database: prismaAdapter(database, {
@@ -8364,6 +8476,78 @@ export function createAuth(env: AuthConfig{{#if (ne database "none")}}, database
             authenticatedUsersOnly: true,
           }),
           portal(),
+        ],
+      }),
+{{/if}}
+{{#if (eq payments "stripe")}}
+      stripe({
+        stripeClient,
+        stripeWebhookSecret: env.STRIPE_WEBHOOK_SECRET,
+        createCustomerOnSignUp: true,
+        subscription: {
+          enabled: true,
+          plans: [
+            {
+              name: "pro",
+              priceId: "price_...",
+              annualDiscountPriceId: "price_...",
+            },
+          ],
+        },
+      }),
+{{/if}}
+{{#if (eq payments "autumn")}}
+      autumn(),
+{{/if}}
+{{#if (eq payments "dodo")}}
+      dodopayments({
+        client: dodoPayments,
+        createCustomerOnSignUp: true,
+        use: [
+          checkout({
+            products: [{ productId: "pdt_...", slug: "pro" }],
+            successUrl: "/success",
+            authenticatedUsersOnly: true,
+          }),
+          portal(),
+          webhooks({
+            webhookKey: env.DODO_PAYMENTS_WEBHOOK_SECRET,
+          }),
+        ],
+      }),
+{{/if}}
+{{#if (eq payments "creem")}}
+      creem({
+        apiKey: env.CREEM_API_KEY,
+        webhookSecret: env.CREEM_WEBHOOK_SECRET,
+        testMode: true,
+        defaultSuccessUrl: "/success",
+        persistSubscriptions: true,
+      }),
+{{/if}}
+{{#if (eq payments "chargebee")}}
+      chargebee({
+        chargebeeClient,
+        webhookUsername: env.CHARGEBEE_WEBHOOK_USERNAME,
+        webhookPassword: env.CHARGEBEE_WEBHOOK_PASSWORD,
+        subscription: {
+          enabled: true,
+          plans: [{ name: "pro", itemPriceId: "pro-USD-Monthly", type: "plan" }],
+        },
+      }),
+{{/if}}
+{{#if (eq payments "commet")}}
+      commet({
+        client: commetClient,
+        createCustomerOnSignUp: true,
+        use: [
+          portal({ returnUrl: "/dashboard" }),
+          subscriptions({
+            plans: [{ planId: "pln_...", slug: "pro" }],
+          }),
+          features(),
+          usage(),
+          seats(),
         ],
       }),
 {{/if}}
@@ -9252,6 +9436,21 @@ import { authClient } from "../lib/auth-client";
 {{#if (eq payments "polar")}}
 import { polarClient } from "@polar-sh/better-auth/client";
 {{/if}}
+{{#if (eq payments "stripe")}}
+import { stripeClient } from "@better-auth/stripe/client";
+{{/if}}
+{{#if (eq payments "dodo")}}
+import { dodopaymentsClient } from "@dodopayments/better-auth/client";
+{{/if}}
+{{#if (eq payments "creem")}}
+import { creemClient } from "@creem_io/better-auth/client";
+{{/if}}
+{{#if (eq payments "chargebee")}}
+import { chargebeeClient } from "@chargebee/better-auth/client";
+{{/if}}
+{{#if (eq payments "commet")}}
+import { commetClient } from "@commet/better-auth/client";
+{{/if}}
 {{#if (ne backend "self")}}
 import { ENV } from "../env{{#if (eq webDeploy "cloudflare")}}.public{{/if}}";
 {{/if}}
@@ -9273,10 +9472,28 @@ export const authClient = createAuthClient({
 {{#if (eq payments "polar")}}
   plugins: [polarClient()],
 {{/if}}
+{{#if (eq payments "stripe")}}
+  plugins: [stripeClient({ subscription: true })],
+{{/if}}
+{{#if (eq payments "dodo")}}
+  plugins: [dodopaymentsClient()],
+{{/if}}
+{{#if (eq payments "creem")}}
+  plugins: [creemClient()],
+{{/if}}
+{{#if (eq payments "chargebee")}}
+  plugins: [chargebeeClient({ subscription: true })],
+{{/if}}
+{{#if (eq payments "commet")}}
+  plugins: [commetClient()],
+{{/if}}
 });
 `],
   ["auth/better-auth/web/astro/src/pages/dashboard.astro.hbs", `---
 import Layout from "../layouts/Layout.astro";
+{{#if (and (ne payments "none") (ne payments "polar"))}}
+import PaymentActions from "../components/PaymentActions.astro";
+{{/if}}
 ---
 
 <Layout title="Dashboard - {{projectName}}">
@@ -9310,6 +9527,11 @@ import Layout from "../layouts/Layout.astro";
               <p class="text-white">Loading...</p>
             </div>
           </div>
+          {{else if (and (ne payments "none") (ne payments "polar"))}}
+          <div class="rounded-lg bg-neutral-800/50 p-4">
+            <p class="text-sm text-neutral-400 mb-2">Subscription</p>
+            <PaymentActions />
+          </div>
           {{/if}}
         </div>
       </div>
@@ -9329,6 +9551,9 @@ import Layout from "../layouts/Layout.astro";
   import { authClient } from "../lib/auth-client";
   {{#if (eq api "orpc")}}
   import { orpc } from "../lib/orpc";
+  {{/if}}
+  {{#if (and (ne payments "none") (ne payments "polar"))}}
+  import { checkout, getPaymentState, portal } from "../lib/payments";
   {{/if}}
 
   const dashboardContent = document.getElementById("dashboard-content")!;
@@ -9396,6 +9621,30 @@ import Layout from "../layouts/Layout.astro";
         }
       } catch (e) {
         console.error("Failed to load subscription info", e);
+      }
+      {{else if (and (ne payments "none") (ne payments "polar"))}}
+      try {
+        const paymentState = await getPaymentState();
+        const planLabel = document.getElementById("payment-plan-label");
+        const checkoutButton = document.getElementById("payment-checkout");
+        const portalButton = document.getElementById("payment-portal");
+        if (planLabel) {
+          planLabel.textContent = \`Plan: \${paymentState.planLabel}\`;
+        }
+        if (checkoutButton) {
+          checkoutButton.hidden = paymentState.isActive;
+          checkoutButton.addEventListener("click", () => {
+            void checkout();
+          });
+        }
+        if (portalButton) {
+          portalButton.hidden = !paymentState.isActive;
+          portalButton.addEventListener("click", () => {
+            void portal();
+          });
+        }
+      } catch (e) {
+        console.error("Failed to load payment info", e);
       }
       {{/if}}
 
@@ -9669,6 +9918,9 @@ const handleSignOut = async () => {
   ["auth/better-auth/web/nuxt/app/pages/dashboard.vue.hbs", `<script setup lang="ts">
 {{#if (eq payments "polar")}}
 import type { CustomerState } from "@polar-sh/sdk/models/components/customerstate";
+{{else if (and (ne payments "none") (ne payments "polar"))}}
+import PaymentActions from "~/components/PaymentActions.vue";
+import { usePayment } from "~/lib/payments";
 {{/if}}
 
 {{#if (eq api "orpc")}}
@@ -9685,6 +9937,8 @@ const session = $authClient.useSession()
 
 {{#if (eq payments "polar")}}
 const customerState = ref<CustomerState | null>(null)
+{{else if (and (ne payments "none") (ne payments "polar"))}}
+const { state, isLoading, checkout, portal } = usePayment()
 {{/if}}
 
 {{#if (eq api "orpc")}}
@@ -9765,6 +10019,20 @@ const hasProSubscription = computed(() =>
           </UButton>
         </div>
       </UCard>
+      {{else if (and (ne payments "none") (ne payments "polar"))}}
+      <UCard>
+        <template #header>
+          <div class="font-medium">Subscription</div>
+        </template>
+
+        <PaymentActions
+          :is-active="state.isActive"
+          :plan-label="state.planLabel"
+          :pending="isLoading"
+          @checkout="checkout"
+          @portal="portal"
+        />
+      </UCard>
       {{/if}}
     </div>
   </UContainer>
@@ -9802,6 +10070,21 @@ watchEffect(() => {
 {{#if (eq payments "polar")}}
 import { polarClient } from "@polar-sh/better-auth/client";
 {{/if}}
+{{#if (eq payments "stripe")}}
+import { stripeClient } from "@better-auth/stripe/client";
+{{/if}}
+{{#if (eq payments "dodo")}}
+import { dodopaymentsClient } from "@dodopayments/better-auth/client";
+{{/if}}
+{{#if (eq payments "creem")}}
+import { creemClient } from "@creem_io/better-auth/client";
+{{/if}}
+{{#if (eq payments "chargebee")}}
+import { chargebeeClient } from "@chargebee/better-auth/client";
+{{/if}}
+{{#if (eq payments "commet")}}
+import { commetClient } from "@commet/better-auth/client";
+{{/if}}
 
 export default defineNuxtPlugin(() => {
   {{#if (ne backend "self")}}
@@ -9821,6 +10104,21 @@ export default defineNuxtPlugin(() => {
     {{#if (eq payments "polar")}}
     plugins: [polarClient()],
     {{/if}}
+    {{#if (eq payments "stripe")}}
+    plugins: [stripeClient({ subscription: true })],
+    {{/if}}
+    {{#if (eq payments "dodo")}}
+    plugins: [dodopaymentsClient()],
+    {{/if}}
+    {{#if (eq payments "creem")}}
+    plugins: [creemClient()],
+    {{/if}}
+    {{#if (eq payments "chargebee")}}
+    plugins: [chargebeeClient({ subscription: true })],
+    {{/if}}
+    {{#if (eq payments "commet")}}
+    plugins: [commetClient()],
+    {{/if}}
   });
 
   return {
@@ -9833,6 +10131,21 @@ export default defineNuxtPlugin(() => {
   ["auth/better-auth/web/react/base/src/lib/auth-client.ts.hbs", `import { createAuthClient } from "better-auth/react";
 {{#if (eq payments "polar")}}
 import { polarClient } from "@polar-sh/better-auth/client";
+{{/if}}
+{{#if (eq payments "stripe")}}
+import { stripeClient } from "@better-auth/stripe/client";
+{{/if}}
+{{#if (eq payments "dodo")}}
+import { dodopaymentsClient } from "@dodopayments/better-auth/client";
+{{/if}}
+{{#if (eq payments "creem")}}
+import { creemClient } from "@creem_io/better-auth/client";
+{{/if}}
+{{#if (eq payments "chargebee")}}
+import { chargebeeClient } from "@chargebee/better-auth/client";
+{{/if}}
+{{#if (eq payments "commet")}}
+import { commetClient } from "@commet/better-auth/client";
 {{/if}}
 {{#unless (eq backend "self")}}
 {{#unless (includes frontend "next")}}
@@ -9853,6 +10166,21 @@ export const authClient = createAuthClient({
 {{#if (eq payments "polar")}}
 	plugins: [polarClient()]
 {{/if}}
+{{#if (eq payments "stripe")}}
+	plugins: [stripeClient({ subscription: true })]
+{{/if}}
+{{#if (eq payments "dodo")}}
+	plugins: [dodopaymentsClient()]
+{{/if}}
+{{#if (eq payments "creem")}}
+	plugins: [creemClient()]
+{{/if}}
+{{#if (eq payments "chargebee")}}
+	plugins: [chargebeeClient({ subscription: true })]
+{{/if}}
+{{#if (eq payments "commet")}}
+	plugins: [commetClient()]
+{{/if}}
 });
 `],
   ["auth/better-auth/web/react/next/src/app/dashboard/dashboard.tsx.hbs", `"use client";
@@ -9862,6 +10190,9 @@ import type { CustomerState } from "@polar-sh/sdk/models/components/customerstat
 
 {{#if (eq payments "polar")}}
 import { Button } from "@{{projectName}}/ui/components/button";
+{{else if (and (ne payments "none") (ne payments "polar"))}}
+import { PaymentActions } from "@/components/payment-actions";
+import { usePayment } from "@/lib/payments";
 {{/if}}
 import { authClient } from "@/lib/auth-client";
 {{#if (eq api "orpc")}}
@@ -9893,6 +10224,8 @@ export default function Dashboard({
 
 	{{#if (eq payments "polar")}}
 	const hasProSubscription = (customerState?.activeSubscriptions?.length ?? 0) > 0;
+	{{else if (and (ne payments "none") (ne payments "polar"))}}
+	const { state, isLoading, checkout, portal } = usePayment();
 	{{/if}}
 
 	return (
@@ -9914,6 +10247,14 @@ export default function Dashboard({
 					Upgrade to Pro
 				</Button>
 			)}
+			{{else if (and (ne payments "none") (ne payments "polar"))}}
+			<PaymentActions
+				isActive={state.isActive}
+				planLabel={state.planLabel}
+				pending={isLoading}
+				onCheckout={checkout}
+				onPortal={portal}
+			/>
 			{{/if}}
 		</>
 	);
@@ -9940,6 +10281,8 @@ export default function DashboardPage() {
 		queryFn: async () => (await authClient.customer.state()).data,
 		enabled: Boolean(session?.user),
 	});
+{{else if (and (ne payments "none") (ne payments "polar"))}}
+	// Payment state is resolved inside the client dashboard component.
 {{/if}}
 
 	useEffect(() => {
@@ -9999,6 +10342,8 @@ export default async function DashboardPage() {
 			headers: await headers(),
 		},
 	});
+	{{else if (and (ne payments "none") (ne payments "polar"))}}
+	// Payment state is resolved inside the client dashboard component.
 	{{/if}}
 
 	return (
@@ -10752,6 +11097,9 @@ import type { CustomerState } from "@polar-sh/sdk/models/components/customerstat
 {{/if}}
 {{#if (eq payments "polar")}}
 import { Button } from "@{{projectName}}/ui/components/button";
+{{else if (and (ne payments "none") (ne payments "polar"))}}
+import { PaymentActions } from "@/components/payment-actions";
+import { usePayment } from "@/lib/payments";
 {{/if}}
 import { authClient } from "@/lib/auth-client";
 {{#if (eq api "orpc")}}
@@ -10771,6 +11119,8 @@ export default function Dashboard() {
   const navigate = useNavigate();
   {{#if (eq payments "polar")}}
   const [customerState, setCustomerState] = useState<CustomerState | null>(null);
+  {{else if (and (ne payments "none") (ne payments "polar"))}}
+  const { state, isLoading, checkout, portal } = usePayment();
   {{/if}}
 
   {{#if (eq api "orpc")}}
@@ -10825,6 +11175,14 @@ export default function Dashboard() {
           Upgrade to Pro
         </Button>
       )}
+      {{else if (and (ne payments "none") (ne payments "polar"))}}
+      <PaymentActions
+        isActive={state.isActive}
+        planLabel={state.planLabel}
+        pending={isLoading}
+        onCheckout={checkout}
+        onPortal={portal}
+      />
       {{/if}}
     </div>
   );
@@ -11208,6 +11566,9 @@ export default function UserMenu() {
   ["auth/better-auth/web/react/tanstack-router/src/routes/_auth/dashboard.tsx.hbs", `{{#if (eq payments "polar")}}
 import { Button } from "@{{projectName}}/ui/components/button";
 import { authClient } from "@/lib/auth-client";
+{{else if (and (ne payments "none") (ne payments "polar"))}}
+import { PaymentActions } from "@/components/payment-actions";
+import { usePayment } from "@/lib/payments";
 {{/if}}
 {{#if (eq api "orpc")}}
 import { orpc } from "@/utils/orpc";
@@ -11236,6 +11597,8 @@ function RouteComponent() {
 
 	{{#if (eq payments "polar")}}
 	const hasProSubscription = (customerState?.activeSubscriptions?.length ?? 0) > 0;
+	{{else if (and (ne payments "none") (ne payments "polar"))}}
+	const { state, isLoading, checkout, portal } = usePayment();
 	{{/if}}
 
 	return (
@@ -11256,6 +11619,14 @@ function RouteComponent() {
 					Upgrade to Pro
 				</Button>
 			)}
+			{{else if (and (ne payments "none") (ne payments "polar"))}}
+			<PaymentActions
+				isActive={state.isActive}
+				planLabel={state.planLabel}
+				pending={isLoading}
+				onCheckout={checkout}
+				onPortal={portal}
+			/>
 			{{/if}}
 		</div>
 	);
@@ -11276,6 +11647,8 @@ export const Route = createFileRoute("/_auth")({
 		{{#if (eq payments "polar")}}
 		const { data: customerState } = await authClient.customer.state();
 		return { session, customerState };
+		{{else if (and (ne payments "none") (ne payments "polar"))}}
+		return { session };
 		{{else}}
 		return { session };
 		{{/if}}
@@ -11711,6 +12084,9 @@ export const authMiddleware = createMiddleware().server(
   ["auth/better-auth/web/react/tanstack-start/src/routes/_auth/dashboard.tsx.hbs", `{{#if (eq payments "polar") }}
 import { Button } from "@{{projectName}}/ui/components/button";
 import { authClient } from "@/lib/auth-client";
+{{else if (and (ne payments "none") (ne payments "polar"))}}
+import { PaymentActions } from "@/components/payment-actions";
+import { usePayment } from "@/lib/payments";
 {{/if}}
 {{#if (eq api "trpc") }}
 import { useTRPC } from "@/utils/trpc";
@@ -11739,6 +12115,8 @@ function RouteComponent() {
 
   {{#if (eq payments "polar") }}
   const hasProSubscription = (customerState?.activeSubscriptions?.length ?? 0) > 0;
+  {{else if (and (ne payments "none") (ne payments "polar"))}}
+  const { state, isLoading, checkout, portal } = usePayment();
   {{/if}}
 
   return (
@@ -11773,6 +12151,14 @@ function RouteComponent() {
           Upgrade to Pro
         </Button>
       )}
+      {{else if (and (ne payments "none") (ne payments "polar"))}}
+      <PaymentActions
+        isActive={state.isActive}
+        planLabel={state.planLabel}
+        pending={isLoading}
+        onCheckout={checkout}
+        onPortal={portal}
+      />
       {{/if}}
     </div>
   );
@@ -11804,6 +12190,8 @@ export const Route = createFileRoute("/_auth")({
     {{#if (eq payments "polar") }}
     const customerState = await getPayment();
     return { session, customerState };
+    {{else if (and (ne payments "none") (ne payments "polar"))}}
+    return { session };
     {{else}}
     return { session };
     {{/if}}
@@ -11817,6 +12205,8 @@ export const Route = createFileRoute("/_auth")({
     {{#if (eq payments "polar") }}
     const { data: customerState } = await authClient.customer.state();
     return { session, customerState };
+    {{else if (and (ne payments "none") (ne payments "polar"))}}
+    return { session };
     {{else}}
     return { session };
     {{/if}}
@@ -12113,6 +12503,10 @@ import {
 	Show,
 } from "solid-js";
 import { {{#if (eq payments "polar")}}authClient, {{/if}}useSession } from "~/lib/auth-client";
+{{#if (and (ne payments "none") (ne payments "polar"))}}
+import { PaymentActions } from "~/components/payment-actions";
+import { usePayment } from "~/lib/payments";
+{{/if}}
 
 export default function Dashboard() {
 	const navigate = useNavigate();
@@ -12122,6 +12516,8 @@ export default function Dashboard() {
 		if (!session().data?.user.id) return;
 		return (await authClient.customer.state()).data;
 	});
+	{{else if (and (ne payments "none") (ne payments "polar"))}}
+	const { state, isLoading, checkout, portal } = usePayment();
 	{{/if}}
 
 	createEffect(
@@ -12159,6 +12555,14 @@ export default function Dashboard() {
 					Upgrade to Pro
 				</button>
 			)}
+			{{else if (and (ne payments "none") (ne payments "polar"))}}
+			<PaymentActions
+				isActive={state().isActive}
+				planLabel={state().planLabel}
+				pending={isLoading()}
+				onCheckout={checkout}
+				onPortal={portal}
+			/>
 			{{/if}}
 			</div>
 		</Show>
@@ -12508,6 +12912,21 @@ import { createAuthClient } from "better-auth/svelte";
 {{#if (eq payments "polar")}}
 import { polarClient } from "@polar-sh/better-auth/client";
 {{/if}}
+{{#if (eq payments "stripe")}}
+import { stripeClient } from "@better-auth/stripe/client";
+{{/if}}
+{{#if (eq payments "dodo")}}
+import { dodopaymentsClient } from "@dodopayments/better-auth/client";
+{{/if}}
+{{#if (eq payments "creem")}}
+import { creemClient } from "@creem_io/better-auth/client";
+{{/if}}
+{{#if (eq payments "chargebee")}}
+import { chargebeeClient } from "@chargebee/better-auth/client";
+{{/if}}
+{{#if (eq payments "commet")}}
+import { commetClient } from "@commet/better-auth/client";
+{{/if}}
 
 {{#unless (eq backend "self")}}
 {{> getServerUrl}}
@@ -12524,11 +12943,29 @@ export const authClient = createAuthClient({
 {{#if (eq payments "polar")}}
 	plugins: [polarClient()]
 {{/if}}
+{{#if (eq payments "stripe")}}
+	plugins: [stripeClient({ subscription: true })]
+{{/if}}
+{{#if (eq payments "dodo")}}
+	plugins: [dodopaymentsClient()]
+{{/if}}
+{{#if (eq payments "creem")}}
+	plugins: [creemClient()]
+{{/if}}
+{{#if (eq payments "chargebee")}}
+	plugins: [chargebeeClient({ subscription: true })]
+{{/if}}
+{{#if (eq payments "commet")}}
+	plugins: [commetClient()]
+{{/if}}
 });
 `],
   ["auth/better-auth/web/svelte/src/routes/dashboard/+page.svelte.hbs", `<script lang="ts">
 {{#if (eq payments "polar")}}
 import type { CustomerState } from "@polar-sh/sdk/models/components/customerstate";
+{{else if (and (ne payments "none") (ne payments "polar"))}}
+import PaymentActions from '$lib/components/PaymentActions.svelte';
+import { usePayment } from '$lib/payments';
 {{/if}}
 
 	import { goto } from '$app/navigation';
@@ -12539,6 +12976,8 @@ import type { CustomerState } from "@polar-sh/sdk/models/components/customerstat
 	{{/if}}
 	{{#if (eq payments "polar")}}
 	let customerState = $state<CustomerState | null>(null);
+	{{else if (and (ne payments "none") (ne payments "polar"))}}
+	const { state: paymentState, isLoading: paymentLoading, checkout, portal } = usePayment();
 	{{/if}}
 
 	const sessionQuery = authClient.useSession();
@@ -12586,6 +13025,14 @@ import type { CustomerState } from "@polar-sh/sdk/models/components/customerstat
 				Upgrade to Pro
 			</button>
 		{/if}
+		{{else if (and (ne payments "none") (ne payments "polar"))}}
+		<PaymentActions
+			isActive={$paymentState.isActive}
+			planLabel={$paymentState.planLabel}
+			pending={$paymentLoading}
+			onCheckout={checkout}
+			onPortal={portal}
+		/>
 		{{/if}}
 	</div>
 {/if}
@@ -14542,6 +14989,9 @@ import { createContext } from "@{{projectName}}/api/context";
 {{#if (eq auth "better-auth")}}
 import { auth } from "@{{projectName}}/auth";
 {{/if}}
+{{#if (eq payments "commet")}}
+import { createCommetCheckoutUrl } from "@{{projectName}}/auth/lib/payments";
+{{/if}}
 
 {{#if (eq api "orpc")}}
 const rpcHandler = new RPCHandler(appRouter, {
@@ -14611,6 +15061,27 @@ const apiHandler = new OpenAPIHandler(appRouter, {
 			return auth.handler(request);
 		}
 		return status(405)
+	})
+{{/if}}
+{{#if (eq payments "commet")}}
+	.post("/api/payments/commet/checkout", async (context) => {
+		const session = await auth.api.getSession({ headers: context.request.headers });
+		if (!session?.user) {
+			return context.status(401, { error: "Unauthorized" });
+		}
+
+		const body = (await context.request.json().catch(() => ({}))) as { planCode?: string };
+		const planCode = body.planCode ?? "pro";
+		const successUrl = \`\${ENV.CORS_ORIGIN}/success\`;
+		const url = await createCommetCheckoutUrl({
+			userId: session.user.id,
+			planCode,
+			successUrl,
+		});
+		if (!url) {
+			return context.status(204);
+		}
+		return { url };
 	})
 {{/if}}
 {{#if (eq api "orpc")}}
@@ -14712,7 +15183,10 @@ import { devToolsMiddleware } from "@ai-sdk/devtools";
 {{/if}}
 {{#if (eq auth "better-auth")}}
 import { auth } from "@{{projectName}}/auth";
-import { toNodeHandler } from "better-auth/node";
+import { toNodeHandler{{#if (eq payments "commet")}}, fromNodeHeaders{{/if}} } from "better-auth/node";
+{{/if}}
+{{#if (eq payments "commet")}}
+import { createCommetCheckoutUrl } from "@{{projectName}}/auth/lib/payments";
 {{/if}}
 {{#if (eq auth "clerk")}}
 import { clerkMiddleware } from "@clerk/express";
@@ -14816,6 +15290,30 @@ app.use(async (req, res, next) => {
 
 app.use(express.json());
 
+{{#if (eq payments "commet")}}
+app.post("/api/payments/commet/checkout", async (req, res) => {
+	const session = await auth.api.getSession({ headers: fromNodeHeaders(req.headers) });
+	if (!session?.user) {
+		res.status(401).json({ error: "Unauthorized" });
+		return;
+	}
+
+	const body = (req.body ?? {}) as { planCode?: string };
+	const planCode = body.planCode ?? "pro";
+	const successUrl = \`\${ENV.CORS_ORIGIN}/success\`;
+	const url = await createCommetCheckoutUrl({
+		userId: session.user.id,
+		planCode,
+		successUrl,
+	});
+	if (!url) {
+		res.status(204).send();
+		return;
+	}
+	res.json({ url });
+});
+{{/if}}
+
 {{#if (includes examples "ai")}}
 app.post("/ai", async (req, res) => {
 	const { messages = [] } = (req.body || {}) as { messages: UIMessage[] };
@@ -14870,6 +15368,9 @@ import { devToolsMiddleware } from "@ai-sdk/devtools";
 
 {{#if (eq auth "better-auth")}}
 import { auth } from "@{{projectName}}/auth";
+{{/if}}
+{{#if (eq payments "commet")}}
+import { createCommetCheckoutUrl } from "@{{projectName}}/auth/lib/payments";
 {{/if}}
 {{#if (eq auth "clerk")}}
 import { clerkPlugin } from "@clerk/fastify";
@@ -15013,6 +15514,34 @@ fastify.route({
 });
 {{/if}}
 
+{{#if (eq payments "commet")}}
+fastify.post("/api/payments/commet/checkout", async (request, reply) => {
+	const headers = new Headers();
+	Object.entries(request.headers).forEach(([key, value]) => {
+		if (value) headers.append(key, value.toString());
+	});
+	const session = await auth.api.getSession({ headers });
+	if (!session?.user) {
+		reply.status(401).send({ error: "Unauthorized" });
+		return;
+	}
+
+	const body = (request.body ?? {}) as { planCode?: string };
+	const planCode = body.planCode ?? "pro";
+	const successUrl = \`\${ENV.CORS_ORIGIN}/success\`;
+	const url = await createCommetCheckoutUrl({
+		userId: session.user.id,
+		planCode,
+		successUrl,
+	});
+	if (!url) {
+		reply.status(204).send();
+		return;
+	}
+	reply.send({ url });
+});
+{{/if}}
+
 {{#if (eq api "trpc")}}
 fastify.register(fastifyTRPCPlugin, {
 	prefix: "/trpc",
@@ -15083,6 +15612,9 @@ import { createAuth } from "@{{projectName}}/auth";
 import { auth } from "@{{projectName}}/auth";
 {{/if}}
 {{/if}}
+{{#if (eq payments "commet")}}
+import { createCommetCheckoutUrl } from "@{{projectName}}/auth/lib/payments";
+{{/if}}
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { logger } from "hono/logger";
@@ -15125,6 +15657,33 @@ app.on(
 		auth.handler(c.req.raw)
 {{/if}}
 );
+{{/if}}
+
+{{#if (eq payments "commet")}}
+app.post("/api/payments/commet/checkout", async (c) => {
+{{#if (or (eq runtime "workers") (eq serverDeploy "cloudflare") (and (eq backend "self") (eq webDeploy "cloudflare")))}}
+	const authInstance = await createAuth();
+{{else}}
+	const authInstance = auth;
+{{/if}}
+	const session = await authInstance.api.getSession({ headers: c.req.raw.headers });
+	if (!session?.user) {
+		return c.json({ error: "Unauthorized" }, 401);
+	}
+
+	const body = (await c.req.json().catch(() => ({}))) as { planCode?: string };
+	const planCode = body.planCode ?? "pro";
+	const successUrl = \`\${ENV.CORS_ORIGIN}/success\`;
+	const url = await createCommetCheckoutUrl({
+		userId: session.user.id,
+		planCode,
+		successUrl,
+	});
+	if (!url) {
+		return c.body(null, 204);
+	}
+	return c.json({ url });
+});
 {{/if}}
 
 {{#if (and (eq auth "better-auth") (eq payments "polar") (or (includes frontend "native-bare") (includes frontend "native-uniwind") (includes frontend "native-unistyles")))}}
@@ -30727,6 +31286,9 @@ import { queryClient } from "@/utils/trpc";
 {{/if}}
 import { ThemeProvider } from "./theme-provider";
 import { Toaster } from "@{{projectName}}/ui/components/sonner";
+{{#if (eq payments "autumn")}}
+import { AutumnProvider } from "autumn-js/react";
+{{/if}}
 
 {{#if (eq backend "convex")}}
 const convex = new ConvexReactClient(ENV.NEXT_PUBLIC_CONVEX_URL);
@@ -30760,6 +31322,9 @@ export default function Providers({
 {{/if}}
 }) {
   return (
+{{#if (eq payments "autumn")}}
+    <AutumnProvider useBetterAuth={true}>
+{{/if}}
     <ThemeProvider
       attribute="class"
       defaultTheme="system"
@@ -30802,6 +31367,9 @@ export default function Providers({
       {{/if}}
       <Toaster richColors />
     </ThemeProvider>
+{{#if (eq payments "autumn")}}
+    </AutumnProvider>
+{{/if}}
   );
 }
 `],
@@ -30967,6 +31535,9 @@ import "./index.css";
 import Header from "./components/header";
 import { ThemeProvider } from "./components/theme-provider";
 import { Toaster } from "@{{projectName}}/ui/components/sonner";
+{{#if (eq payments "autumn")}}
+import { AutumnProvider } from "autumn-js/react";
+{{/if}}
 {{#if (eq auth "clerk")}}
 import { ClerkProvider{{#if (or (eq backend "convex") (ne api "none"))}}, useAuth{{/if}} } from "@clerk/react-router";
 import { clerkMiddleware, rootAuthLoader } from "@clerk/react-router/server";
@@ -31042,9 +31613,15 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <Links />
       </head>
       <body>
+{{#if (eq payments "autumn")}}
+        <AutumnProvider useBetterAuth={true}>
+{{/if}}
         {children}
         <ScrollRestoration />
         <Scripts />
+{{#if (eq payments "autumn")}}
+        </AutumnProvider>
+{{/if}}
       </body>
     </html>
   );
@@ -31663,6 +32240,9 @@ if (!rootElement.innerHTML) {
   ["frontend/react/tanstack-router/src/routes/__root.tsx.hbs", `import Header from "@/components/header";
 import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "@{{projectName}}/ui/components/sonner";
+{{#if (eq payments "autumn")}}
+import { AutumnProvider } from "autumn-js/react";
+{{/if}}
 {{#if (eq api "orpc")}}
 import { link, orpc } from "@/utils/orpc";
 import type { QueryClient } from "@tanstack/react-query";
@@ -31729,6 +32309,9 @@ function RootComponent() {
   return (
     <>
       <HeadContent />
+{{#if (eq payments "autumn")}}
+      <AutumnProvider useBetterAuth={true}>
+{{/if}}
       {{#if (eq api "orpc")}}
         <ThemeProvider
           attribute="class"
@@ -31756,6 +32339,9 @@ function RootComponent() {
         <Toaster richColors />
       </ThemeProvider>
       {{/if}}
+{{#if (eq payments "autumn")}}
+      </AutumnProvider>
+{{/if}}
       <TanStackRouterDevtools position="bottom-left" />
       {{#if (or (eq api "orpc") (eq api "trpc"))}}
       <ReactQueryDevtools position="bottom" buttonPosition="bottom-right" />
@@ -32125,6 +32711,9 @@ import {
 import { TanStackRouterDevtools } from "@tanstack/react-router-devtools";
 import Header from "../components/header";
 import appCss from "../index.css?url";
+{{#if (eq payments "autumn")}}
+import { AutumnProvider } from "autumn-js/react";
+{{/if}}
 {{#if (eq backend "convex")}}
 import type { QueryClient } from "@tanstack/react-query";
 import type { ConvexQueryClient } from "@convex-dev/react-query";
@@ -32349,6 +32938,9 @@ function RootDocument() {
         <HeadContent />
       </head>
       <body>
+{{#if (eq payments "autumn")}}
+        <AutumnProvider useBetterAuth={true}>
+{{/if}}
         <div className="grid h-svh grid-rows-[auto_1fr]">
           <Header />
           <Outlet />
@@ -32359,6 +32951,9 @@ function RootDocument() {
         <ReactQueryDevtools position="bottom" buttonPosition="bottom-right" />
         {{/unless}}
         <Scripts />
+{{#if (eq payments "autumn")}}
+        </AutumnProvider>
+{{/if}}
       </body>
     </html>
   );
@@ -35311,6 +35906,1628 @@ export { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider }
   "exclude": ["node_modules"]
 }
 `],
+  ["payments/autumn/web/react/base/src/lib/payments.ts.hbs", `import { useCustomer } from "autumn-js/react";
+
+export interface PaymentState {
+  isActive: boolean;
+  planLabel: string;
+}
+
+export function usePayment(): {
+  state: PaymentState;
+  isLoading: boolean;
+  checkout: () => Promise<void>;
+  portal: () => Promise<void>;
+} {
+  const { data, isLoading, attach, openCustomerPortal } = useCustomer();
+
+  const isActive =
+    data?.subscriptions?.some((subscription) => subscription.status === "active") ?? false;
+
+  const checkout = async (): Promise<void> => {
+    await attach({ planId: "pro", successUrl: "/success" });
+  };
+
+  const portal = async (): Promise<void> => {
+    await openCustomerPortal({ returnUrl: "/dashboard" });
+  };
+
+  return {
+    state: { isActive, planLabel: isActive ? "Pro" : "Free" },
+    isLoading,
+    checkout,
+    portal,
+  };
+}
+`],
+  ["payments/chargebee/server/base/src/lib/payments.ts.hbs", `import Chargebee from "chargebee";
+
+export function createChargebeeClient(config: { CHARGEBEE_API_KEY: string; CHARGEBEE_SITE: string }) {
+  return new Chargebee({
+    apiKey: config.CHARGEBEE_API_KEY,
+    site: config.CHARGEBEE_SITE,
+  });
+}
+`],
+  ["payments/chargebee/web/astro/src/lib/payments.ts.hbs", `import { authClient } from "./auth-client";
+
+const PRO_ITEM_PRICE_ID = "pro-USD-Monthly";
+const ACTIVE_STATUSES = ["active", "in_trial", "non_renewing"];
+
+export interface PaymentState {
+  isActive: boolean;
+  planLabel: string;
+}
+
+export async function getPaymentState(): Promise<PaymentState> {
+  const { data, error } = await authClient.subscription.list();
+  const isActive =
+    !error && (data ?? []).some((subscription) => ACTIVE_STATUSES.includes(subscription.status));
+  return { isActive, planLabel: isActive ? "Pro" : "Free" };
+}
+
+export async function checkout(): Promise<void> {
+  const { data, error } = await authClient.subscription.create({
+    itemPriceId: PRO_ITEM_PRICE_ID,
+    successUrl: "/success",
+    cancelUrl: "/dashboard",
+  });
+  if (error || !data?.url) return;
+  window.location.href = data.url;
+}
+
+export async function portal(): Promise<void> {
+  const { data, error } = await authClient.subscription.portal({ returnUrl: "/dashboard" });
+  if (error || !data?.url) return;
+  window.location.href = data.url;
+}
+`],
+  ["payments/chargebee/web/nuxt/app/lib/payments.ts.hbs", `import type { ComputedRef, Ref } from "vue";
+
+const PRO_ITEM_PRICE_ID = "pro-USD-Monthly";
+const ACTIVE_STATUSES = ["active", "in_trial", "non_renewing"];
+
+export interface PaymentState {
+  isActive: boolean;
+  planLabel: string;
+}
+
+export function usePayment(): {
+  state: ComputedRef<PaymentState>;
+  isLoading: Ref<boolean>;
+  checkout: () => Promise<void>;
+  portal: () => Promise<void>;
+} {
+  const { $authClient } = useNuxtApp();
+  const isActive = ref(false);
+  const isLoading = ref(true);
+
+  onMounted(async () => {
+    const { data, error } = await $authClient.subscription.list();
+    isActive.value =
+      !error &&
+      (data ?? []).some((subscription) => ACTIVE_STATUSES.includes(subscription.status));
+    isLoading.value = false;
+  });
+
+  const checkout = async () => {
+    const { data, error } = await $authClient.subscription.create({
+      itemPriceId: PRO_ITEM_PRICE_ID,
+      successUrl: "/success",
+      cancelUrl: "/dashboard",
+    });
+    if (error || !data?.url) return;
+    window.location.href = data.url;
+  };
+
+  const portal = async () => {
+    const { data, error } = await $authClient.subscription.portal({ returnUrl: "/dashboard" });
+    if (error || !data?.url) return;
+    window.location.href = data.url;
+  };
+
+  const state = computed<PaymentState>(() => ({
+    isActive: isActive.value,
+    planLabel: isActive.value ? "Pro" : "Free",
+  }));
+
+  return { state, isLoading, checkout, portal };
+}
+`],
+  ["payments/chargebee/web/react/base/src/lib/payments.ts.hbs", `import { useEffect, useState } from "react";
+import { authClient } from "@/lib/auth-client";
+
+const PRO_ITEM_PRICE_ID = "pro-USD-Monthly";
+const ACTIVE_STATUSES = ["active", "in_trial", "non_renewing"];
+
+export interface PaymentState {
+  isActive: boolean;
+  planLabel: string;
+}
+
+export function usePayment(): {
+  state: PaymentState;
+  isLoading: boolean;
+  checkout: () => Promise<void>;
+  portal: () => Promise<void>;
+} {
+  const [isActive, setIsActive] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function load() {
+      const { data, error } = await authClient.subscription.list();
+      if (cancelled) return;
+      setIsActive(
+        !error &&
+          (data ?? []).some((subscription) => ACTIVE_STATUSES.includes(subscription.status)),
+      );
+      setIsLoading(false);
+    }
+
+    void load();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const checkout = async () => {
+    const { data, error } = await authClient.subscription.create({
+      itemPriceId: PRO_ITEM_PRICE_ID,
+      successUrl: "/success",
+      cancelUrl: "/dashboard",
+    });
+    if (error || !data?.url) return;
+    window.location.href = data.url;
+  };
+
+  const portal = async () => {
+    const { data, error } = await authClient.subscription.portal({ returnUrl: "/dashboard" });
+    if (error || !data?.url) return;
+    window.location.href = data.url;
+  };
+
+  return {
+    state: { isActive, planLabel: isActive ? "Pro" : "Free" },
+    isLoading,
+    checkout,
+    portal,
+  };
+}
+`],
+  ["payments/chargebee/web/solid/src/lib/payments.ts.hbs", `import { createMemo, createSignal, onMount, type Accessor } from "solid-js";
+import { authClient } from "~/lib/auth-client";
+
+const PRO_ITEM_PRICE_ID = "pro-USD-Monthly";
+const ACTIVE_STATUSES = ["active", "in_trial", "non_renewing"];
+
+export interface PaymentState {
+  isActive: boolean;
+  planLabel: string;
+}
+
+export function usePayment(): {
+  state: Accessor<PaymentState>;
+  isLoading: Accessor<boolean>;
+  checkout: () => Promise<void>;
+  portal: () => Promise<void>;
+} {
+  const [isActive, setIsActive] = createSignal(false);
+  const [isLoading, setIsLoading] = createSignal(true);
+
+  onMount(async () => {
+    const { data, error } = await authClient.subscription.list();
+    setIsActive(
+      !error &&
+        (data ?? []).some((subscription) => ACTIVE_STATUSES.includes(subscription.status)),
+    );
+    setIsLoading(false);
+  });
+
+  const state = createMemo<PaymentState>(() => ({
+    isActive: isActive(),
+    planLabel: isActive() ? "Pro" : "Free",
+  }));
+
+  const checkout = async (): Promise<void> => {
+    const { data, error } = await authClient.subscription.create({
+      itemPriceId: PRO_ITEM_PRICE_ID,
+      successUrl: "/success",
+      cancelUrl: "/dashboard",
+    });
+    if (error || !data?.url) return;
+    window.location.href = data.url;
+  };
+
+  const portal = async (): Promise<void> => {
+    const { data, error } = await authClient.subscription.portal({ returnUrl: "/dashboard" });
+    if (error || !data?.url) return;
+    window.location.href = data.url;
+  };
+
+  return { state, isLoading, checkout, portal };
+}
+`],
+  ["payments/chargebee/web/svelte/src/lib/payments.ts.hbs", `import { derived, writable, type Readable } from "svelte/store";
+import { authClient } from "$lib/auth-client";
+
+const PRO_ITEM_PRICE_ID = "pro-USD-Monthly";
+const ACTIVE_STATUSES = ["active", "in_trial", "non_renewing"];
+
+export interface PaymentState {
+  isActive: boolean;
+  planLabel: string;
+}
+
+const isActive = writable(false);
+const isLoading = writable(true);
+
+const state = derived(isActive, ($isActive): PaymentState => ({
+  isActive: $isActive,
+  planLabel: $isActive ? "Pro" : "Free",
+}));
+
+let hasLoaded = false;
+
+function ensureLoaded(): void {
+  if (hasLoaded) return;
+  hasLoaded = true;
+
+  void authClient.subscription.list().then(({ data, error }) => {
+    isActive.set(
+      !error &&
+        (data ?? []).some((subscription) => ACTIVE_STATUSES.includes(subscription.status)),
+    );
+    isLoading.set(false);
+  });
+}
+
+async function checkout(): Promise<void> {
+  const { data, error } = await authClient.subscription.create({
+    itemPriceId: PRO_ITEM_PRICE_ID,
+    successUrl: "/success",
+    cancelUrl: "/dashboard",
+  });
+  if (error || !data?.url) return;
+  window.location.href = data.url;
+}
+
+async function portal(): Promise<void> {
+  const { data, error } = await authClient.subscription.portal({ returnUrl: "/dashboard" });
+  if (error || !data?.url) return;
+  window.location.href = data.url;
+}
+
+export function usePayment(): {
+  state: Readable<PaymentState>;
+  isLoading: Readable<boolean>;
+  checkout: () => Promise<void>;
+  portal: () => Promise<void>;
+} {
+  ensureLoaded();
+  return { state, isLoading, checkout, portal };
+}
+`],
+  ["payments/commet/fullstack/astro/src/pages/api/payments/commet/checkout.ts.hbs", `{{#if (or (eq runtime "workers") (eq serverDeploy "cloudflare") (and (eq backend "self") (eq webDeploy "cloudflare")))}}
+import { createAuth } from "@{{projectName}}/auth";
+{{else}}
+import { auth } from "@{{projectName}}/auth";
+{{/if}}
+import { createCommetCheckoutUrl } from "@{{projectName}}/auth/lib/payments";
+import type { APIRoute } from "astro";
+
+export const POST: APIRoute = async (ctx) => {
+{{#if (or (eq runtime "workers") (eq serverDeploy "cloudflare") (and (eq backend "self") (eq webDeploy "cloudflare")))}}
+  const authInstance = await createAuth();
+{{else}}
+  const authInstance = auth;
+{{/if}}
+  const session = await authInstance.api.getSession({ headers: ctx.request.headers });
+  if (!session?.user) {
+    return new Response(JSON.stringify({ error: "Unauthorized" }), {
+      status: 401,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
+  let planCode = "pro";
+  try {
+    const body = (await ctx.request.json()) as { planCode?: string };
+    planCode = body.planCode ?? planCode;
+  } catch {
+    // No JSON body was provided; fall back to the default plan.
+  }
+
+  const successUrl = new URL("/success", ctx.request.url).toString();
+  const url = await createCommetCheckoutUrl({
+    userId: session.user.id,
+    planCode,
+    successUrl,
+  });
+  if (!url) {
+    return new Response(null, { status: 204 });
+  }
+  return new Response(JSON.stringify({ url }), {
+    status: 200,
+    headers: { "Content-Type": "application/json" },
+  });
+};
+`],
+  ["payments/commet/fullstack/next/src/app/api/payments/commet/checkout/route.ts.hbs", `{{#if (or (eq runtime "workers") (eq serverDeploy "cloudflare") (and (eq backend "self") (eq webDeploy "cloudflare")))}}
+import { createAuth } from "@{{projectName}}/auth";
+{{else}}
+import { auth } from "@{{projectName}}/auth";
+{{/if}}
+import { createCommetCheckoutUrl } from "@{{projectName}}/auth/lib/payments";
+
+export async function POST(request: Request) {
+{{#if (or (eq runtime "workers") (eq serverDeploy "cloudflare") (and (eq backend "self") (eq webDeploy "cloudflare")))}}
+	const auth = await createAuth();
+{{/if}}
+	const session = await auth.api.getSession({ headers: request.headers });
+	if (!session?.user) {
+		return Response.json({ error: "Unauthorized" }, { status: 401 });
+	}
+
+	let planCode = "pro";
+	try {
+		const body = (await request.json()) as { planCode?: string };
+		planCode = body.planCode ?? planCode;
+	} catch {
+		// No JSON body was provided; fall back to the default plan.
+	}
+
+	const successUrl = new URL("/success", request.url).toString();
+	const url = await createCommetCheckoutUrl({
+		userId: session.user.id,
+		planCode,
+		successUrl,
+	});
+	if (!url) {
+		return new Response(null, { status: 204 });
+	}
+	return Response.json({ url });
+}
+`],
+  ["payments/commet/fullstack/nuxt/server/api/payments/commet/checkout.post.ts.hbs", `{{#if (or (eq runtime "workers") (eq serverDeploy "cloudflare") (and (eq backend "self") (eq webDeploy "cloudflare")))}}
+import { createAuth } from "@{{projectName}}/auth";
+{{else}}
+import { auth } from "@{{projectName}}/auth";
+{{/if}}
+{{#if (eq webDeploy "cloudflare")}}
+import type { CloudflareEnv } from "../../../src/env.server";
+{{/if}}
+import { createCommetCheckoutUrl } from "@{{projectName}}/auth/lib/payments";
+
+export default defineEventHandler(async (event) => {
+{{#if (or (eq runtime "workers") (eq serverDeploy "cloudflare") (and (eq backend "self") (eq webDeploy "cloudflare")))}}
+  const auth = (await createAuth({{#if (eq webDeploy "cloudflare")}}(event.context.cloudflare as { env: CloudflareEnv }).env{{/if}}));
+{{/if}}
+  const session = await auth.api.getSession({ headers: toWebRequest(event).headers });
+  if (!session?.user) {
+    setResponseStatus(event, 401);
+    return { error: "Unauthorized" };
+  }
+
+  const body = await readBody<{ planCode?: string }>(event).catch(() => undefined);
+  const planCode = body?.planCode ?? "pro";
+  const successUrl = new URL("/success", toWebRequest(event).url).toString();
+  const url = await createCommetCheckoutUrl({
+    userId: session.user.id,
+    planCode,
+    successUrl,
+  });
+  if (!url) {
+    setResponseStatus(event, 204);
+    return null;
+  }
+  return { url };
+});
+`],
+  ["payments/commet/fullstack/solid/src/routes/api/payments/commet/checkout.ts.hbs", `{{#if (and (eq backend "self") (eq webDeploy "cloudflare"))}}
+import { createAuth } from "@{{projectName}}/auth";
+{{else}}
+import { auth } from "@{{projectName}}/auth";
+{{/if}}
+import { createCommetCheckoutUrl } from "@{{projectName}}/auth/lib/payments";
+import type { APIHandler } from "filesystem-routing/api";
+
+const handle: APIHandler = async ({ request }) => {
+{{#if (and (eq backend "self") (eq webDeploy "cloudflare"))}}
+	const authInstance = await createAuth();
+{{else}}
+	const authInstance = auth;
+{{/if}}
+	const session = await authInstance.api.getSession({ headers: request.headers });
+	if (!session?.user) {
+		return Response.json({ error: "Unauthorized" }, { status: 401 });
+	}
+
+	let planCode = "pro";
+	try {
+		const body = (await request.json()) as { planCode?: string };
+		planCode = body.planCode ?? planCode;
+	} catch {
+		// No JSON body was provided; fall back to the default plan.
+	}
+
+	const successUrl = new URL("/success", request.url).toString();
+	const url = await createCommetCheckoutUrl({
+		userId: session.user.id,
+		planCode,
+		successUrl,
+	});
+	if (!url) {
+		return new Response(null, { status: 204 });
+	}
+	return Response.json({ url });
+};
+
+export const POST = handle;
+`],
+  ["payments/commet/fullstack/svelte/src/routes/api/payments/commet/checkout/+server.ts.hbs", `{{#if (or (eq runtime "workers") (eq serverDeploy "cloudflare") (and (eq backend "self") (eq webDeploy "cloudflare")))}}
+import { createAuth } from "@{{projectName}}/auth";
+{{#if (and (eq backend "self") (eq webDeploy "cloudflare"))}}
+import { ENV } from "../../../../../env.server";
+{{/if}}
+{{else}}
+import { auth } from "@{{projectName}}/auth";
+{{/if}}
+import { createCommetCheckoutUrl } from "@{{projectName}}/auth/lib/payments";
+import { json } from "@sveltejs/kit";
+
+export async function POST({ request, platform }) {
+{{#if (or (eq runtime "workers") (eq serverDeploy "cloudflare") (and (eq backend "self") (eq webDeploy "cloudflare")))}}
+{{#if (and (eq backend "self") (eq webDeploy "cloudflare"))}}
+	const authInstance = await createAuth(platform?.env ?? ENV);
+{{else}}
+	const authInstance = await createAuth();
+{{/if}}
+{{else}}
+	const authInstance = auth;
+{{/if}}
+	const session = await authInstance.api.getSession({ headers: request.headers });
+	if (!session?.user) {
+		return json({ error: "Unauthorized" }, { status: 401 });
+	}
+
+	let planCode = "pro";
+	try {
+		const body = (await request.json()) as { planCode?: string };
+		planCode = body.planCode ?? planCode;
+	} catch {
+		// No JSON body was provided; fall back to the default plan.
+	}
+
+	const successUrl = new URL("/success", request.url).toString();
+	const url = await createCommetCheckoutUrl({
+		userId: session.user.id,
+		planCode,
+		successUrl,
+	});
+	if (!url) {
+		return new Response(null, { status: 204 });
+	}
+	return json({ url });
+}
+`],
+  ["payments/commet/fullstack/tanstack-start/src/routes/api/payments/commet/checkout.ts.hbs", `{{#if (or (eq runtime "workers") (eq serverDeploy "cloudflare") (and (eq backend "self") (eq webDeploy "cloudflare")))}}
+import { createAuth } from '@{{projectName}}/auth'
+{{else}}
+import { auth } from '@{{projectName}}/auth'
+{{/if}}
+import { createCommetCheckoutUrl } from '@{{projectName}}/auth/lib/payments'
+import { createFileRoute } from '@tanstack/react-router'
+
+export const Route = createFileRoute('/api/payments/commet/checkout')({
+  server: {
+    handlers: {
+      POST: async ({ request }) => {
+        {{#if (or (eq runtime "workers") (eq serverDeploy "cloudflare") (and (eq backend "self") (eq webDeploy "cloudflare")))}}
+        const auth = await createAuth()
+        {{/if}}
+        const session = await auth.api.getSession({ headers: request.headers })
+        if (!session?.user) {
+          return Response.json({ error: 'Unauthorized' }, { status: 401 })
+        }
+
+        let planCode = 'pro'
+        try {
+          const body = (await request.json()) as { planCode?: string }
+          planCode = body.planCode ?? planCode
+        } catch {
+          // No JSON body was provided; fall back to the default plan.
+        }
+
+        const successUrl = new URL('/success', request.url).toString()
+        const url = await createCommetCheckoutUrl({
+          userId: session.user.id,
+          planCode,
+          successUrl,
+        })
+        if (!url) {
+          return new Response(null, { status: 204 })
+        }
+        return Response.json({ url })
+      },
+    },
+  },
+})
+`],
+  ["payments/commet/server/base/src/lib/payments.ts.hbs", `import { Commet } from "@commet/node";
+
+export function createCommetClient(config: { COMMET_API_KEY: string }) {
+  return new Commet({ apiKey: config.COMMET_API_KEY });
+}
+
+let client: Commet | undefined;
+
+function getCommetClient(): Commet {
+  if (!client) {
+    const apiKey = process.env.COMMET_API_KEY;
+    if (!apiKey) {
+      throw new Error("COMMET_API_KEY is not set");
+    }
+    client = createCommetClient({ COMMET_API_KEY: apiKey });
+  }
+  return client;
+}
+
+export async function createCommetCheckoutUrl(params: {
+  userId: string;
+  planCode: string;
+  successUrl: string;
+}): Promise<string | null> {
+  const subscription = await getCommetClient().subscriptions.create({
+    customerId: params.userId,
+    planCode: params.planCode,
+    successUrl: params.successUrl,
+  });
+  return subscription.checkoutUrl ?? null;
+}
+`],
+  ["payments/commet/web/astro/src/lib/payments.ts.hbs", `{{#if (ne backend "self")}}
+import { ENV } from "../env{{#if (eq webDeploy "cloudflare")}}.public{{/if}}";
+{{/if}}
+import { authClient } from "./auth-client";
+
+const PRO_PLAN_CODE = "pro";
+const ACTIVE_STATUSES = ["active", "trialing"];
+
+{{#if (eq backend "self")}}
+const COMMET_CHECKOUT_URL = "/api/payments/commet/checkout";
+{{else}}
+const COMMET_CHECKOUT_URL = \`\${ENV.PUBLIC_SERVER_URL.replace(/\\/$/, "")}/api/payments/commet/checkout\`;
+{{/if}}
+
+export interface PaymentState {
+  isActive: boolean;
+  planLabel: string;
+}
+
+export async function getPaymentState(): Promise<PaymentState> {
+  const { data, error } = await authClient.subscription.get();
+  const isActive = !error && ACTIVE_STATUSES.includes(data?.status ?? "");
+  return { isActive, planLabel: isActive ? "Pro" : "Free" };
+}
+
+export async function checkout(): Promise<void> {
+  const response = await fetch(COMMET_CHECKOUT_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ planCode: PRO_PLAN_CODE }),
+  });
+  if (response.status === 204 || !response.ok) return;
+  const data = (await response.json()) as { url?: string };
+  if (!data.url) return;
+  window.location.href = data.url;
+}
+
+export async function portal(): Promise<void> {
+  const { data, error } = await authClient.customer.portal();
+  if (error || !data?.url) return;
+  window.location.href = data.url;
+}
+`],
+  ["payments/commet/web/nuxt/app/lib/payments.ts.hbs", `import type { ComputedRef, Ref } from "vue";
+
+const PRO_PLAN_CODE = "pro";
+const ACTIVE_STATUSES = ["active", "trialing"];
+
+export interface PaymentState {
+  isActive: boolean;
+  planLabel: string;
+}
+
+export function usePayment(): {
+  state: ComputedRef<PaymentState>;
+  isLoading: Ref<boolean>;
+  checkout: () => Promise<void>;
+  portal: () => Promise<void>;
+} {
+  const { $authClient } = useNuxtApp();
+{{#if (eq backend "self")}}
+  const serverUrl = "";
+{{else}}
+  const serverUrl = useRuntimeConfig().public.serverUrl;
+{{/if}}
+  const isActive = ref(false);
+  const isLoading = ref(true);
+
+  onMounted(async () => {
+    const { data, error } = await $authClient.subscription.get();
+    isActive.value = !error && ACTIVE_STATUSES.includes(data?.status ?? "");
+    isLoading.value = false;
+  });
+
+  const checkout = async () => {
+    const response = await fetch(\`\${serverUrl.replace(/\\/$/, "")}/api/payments/commet/checkout\`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ planCode: PRO_PLAN_CODE }),
+    });
+    if (response.status === 204 || !response.ok) return;
+    const data = (await response.json()) as { url?: string };
+    if (!data.url) return;
+    window.location.href = data.url;
+  };
+
+  const portal = async () => {
+    const { data, error } = await $authClient.customer.portal();
+    if (error || !data?.url) return;
+    window.location.href = data.url;
+  };
+
+  const state = computed<PaymentState>(() => ({
+    isActive: isActive.value,
+    planLabel: isActive.value ? "Pro" : "Free",
+  }));
+
+  return { state, isLoading, checkout, portal };
+}
+`],
+  ["payments/commet/web/react/base/src/lib/payments.ts.hbs", `import { useEffect, useState } from "react";
+{{#if (ne backend "self")}}
+{{#unless (includes frontend "next")}}
+import { ENV } from "../env{{#if (eq webDeploy "cloudflare")}}.public{{/if}}";
+{{/unless}}
+{{/if}}
+import { authClient } from "@/lib/auth-client";
+
+const PRO_PLAN_CODE = "pro";
+const ACTIVE_STATUSES = ["active", "trialing"];
+
+{{#if (eq backend "self")}}
+const COMMET_CHECKOUT_URL = "/api/payments/commet/checkout";
+{{else if (includes frontend "next")}}
+const COMMET_CHECKOUT_URL = \`\${process.env.NEXT_PUBLIC_SERVER_URL!}/api/payments/commet/checkout\`;
+{{else}}
+const COMMET_CHECKOUT_URL = \`\${ENV.VITE_SERVER_URL.replace(/\\/$/, "")}/api/payments/commet/checkout\`;
+{{/if}}
+
+export interface PaymentState {
+  isActive: boolean;
+  planLabel: string;
+}
+
+export function usePayment(): {
+  state: PaymentState;
+  isLoading: boolean;
+  checkout: () => Promise<void>;
+  portal: () => Promise<void>;
+} {
+  const [isActive, setIsActive] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function load() {
+      const { data, error } = await authClient.subscription.get();
+      if (cancelled) return;
+      setIsActive(!error && ACTIVE_STATUSES.includes(data?.status ?? ""));
+      setIsLoading(false);
+    }
+
+    void load();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const checkout = async () => {
+    const response = await fetch(COMMET_CHECKOUT_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ planCode: PRO_PLAN_CODE }),
+    });
+    if (response.status === 204 || !response.ok) return;
+    const data = (await response.json()) as { url?: string };
+    if (!data.url) return;
+    window.location.href = data.url;
+  };
+
+  const portal = async () => {
+    const { data, error } = await authClient.customer.portal();
+    if (error || !data?.url) return;
+    window.location.href = data.url;
+  };
+
+  return {
+    state: { isActive, planLabel: isActive ? "Pro" : "Free" },
+    isLoading,
+    checkout,
+    portal,
+  };
+}
+`],
+  ["payments/commet/web/solid/src/lib/payments.ts.hbs", `{{#if (ne backend "self")}}
+import { ENV } from "../env{{#if (eq webDeploy "cloudflare")}}.public{{/if}}";
+{{/if}}
+import { createMemo, createSignal, onMount, type Accessor } from "solid-js";
+import { authClient } from "~/lib/auth-client";
+
+const PRO_PLAN_CODE = "pro";
+const ACTIVE_STATUSES = ["active", "trialing"];
+
+{{#if (eq backend "self")}}
+const COMMET_CHECKOUT_URL = "/api/payments/commet/checkout";
+{{else}}
+const COMMET_CHECKOUT_URL = \`\${ENV.VITE_SERVER_URL.replace(/\\/$/, "")}/api/payments/commet/checkout\`;
+{{/if}}
+
+export interface PaymentState {
+  isActive: boolean;
+  planLabel: string;
+}
+
+export function usePayment(): {
+  state: Accessor<PaymentState>;
+  isLoading: Accessor<boolean>;
+  checkout: () => Promise<void>;
+  portal: () => Promise<void>;
+} {
+  const [isActive, setIsActive] = createSignal(false);
+  const [isLoading, setIsLoading] = createSignal(true);
+
+  onMount(async () => {
+    const { data, error } = await authClient.subscription.get();
+    setIsActive(!error && ACTIVE_STATUSES.includes(data?.status ?? ""));
+    setIsLoading(false);
+  });
+
+  const state = createMemo<PaymentState>(() => ({
+    isActive: isActive(),
+    planLabel: isActive() ? "Pro" : "Free",
+  }));
+
+  const checkout = async (): Promise<void> => {
+    const response = await fetch(COMMET_CHECKOUT_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ planCode: PRO_PLAN_CODE }),
+    });
+    if (response.status === 204 || !response.ok) return;
+    const data = (await response.json()) as { url?: string };
+    if (!data.url) return;
+    window.location.href = data.url;
+  };
+
+  const portal = async (): Promise<void> => {
+    const { data, error } = await authClient.customer.portal();
+    if (error || !data?.url) return;
+    window.location.href = data.url;
+  };
+
+  return { state, isLoading, checkout, portal };
+}
+`],
+  ["payments/commet/web/svelte/src/lib/payments.ts.hbs", `{{#if (ne backend "self")}}
+import { ENV } from "../env{{#if (eq webDeploy "cloudflare")}}.public{{else}}.generated{{/if}}";
+{{/if}}
+import { derived, writable, type Readable } from "svelte/store";
+import { authClient } from "$lib/auth-client";
+
+const PRO_PLAN_CODE = "pro";
+const ACTIVE_STATUSES = ["active", "trialing"];
+
+{{#if (eq backend "self")}}
+const COMMET_CHECKOUT_URL = "/api/payments/commet/checkout";
+{{else}}
+const COMMET_CHECKOUT_URL = \`\${ENV.PUBLIC_SERVER_URL.replace(/\\/$/, "")}/api/payments/commet/checkout\`;
+{{/if}}
+
+export interface PaymentState {
+  isActive: boolean;
+  planLabel: string;
+}
+
+const isActive = writable(false);
+const isLoading = writable(true);
+
+const state = derived(isActive, ($isActive): PaymentState => ({
+  isActive: $isActive,
+  planLabel: $isActive ? "Pro" : "Free",
+}));
+
+let hasLoaded = false;
+
+function ensureLoaded(): void {
+  if (hasLoaded) return;
+  hasLoaded = true;
+
+  void authClient.subscription.get().then(({ data, error }) => {
+    isActive.set(!error && ACTIVE_STATUSES.includes(data?.status ?? ""));
+    isLoading.set(false);
+  });
+}
+
+async function checkout(): Promise<void> {
+  const response = await fetch(COMMET_CHECKOUT_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ planCode: PRO_PLAN_CODE }),
+  });
+  if (response.status === 204 || !response.ok) return;
+  const data = (await response.json()) as { url?: string };
+  if (!data.url) return;
+  window.location.href = data.url;
+}
+
+async function portal(): Promise<void> {
+  const { data, error } = await authClient.customer.portal();
+  if (error || !data?.url) return;
+  window.location.href = data.url;
+}
+
+export function usePayment(): {
+  state: Readable<PaymentState>;
+  isLoading: Readable<boolean>;
+  checkout: () => Promise<void>;
+  portal: () => Promise<void>;
+} {
+  ensureLoaded();
+  return { state, isLoading, checkout, portal };
+}
+`],
+  ["payments/common/web/astro/src/pages/success.astro.hbs", `---
+const checkoutId = Astro.url.searchParams.get("checkout_id");
+---
+
+<div class="container mx-auto px-4 py-8">
+  <h1>Payment Successful!</h1>
+  {checkoutId ? <p>Checkout ID: {checkoutId}</p> : null}
+</div>
+`],
+  ["payments/common/web/nuxt/app/pages/success.vue.hbs", `<script setup lang="ts">
+const route = useRoute()
+const checkout_id = route.query.checkout_id as string
+</script>
+
+<template>
+  <div class="container mx-auto px-4 py-8">
+    <h1 class="text-2xl font-bold mb-4">Payment Successful!</h1>
+    <p v-if="checkout_id">Checkout ID: \\{{ checkout_id }}</p>
+  </div>
+</template>
+`],
+  ["payments/common/web/react/next/src/app/success/page.tsx.hbs", `export default async function SuccessPage({
+    searchParams,
+}: {
+    searchParams: Promise<{ checkout_id: string }>
+}) {
+    const params = await searchParams;
+    const checkout_id = params.checkout_id;
+
+    return (
+        <div className="px-4 py-8">
+            <h1>Payment Successful!</h1>
+            {checkout_id && <p>Checkout ID: {checkout_id}</p>}
+        </div>
+    );
+}
+`],
+  ["payments/common/web/react/react-router/src/routes/success.tsx.hbs", `import { useSearchParams } from "react-router";
+
+export default function SuccessPage() {
+    const [searchParams] = useSearchParams();
+    const checkout_id = searchParams.get("checkout_id");
+
+    return (
+        <div className="container mx-auto px-4 py-8">
+            <h1>Payment Successful!</h1>
+            {checkout_id && <p>Checkout ID: {checkout_id}</p>}
+        </div>
+    );
+}
+`],
+  ["payments/common/web/react/tanstack-router/src/routes/success.tsx.hbs", `import { createFileRoute, useSearch } from "@tanstack/react-router";
+
+export const Route = createFileRoute("/success")({
+	component: SuccessPage,
+	validateSearch: (search) => ({
+		checkout_id: search.checkout_id as string,
+	}),
+});
+
+function SuccessPage() {
+	const { checkout_id } = useSearch({ from: "/success" });
+
+	return (
+		<div className="container mx-auto px-4 py-8">
+			<h1>Payment Successful!</h1>
+			{checkout_id && <p>Checkout ID: {checkout_id}</p>}
+		</div>
+	);
+}
+`],
+  ["payments/common/web/react/tanstack-start/src/routes/success.tsx.hbs", `import { createFileRoute, useSearch } from "@tanstack/react-router";
+
+export const Route = createFileRoute("/success")({
+	component: SuccessPage,
+	validateSearch: (search) => ({
+		checkout_id: search.checkout_id as string,
+	}),
+});
+
+function SuccessPage() {
+	const { checkout_id } = useSearch({ from: "/success" });
+
+	return (
+		<div className="container mx-auto px-4 py-8">
+			<h1>Payment Successful!</h1>
+			{checkout_id && <p>Checkout ID: {checkout_id}</p>}
+		</div>
+	);
+}
+`],
+  ["payments/common/web/solid/src/routes/success.tsx.hbs", `import { useSearchParams } from "@solidjs/router";
+import { Show } from "solid-js";
+
+export default function Success() {
+	const [searchParams] = useSearchParams();
+	const checkoutId = () => searchParams.checkout_id;
+
+	return (
+		<div class="container mx-auto px-4 py-8">
+			<h1>Payment Successful!</h1>
+			<Show when={checkoutId()}>
+				<p>Checkout ID: {checkoutId()}</p>
+			</Show>
+		</div>
+	);
+}
+`],
+  ["payments/common/web/svelte/src/routes/success/+page.svelte.hbs", `<script lang="ts">
+	import { page } from '$app/state';
+	
+	const checkout_id = $derived(page.url.searchParams.get('checkout_id'));
+</script>
+
+<div class="container mx-auto px-4 py-8">
+	<h1>Payment Successful!</h1>
+	{#if checkout_id}
+		<p>Checkout ID: {checkout_id}</p>
+	{/if}
+</div>
+`],
+  ["payments/creem/web/astro/src/lib/payments.ts.hbs", `import { authClient } from "./auth-client";
+
+export interface PaymentState {
+  isActive: boolean;
+  planLabel: string;
+}
+
+export async function getPaymentState(): Promise<PaymentState> {
+  const { data, error } = await authClient.creem.hasAccessGranted();
+  const isActive = !error && (data?.hasAccessGranted ?? false);
+  return { isActive, planLabel: isActive ? "Pro" : "Free" };
+}
+
+export async function checkout(): Promise<void> {
+  // Replace "prod_..." with the Creem product ID for your Pro plan.
+  const { data, error } = await authClient.creem.createCheckout({
+    productId: "prod_...",
+    successUrl: "/success",
+  });
+  if (error || !data?.url) return;
+  window.location.href = data.url;
+}
+
+export async function portal(): Promise<void> {
+  const { data, error } = await authClient.creem.createPortal();
+  if (error || !data?.url) return;
+  window.location.href = data.url;
+}
+`],
+  ["payments/creem/web/nuxt/app/lib/payments.ts.hbs", `import type { ComputedRef, Ref } from "vue";
+
+export interface PaymentState {
+  isActive: boolean;
+  planLabel: string;
+}
+
+export function usePayment(): {
+  state: ComputedRef<PaymentState>;
+  isLoading: Ref<boolean>;
+  checkout: () => Promise<void>;
+  portal: () => Promise<void>;
+} {
+  const { $authClient } = useNuxtApp();
+  const isActive = ref(false);
+  const isLoading = ref(true);
+
+  onMounted(async () => {
+    const { data, error } = await $authClient.creem.hasAccessGranted();
+    isActive.value = !error && (data?.hasAccessGranted ?? false);
+    isLoading.value = false;
+  });
+
+  const checkout = async () => {
+    // Replace "prod_..." with the Creem product ID for your Pro plan.
+    const { data, error } = await $authClient.creem.createCheckout({
+      productId: "prod_...",
+      successUrl: "/success",
+    });
+    if (error || !data?.url) return;
+    window.location.href = data.url;
+  };
+
+  const portal = async () => {
+    const { data, error } = await $authClient.creem.createPortal();
+    if (error || !data?.url) return;
+    window.location.href = data.url;
+  };
+
+  const state = computed<PaymentState>(() => ({
+    isActive: isActive.value,
+    planLabel: isActive.value ? "Pro" : "Free",
+  }));
+
+  return { state, isLoading, checkout, portal };
+}
+`],
+  ["payments/creem/web/react/base/src/lib/payments.ts.hbs", `import { useEffect, useState } from "react";
+import { authClient } from "@/lib/auth-client";
+
+export interface PaymentState {
+  isActive: boolean;
+  planLabel: string;
+}
+
+export function usePayment(): {
+  state: PaymentState;
+  isLoading: boolean;
+  checkout: () => Promise<void>;
+  portal: () => Promise<void>;
+} {
+  const [isActive, setIsActive] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function load() {
+      const { data, error } = await authClient.creem.hasAccessGranted();
+      if (cancelled) return;
+      setIsActive(!error && (data?.hasAccessGranted ?? false));
+      setIsLoading(false);
+    }
+
+    void load();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const checkout = async () => {
+    // Replace "prod_..." with the Creem product ID for your Pro plan.
+    const { data, error } = await authClient.creem.createCheckout({
+      productId: "prod_...",
+      successUrl: "/success",
+    });
+    if (error || !data?.url) return;
+    window.location.href = data.url;
+  };
+
+  const portal = async () => {
+    const { data, error } = await authClient.creem.createPortal();
+    if (error || !data?.url) return;
+    window.location.href = data.url;
+  };
+
+  return {
+    state: { isActive, planLabel: isActive ? "Pro" : "Free" },
+    isLoading,
+    checkout,
+    portal,
+  };
+}
+`],
+  ["payments/creem/web/solid/src/lib/payments.ts.hbs", `import { createMemo, createSignal, onMount, type Accessor } from "solid-js";
+import { authClient } from "~/lib/auth-client";
+
+export interface PaymentState {
+  isActive: boolean;
+  planLabel: string;
+}
+
+export function usePayment(): {
+  state: Accessor<PaymentState>;
+  isLoading: Accessor<boolean>;
+  checkout: () => Promise<void>;
+  portal: () => Promise<void>;
+} {
+  const [isActive, setIsActive] = createSignal(false);
+  const [isLoading, setIsLoading] = createSignal(true);
+
+  onMount(async () => {
+    const { data, error } = await authClient.creem.hasAccessGranted();
+    setIsActive(!error && (data?.hasAccessGranted ?? false));
+    setIsLoading(false);
+  });
+
+  const state = createMemo<PaymentState>(() => ({
+    isActive: isActive(),
+    planLabel: isActive() ? "Pro" : "Free",
+  }));
+
+  const checkout = async (): Promise<void> => {
+    // Replace "prod_..." with the Creem product ID for your Pro plan.
+    const { data, error } = await authClient.creem.createCheckout({
+      productId: "prod_...",
+      successUrl: "/success",
+    });
+    if (error || !data?.url) return;
+    window.location.href = data.url;
+  };
+
+  const portal = async (): Promise<void> => {
+    const { data, error } = await authClient.creem.createPortal();
+    if (error || !data?.url) return;
+    window.location.href = data.url;
+  };
+
+  return { state, isLoading, checkout, portal };
+}
+`],
+  ["payments/creem/web/svelte/src/lib/payments.ts.hbs", `import { derived, writable, type Readable } from "svelte/store";
+import { authClient } from "$lib/auth-client";
+
+export interface PaymentState {
+  isActive: boolean;
+  planLabel: string;
+}
+
+const isActive = writable(false);
+const isLoading = writable(true);
+
+const state = derived(isActive, ($isActive): PaymentState => ({
+  isActive: $isActive,
+  planLabel: $isActive ? "Pro" : "Free",
+}));
+
+let hasLoaded = false;
+
+function ensureLoaded(): void {
+  if (hasLoaded) return;
+  hasLoaded = true;
+
+  void authClient.creem.hasAccessGranted().then(({ data, error }) => {
+    isActive.set(!error && (data?.hasAccessGranted ?? false));
+    isLoading.set(false);
+  });
+}
+
+async function checkout(): Promise<void> {
+  // Replace "prod_..." with the Creem product ID for your Pro plan.
+  const { data, error } = await authClient.creem.createCheckout({
+    productId: "prod_...",
+    successUrl: "/success",
+  });
+  if (error || !data?.url) return;
+  window.location.href = data.url;
+}
+
+async function portal(): Promise<void> {
+  const { data, error } = await authClient.creem.createPortal();
+  if (error || !data?.url) return;
+  window.location.href = data.url;
+}
+
+export function usePayment(): {
+  state: Readable<PaymentState>;
+  isLoading: Readable<boolean>;
+  checkout: () => Promise<void>;
+  portal: () => Promise<void>;
+} {
+  ensureLoaded();
+  return { state, isLoading, checkout, portal };
+}
+`],
+  ["payments/dodo/server/base/src/lib/payments.ts.hbs", `import { DodoPayments } from "dodopayments";
+
+export function createDodoPayments(config: { DODO_PAYMENTS_API_KEY: string }) {
+  return new DodoPayments({
+    bearerToken: config.DODO_PAYMENTS_API_KEY,
+    environment: "test_mode",
+  });
+}
+`],
+  ["payments/dodo/web/astro/src/lib/payments.ts.hbs", `import { authClient } from "./auth-client";
+
+export interface PaymentState {
+  isActive: boolean;
+  planLabel: string;
+}
+
+export async function getPaymentState(): Promise<PaymentState> {
+  const { data, error } = await authClient.dodopayments.customer.subscriptions.list({
+    query: { status: "active" },
+  });
+  const isActive = !error && (data?.items?.length ?? 0) > 0;
+  return { isActive, planLabel: isActive ? "Pro" : "Free" };
+}
+
+export async function checkout(): Promise<void> {
+  const { data, error } = await authClient.dodopayments.checkoutSession({ slug: "pro" });
+  if (error || !data?.url) return;
+  window.location.href = data.url;
+}
+
+export async function portal(): Promise<void> {
+  const { data, error } = await authClient.dodopayments.customer.portal();
+  if (error || !data?.url) return;
+  window.location.href = data.url;
+}
+`],
+  ["payments/dodo/web/nuxt/app/lib/payments.ts.hbs", `import type { ComputedRef, Ref } from "vue";
+
+export interface PaymentState {
+  isActive: boolean;
+  planLabel: string;
+}
+
+export function usePayment(): {
+  state: ComputedRef<PaymentState>;
+  isLoading: Ref<boolean>;
+  checkout: () => Promise<void>;
+  portal: () => Promise<void>;
+} {
+  const { $authClient } = useNuxtApp();
+  const isActive = ref(false);
+  const isLoading = ref(true);
+
+  onMounted(async () => {
+    const { data, error } = await $authClient.dodopayments.customer.subscriptions.list({
+      query: { status: "active" },
+    });
+    isActive.value = !error && (data?.items?.length ?? 0) > 0;
+    isLoading.value = false;
+  });
+
+  const checkout = async () => {
+    const { data, error } = await $authClient.dodopayments.checkoutSession({ slug: "pro" });
+    if (error || !data?.url) return;
+    window.location.href = data.url;
+  };
+
+  const portal = async () => {
+    const { data, error } = await $authClient.dodopayments.customer.portal();
+    if (error || !data?.url) return;
+    window.location.href = data.url;
+  };
+
+  const state = computed<PaymentState>(() => ({
+    isActive: isActive.value,
+    planLabel: isActive.value ? "Pro" : "Free",
+  }));
+
+  return { state, isLoading, checkout, portal };
+}
+`],
+  ["payments/dodo/web/react/base/src/lib/payments.ts.hbs", `import { useEffect, useState } from "react";
+import { authClient } from "@/lib/auth-client";
+
+export interface PaymentState {
+  isActive: boolean;
+  planLabel: string;
+}
+
+export function usePayment(): {
+  state: PaymentState;
+  isLoading: boolean;
+  checkout: () => Promise<void>;
+  portal: () => Promise<void>;
+} {
+  const [isActive, setIsActive] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function load() {
+      const { data, error } = await authClient.dodopayments.customer.subscriptions.list({
+        query: { status: "active" },
+      });
+      if (cancelled) return;
+      setIsActive(!error && (data?.items?.length ?? 0) > 0);
+      setIsLoading(false);
+    }
+
+    void load();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const checkout = async () => {
+    const { data, error } = await authClient.dodopayments.checkoutSession({ slug: "pro" });
+    if (error || !data?.url) return;
+    window.location.href = data.url;
+  };
+
+  const portal = async () => {
+    const { data, error } = await authClient.dodopayments.customer.portal();
+    if (error || !data?.url) return;
+    window.location.href = data.url;
+  };
+
+  return {
+    state: { isActive, planLabel: isActive ? "Pro" : "Free" },
+    isLoading,
+    checkout,
+    portal,
+  };
+}
+`],
+  ["payments/dodo/web/solid/src/lib/payments.ts.hbs", `import { createMemo, createSignal, onMount, type Accessor } from "solid-js";
+import { authClient } from "~/lib/auth-client";
+
+export interface PaymentState {
+  isActive: boolean;
+  planLabel: string;
+}
+
+export function usePayment(): {
+  state: Accessor<PaymentState>;
+  isLoading: Accessor<boolean>;
+  checkout: () => Promise<void>;
+  portal: () => Promise<void>;
+} {
+  const [isActive, setIsActive] = createSignal(false);
+  const [isLoading, setIsLoading] = createSignal(true);
+
+  onMount(async () => {
+    const { data, error } = await authClient.dodopayments.customer.subscriptions.list({
+      query: { status: "active" },
+    });
+    setIsActive(!error && (data?.items?.length ?? 0) > 0);
+    setIsLoading(false);
+  });
+
+  const state = createMemo<PaymentState>(() => ({
+    isActive: isActive(),
+    planLabel: isActive() ? "Pro" : "Free",
+  }));
+
+  const checkout = async (): Promise<void> => {
+    const { data, error } = await authClient.dodopayments.checkoutSession({ slug: "pro" });
+    if (error || !data?.url) return;
+    window.location.href = data.url;
+  };
+
+  const portal = async (): Promise<void> => {
+    const { data, error } = await authClient.dodopayments.customer.portal();
+    if (error || !data?.url) return;
+    window.location.href = data.url;
+  };
+
+  return { state, isLoading, checkout, portal };
+}
+`],
+  ["payments/dodo/web/svelte/src/lib/payments.ts.hbs", `import { derived, writable, type Readable } from "svelte/store";
+import { authClient } from "$lib/auth-client";
+
+export interface PaymentState {
+  isActive: boolean;
+  planLabel: string;
+}
+
+const isActive = writable(false);
+const isLoading = writable(true);
+
+const state = derived(isActive, ($isActive): PaymentState => ({
+  isActive: $isActive,
+  planLabel: $isActive ? "Pro" : "Free",
+}));
+
+let hasLoaded = false;
+
+function ensureLoaded(): void {
+  if (hasLoaded) return;
+  hasLoaded = true;
+
+  void authClient.dodopayments.customer.subscriptions
+    .list({ query: { status: "active" } })
+    .then(({ data, error }) => {
+      isActive.set(!error && (data?.items?.length ?? 0) > 0);
+      isLoading.set(false);
+    });
+}
+
+async function checkout(): Promise<void> {
+  const { data, error } = await authClient.dodopayments.checkoutSession({ slug: "pro" });
+  if (error || !data?.url) return;
+  window.location.href = data.url;
+}
+
+async function portal(): Promise<void> {
+  const { data, error } = await authClient.dodopayments.customer.portal();
+  if (error || !data?.url) return;
+  window.location.href = data.url;
+}
+
+export function usePayment(): {
+  state: Readable<PaymentState>;
+  isLoading: Readable<boolean>;
+  checkout: () => Promise<void>;
+  portal: () => Promise<void>;
+} {
+  ensureLoaded();
+  return { state, isLoading, checkout, portal };
+}
+`],
+  ["payments/generic/web/astro/src/components/PaymentActions.astro.hbs", `---
+interface Props {
+  planLabel?: string;
+  isActive?: boolean;
+  pending?: boolean;
+}
+
+const { planLabel = "Free", isActive = false, pending = false } = Astro.props;
+---
+
+<div class="flex items-center justify-between" data-payment-actions>
+  <p id="payment-plan-label" class="text-white">Plan: {planLabel}</p>
+  <button
+    id="payment-portal"
+    type="button"
+    class="rounded px-3 py-1.5 text-sm bg-neutral-700 hover:bg-neutral-600 text-white transition-colors"
+    disabled={pending}
+    hidden={!isActive}
+  >
+    Manage Subscription
+  </button>
+  <button
+    id="payment-checkout"
+    type="button"
+    class="rounded px-3 py-1.5 text-sm bg-indigo-600 hover:bg-indigo-700 text-white transition-colors"
+    disabled={pending}
+    hidden={isActive}
+  >
+    Upgrade to Pro
+  </button>
+</div>
+`],
+  ["payments/generic/web/nuxt/app/components/PaymentActions.vue.hbs", `<script setup lang="ts">
+defineProps<{
+  isActive: boolean;
+  planLabel: string;
+  pending: boolean;
+}>();
+
+const emit = defineEmits<{
+  checkout: [];
+  portal: [];
+}>();
+</script>
+
+<template>
+  <div class="flex items-center justify-between">
+    <div class="flex items-center gap-2">
+      <UIcon
+        :name="isActive ? 'i-lucide-crown' : 'i-lucide-user'"
+        :class="isActive ? 'text-warning' : 'text-muted'"
+      />
+      <span>Plan: \\{{ planLabel }}</span>
+    </div>
+    <UButton v-if="isActive" variant="outline" :loading="pending" @click="emit('portal')">
+      Manage Subscription
+    </UButton>
+    <UButton v-else :loading="pending" @click="emit('checkout')"> Upgrade to Pro </UButton>
+  </div>
+</template>
+`],
+  ["payments/generic/web/react/base/src/components/payment-actions.tsx.hbs", `import { Button } from "@{{projectName}}/ui/components/button";
+
+export interface PaymentActionsProps {
+  isActive: boolean;
+  planLabel: string;
+  pending: boolean;
+  onCheckout: () => Promise<void>;
+  onPortal: () => Promise<void>;
+}
+
+export function PaymentActions({
+  isActive,
+  planLabel,
+  pending,
+  onCheckout,
+  onPortal,
+}: PaymentActionsProps) {
+  return (
+    <div>
+      <p>Plan: {planLabel}</p>
+      {isActive ? (
+        <Button disabled={pending} onClick={() => void onPortal()}>
+          Manage Subscription
+        </Button>
+      ) : (
+        <Button disabled={pending} onClick={() => void onCheckout()}>
+          Upgrade to Pro
+        </Button>
+      )}
+    </div>
+  );
+}
+`],
+  ["payments/generic/web/solid/src/components/payment-actions.tsx.hbs", `export interface PaymentActionsProps {
+  isActive: boolean;
+  planLabel: string;
+  pending: boolean;
+  onCheckout: () => Promise<void>;
+  onPortal: () => Promise<void>;
+}
+
+export function PaymentActions(props: PaymentActionsProps) {
+  return (
+    <div>
+      <p>Plan: {props.planLabel}</p>
+      {props.isActive ? (
+        <button disabled={props.pending} onClick={() => void props.onPortal()}>
+          Manage Subscription
+        </button>
+      ) : (
+        <button disabled={props.pending} onClick={() => void props.onCheckout()}>
+          Upgrade to Pro
+        </button>
+      )}
+    </div>
+  );
+}
+`],
+  ["payments/generic/web/svelte/src/lib/components/PaymentActions.svelte.hbs", `<script lang="ts">
+	interface Props {
+		isActive: boolean;
+		planLabel: string;
+		pending: boolean;
+		onCheckout: () => Promise<void>;
+		onPortal: () => Promise<void>;
+	}
+
+	let { isActive, planLabel, pending, onCheckout, onPortal }: Props = $props();
+</script>
+
+<div>
+	<p>Plan: {planLabel}</p>
+	{#if isActive}
+		<button disabled={pending} onclick={() => void onPortal()}>
+			Manage Subscription
+		</button>
+	{:else}
+		<button disabled={pending} onclick={() => void onCheckout()}>
+			Upgrade to Pro
+		</button>
+	{/if}
+</div>
+`],
   ["payments/polar/convex/backend/convex/polar.ts.hbs", `import { Polar } from "@convex-dev/polar";
 
 import { api, components } from "./_generated/api";
@@ -35382,68 +37599,6 @@ export function createPolarClient(config: { POLAR_ACCESS_TOKEN: string }) {
   return new Polar({ accessToken: config.POLAR_ACCESS_TOKEN, server: "sandbox" });
 }
 `],
-  ["payments/polar/web/nuxt/app/pages/success.vue.hbs", `<script setup lang="ts">
-const route = useRoute()
-const checkout_id = route.query.checkout_id as string
-</script>
-
-<template>
-  <div class="container mx-auto px-4 py-8">
-    <h1 class="text-2xl font-bold mb-4">Payment Successful!</h1>
-    <p v-if="checkout_id">Checkout ID: \\{{ checkout_id }}</p>
-  </div>
-</template>
-`],
-  ["payments/polar/web/react/next/src/app/success/page.tsx.hbs", `export default async function SuccessPage({
-    searchParams,
-}: {
-    searchParams: Promise<{ checkout_id: string }>
-}) {
-    const params = await searchParams;
-    const checkout_id = params.checkout_id;
-
-    return (
-        <div className="px-4 py-8">
-            <h1>Payment Successful!</h1>
-            {checkout_id && <p>Checkout ID: {checkout_id}</p>}
-        </div>
-    );
-}
-`],
-  ["payments/polar/web/react/react-router/src/routes/success.tsx.hbs", `import { useSearchParams } from "react-router";
-
-export default function SuccessPage() {
-    const [searchParams] = useSearchParams();
-    const checkout_id = searchParams.get("checkout_id");
-
-    return (
-        <div className="container mx-auto px-4 py-8">
-            <h1>Payment Successful!</h1>
-            {checkout_id && <p>Checkout ID: {checkout_id}</p>}
-        </div>
-    );
-}
-`],
-  ["payments/polar/web/react/tanstack-router/src/routes/success.tsx.hbs", `import { createFileRoute, useSearch } from "@tanstack/react-router";
-
-export const Route = createFileRoute("/success")({
-	component: SuccessPage,
-	validateSearch: (search) => ({
-		checkout_id: search.checkout_id as string,
-	}),
-});
-
-function SuccessPage() {
-	const { checkout_id } = useSearch({ from: "/success" });
-
-	return (
-		<div className="container mx-auto px-4 py-8">
-			<h1>Payment Successful!</h1>
-			{checkout_id && <p>Checkout ID: {checkout_id}</p>}
-		</div>
-	);
-}
-`],
   ["payments/polar/web/react/tanstack-start/src/functions/get-payment.ts.hbs", `import { authClient } from "@/lib/auth-client";
 import { authMiddleware } from "@/middleware/auth";
 import { createServerFn } from "@tanstack/react-start";
@@ -35460,56 +37615,273 @@ export const getPayment = createServerFn({ method: "GET" })
         return customerState;
     });
 `],
-  ["payments/polar/web/react/tanstack-start/src/routes/success.tsx.hbs", `import { createFileRoute, useSearch } from "@tanstack/react-router";
+  ["payments/stripe/server/base/src/lib/payments.ts.hbs", `import Stripe from "stripe";
 
-export const Route = createFileRoute("/success")({
-	component: SuccessPage,
-	validateSearch: (search) => ({
-		checkout_id: search.checkout_id as string,
-	}),
-});
-
-function SuccessPage() {
-	const { checkout_id } = useSearch({ from: "/success" });
-
-	return (
-		<div className="container mx-auto px-4 py-8">
-			<h1>Payment Successful!</h1>
-			{checkout_id && <p>Checkout ID: {checkout_id}</p>}
-		</div>
-	);
+export function createStripeClient(config: { STRIPE_SECRET_KEY: string }) {
+  return new Stripe(config.STRIPE_SECRET_KEY, {
+    apiVersion: "2026-08-26.dahlia",
+  });
 }
 `],
-  ["payments/polar/web/solid/src/routes/success.tsx.hbs", `import { useSearchParams } from "@solidjs/router";
-import { Show } from "solid-js";
+  ["payments/stripe/web/astro/src/lib/payments.ts.hbs", `import { authClient } from "./auth-client";
 
-export default function Success() {
-	const [searchParams] = useSearchParams();
-	const checkoutId = () => searchParams.checkout_id;
+export interface PaymentState {
+  isActive: boolean;
+  planLabel: string;
+}
 
-	return (
-		<div class="container mx-auto px-4 py-8">
-			<h1>Payment Successful!</h1>
-			<Show when={checkoutId()}>
-				<p>Checkout ID: {checkoutId()}</p>
-			</Show>
-		</div>
-	);
+export async function getPaymentState(): Promise<PaymentState> {
+  const { data, error } = await authClient.subscription.list();
+  const isActive =
+    !error &&
+    (data?.some(
+      (subscription) => subscription.status === "active" || subscription.status === "trialing",
+    ) ?? false);
+  return { isActive, planLabel: isActive ? "Pro" : "Free" };
+}
+
+export async function checkout(): Promise<void> {
+  const { error } = await authClient.subscription.upgrade({
+    plan: "pro",
+    successUrl: "/success",
+    cancelUrl: "/dashboard",
+  });
+  if (error) return;
+}
+
+export async function portal(): Promise<void> {
+  const { error } = await authClient.subscription.billingPortal({
+    returnUrl: "/dashboard",
+  });
+  if (error) return;
 }
 `],
-  ["payments/polar/web/svelte/src/routes/success/+page.svelte.hbs", `<script lang="ts">
-	import { page } from '$app/state';
-	
-	const checkout_id = $derived(page.url.searchParams.get('checkout_id'));
-</script>
+  ["payments/stripe/web/nuxt/app/lib/payments.ts.hbs", `import type { ComputedRef, Ref } from "vue";
 
-<div class="container mx-auto px-4 py-8">
-	<h1>Payment Successful!</h1>
-	{#if checkout_id}
-		<p>Checkout ID: {checkout_id}</p>
-	{/if}
-</div>
+export interface PaymentState {
+  isActive: boolean;
+  planLabel: string;
+}
+
+export function usePayment(): {
+  state: ComputedRef<PaymentState>;
+  isLoading: Ref<boolean>;
+  checkout: () => Promise<void>;
+  portal: () => Promise<void>;
+} {
+  const { $authClient } = useNuxtApp();
+  const isActive = ref(false);
+  const isLoading = ref(true);
+
+  onMounted(async () => {
+    const { data, error } = await $authClient.subscription.list();
+    isActive.value =
+      !error &&
+      (data?.some(
+        (subscription) => subscription.status === "active" || subscription.status === "trialing",
+      ) ?? false);
+    isLoading.value = false;
+  });
+
+  const checkout = async () => {
+    const { error } = await $authClient.subscription.upgrade({
+      plan: "pro",
+      successUrl: "/success",
+      cancelUrl: "/dashboard",
+    });
+    if (error) return;
+  };
+
+  const portal = async () => {
+    const { error } = await $authClient.subscription.billingPortal({
+      returnUrl: "/dashboard",
+    });
+    if (error) return;
+  };
+
+  const state = computed<PaymentState>(() => ({
+    isActive: isActive.value,
+    planLabel: isActive.value ? "Pro" : "Free",
+  }));
+
+  return { state, isLoading, checkout, portal };
+}
+`],
+  ["payments/stripe/web/react/base/src/lib/payments.ts.hbs", `import { useEffect, useState } from "react";
+import { authClient } from "@/lib/auth-client";
+
+export interface PaymentState {
+  isActive: boolean;
+  planLabel: string;
+}
+
+export function usePayment(): {
+  state: PaymentState;
+  isLoading: boolean;
+  checkout: () => Promise<void>;
+  portal: () => Promise<void>;
+} {
+  const [isActive, setIsActive] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function load() {
+      const { data, error } = await authClient.subscription.list();
+      if (cancelled) return;
+      setIsActive(
+        !error &&
+          (data?.some(
+            (subscription) =>
+              subscription.status === "active" || subscription.status === "trialing",
+          ) ?? false),
+      );
+      setIsLoading(false);
+    }
+
+    void load();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const checkout = async () => {
+    const { error } = await authClient.subscription.upgrade({
+      plan: "pro",
+      successUrl: "/success",
+      cancelUrl: "/dashboard",
+    });
+    if (error) return;
+  };
+
+  const portal = async () => {
+    const { error } = await authClient.subscription.billingPortal({
+      returnUrl: "/dashboard",
+    });
+    if (error) return;
+  };
+
+  return {
+    state: { isActive, planLabel: isActive ? "Pro" : "Free" },
+    isLoading,
+    checkout,
+    portal,
+  };
+}
+`],
+  ["payments/stripe/web/solid/src/lib/payments.ts.hbs", `import { createMemo, createSignal, onMount, type Accessor } from "solid-js";
+import { authClient } from "~/lib/auth-client";
+
+export interface PaymentState {
+  isActive: boolean;
+  planLabel: string;
+}
+
+export function usePayment(): {
+  state: Accessor<PaymentState>;
+  isLoading: Accessor<boolean>;
+  checkout: () => Promise<void>;
+  portal: () => Promise<void>;
+} {
+  const [isActive, setIsActive] = createSignal(false);
+  const [isLoading, setIsLoading] = createSignal(true);
+
+  onMount(async () => {
+    const { data, error } = await authClient.subscription.list();
+    setIsActive(
+      !error &&
+        (data?.some(
+          (subscription) => subscription.status === "active" || subscription.status === "trialing",
+        ) ?? false),
+    );
+    setIsLoading(false);
+  });
+
+  const state = createMemo<PaymentState>(() => ({
+    isActive: isActive(),
+    planLabel: isActive() ? "Pro" : "Free",
+  }));
+
+  const checkout = async (): Promise<void> => {
+    const { error } = await authClient.subscription.upgrade({
+      plan: "pro",
+      successUrl: "/success",
+      cancelUrl: "/dashboard",
+    });
+    if (error) return;
+  };
+
+  const portal = async (): Promise<void> => {
+    const { error } = await authClient.subscription.billingPortal({
+      returnUrl: "/dashboard",
+    });
+    if (error) return;
+  };
+
+  return { state, isLoading, checkout, portal };
+}
+`],
+  ["payments/stripe/web/svelte/src/lib/payments.ts.hbs", `import { derived, writable, type Readable } from "svelte/store";
+import { authClient } from "$lib/auth-client";
+
+export interface PaymentState {
+  isActive: boolean;
+  planLabel: string;
+}
+
+const isActive = writable(false);
+const isLoading = writable(true);
+
+const state = derived(isActive, ($isActive): PaymentState => ({
+  isActive: $isActive,
+  planLabel: $isActive ? "Pro" : "Free",
+}));
+
+let hasLoaded = false;
+
+function ensureLoaded(): void {
+  if (hasLoaded) return;
+  hasLoaded = true;
+
+  void authClient.subscription.list().then(({ data, error }) => {
+    isActive.set(
+      !error &&
+        (data?.some(
+          (subscription) => subscription.status === "active" || subscription.status === "trialing",
+        ) ?? false),
+    );
+    isLoading.set(false);
+  });
+}
+
+async function checkout(): Promise<void> {
+  const { error } = await authClient.subscription.upgrade({
+    plan: "pro",
+    successUrl: "/success",
+    cancelUrl: "/dashboard",
+  });
+  if (error) return;
+}
+
+async function portal(): Promise<void> {
+  const { error } = await authClient.subscription.billingPortal({
+    returnUrl: "/dashboard",
+  });
+  if (error) return;
+}
+
+export function usePayment(): {
+  state: Readable<PaymentState>;
+  isLoading: Readable<boolean>;
+  checkout: () => Promise<void>;
+  portal: () => Promise<void>;
+} {
+  ensureLoaded();
+  return { state, isLoading, checkout, portal };
+}
 `]
 ]);
 
-export const TEMPLATE_COUNT = 529;
+export const TEMPLATE_COUNT = 571;

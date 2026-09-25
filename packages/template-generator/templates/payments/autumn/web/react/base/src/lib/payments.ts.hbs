@@ -1,0 +1,33 @@
+import { useCustomer } from "autumn-js/react";
+
+export interface PaymentState {
+  isActive: boolean;
+  planLabel: string;
+}
+
+export function usePayment(): {
+  state: PaymentState;
+  isLoading: boolean;
+  checkout: () => Promise<void>;
+  portal: () => Promise<void>;
+} {
+  const { data, isLoading, attach, openCustomerPortal } = useCustomer();
+
+  const isActive =
+    data?.subscriptions?.some((subscription) => subscription.status === "active") ?? false;
+
+  const checkout = async (): Promise<void> => {
+    await attach({ planId: "pro", successUrl: "/success" });
+  };
+
+  const portal = async (): Promise<void> => {
+    await openCustomerPortal({ returnUrl: "/dashboard" });
+  };
+
+  return {
+    state: { isActive, planLabel: isActive ? "Pro" : "Free" },
+    isLoading,
+    checkout,
+    portal,
+  };
+}

@@ -1,0 +1,67 @@
+{{#if (ne backend "self")}}
+import { ENV } from "../env{{#if (eq webDeploy "cloudflare")}}.public{{else}}.generated{{/if}}";
+{{/if}}
+import { derived, writable, type Readable } from "svelte/store";
+import { authClient } from "$lib/auth-client";
+
+const PRO_PLAN_CODE = "pro";
+const ACTIVE_STATUSES = ["active", "trialing"];
+
+{{#if (eq backend "self")}}
+const COMMET_CHECKOUT_URL = "/api/payments/commet/checkout";
+{{else}}
+const COMMET_CHECKOUT_URL = `${ENV.PUBLIC_SERVER_URL.replace(/\/$/, "")}/api/payments/commet/checkout`;
+{{/if}}
+
+export interface PaymentState {
+  isActive: boolean;
+  planLabel: string;
+}
+
+const isActive = writable(false);
+const isLoading = writable(true);
+
+const state = derived(isActive, ($isActive): PaymentState => ({
+  isActive: $isActive,
+  planLabel: $isActive ? "Pro" : "Free",
+}));
+
+let hasLoaded = false;
+
+function ensureLoaded(): void {
+  if (hasLoaded) return;
+  hasLoaded = true;
+
+  void authClient.subscription.get().then(({ data, error }) => {
+    isActive.set(!error && ACTIVE_STATUSES.includes(data?.status ?? ""));
+    isLoading.set(false);
+  });
+}
+
+async function checkout(): Promise<void> {
+  const response = await fetch(COMMET_CHECKOUT_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ planCode: PRO_PLAN_CODE }),
+  });
+  if (response.status === 204 || !response.ok) return;
+  const data = (await response.json()) as { url?: string };
+  if (!data.url) return;
+  window.location.href = data.url;
+}
+
+async function portal(): Promise<void> {
+  const { data, error } = await authClient.customer.portal();
+  if (error || !data?.url) return;
+  window.location.href = data.url;
+}
+
+export function usePayment(): {
+  state: Readable<PaymentState>;
+  isLoading: Readable<boolean>;
+  checkout: () => Promise<void>;
+  portal: () => Promise<void>;
+} {
+  ensureLoaded();
+  return { state, isLoading, checkout, portal };
+}

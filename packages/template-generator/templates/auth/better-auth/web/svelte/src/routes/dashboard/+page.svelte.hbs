@@ -1,6 +1,9 @@
 <script lang="ts">
 {{#if (eq payments "polar")}}
 import type { CustomerState } from "@polar-sh/sdk/models/components/customerstate";
+{{else if (and (ne payments "none") (ne payments "polar"))}}
+import PaymentActions from '$lib/components/PaymentActions.svelte';
+import { usePayment } from '$lib/payments';
 {{/if}}
 
 	import { goto } from '$app/navigation';
@@ -11,6 +14,8 @@ import type { CustomerState } from "@polar-sh/sdk/models/components/customerstat
 	{{/if}}
 	{{#if (eq payments "polar")}}
 	let customerState = $state<CustomerState | null>(null);
+	{{else if (and (ne payments "none") (ne payments "polar"))}}
+	const { state: paymentState, isLoading: paymentLoading, checkout, portal } = usePayment();
 	{{/if}}
 
 	const sessionQuery = authClient.useSession();
@@ -58,6 +63,14 @@ import type { CustomerState } from "@polar-sh/sdk/models/components/customerstat
 				Upgrade to Pro
 			</button>
 		{/if}
+		{{else if (and (ne payments "none") (ne payments "polar"))}}
+		<PaymentActions
+			isActive={$paymentState.isActive}
+			planLabel={$paymentState.planLabel}
+			pending={$paymentLoading}
+			onCheckout={checkout}
+			onPortal={portal}
+		/>
 		{{/if}}
 	</div>
 {/if}

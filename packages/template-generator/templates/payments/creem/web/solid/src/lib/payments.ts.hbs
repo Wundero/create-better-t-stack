@@ -1,0 +1,46 @@
+import { createMemo, createSignal, onMount, type Accessor } from "solid-js";
+import { authClient } from "~/lib/auth-client";
+
+export interface PaymentState {
+  isActive: boolean;
+  planLabel: string;
+}
+
+export function usePayment(): {
+  state: Accessor<PaymentState>;
+  isLoading: Accessor<boolean>;
+  checkout: () => Promise<void>;
+  portal: () => Promise<void>;
+} {
+  const [isActive, setIsActive] = createSignal(false);
+  const [isLoading, setIsLoading] = createSignal(true);
+
+  onMount(async () => {
+    const { data, error } = await authClient.creem.hasAccessGranted();
+    setIsActive(!error && (data?.hasAccessGranted ?? false));
+    setIsLoading(false);
+  });
+
+  const state = createMemo<PaymentState>(() => ({
+    isActive: isActive(),
+    planLabel: isActive() ? "Pro" : "Free",
+  }));
+
+  const checkout = async (): Promise<void> => {
+    // Replace "prod_..." with the Creem product ID for your Pro plan.
+    const { data, error } = await authClient.creem.createCheckout({
+      productId: "prod_...",
+      successUrl: "/success",
+    });
+    if (error || !data?.url) return;
+    window.location.href = data.url;
+  };
+
+  const portal = async (): Promise<void> => {
+    const { data, error } = await authClient.creem.createPortal();
+    if (error || !data?.url) return;
+    window.location.href = data.url;
+  };
+
+  return { state, isLoading, checkout, portal };
+}

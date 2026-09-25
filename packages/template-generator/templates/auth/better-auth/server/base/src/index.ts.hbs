@@ -14,6 +14,28 @@ import type { Database } from "@{{projectName}}/db";
 import { polar, checkout, portal } from "@polar-sh/better-auth";
 import { createPolarClient } from "./lib/payments";
 {{/if}}
+{{#if (eq payments "stripe")}}
+import { stripe } from "@better-auth/stripe";
+import Stripe from "stripe";
+{{/if}}
+{{#if (eq payments "autumn")}}
+import { autumn } from "autumn-js/better-auth";
+{{/if}}
+{{#if (eq payments "dodo")}}
+import { dodopayments, checkout, portal, webhooks } from "@dodopayments/better-auth";
+import DodoPayments from "dodopayments";
+{{/if}}
+{{#if (eq payments "creem")}}
+import { creem } from "@creem_io/better-auth";
+{{/if}}
+{{#if (eq payments "chargebee")}}
+import { chargebee } from "@chargebee/better-auth";
+import Chargebee from "chargebee";
+{{/if}}
+{{#if (eq payments "commet")}}
+import { commet, portal, subscriptions, features, usage, seats } from "@commet/better-auth";
+import { Commet } from "@commet/node";
+{{/if}}
 
 export type AuthConfig = {
   BETTER_AUTH_URL: string;
@@ -25,9 +47,54 @@ export type AuthConfig = {
   POLAR_ACCESS_TOKEN: string;
   POLAR_SUCCESS_URL: string;
 {{/if}}
+{{#if (eq payments "stripe")}}
+  STRIPE_SECRET_KEY: string;
+  STRIPE_WEBHOOK_SECRET: string;
+{{/if}}
+{{#if (eq payments "autumn")}}
+  AUTUMN_SECRET_KEY: string;
+{{/if}}
+{{#if (eq payments "dodo")}}
+  DODO_PAYMENTS_API_KEY: string;
+  DODO_PAYMENTS_WEBHOOK_SECRET: string;
+{{/if}}
+{{#if (eq payments "creem")}}
+  CREEM_API_KEY: string;
+  CREEM_WEBHOOK_SECRET: string;
+{{/if}}
+{{#if (eq payments "chargebee")}}
+  CHARGEBEE_API_KEY: string;
+  CHARGEBEE_SITE: string;
+  CHARGEBEE_WEBHOOK_USERNAME: string;
+  CHARGEBEE_WEBHOOK_PASSWORD: string;
+{{/if}}
+{{#if (eq payments "commet")}}
+  COMMET_API_KEY: string;
+  COMMET_WEBHOOK_SECRET: string;
+{{/if}}
 };
 
 export function createAuth(env: AuthConfig{{#if (ne database "none")}}, database: Database{{/if}}{{#if (ne backend "self")}}, desktopOrigins: readonly string[] = []{{/if}}) {
+{{#if (eq payments "stripe")}}
+  const stripeClient = new Stripe(env.STRIPE_SECRET_KEY, {
+    apiVersion: "2026-08-26.dahlia",
+  });
+{{/if}}
+{{#if (eq payments "dodo")}}
+  const dodoPayments = new DodoPayments({
+    bearerToken: env.DODO_PAYMENTS_API_KEY,
+    environment: "test_mode",
+  });
+{{/if}}
+{{#if (eq payments "chargebee")}}
+  const chargebeeClient = new Chargebee({
+    apiKey: env.CHARGEBEE_API_KEY,
+    site: env.CHARGEBEE_SITE,
+  });
+{{/if}}
+{{#if (eq payments "commet")}}
+  const commetClient = new Commet({ apiKey: env.COMMET_API_KEY });
+{{/if}}
   return betterAuth({
 {{#if (eq orm "prisma")}}
     database: prismaAdapter(database, {
@@ -74,6 +141,78 @@ export function createAuth(env: AuthConfig{{#if (ne database "none")}}, database
             authenticatedUsersOnly: true,
           }),
           portal(),
+        ],
+      }),
+{{/if}}
+{{#if (eq payments "stripe")}}
+      stripe({
+        stripeClient,
+        stripeWebhookSecret: env.STRIPE_WEBHOOK_SECRET,
+        createCustomerOnSignUp: true,
+        subscription: {
+          enabled: true,
+          plans: [
+            {
+              name: "pro",
+              priceId: "price_...",
+              annualDiscountPriceId: "price_...",
+            },
+          ],
+        },
+      }),
+{{/if}}
+{{#if (eq payments "autumn")}}
+      autumn(),
+{{/if}}
+{{#if (eq payments "dodo")}}
+      dodopayments({
+        client: dodoPayments,
+        createCustomerOnSignUp: true,
+        use: [
+          checkout({
+            products: [{ productId: "pdt_...", slug: "pro" }],
+            successUrl: "/success",
+            authenticatedUsersOnly: true,
+          }),
+          portal(),
+          webhooks({
+            webhookKey: env.DODO_PAYMENTS_WEBHOOK_SECRET,
+          }),
+        ],
+      }),
+{{/if}}
+{{#if (eq payments "creem")}}
+      creem({
+        apiKey: env.CREEM_API_KEY,
+        webhookSecret: env.CREEM_WEBHOOK_SECRET,
+        testMode: true,
+        defaultSuccessUrl: "/success",
+        persistSubscriptions: true,
+      }),
+{{/if}}
+{{#if (eq payments "chargebee")}}
+      chargebee({
+        chargebeeClient,
+        webhookUsername: env.CHARGEBEE_WEBHOOK_USERNAME,
+        webhookPassword: env.CHARGEBEE_WEBHOOK_PASSWORD,
+        subscription: {
+          enabled: true,
+          plans: [{ name: "pro", itemPriceId: "pro-USD-Monthly", type: "plan" }],
+        },
+      }),
+{{/if}}
+{{#if (eq payments "commet")}}
+      commet({
+        client: commetClient,
+        createCustomerOnSignUp: true,
+        use: [
+          portal({ returnUrl: "/dashboard" }),
+          subscriptions({
+            plans: [{ planId: "pln_...", slug: "pro" }],
+          }),
+          features(),
+          usage(),
+          seats(),
         ],
       }),
 {{/if}}

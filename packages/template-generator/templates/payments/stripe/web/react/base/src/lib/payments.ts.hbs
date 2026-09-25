@@ -1,0 +1,63 @@
+import { useEffect, useState } from "react";
+import { authClient } from "@/lib/auth-client";
+
+export interface PaymentState {
+  isActive: boolean;
+  planLabel: string;
+}
+
+export function usePayment(): {
+  state: PaymentState;
+  isLoading: boolean;
+  checkout: () => Promise<void>;
+  portal: () => Promise<void>;
+} {
+  const [isActive, setIsActive] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function load() {
+      const { data, error } = await authClient.subscription.list();
+      if (cancelled) return;
+      setIsActive(
+        !error &&
+          (data?.some(
+            (subscription) =>
+              subscription.status === "active" || subscription.status === "trialing",
+          ) ?? false),
+      );
+      setIsLoading(false);
+    }
+
+    void load();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const checkout = async () => {
+    const { error } = await authClient.subscription.upgrade({
+      plan: "pro",
+      successUrl: "/success",
+      cancelUrl: "/dashboard",
+    });
+    if (error) return;
+  };
+
+  const portal = async () => {
+    const { error } = await authClient.subscription.billingPortal({
+      returnUrl: "/dashboard",
+    });
+    if (error) return;
+  };
+
+  return {
+    state: { isActive, planLabel: isActive ? "Pro" : "Free" },
+    isLoading,
+    checkout,
+    portal,
+  };
+}
