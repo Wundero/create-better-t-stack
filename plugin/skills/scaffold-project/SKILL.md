@@ -43,7 +43,7 @@ Use `bts_get_schema` for the authoritative, version-current list. As of this wri
 - **orm**: `drizzle`, `prisma`, `mongoose`, `none`
 - **api**: `trpc`, `orpc`, `none`
 - **auth**: `better-auth`, `clerk`, `none`
-- **payments**: `polar`, `none`
+- **payments**: `polar`, `stripe`, `autumn`, `dodo`, `creem`, `chargebee`, `commet`, `none` (all providers require `better-auth`; only `polar` works with Convex or native-only stacks, and Autumn requires a React web frontend)
 - **addons**: `pwa`, `tauri`, `electrobun`, `starlight`, `biome`, `lefthook`, `husky`, `mcp`, `turborepo`, `nx`, `vite-plus`, `fumadocs`, `ultracite`, `oxlint`, `opentui`, `wxt`, `skills`, `evlog`, `none` (`nx`, `turborepo`, and `vite-plus` are mutually exclusive)
 - **examples**: `todo`, `ai`, `none`
 - **packageManager**: `npm`, `pnpm`, `bun`
