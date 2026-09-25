@@ -8,6 +8,11 @@ const emit = defineEmits(['switchToSignUp'])
 
 const toast = useToast()
 const loading = ref(false)
+{{#if (includes addons "turnstile")}}
+const turnstileToken = ref<string | null>(null)
+const turnstileResetKey = ref(0)
+const turnstileSiteKey = useRuntimeConfig().public.turnstileSiteKey
+{{/if}}
 
 const fields: AuthFormField[] = [
   {
@@ -40,6 +45,11 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
       {
         email: event.data.email,
         password: event.data.password,
+{{#if (includes addons "turnstile")}}
+        fetchOptions: turnstileToken.value
+          ? { headers: { "x-captcha-response": turnstileToken.value } }
+          : undefined,
+{{/if}}
       },
       {
         onSuccess: () => {
@@ -48,6 +58,10 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
         },
         onError: (error) => {
           toast.add({ title: 'Sign in failed', description: error.error.message })
+{{#if (includes addons "turnstile")}}
+          turnstileToken.value = null
+          turnstileResetKey.value += 1
+{{/if}}
         },
       },
     )
@@ -67,7 +81,7 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
         :fields="fields"
         title="Welcome Back"
         icon="i-lucide-log-in"
-        :submit="{ label: 'Sign In', loading }"
+        :submit="{ label: 'Sign In', loading{{#if (includes addons "turnstile")}}, disabled: !turnstileToken{{/if}} }"
         @submit="onSubmit"
       >
         <template #description>
@@ -76,6 +90,16 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
             Sign Up
           </ULink>
         </template>
+{{#if (includes addons "turnstile")}}
+        <template #footer>
+          <Turnstile
+            :site-key="turnstileSiteKey"
+            action="sign-in"
+            @update:token="(t) => (turnstileToken = t)"
+            :reset-key="turnstileResetKey"
+          />
+        </template>
+{{/if}}
       </UAuthForm>
     </UPageCard>
   </div>

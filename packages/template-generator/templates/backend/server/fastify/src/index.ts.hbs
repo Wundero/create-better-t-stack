@@ -37,7 +37,8 @@ const baseCorsConfig = {
 	allowedHeaders: [
 		"Content-Type",
 		"Authorization",
-		"X-Requested-With"
+		"X-Requested-With"{{#if (includes addons "turnstile")}},
+		"x-captcha-response"{{/if}}
 	],
 	credentials: true,
 	maxAge: 86400,

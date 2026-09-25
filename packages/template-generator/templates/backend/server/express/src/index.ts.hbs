@@ -35,7 +35,7 @@ app.use(
 		origin: {{#if (and (ne backend "self") (or (includes addons "electrobun") (includes addons "tauri")))}}[ENV.CORS_ORIGIN, ...desktopOrigins]{{else}}ENV.CORS_ORIGIN{{/if}},
 		methods: ["GET", "POST", "OPTIONS"],
 {{#if (or (eq auth "better-auth") (eq auth "clerk"))}}
-		allowedHeaders: ["Content-Type", "Authorization"],
+		allowedHeaders: ["Content-Type", "Authorization"{{#if (includes addons "turnstile")}}, "x-captcha-response"{{/if}}],
 {{/if}}
 {{#if (eq auth "better-auth")}}
 		credentials: true,
