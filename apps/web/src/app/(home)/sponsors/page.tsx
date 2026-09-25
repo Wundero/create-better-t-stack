@@ -1,9 +1,8 @@
 export const dynamic = "force-static";
 
-import { api } from "@better-t-stack/backend/convex/_generated/api";
-import { fetchQuery } from "convex/nextjs";
 import type { Metadata } from "next";
 
+import { fetchAnalyticsStats, fetchWithFallback } from "@/lib/api-client";
 import { SITE_URL } from "@/lib/site";
 import { fetchSponsors } from "@/lib/sponsors";
 
@@ -39,7 +38,7 @@ export const metadata: Metadata = {
 export default async function Sponsors() {
   const [sponsorsData, stats] = await Promise.all([
     fetchSponsors(),
-    fetchQuery(api.analytics.getStats, {}),
+    fetchWithFallback(() => fetchAnalyticsStats({ cache: "force-cache" }), null),
   ]);
   return <SponsorsPage sponsorsData={sponsorsData} totalProjects={stats?.totalProjects ?? 0} />;
 }
