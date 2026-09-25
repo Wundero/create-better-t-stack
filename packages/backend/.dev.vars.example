@@ -1,0 +1,4 @@
+# Optional: raises GitHub REST rate limits during the 6-hourly cron sync.
+GITHUB_TOKEN=
+# Required to enable /api/admin/* routes. Unset => those routes return 404.
+ADMIN_TOKEN=

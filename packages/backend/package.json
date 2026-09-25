@@ -2,24 +2,29 @@
   "name": "@better-t-stack/backend",
   "version": "1.0.0",
   "private": true,
-  "description": "",
+  "description": "Cloudflare Worker API for better-t-stack (Hono + D1 + KV + Cron)",
   "license": "ISC",
   "author": "",
+  "type": "module",
   "scripts": {
     "predev": "(cd ../types && bun run build)",
-    "dev": "convex dev",
-    "dev:setup": "convex dev --configure --until-success",
-    "predeploy": "(cd ../types && bun run build)",
-    "deploy": "convex deploy"
+    "dev": "wrangler dev",
+    "cf:dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "d1:migrate": "wrangler d1 migrations apply bts-analytics",
+    "d1:migrate:local": "wrangler d1 migrations apply bts-analytics --local",
+    "test": "bun test",
+    "typecheck": "tsc --noEmit",
+    "seed:d1": "bun scripts/seed-d1.ts",
+    "migrate:convex": "bun scripts/migrate-convex.ts"
   },
   "dependencies": {
     "@better-t-stack/types": "workspace:*",
-    "@convex-dev/crons": "^0.2.2",
-    "@erquhart/convex-oss-stats": "catalog:",
-    "convex": "catalog:",
-    "convex-helpers": "catalog:"
+    "hono": "^4.13.9"
   },
   "devDependencies": {
-    "typescript": "catalog:"
+    "@cloudflare/workers-types": "^5.20260925.1",
+    "typescript": "catalog:",
+    "wrangler": "^4.140.0"
   }
 }
