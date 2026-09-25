@@ -47,6 +47,7 @@ describe("Input schemas", () => {
       ["nx", "vite-plus"],
       ["turborepo", "vite-plus"],
       ["nx", "turborepo"],
+      ["eslint", "vite-plus"],
     ];
 
     for (const addons of conflictingAddonPairs) {
@@ -60,6 +61,10 @@ describe("Input schemas", () => {
     const result = AddInputSchema.safeParse({ addons: ["evlog", "axiom"] });
 
     expect(result.success).toBe(false);
+  });
+
+  it("accepts the ESLint + Prettier addon on its own", () => {
+    expect(AddInputSchema.safeParse({ addons: ["eslint"] }).success).toBe(true);
   });
 
   it("rejects unknown keys in JSON-first create input", () => {

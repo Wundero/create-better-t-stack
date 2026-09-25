@@ -207,6 +207,91 @@ console.log("Electrobun desktop shell started.");
   "include": ["src/**/*.ts", "electrobun.config.ts"]
 }
 `],
+  ["addons/eslint/.prettierignore", `**/node_modules
+**/.next
+**/dist
+**/.turbo
+**/.nx
+**/dev-dist
+**/.zed
+**/.vscode
+**/routeTree.gen.ts
+**/src-tauri
+**/.nuxt
+**/bts.jsonc
+**/.expo
+**/.wrangler
+**/.alchemy
+**/.svelte-kit
+**/wrangler.jsonc
+**/.source
+**/convex/_generated
+**/.wxt
+`],
+  ["addons/eslint/.prettierrc", `{
+  "$schema": "https://json.schemastore.org/prettierrc",
+  "semi": true,
+  "singleQuote": false,
+  "tabWidth": 2,
+  "trailingComma": "all"
+}
+`],
+  ["addons/eslint/eslint.config.js", `import js from "@eslint/js";
+import eslintConfigPrettier from "eslint-config-prettier";
+import globals from "globals";
+import tseslint from "typescript-eslint";
+
+export default tseslint.config(
+  {
+    ignores: [
+      "**/.next/**",
+      "**/dist/**",
+      "**/.turbo/**",
+      "**/.nx/**",
+      "**/dev-dist/**",
+      "**/.zed/**",
+      "**/.vscode/**",
+      "**/routeTree.gen.ts",
+      "**/src-tauri/**",
+      "**/.nuxt/**",
+      "bts.jsonc",
+      "**/.expo/**",
+      "**/.wrangler/**",
+      "**/.alchemy/**",
+      "**/.svelte-kit/**",
+      "**/wrangler.jsonc",
+      "**/.source/**",
+      "**/convex/_generated/**",
+      "**/.wxt/**",
+      "**/*.vue",
+      "**/*.svelte",
+      "**/*.astro",
+    ],
+  },
+  js.configs.recommended,
+  ...tseslint.configs.recommended,
+  {
+    languageOptions: {
+      globals: {
+        ...globals.browser,
+        ...globals.node,
+      },
+    },
+  },
+  {
+    rules: {
+      "@typescript-eslint/ban-ts-comment": [
+        "error",
+        { "ts-nocheck": false, "ts-ignore": false },
+      ],
+      "@typescript-eslint/no-empty-object-type": ["error", { allowInterfaces: "always" }],
+      "@typescript-eslint/no-require-imports": "off",
+      "@typescript-eslint/no-unused-vars": "warn",
+    },
+  },
+  eslintConfigPrettier,
+);
+`],
   ["addons/husky/.husky/pre-commit", `lint-staged
 `],
   ["addons/lefthook/lefthook.yml.hbs", `# Lefthook configuration
@@ -226,6 +311,14 @@ pre-commit:
       stage_fixed: true
     - name: oxfmt
       run: {{packageManager}} oxfmt --write {staged_files}
+      stage_fixed: true
+{{else if (includes addons "eslint")}}
+    - name: eslint
+      glob: "*.{js,jsx,ts,tsx,mjs,cjs,mts,cts,json,jsonc,css,scss,md,mdx,yml,yaml,html,vue,svelte,astro}"
+      run: {{packageManager}} eslint --fix {staged_files}
+      stage_fixed: true
+    - name: prettier
+      run: {{packageManager}} prettier --write {staged_files}
       stage_fixed: true
 {{else if (includes addons "vite-plus")}}
     - name: vite-plus
@@ -35492,4 +35585,4 @@ export default function Success() {
 `]
 ]);
 
-export const TEMPLATE_COUNT = 528;
+export const TEMPLATE_COUNT = 531;

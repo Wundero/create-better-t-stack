@@ -71,6 +71,13 @@ export const dependencyVersionMap = {
   oxfmt: "^0.66.0",
   "@shadcn/lint": "^0.2.0",
 
+  eslint: "^10.11.0",
+  "@eslint/js": "^10.0.1",
+  "typescript-eslint": "^8.70.1",
+  "eslint-config-prettier": "^10.1.8",
+  prettier: "^3.9.9",
+  globals: "^17.12.0",
+
   husky: "^9.1.7",
   lefthook: "^2.1.12",
   "lint-staged": "^17.5.0",

@@ -26,6 +26,12 @@ import {
 } from "../../utils/sponsors";
 import { cliLog } from "../../utils/terminal-output";
 
+function getEslintPreferenceNote(): string {
+  return `${pc.yellow(
+    "NOTE:",
+  )} ESLint + Prettier is included for compatibility. oxlint, Vite+, or Biome are preferred for new projects.`;
+}
+
 function getDesktopStaticBuildNote(frontend: Frontend[]): string {
   const staticBuildFrontends = new Map<Frontend, string>([
     ["tanstack-start", "TanStack Start"],
@@ -81,6 +87,7 @@ export async function displayPostInstallInstructions(
     addons?.includes("biome") ||
     addons?.includes("lefthook") ||
     addons?.includes("oxlint") ||
+    addons?.includes("eslint") ||
     hasVitePlus;
 
   const databaseInstructions =
@@ -108,6 +115,7 @@ export async function displayPostInstallInstructions(
     ? getVitePlusNativeHooksInstructions(runCmd)
     : "";
   const lintingInstructions = hasGitHooksOrLinting ? getLintingInstructions(runCmd) : "";
+  const eslintPreferenceNote = addons?.includes("eslint") ? getEslintPreferenceNote() : "";
   const nativeInstructions =
     (frontend?.includes("native-bare") ||
       frontend?.includes("native-uniwind") ||
@@ -282,6 +290,7 @@ export async function displayPostInstallInstructions(
   if (alchemyDeployInstructions) output += `\n${alchemyDeployInstructions.trim()}\n`;
 
   if (noOrmWarning) output += `\n${noOrmWarning.trim()}\n`;
+  if (eslintPreferenceNote) output += `\n${eslintPreferenceNote.trim()}\n`;
   if (bunWebNativeWarning) output += `\n${bunWebNativeWarning.trim()}\n`;
 
   const sponsorsResult = await fetchSponsorsQuietly();

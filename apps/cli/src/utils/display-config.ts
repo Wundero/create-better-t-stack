@@ -59,6 +59,7 @@ const VALUE_LABELS = {
   electrobun: "Electrobun",
   biome: "Biome",
   oxlint: "Oxlint + Oxfmt",
+  eslint: "ESLint + Prettier",
   ultracite: "Ultracite",
   lefthook: "Lefthook",
   husky: "Husky",

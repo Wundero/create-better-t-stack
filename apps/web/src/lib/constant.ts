@@ -611,6 +611,14 @@ export const TECH_OPTIONS: TechOptions = {
       default: false,
     },
     {
+      id: "eslint",
+      name: "ESLint + Prettier",
+      description: "ESLint and Prettier (oxlint, Vite+, or Biome preferred)",
+      icon: "",
+      color: "from-purple-500 to-purple-700",
+      default: false,
+    },
+    {
       id: "turborepo",
       name: "Turborepo",
       description: "High-performance build system",
