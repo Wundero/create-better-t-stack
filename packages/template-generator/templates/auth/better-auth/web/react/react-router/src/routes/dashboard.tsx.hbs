@@ -14,7 +14,11 @@ import { trpc } from "@/utils/trpc";
 {{#if (or (eq api "orpc") (eq api "trpc"))}}
 import { useQuery } from "@tanstack/react-query";
 {{/if}}
+{{#if (eq payments "polar")}}
 import { useEffect, useState } from "react";
+{{else}}
+import { useEffect } from "react";
+{{/if}}
 import { useNavigate } from "react-router";
 
 export default function Dashboard() {
