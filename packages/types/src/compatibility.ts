@@ -1,4 +1,12 @@
 import { desktopWebFrontends } from "./constants";
+import {
+  getPaymentProvider,
+  getPaymentsAuthRequirementMessage,
+  getPaymentsConvexRequirementMessage,
+  getPaymentsNativeRequirementMessage,
+  getPaymentsReactRequirementMessage,
+  isPaymentProvider,
+} from "./payment-providers";
 import type {
   Addons,
   API,
@@ -391,8 +399,66 @@ export function supportsServerDeployRuntime(
   return runtime === "bun" || runtime === "node";
 }
 
+export const REACT_WEB_FRONTENDS: readonly Frontend[] = [
+  "next",
+  "tanstack-router",
+  "react-router",
+  "tanstack-start",
+];
+
+export function hasReactWebFrontend(frontend?: readonly Frontend[]) {
+  return (frontend ?? []).some((candidate) => REACT_WEB_FRONTENDS.includes(candidate));
+}
+
+export function isNativeOnlyFrontend(frontend?: readonly Frontend[]) {
+  const selections = (frontend ?? []).filter((candidate) => candidate !== "none");
+  return selections.length > 0 && selections.every((candidate) => candidate.startsWith("native-"));
+}
+
 export function supportsPaymentsAuth(payments?: Payments, auth?: Auth) {
-  return payments !== "polar" || auth === "better-auth";
+  if (!isPaymentProvider(payments)) return true;
+  return !getPaymentProvider(payments).requiresBetterAuth || auth === "better-auth";
+}
+
+export function supportsPaymentsBackend(payments?: Payments, backend?: Backend) {
+  if (!isPaymentProvider(payments)) return true;
+  if (getPaymentProvider(payments).supportsConvex) return true;
+  return backend !== "convex";
+}
+
+export function supportsPaymentsFrontend(payments?: Payments, frontend?: readonly Frontend[]) {
+  if (!isPaymentProvider(payments)) return true;
+  const meta = getPaymentProvider(payments);
+  if (meta.supportsNative && !meta.reactWebOnly) return true;
+  if (isNativeOnlyFrontend(frontend)) return false;
+  if (meta.reactWebOnly && !hasReactWebFrontend(frontend)) return false;
+  return true;
+}
+
+export type PaymentsCapabilityContext = {
+  readonly auth?: Auth;
+  readonly backend?: Backend;
+  readonly frontend?: readonly Frontend[];
+};
+
+/** Returns the first capability violation message for a concrete provider, or null. */
+export function getPaymentsCapabilityIssue(
+  payments: Payments | undefined,
+  context: PaymentsCapabilityContext,
+): string | null {
+  if (!isPaymentProvider(payments)) return null;
+  if (!supportsPaymentsAuth(payments, context.auth)) {
+    return getPaymentsAuthRequirementMessage(payments);
+  }
+  if (!supportsPaymentsBackend(payments, context.backend)) {
+    return getPaymentsConvexRequirementMessage(payments);
+  }
+  if (!supportsPaymentsFrontend(payments, context.frontend)) {
+    return isNativeOnlyFrontend(context.frontend)
+      ? getPaymentsNativeRequirementMessage(payments)
+      : getPaymentsReactRequirementMessage(payments);
+  }
+  return null;
 }
 
 const BACKEND_DISABLED_OPTIONS = {
