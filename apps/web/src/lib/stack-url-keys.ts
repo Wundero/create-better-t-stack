@@ -24,6 +24,10 @@ export const stackUrlKeys: UrlKeys<StackUrlState> = {
   webDeploy: "wd",
   serverDeploy: "sd",
   yolo: "yolo",
+  shadcnPreset: "th",
+  shadcnBase: "th-b",
+  shadcnRtl: "th-rtl",
+  shadcnPointer: "th-p",
   viewMode: "view",
   selectedFile: "file",
 };

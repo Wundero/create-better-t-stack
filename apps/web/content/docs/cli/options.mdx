@@ -277,6 +277,52 @@ create-better-t-stack --frontend next native-uniwind
 create-better-t-stack --frontend none
 ```
 
+## shadcn Theme
+
+Apply a shadcn/ui theme to a generated React web frontend. When no shadcn theme is configured, React web apps keep the existing static `base-lyra` output. Theming requires `next`, `tanstack-start`, `tanstack-router`, or `react-router`.
+
+### `--shadcn-preset <value>`
+
+shadcn theme preset to apply. Required to enable shadcn theming. Accepted formats:
+
+- A base62 preset code, e.g. `b1x9M8ZeJW`
+- A named preset: `nova`, `vega`, `maia`, `lyra`, `mira`, `luma`, `sera`, or `rhea`
+- A preset URL (`http://` or `https://`)
+
+```bash
+create-better-t-stack --frontend next --shadcn-preset nova
+```
+
+### `--shadcn-base <base>`
+
+Headless component base used to resolve per-base components:
+
+- `baseui`: Base UI (default)
+- `radixui`: Radix UI
+- `react-aria`: React Aria
+
+```bash
+create-better-t-stack --frontend next --shadcn-preset nova --shadcn-base radixui
+```
+
+### `--shadcn-rtl`
+
+Enable right-to-left styles.
+
+```bash
+create-better-t-stack --frontend next --shadcn-preset nova --shadcn-rtl
+```
+
+### `--shadcn-pointer`
+
+Enable pointer cursor styles.
+
+```bash
+create-better-t-stack --frontend next --shadcn-preset nova --shadcn-pointer
+```
+
+**Note:** When a shadcn theme is configured, the generator fetches the shadcn registry (`https://ui.shadcn.com/init` and `/r/styles/{base}-{style}/*`) at generation time to resolve theme CSS variables, per-base components, fonts, and dependencies. Set `BTS_SHADCN_REGISTRY_URL` to point the registry client at an alternate origin, such as an offline or local mirror.
+
 ## Authentication
 
 ### `--auth <provider>`
