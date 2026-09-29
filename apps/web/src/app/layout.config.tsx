@@ -83,4 +83,5 @@ export const baseOptions: BaseLayoutProps = {
   },
   links: links,
   githubUrl: "https://github.com/AmanVarshney01/create-better-t-stack",
+  themeSwitch: { enabled: false },
 };

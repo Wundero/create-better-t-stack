@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { GeistMono } from "geist/font/mono";
+import { GeistSans } from "geist/font/sans";
 import "../index.css";
 {{#if shadcn.rtl}}import { DirectionProvider } from "@{{projectName}}/ui/components/direction";
 {{/if}}{{#if (eq auth "clerk")}}import { ClerkProvider } from "@clerk/nextjs";
@@ -9,16 +10,6 @@ import { getToken } from "@/lib/auth-server";
 import Providers from "@/components/providers";
 import Header from "@/components/header";
 import { ThemeProvider } from "@wrksz/themes/next";
-
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
 
 export const metadata: Metadata = {
   title: "{{projectName}}",
@@ -35,13 +26,14 @@ export default async function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning{{#if shadcn.rtl}} dir="rtl"{{/if}}>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        className={`${GeistSans.variable} ${GeistMono.variable} antialiased`}
       >
         <ThemeProvider
           attribute="class"
           defaultTheme="system"
           enableSystem
           disableTransitionOnChange
+          storage="hybrid"
         >
           {{#if shadcn.rtl}}<DirectionProvider direction="rtl">
           {{/if}}<Providers initialToken={token}>
@@ -65,13 +57,14 @@ export default function RootLayout({
 	return (
 		<html lang="en" suppressHydrationWarning{{#if shadcn.rtl}} dir="rtl"{{/if}}>
 			<body
-				className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+				className={`${GeistSans.variable} ${GeistMono.variable} antialiased`}
 			>
 				<ThemeProvider
 					attribute="class"
 					defaultTheme="system"
 					enableSystem
 					disableTransitionOnChange
+					storage="hybrid"
 				>
 					{{#if shadcn.rtl}}<DirectionProvider direction="rtl">
 					{{/if}}{{#if (eq auth "clerk")}}<ClerkProvider>

@@ -397,7 +397,7 @@
 }
 
 :root {
-  /* Geist Mono ships without U+2500-259F: next/font/google exposes no symbols2 subset for it. */
+  /* Geist Mono ships without U+2500-259F: the Google font loader exposes no symbols2 subset for it. */
   --font-ascii:
     ui-monospace, "SF Mono", "SFMono-Regular", Menlo, "DejaVu Sans Mono", "Liberation Mono",
     Consolas, "Courier New", monospace;

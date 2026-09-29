@@ -1,6 +1,6 @@
 "use client";
 
-import { useTheme } from "next-themes";
+import { useTheme } from "@wrksz/themes/client";
 import Image from "next/image";
 
 import { cn } from "@/lib/utils";
