@@ -1,7 +1,7 @@
 import { ImageResponse } from "next/og";
 import type { NextRequest } from "next/server";
 
-import type { StackState } from "@/lib/constant";
+import { getStackCommandBase } from "@/lib/cli-commands";
 import { OG_SIZE, OgShell, ogColors, ogFonts } from "@/lib/og";
 import { loadStackParams } from "@/lib/stack-url-state";
 import { getSelectedTechs } from "@/lib/stack-utils";
@@ -28,12 +28,6 @@ const categoryChipColors = {
 
 function hasCategoryColor(category: string): category is keyof typeof categoryChipColors {
   return Object.hasOwn(categoryChipColors, category);
-}
-
-function commandBase(packageManager: StackState["packageManager"]) {
-  if (packageManager === "npm") return "npx create-better-t-stack@latest";
-  if (packageManager === "pnpm") return "pnpm create better-t-stack@latest";
-  return "bun create better-t-stack@latest";
 }
 
 export async function GET(req: NextRequest) {
@@ -71,7 +65,7 @@ export async function GET(req: NextRequest) {
         >
           <span style={{ color: ogColors.accent, display: "flex" }}>$</span>
           <span style={{ color: ogColors.subtext, display: "flex" }}>
-            {commandBase(stack.packageManager)} {projectName}
+            {getStackCommandBase(stack.packageManager)} {projectName}
           </span>
         </div>
 

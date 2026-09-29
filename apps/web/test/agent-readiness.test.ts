@@ -24,9 +24,9 @@ describe("agent discovery content", () => {
 
     expect(markdown).toStartWith("# Better-T-Stack");
     expect(markdown.indexOf("[Quick Start]")).toBeLessThan(markdown.indexOf("[Zebra]"));
-    expect(markdown).toContain("npx create-better-t-stack@latest my-app");
+    expect(markdown).toContain("npx @wundero/bts@latest my-app");
     expect(markdown).toContain("create-better-t-stack create-json");
-    expect(markdown).toContain("npx create-better-t-stack@latest mcp");
+    expect(markdown).toContain("npx @wundero/bts@latest mcp");
     expect(markdown).toContain(`${SITE_URL}/llms-full.txt`);
     expect(markdown).toContain(`${SITE_URL}/docs/index.mdx`);
     expect(markdown).toContain("does not expose a public hosted application API");

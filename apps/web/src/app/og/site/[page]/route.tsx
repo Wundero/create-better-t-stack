@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { ImageResponse } from "next/og";
 
+import { CLI_PACKAGE_SPEC } from "@/lib/cli-commands";
 import { OG_SIZE, OgShell, ogColors, ogFonts } from "@/lib/og";
 
 export const revalidate = false;
@@ -11,14 +12,14 @@ const PAGES = {
     section: "home",
     title: "Roll Your Own Stack",
     description: "Modern CLI for scaffolding end-to-end type-safe TypeScript projects",
-    command: "bun create better-t-stack@latest",
+    command: `bunx ${CLI_PACKAGE_SPEC}`,
   },
   new: {
     path: "~/new",
     section: "stack builder",
     title: "Stack Builder",
     description: "Pick your stack, get a ready-to-run command",
-    command: "bun create better-t-stack@latest my-app --yes",
+    command: `bunx ${CLI_PACKAGE_SPEC} my-app --yes`,
   },
   showcase: {
     path: "~/showcase",
