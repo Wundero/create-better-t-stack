@@ -24,7 +24,7 @@ The CLI rejects unsupported framework and runtime combinations before writing fi
 
 ```bash
 # Hono on Lambda with Aurora Serverless V2 PostgreSQL
-bunx create-better-t-stack@latest my-app \
+bunx @wundero/bts@latest my-app \
   --frontend none \
   --backend hono \
   --runtime lambda \
@@ -34,7 +34,7 @@ bunx create-better-t-stack@latest my-app \
   --server-deploy aws
 
 # Next.js web and a Hono/Bun server on ECS Fargate
-bunx create-better-t-stack@latest my-app \
+bunx @wundero/bts@latest my-app \
   --frontend next \
   --backend hono \
   --runtime bun \

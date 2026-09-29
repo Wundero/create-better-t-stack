@@ -1,3 +1,4 @@
+import { getStackCommandBase } from "@/lib/cli-commands";
 import { DEFAULT_STACK, isStackDefault, type StackState, TECH_OPTIONS } from "@/lib/constant";
 import { DEFAULT_SHADCN_BASE, DEFAULT_SHADCN_PRESET, getShadcnConfig } from "@/lib/shadcn-config";
 import { SITE_URL } from "@/lib/site";
@@ -142,15 +143,7 @@ export function getDesktopBuildNote(stack: Pick<StackState, "addons" | "backend"
 }
 
 export function generateStackCommand(stack: StackState) {
-  const packageManagerCommands = {
-    npm: "npx create-better-t-stack@latest",
-    pnpm: "pnpm create better-t-stack@latest",
-    default: "bun create better-t-stack@latest",
-  };
-
-  const base =
-    packageManagerCommands[stack.packageManager as keyof typeof packageManagerCommands] ||
-    packageManagerCommands.default;
+  const base = getStackCommandBase(stack.packageManager);
   const projectName = quoteShellArgument(stack.projectName || "my-better-t-app");
 
   const isStackDefaultExceptProjectName = Object.entries(DEFAULT_STACK).every(

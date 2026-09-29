@@ -148,7 +148,7 @@ describe("shadcn theme stack state", () => {
   test("emits no shadcn flags for a default stack", () => {
     const command = generateStackCommand(createStack());
 
-    expect(command).toBe("bun create better-t-stack@latest my-better-t-app --yes");
+    expect(command).toBe("bunx @wundero/bts@latest my-better-t-app --yes");
     expect(command).not.toContain("--shadcn");
   });
 
