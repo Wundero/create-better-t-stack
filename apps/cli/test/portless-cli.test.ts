@@ -4,17 +4,13 @@ import { router } from "../src/index";
 import { processFlags } from "../src/utils/config-processing";
 
 const createInputSchema = router.create["~orpc"].inputSchema;
-
-function parseCreateInput(value: unknown) {
-  if (!createInputSchema) {
-    throw new Error("create procedure is missing its input schema");
-  }
-  return createInputSchema.safeParse(value);
+if (!createInputSchema) {
+  throw new Error("create procedure is missing its input schema");
 }
 
 describe("portless CLI flag plumbing", () => {
   it("accepts --portless on the create CLI input schema", () => {
-    const result = parseCreateInput(["my-app", { portless: true }]);
+    const result = createInputSchema.safeParse(["my-app", { portless: true }]);
 
     expect(result.success).toBe(true);
     if (!result.success) return;
@@ -22,7 +18,7 @@ describe("portless CLI flag plumbing", () => {
   });
 
   it("keeps portless optional when the flag is omitted", () => {
-    const result = parseCreateInput(["my-app", {}]);
+    const result = createInputSchema.safeParse(["my-app", {}]);
 
     expect(result.success).toBe(true);
     if (!result.success) return;
@@ -30,7 +26,7 @@ describe("portless CLI flag plumbing", () => {
   });
 
   it("rejects non-boolean portless values", () => {
-    const result = parseCreateInput(["my-app", { portless: "yes" }]);
+    const result = createInputSchema.safeParse(["my-app", { portless: "yes" }]);
 
     expect(result.success).toBe(false);
   });

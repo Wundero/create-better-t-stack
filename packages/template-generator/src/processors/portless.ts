@@ -33,7 +33,7 @@ function sanitizeProjectName(projectName: string): string {
   return sanitized.length > 0 ? sanitized : "app";
 }
 
-export function getPortlessNames(projectName: string): { web: string; server: string } {
+export function getPortlessNames(projectName: string) {
   const slug = sanitizeProjectName(projectName);
   return { web: slug, server: `api.${slug}` };
 }
