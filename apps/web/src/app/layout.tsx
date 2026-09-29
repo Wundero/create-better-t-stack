@@ -1,3 +1,4 @@
+import { ThemeProvider } from "@wrksz/themes/next";
 import { RootProvider } from "fumadocs-ui/provider/next";
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
@@ -186,19 +187,24 @@ export default function Layout({ children }: { children: ReactNode }) {
             __html: JSON.stringify(structuredData).replaceAll("<", "\\u003c"),
           }}
         />
-        <RootProvider
-          search={{
-            options: {
-              type: "static",
-            },
-          }}
-          theme={{
-            enableSystem: true,
-            defaultTheme: "system",
-          }}
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="system"
+          enableSystem
+          disableTransitionOnChange
+          storage="cookie"
         >
-          <Providers>{children}</Providers>
-        </RootProvider>
+          <RootProvider
+            search={{
+              options: {
+                type: "static",
+              },
+            }}
+            theme={{ enabled: false }}
+          >
+            <Providers>{children}</Providers>
+          </RootProvider>
+        </ThemeProvider>
       </body>
     </html>
   );
