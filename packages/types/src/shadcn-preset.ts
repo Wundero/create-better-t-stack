@@ -81,7 +81,7 @@ export const PRESET_CHART_COLORS = PRESET_THEMES;
 
 /** V1 base-color themes keyed by base color; consumers look up arbitrary keys. */
 export interface V1ChartColorMap {
-  readonly [baseColor: string]: string;
+  readonly [baseColor: string]: (typeof PRESET_CHART_COLORS)[number];
 }
 
 // Before v2, base-color themes had colored chart palettes
