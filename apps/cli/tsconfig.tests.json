@@ -5,6 +5,10 @@
     "rootDir": "../..",
     "types": ["bun", "node"]
   },
-  "include": ["src/**/*.ts", "test/**/*.ts"],
+  "include": [
+    "src/**/*.ts",
+    "test/**/*.ts",
+    "../../packages/template-generator/src/handlebars-runtime.d.ts"
+  ],
   "exclude": ["node_modules", "dist", ".smoke"]
 }
