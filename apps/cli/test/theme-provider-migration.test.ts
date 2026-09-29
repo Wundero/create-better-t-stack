@@ -71,6 +71,10 @@ describe("theme provider migration to @wrksz/themes", () => {
       expect(layout).toBeDefined();
       expect(layout).toContain('from "@wrksz/themes/next"');
       expect(layout).toContain("<ThemeProvider");
+      expect(layout).toContain('storage="hybrid"');
+      expect(layout).not.toContain("getTheme");
+      expect(layout).not.toContain("initialTheme");
+      expect(layout).not.toContain("themeColor");
 
       const providers = files.get("apps/web/src/components/providers.tsx");
       expect(providers).toBeDefined();
@@ -160,7 +164,7 @@ describe("theme provider migration to @wrksz/themes", () => {
   });
 
   describe("shared ui package", () => {
-    it("imports useTheme from @wrksz/themes/client in sonner", async () => {
+    it("reads the optional theme context in sonner without requiring a provider", async () => {
       const files = await generateFiles({
         frontend: ["tanstack-router"],
         backend: "hono",
@@ -177,11 +181,16 @@ describe("theme provider migration to @wrksz/themes", () => {
       const sonner = files.get("packages/ui/src/components/sonner.tsx");
       expect(sonner).toBeDefined();
       expect(sonner).toContain("@wrksz/themes/client");
+      // Regression guard: the shared Toaster is rendered by frontends that have no
+      // ThemeProvider (tanstack-start). @wrksz/themes' `useTheme` THROWS outside a
+      // provider (next-themes silently returned a fallback), so the shared component
+      // must read the context defensively instead of hard-requiring a provider.
       // TanStack Start renders <Toaster /> without a ThemeProvider, and
       // @wrksz/themes' useTheme throws outside a provider, so the shared Toaster
       // must read the context directly instead of calling the hook.
       expect(sonner).toContain("ThemeContext");
       expect(sonner).not.toContain("useTheme(");
+      expect(sonner).not.toContain("useTheme()");
 
       expectNoNextThemes(files);
     });

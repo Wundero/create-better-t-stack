@@ -30534,6 +30534,7 @@ export default async function RootLayout({
           defaultTheme="system"
           enableSystem
           disableTransitionOnChange
+          storage="hybrid"
         >
           <Providers initialToken={token}>
             <div className="grid grid-rows-[auto_1fr] h-svh">
@@ -30562,6 +30563,7 @@ export default function RootLayout({
 					defaultTheme="system"
 					enableSystem
 					disableTransitionOnChange
+					storage="hybrid"
 				>
 					{{#if (eq auth "clerk")}}<ClerkProvider>
 						<Providers>
@@ -31032,7 +31034,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <Meta />
         <Links />
-        <ThemeScript />
+        <ThemeScript attribute="class" defaultTheme="dark" storageKey="vite-ui-theme" />
       </head>
       <body>
         {children}
@@ -35008,17 +35010,13 @@ export { Skeleton }
 `],
   ["packages/ui/src/components/sonner.tsx.hbs", `"use client"
 
-import { useContext } from "react"
 import { ThemeContext } from "@wrksz/themes/client"
 import { Toaster as Sonner, type ToasterProps } from "sonner"
+import { useContext } from "react"
 
 import { CircleCheckIcon, InfoIcon, Loader2Icon, OctagonXIcon, TriangleAlertIcon } from "lucide-react"
 
 const Toaster = ({ ...props }: ToasterProps) => {
-  // Read the context directly so the shared Toaster also works in frontends that
-  // render it without a ThemeProvider (e.g. TanStack Start). @wrksz/themes'
-  // useTheme throws outside a provider, unlike the previous provider's permissive
-  // default.
   const theme = useContext(ThemeContext)?.theme ?? "system"
 
   return (
