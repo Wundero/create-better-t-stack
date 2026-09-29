@@ -192,7 +192,7 @@ export default function Layout({ children }: { children: ReactNode }) {
           defaultTheme="system"
           enableSystem
           disableTransitionOnChange
-          storage="cookie"
+          storage="hybrid"
         >
           <RootProvider
             search={{

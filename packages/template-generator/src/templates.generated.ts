@@ -30538,7 +30538,7 @@ export default async function RootLayout({
           defaultTheme="system"
           enableSystem
           disableTransitionOnChange
-          storage="cookie"
+          storage="hybrid"
         >
           <Providers initialToken={token}>
             <div className="grid grid-rows-[auto_1fr] h-svh">
@@ -30567,7 +30567,7 @@ export default function RootLayout({
 					defaultTheme="system"
 					enableSystem
 					disableTransitionOnChange
-					storage="cookie"
+					storage="hybrid"
 				>
 					{{#if (eq auth "clerk")}}<ClerkProvider>
 						<Providers>

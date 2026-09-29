@@ -71,7 +71,7 @@ describe("theme provider migration to @wrksz/themes", () => {
       expect(layout).toBeDefined();
       expect(layout).toContain('from "@wrksz/themes/next"');
       expect(layout).toContain("<ThemeProvider");
-      expect(layout).toContain('storage="cookie"');
+      expect(layout).toContain('storage="hybrid"');
       expect(layout).not.toContain("getTheme");
       expect(layout).not.toContain("initialTheme");
       expect(layout).not.toContain("themeColor");
