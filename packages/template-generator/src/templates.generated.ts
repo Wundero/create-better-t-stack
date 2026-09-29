@@ -35008,13 +35008,18 @@ export { Skeleton }
 `],
   ["packages/ui/src/components/sonner.tsx.hbs", `"use client"
 
-import { useTheme } from "@wrksz/themes/client"
+import { useContext } from "react"
+import { ThemeContext } from "@wrksz/themes/client"
 import { Toaster as Sonner, type ToasterProps } from "sonner"
 
 import { CircleCheckIcon, InfoIcon, Loader2Icon, OctagonXIcon, TriangleAlertIcon } from "lucide-react"
 
 const Toaster = ({ ...props }: ToasterProps) => {
-  const { theme = "system" } = useTheme()
+  // Read the context directly so the shared Toaster also works in frontends that
+  // render it without a ThemeProvider (e.g. TanStack Start). @wrksz/themes'
+  // useTheme throws outside a provider, unlike the previous provider's permissive
+  // default.
+  const theme = useContext(ThemeContext)?.theme ?? "system"
 
   return (
     <Sonner

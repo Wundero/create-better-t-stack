@@ -177,6 +177,11 @@ describe("theme provider migration to @wrksz/themes", () => {
       const sonner = files.get("packages/ui/src/components/sonner.tsx");
       expect(sonner).toBeDefined();
       expect(sonner).toContain("@wrksz/themes/client");
+      // TanStack Start renders <Toaster /> without a ThemeProvider, and
+      // @wrksz/themes' useTheme throws outside a provider, so the shared Toaster
+      // must read the context directly instead of calling the hook.
+      expect(sonner).toContain("ThemeContext");
+      expect(sonner).not.toContain("useTheme(");
 
       expectNoNextThemes(files);
     });
