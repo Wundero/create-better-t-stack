@@ -280,10 +280,7 @@ export default tseslint.config(
   },
   {
     rules: {
-      "@typescript-eslint/ban-ts-comment": [
-        "error",
-        { "ts-nocheck": false, "ts-ignore": false },
-      ],
+      "@typescript-eslint/ban-ts-comment": ["error", { "ts-nocheck": false, "ts-ignore": false }],
       "@typescript-eslint/no-empty-object-type": ["error", { allowInterfaces: "always" }],
       "@typescript-eslint/no-require-imports": "off",
       "@typescript-eslint/no-unused-vars": "warn",
