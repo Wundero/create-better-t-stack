@@ -264,7 +264,7 @@ function getCompatibleDatabaseSetup(dbSetup: DatabaseSetup): Partial<MatrixConfi
     case "docker":
       return { database: "postgres", orm: "drizzle" };
     case "aurora":
-      return { database: "postgres", orm: "drizzle" };
+      return { database: "postgres", orm: "drizzle", serverDeploy: "aws", runtime: "bun" };
     case "none":
       return {};
   }
