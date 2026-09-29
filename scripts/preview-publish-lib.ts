@@ -37,6 +37,7 @@ export interface StagePreviewPackageOptions {
   readonly outDir: string;
   readonly version: string;
   readonly dependencyVersion: string;
+  readonly readmePath?: string;
 }
 
 export interface StagedPreviewPackage {
@@ -178,6 +179,9 @@ export async function stagePreviewPackage(
   await rm(options.outDir, { recursive: true, force: true });
   await mkdir(options.outDir, { recursive: true });
   await cp(join(options.sourceDir, "dist"), join(options.outDir, "dist"), { recursive: true });
+  if (options.readmePath !== undefined) {
+    await cp(options.readmePath, join(options.outDir, "README.md"));
+  }
   await writeFile(
     join(options.outDir, "package.json"),
     `${JSON.stringify(staged, null, 2)}\n`,

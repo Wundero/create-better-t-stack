@@ -41,6 +41,7 @@ async function main(): Promise<void> {
     outDir,
     version,
     dependencyVersion: baseVersion,
+    readmePath: resolve(sourceDir, "..", "..", "README.md"),
   });
 
   const output = process.env.GITHUB_OUTPUT;

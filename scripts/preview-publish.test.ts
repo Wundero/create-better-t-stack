@@ -185,4 +185,22 @@ describe("stagePreviewPackage", () => {
     expect(manifest.devDependencies).toBeUndefined();
     expect(readFileSync(join(outDir, "dist", "cli.mjs"), "utf-8")).toContain("console.log('bts')");
   });
+
+  test("copies the monorepo README.md into the staged package", async () => {
+    const sourceDir = makeTemporaryDirectory();
+    const outDir = join(makeTemporaryDirectory(), "staged");
+    writeCliFixture(sourceDir);
+    const readmePath = join(makeTemporaryDirectory(), "README.md");
+    writeFileSync(readmePath, "# Better-T-Stack\n\nMonorepo root readme.\n");
+
+    await stagePreviewPackage({
+      sourceDir,
+      outDir,
+      version: "3.44.1-preview-20260929-abc1234",
+      dependencyVersion: "3.44.1",
+      readmePath,
+    });
+
+    expect(readFileSync(join(outDir, "README.md"), "utf-8")).toContain("Monorepo root readme.");
+  });
 });
