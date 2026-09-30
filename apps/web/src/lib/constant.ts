@@ -166,7 +166,7 @@ export const TECH_OPTIONS: TechOptions = {
       id: "lambda",
       name: "AWS Lambda",
       description: "Serverless functions on AWS",
-      icon: "",
+      icon: "/icon/lambda.svg",
       color: "from-amber-500 to-orange-600",
     },
     {
@@ -394,7 +394,7 @@ export const TECH_OPTIONS: TechOptions = {
       id: "aurora",
       name: "AWS Aurora",
       description: "Managed Aurora Serverless Postgres or MySQL on AWS",
-      icon: "",
+      icon: "/icon/aurora.svg",
       color: "from-amber-500 to-orange-600",
     },
     {
@@ -425,7 +425,7 @@ export const TECH_OPTIONS: TechOptions = {
       id: "aws",
       name: "AWS",
       description: "Deploy to AWS using Alchemy",
-      icon: "",
+      icon: "/icon/aws.svg",
       color: "from-amber-500 to-orange-600",
     },
     {
@@ -471,7 +471,7 @@ export const TECH_OPTIONS: TechOptions = {
       id: "aws",
       name: "AWS",
       description: "Deploy to AWS using Alchemy",
-      icon: "",
+      icon: "/icon/aws.svg",
       color: "from-amber-500 to-orange-600",
     },
     {
