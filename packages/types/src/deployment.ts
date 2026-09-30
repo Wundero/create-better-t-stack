@@ -18,7 +18,7 @@ export const ALCHEMY_SERVER_DEPLOY_TARGETS = [
 ] as const satisfies readonly ServerDeploy[];
 
 // Targets the generator's Alchemy emitter models today; new targets stay no-ops until it learns them.
-export const ALCHEMY_DEPLOY_TARGETS = ["cloudflare", "prisma", "aws"] as const;
+export const ALCHEMY_DEPLOY_TARGETS = ["cloudflare", "prisma", "aws", "neon"] as const;
 
 export const ALCHEMY_DATABASE_SETUPS = [
   "neon",

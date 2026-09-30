@@ -873,10 +873,13 @@ function generateScriptsList(
   return scripts;
 }
 
-function getAlchemyTargetLabel(target: ProjectConfig["webDeploy"]): string {
+function getAlchemyTargetLabel(
+  target: ProjectConfig["webDeploy"] | ProjectConfig["serverDeploy"],
+): string {
   if (target === "cloudflare") return "Cloudflare";
   if (target === "prisma") return "Prisma";
   if (target === "aws") return "AWS";
+  if (target === "neon") return "Neon";
   return target;
 }
 

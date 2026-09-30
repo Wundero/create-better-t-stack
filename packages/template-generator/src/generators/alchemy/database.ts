@@ -18,18 +18,41 @@ function usesDataApi(plan: AlchemyDeploymentPlan): boolean {
 
 function writeNeon(
   writer: AlchemyWriter,
+  plan: AlchemyDeploymentPlan,
   database: Extract<ManagedDatabasePlan, { kind: "neon" }>,
 ) {
   writeObject(
     writer,
     'const database = yield* Neon.Project("database", {',
     () => {
-      if (database.orm === "drizzle") {
+      if (database.orm === "drizzle" && !plan.hasNeonServer) {
         writer.writeLine('migrations: "../../packages/db/src/migrations",');
       }
     },
     "});",
   );
+  if (plan.hasNeonServer) {
+    writeObject(
+      writer,
+      'const branch = yield* Neon.Branch("database-branch", {',
+      () => {
+        writer.writeLine("project: database,");
+        if (database.orm === "drizzle") {
+          writer.writeLine('migrations: "../../packages/db/src/migrations",');
+        }
+      },
+      "});",
+    );
+    writer.writeLine(
+      "const runtimeUrl = branch.pooledConnectionUri.pipe(Output.map(Redacted.make));",
+    );
+    if (database.orm === "prisma") {
+      writer.writeLine(
+        "const migrationUrl = branch.connectionUri.pipe(Output.map(Redacted.make));",
+      );
+    }
+    return;
+  }
   writer.writeLine(
     "const runtimeUrl = database.pooledConnectionUri.pipe(Output.map(Redacted.make));",
   );
@@ -356,7 +379,7 @@ function writeManagedDatabase(writer: AlchemyWriter, plan: AlchemyDeploymentPlan
   writer.indent(() => {
     switch (database.kind) {
       case "neon":
-        writeNeon(writer, database);
+        writeNeon(writer, plan, database);
         break;
       case "planetscale-postgres":
         writePlanetScalePostgres(writer, database);
@@ -407,6 +430,7 @@ function writeManagedDatabase(writer: AlchemyWriter, plan: AlchemyDeploymentPlan
       } else {
         writer.writeLine("runtimeEnv: { DATABASE_URL: runtimeUrl },");
       }
+      if (database.kind === "neon" && plan.hasNeonServer) writer.writeLine("branch,");
     });
     writer.writeLine("};");
   });
@@ -455,6 +479,23 @@ function writeManagedDatabase(writer: AlchemyWriter, plan: AlchemyDeploymentPlan
     }
   });
   writer.writeLine(");");
+  if (database.kind === "neon" && plan.hasNeonServer) {
+    writer.blankLine();
+    writer.writeLine(
+      "export const neonBranch = managedDatabase.pipe(Effect.map(({ branch }) => branch));",
+    );
+  }
+}
+
+function writeNeonServerHost(writer: AlchemyWriter, plan: AlchemyDeploymentPlan): void {
+  if (!plan.hasNeonServer || plan.managedDatabase.kind === "neon") return;
+
+  writer.writeLine("export const neonBranch = Effect.gen(function* () {");
+  writer.indent(() => {
+    writer.writeLine('const project = yield* Neon.Project("server-project");');
+    writer.writeLine('return yield* Neon.Branch("server-branch", { project });');
+  });
+  writer.writeLine("});");
 }
 
 function writeExternalDatabaseEnv(writer: AlchemyWriter, plan: AlchemyDeploymentPlan): void {
@@ -519,6 +560,7 @@ export function writeDatabaseResources(writer: AlchemyWriter, plan: AlchemyDeplo
   }
 
   writeManagedDatabase(writer, plan);
+  writeNeonServerHost(writer, plan);
   writeExternalDatabaseEnv(writer, plan);
   if (plan.hasAlchemyManagedDatabase || plan.hasPrismaDeploy) writer.blankLine();
   writeD1(writer, plan);
