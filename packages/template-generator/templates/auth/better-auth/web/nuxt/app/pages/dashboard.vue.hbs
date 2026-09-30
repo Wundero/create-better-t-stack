@@ -1,6 +1,9 @@
 <script setup lang="ts">
 {{#if (eq payments "polar")}}
 import type { CustomerState } from "@polar-sh/sdk/models/components/customerstate";
+{{else if (and (ne payments "none") (ne payments "polar"))}}
+import PaymentActions from "~/components/PaymentActions.vue";
+import { usePayment } from "~/lib/payments";
 {{/if}}
 
 {{#if (eq api "orpc")}}
@@ -17,6 +20,8 @@ const session = $authClient.useSession()
 
 {{#if (eq payments "polar")}}
 const customerState = ref<CustomerState | null>(null)
+{{else if (and (ne payments "none") (ne payments "polar"))}}
+const { state, isLoading, checkout, portal } = usePayment()
 {{/if}}
 
 {{#if (eq api "orpc")}}
@@ -96,6 +101,20 @@ const hasProSubscription = computed(() =>
             Upgrade to Pro
           </UButton>
         </div>
+      </UCard>
+      {{else if (and (ne payments "none") (ne payments "polar"))}}
+      <UCard>
+        <template #header>
+          <div class="font-medium">Subscription</div>
+        </template>
+
+        <PaymentActions
+          :is-active="state.isActive"
+          :plan-label="state.planLabel"
+          :pending="isLoading"
+          @checkout="checkout"
+          @portal="portal"
+        />
       </UCard>
       {{/if}}
     </div>

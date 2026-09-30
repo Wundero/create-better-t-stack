@@ -309,13 +309,24 @@ create-better-t-stack --auth none
 Payments provider:
 
 - `none`: No payments integration
-- `polar`: Polar payments integration
+- `polar`: Polar payments integration (works with Convex and native-only stacks)
+- `stripe`: Stripe payments integration
+- `autumn`: Autumn payments integration
+- `dodo`: Dodo Payments integration
+- `creem`: Creem payments integration
+- `chargebee`: Chargebee payments integration
+- `commet`: Commet payments integration
 
 ```bash
 create-better-t-stack --payments polar --auth better-auth
 ```
 
-**Note:** Polar payments requires Better-Auth authentication.
+**Note:**
+
+- All payments providers require Better-Auth authentication
+- `stripe`, `autumn`, `dodo`, `creem`, `chargebee`, and `commet` are not available with `--backend convex` or native-only frontends; Polar supports both
+- Autumn requires a React web frontend (Next.js, TanStack Router, React Router, or TanStack Start)
+- Stripe, Dodo Payments, Creem, and Chargebee extend the Better Auth schema: run `bun run auth:generate`, then apply the generated schema with your ORM's migration workflow
 
 ## Addons
 

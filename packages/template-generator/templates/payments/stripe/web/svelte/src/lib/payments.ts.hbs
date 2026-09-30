@@ -1,0 +1,58 @@
+import { derived, writable, type Readable } from "svelte/store";
+import { authClient } from "$lib/auth-client";
+
+export interface PaymentState {
+  isActive: boolean;
+  planLabel: string;
+}
+
+const isActive = writable(false);
+const isLoading = writable(true);
+
+const state = derived(isActive, ($isActive): PaymentState => ({
+  isActive: $isActive,
+  planLabel: $isActive ? "Pro" : "Free",
+}));
+
+let hasLoaded = false;
+
+function ensureLoaded(): void {
+  if (hasLoaded) return;
+  hasLoaded = true;
+
+  void authClient.subscription.list().then(({ data, error }) => {
+    isActive.set(
+      !error &&
+        (data?.some(
+          (subscription) => subscription.status === "active" || subscription.status === "trialing",
+        ) ?? false),
+    );
+    isLoading.set(false);
+  });
+}
+
+async function checkout(): Promise<void> {
+  const { error } = await authClient.subscription.upgrade({
+    plan: "pro",
+    successUrl: "/success",
+    cancelUrl: "/dashboard",
+  });
+  if (error) return;
+}
+
+async function portal(): Promise<void> {
+  const { error } = await authClient.subscription.billingPortal({
+    returnUrl: "/dashboard",
+  });
+  if (error) return;
+}
+
+export function usePayment(): {
+  state: Readable<PaymentState>;
+  isLoading: Readable<boolean>;
+  checkout: () => Promise<void>;
+  portal: () => Promise<void>;
+} {
+  ensureLoaded();
+  return { state, isLoading, checkout, portal };
+}

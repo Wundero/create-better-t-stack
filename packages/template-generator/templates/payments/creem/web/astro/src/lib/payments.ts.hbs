@@ -1,0 +1,28 @@
+import { authClient } from "./auth-client";
+
+export interface PaymentState {
+  isActive: boolean;
+  planLabel: string;
+}
+
+export async function getPaymentState(): Promise<PaymentState> {
+  const { data, error } = await authClient.creem.hasAccessGranted();
+  const isActive = !error && (data?.hasAccessGranted ?? false);
+  return { isActive, planLabel: isActive ? "Pro" : "Free" };
+}
+
+export async function checkout(): Promise<void> {
+  // Replace "prod_..." with the Creem product ID for your Pro plan.
+  const { data, error } = await authClient.creem.createCheckout({
+    productId: "prod_...",
+    successUrl: "/success",
+  });
+  if (error || !data?.url) return;
+  window.location.href = data.url;
+}
+
+export async function portal(): Promise<void> {
+  const { data, error } = await authClient.creem.createPortal();
+  if (error || !data?.url) return;
+  window.location.href = data.url;
+}

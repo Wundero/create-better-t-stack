@@ -220,6 +220,14 @@ Better-Auth authentication requires:
 - Without database: Works with Convex backend or custom configuration
 - With `--backend convex`: requires `react-router`, `tanstack-router`, `tanstack-start`, `next`, or a native Expo frontend
 
+```bash
+# ✅ Valid - Better-Auth without database
+create-better-t-stack --auth better-auth --database none
+
+# ✅ Valid - Better-Auth with full stack
+create-better-t-stack --auth better-auth --database postgres --orm drizzle --backend hono
+```
+
 ### Clerk Requirements
 
 Clerk authentication requires:
@@ -229,20 +237,7 @@ Clerk authentication requires:
 - Fullstack (`--backend self`) support with Next.js or TanStack Start
 - Not compatible with Nuxt, Svelte, Solid, or Astro
 
-### Payments Requirements
-
-Polar payments require:
-
-- Better-Auth authentication
-- A web frontend (or no frontend selected)
-
 ```bash
-# ✅ Valid - Better-Auth without database
-create-better-t-stack --auth better-auth --database none
-
-# ✅ Valid - Better-Auth with full stack
-create-better-t-stack --auth better-auth --database postgres --orm drizzle --backend hono
-
 # ✅ Valid - Clerk with Hono
 create-better-t-stack --auth clerk --backend hono --frontend tanstack-router
 
@@ -251,6 +246,38 @@ create-better-t-stack --auth clerk --backend self --frontend next
 
 # ❌ Invalid - Clerk with Astro
 create-better-t-stack --auth clerk --backend self --frontend astro
+```
+
+### Payments Requirements
+
+All payments providers require Better-Auth authentication. Polar also supports the Convex backend and native-only stacks.
+
+Stripe, Autumn, Dodo Payments, Creem, Chargebee, and Commet require:
+
+- A non-Convex backend (`--backend convex` supports Polar only)
+- A web frontend or no frontend (not available with native-only stacks)
+- Autumn additionally requires a React web frontend (Next.js, TanStack Router, React Router, or TanStack Start)
+
+Stripe, Dodo Payments, Creem, and Chargebee extend the Better Auth schema. After scaffolding, run `bun run auth:generate`, then apply the generated schema with your ORM's migration workflow.
+
+```bash
+# ✅ Valid - Polar with Better-Auth
+create-better-t-stack --payments polar --auth better-auth
+
+# ✅ Valid - Stripe with a React web frontend
+create-better-t-stack --payments stripe --auth better-auth --frontend tanstack-router --backend hono --database postgres --orm drizzle
+
+# ✅ Valid - Commet with fullstack Next.js
+create-better-t-stack --payments commet --auth better-auth --frontend next --backend self
+
+# ❌ Invalid - other providers also require Better-Auth
+create-better-t-stack --payments stripe --auth clerk --frontend next --backend self
+
+# ❌ Invalid - only Polar supports the Convex backend
+create-better-t-stack --payments autumn --auth better-auth --frontend next --backend convex
+
+# ❌ Invalid - Autumn requires a React web frontend
+create-better-t-stack --payments autumn --auth better-auth --frontend nuxt --backend self
 ```
 
 ## Example Compatibility
@@ -290,13 +317,15 @@ create-better-t-stack --runtime workers --backend hono
 create-better-t-stack --frontend tanstack-router
 ```
 
-### "Polar payments requires Better Auth"
+### "Stripe payments requires Better Auth"
+
+The message names the selected provider; every payments provider requires Better-Auth.
 
 ```bash
 # Fix by using Better-Auth
-create-better-t-stack --payments polar --auth better-auth
+create-better-t-stack --payments stripe --auth better-auth
 
-# Or use Clerk without Polar payments
+# Or use Clerk without payments
 create-better-t-stack --auth clerk --backend hono --frontend tanstack-router
 ```
 
