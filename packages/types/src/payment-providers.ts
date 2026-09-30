@@ -34,8 +34,13 @@ export type PaymentProviderMeta = {
   readonly id: PaymentProviderId;
   readonly label: string;
   readonly description: string;
-  /** slug for `${ICON_BASE_URL}/<slug>.svg`; empty means "no icon available yet". */
+  /**
+   * Icon reference: a slug for `${ICON_BASE_URL}/<slug>.svg`, a root-relative
+   * local path (`/icon/foo.svg`), or empty for "no icon available yet".
+   */
   readonly iconSlug: string;
+  /** optional extra class applied to the icon image (e.g. theme inversion). */
+  readonly iconClassName?: string;
   /** tailwind gradient used by the web builder card. */
   readonly color: string;
   /** provider's better-auth plugin requires the better-auth auth provider. */
@@ -86,7 +91,7 @@ export const PAYMENT_PROVIDERS = {
     id: "stripe",
     label: "Stripe",
     description: "Online payment processing for internet businesses.",
-    iconSlug: "",
+    iconSlug: "/icon/stripe.svg",
     color: "from-indigo-400 to-indigo-600",
     requiresBetterAuth: true,
     supportsConvex: false,
@@ -109,7 +114,7 @@ export const PAYMENT_PROVIDERS = {
     id: "autumn",
     label: "Autumn",
     description: "Pricing and billing infrastructure for SaaS.",
-    iconSlug: "",
+    iconSlug: "/icon/autumn.svg",
     color: "from-emerald-400 to-emerald-600",
     requiresBetterAuth: true,
     supportsConvex: false,
@@ -125,7 +130,7 @@ export const PAYMENT_PROVIDERS = {
     id: "dodo",
     label: "Dodo Payments",
     description: "Merchant of record for global payments and billing.",
-    iconSlug: "",
+    iconSlug: "/icon/dodo.svg",
     color: "from-orange-400 to-orange-600",
     requiresBetterAuth: true,
     supportsConvex: false,
@@ -152,7 +157,8 @@ export const PAYMENT_PROVIDERS = {
     id: "creem",
     label: "Creem",
     description: "Merchant of record for SaaS and digital products.",
-    iconSlug: "",
+    iconSlug: "/icon/creem.svg",
+    iconClassName: "invert-0 dark:invert",
     color: "from-pink-400 to-pink-600",
     requiresBetterAuth: true,
     supportsConvex: false,
@@ -175,7 +181,7 @@ export const PAYMENT_PROVIDERS = {
     id: "chargebee",
     label: "Chargebee",
     description: "Subscription billing and revenue management.",
-    iconSlug: "",
+    iconSlug: "/icon/chargebee.svg",
     color: "from-sky-400 to-sky-600",
     requiresBetterAuth: true,
     supportsConvex: false,
@@ -204,7 +210,8 @@ export const PAYMENT_PROVIDERS = {
     id: "commet",
     label: "Commet",
     description: "Billing infrastructure for SaaS products.",
-    iconSlug: "",
+    iconSlug: "/icon/commet.svg",
+    iconClassName: "invert-0 dark:invert",
     color: "from-violet-400 to-violet-600",
     requiresBetterAuth: true,
     supportsConvex: false,
