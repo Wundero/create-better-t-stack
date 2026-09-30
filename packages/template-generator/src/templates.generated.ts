@@ -100,6 +100,86 @@ export const EMBEDDED_TEMPLATES: Map<string, string> = new Map([
 	{{/if}}
 }
 `],
+  ["addons/cloudflare-ai-search/apps/server/src/cloudflare/ai-search.ts", `import { ENV } from "../env.server";
+
+export function askSearch(query: string) {
+  return ENV.AI_SEARCH.chatCompletions({ messages: [{ role: "user", content: query }] });
+}
+`],
+  ["addons/cloudflare-containers/apps/server/src/cloudflare/app-container.ts", `import { Container } from "@cloudflare/containers";
+
+export class AppContainer extends Container<Env> {
+  defaultPort = 80;
+}
+`],
+  ["addons/cloudflare-durable-objects/apps/server/src/cloudflare/counter.ts", `import { DurableObject } from "cloudflare:workers";
+
+export class Counter extends DurableObject<Env> {
+  async increment(): Promise<number> {
+    const value = ((await this.ctx.storage.get<number>("value")) ?? 0) + 1;
+    await this.ctx.storage.put("value", value);
+    return value;
+  }
+}
+`],
+  ["addons/cloudflare-flagship/apps/server/src/cloudflare/flagship.ts", `import { ENV } from "../env.server";
+
+export function isNewCheckoutEnabled(userId: string) {
+  return ENV.FEATURE_FLAGS.getBooleanValue("new-checkout", false, { userId });
+}
+`],
+  ["addons/cloudflare-kv/apps/server/src/cloudflare/kv.ts", `import { ENV } from "../env.server";
+
+export function readValue(key: string) {
+  return ENV.KV_NAMESPACE.get(key);
+}
+`],
+  ["addons/cloudflare-pipelines/apps/server/src/cloudflare/pipelines.ts", `import { ENV } from "../env.server";
+
+export function sendEvent(event: string) {
+  return ENV.PIPELINES.send([{ event, at: new Date().toISOString() }]);
+}
+`],
+  ["addons/cloudflare-queues/apps/server/src/cloudflare/queue.ts", `import { ENV } from "../env.server";
+
+export function enqueueJob(job: string) {
+  return ENV.JOB_QUEUE.send(job);
+}
+`],
+  ["addons/cloudflare-r2/apps/server/src/cloudflare/r2.ts", `import { ENV } from "../env.server";
+
+export function putAsset(key: string, value: string) {
+  return ENV.R2_BUCKET.put(key, value);
+}
+`],
+  ["addons/cloudflare-realtime-kit/apps/server/src/cloudflare/realtime-kit.ts", `import { ENV } from "../env.server";
+
+export const realtimeKitAppId = ENV.REALTIME_KIT_APP_ID;
+`],
+  ["addons/cloudflare-sandboxes/apps/server/src/cloudflare/sandbox.ts", `import { getSandbox } from "@cloudflare/sandbox";
+
+import { ENV } from "../env.server";
+
+export { Sandbox } from "@cloudflare/sandbox";
+
+export function getAppSandbox(id = "default") {
+  return getSandbox(ENV.SANDBOX, id);
+}
+`],
+  ["addons/cloudflare-stream/apps/server/src/cloudflare/stream.ts", `import { ENV } from "../env.server";
+
+export const stream = ENV.STREAM;
+`],
+  ["addons/cloudflare-workers-ai/apps/server/src/cloudflare/workers-ai.ts", `import { generateText } from "ai";
+import { createWorkersAI } from "workers-ai-provider";
+
+import { ENV } from "../env.server";
+
+export function askWorkersAI(prompt: string) {
+  const workersai = createWorkersAI({ binding: ENV.AI });
+  return generateText({ model: workersai("@cf/meta/llama-3.1-8b-instruct"), prompt });
+}
+`],
   ["addons/electrobun/apps/desktop/.gitignore", `.hutch/
 /artifacts/
 /build/
@@ -35960,4 +36040,4 @@ export default function Success() {
 `]
 ]);
 
-export const TEMPLATE_COUNT = 534;
+export const TEMPLATE_COUNT = 546;
