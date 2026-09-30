@@ -7,6 +7,7 @@ import { desktopWebFrontends, type ProjectConfig } from "../../types";
 import { addPackageDependency } from "../../utils/add-package-deps";
 import { AddonSetupError, UserCancelledError } from "../../utils/errors";
 import { runOptionalStep } from "../../utils/optional-step";
+import { setupEslint } from "./eslint-setup";
 import { setupEvlog } from "./evlog-setup";
 import { setupFumadocs } from "./fumadocs-setup";
 import { setupMcp } from "./mcp-setup";
@@ -51,6 +52,7 @@ export async function setupAddons(config: ProjectConfig): Promise<void> {
   const hasHusky = addons.includes("husky");
   const hasLefthook = addons.includes("lefthook");
   const hasOxlint = addons.includes("oxlint");
+  const hasEslint = addons.includes("eslint");
   const hasVitePlus = addons.includes("vite-plus");
 
   if (hasUltracite) {
@@ -59,6 +61,12 @@ export async function setupAddons(config: ProjectConfig): Promise<void> {
     if (hasLefthook) gitHooks.push("lefthook");
     await runSetup(() => setupUltracite(config, gitHooks));
   } else {
+    // ESLint is intentionally dispatched before Biome/Oxlint so the preferred tools
+    // keep ownership of the shared `check` script and git-hook linter slot.
+    if (hasEslint) {
+      await runSetup(() => setupEslint(projectDir));
+    }
+
     if (hasBiome) {
       await runAddonStep("biome", () => setupBiome(projectDir));
     }
@@ -68,11 +76,13 @@ export async function setupAddons(config: ProjectConfig): Promise<void> {
     }
 
     if (hasHusky || hasLefthook) {
-      let linter: "biome" | "oxlint" | "vite-plus" | undefined;
+      let linter: "biome" | "oxlint" | "eslint" | "vite-plus" | undefined;
       if (hasOxlint) {
         linter = "oxlint";
       } else if (hasBiome) {
         linter = "biome";
+      } else if (hasEslint) {
+        linter = "eslint";
       } else if (hasVitePlus) {
         linter = "vite-plus";
       }
@@ -133,7 +143,10 @@ export async function setupBiome(projectDir: string) {
   }
 }
 
-export async function setupHusky(projectDir: string, linter?: "biome" | "oxlint" | "vite-plus") {
+export async function setupHusky(
+  projectDir: string,
+  linter?: "biome" | "oxlint" | "eslint" | "vite-plus",
+) {
   await addPackageDependency({
     devDependencies: ["husky", "lint-staged"],
     projectDir,
@@ -155,6 +168,11 @@ export async function setupHusky(projectDir: string, linter?: "biome" | "oxlint"
     } else if (linter === "biome") {
       packageJson["lint-staged"] = {
         "*.{js,ts,cjs,mjs,d.cts,d.mts,jsx,tsx,json,jsonc}": ["biome check --write ."],
+      };
+    } else if (linter === "eslint") {
+      packageJson["lint-staged"] = {
+        "*.{js,jsx,ts,tsx,mjs,cjs,mts,cts,json,jsonc,css,scss,md,mdx,yml,yaml,html,vue,svelte,astro}":
+          ["eslint --fix", "prettier --write"],
       };
     } else if (linter === "vite-plus") {
       packageJson["lint-staged"] = {

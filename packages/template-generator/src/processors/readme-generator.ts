@@ -588,6 +588,7 @@ function generateFeaturesList(
     electrobun: "- **Electrobun** - Lightweight desktop shell for web frontends",
     biome: "- **Biome** - Linting and formatting",
     oxlint: "- **Oxlint** - Oxlint + Oxfmt (linting & formatting)",
+    eslint: "- **ESLint + Prettier** - Linting and formatting (oxlint, Vite+, or Biome preferred)",
     husky: "- **Husky** - Git hooks for code quality",
     starlight: "- **Starlight** - Documentation site with Astro",
     turborepo: "- **Turborepo** - Optimized monorepo build system",
@@ -818,6 +819,8 @@ function generateScriptsList(
     scripts += `\n- \`${packageManagerRunCmd} check\`: Run Biome formatting and linting`;
   } else if (addons.includes("oxlint")) {
     scripts += `\n- \`${packageManagerRunCmd} check\`: Run Oxlint and Oxfmt`;
+  } else if (addons.includes("eslint")) {
+    scripts += `\n- \`${packageManagerRunCmd} check\`: Run ESLint and Prettier`;
   }
 
   if (addons.includes("pwa")) {
@@ -1066,7 +1069,11 @@ function generateGitHooksSection(
   const hasLefthook = addons.includes("lefthook");
   const hasVitePlus = addons.includes("vite-plus");
   const hasVitePlusNativeHooks = hasVitePlus && !hasHusky && !hasLefthook;
-  const hasLinting = addons.includes("biome") || addons.includes("oxlint") || hasVitePlus;
+  const hasLinting =
+    addons.includes("biome") ||
+    addons.includes("oxlint") ||
+    addons.includes("eslint") ||
+    hasVitePlus;
 
   if (!hasHusky && !hasLinting) {
     return "";

@@ -44,11 +44,12 @@ function resolveAddonConflicts(addons: readonly Addons[]): Addons[] {
   const exclusiveGroups = [
     new Set<Addons>(TASK_RUNNER_ADDONS),
     new Set<Addons>(OBSERVABILITY_ADDONS),
+    new Set<Addons>(["eslint", "vite-plus"]),
   ];
 
   for (const addon of addons) {
-    const group = exclusiveGroups.find((values) => values.has(addon));
-    if (group) {
+    for (const group of exclusiveGroups) {
+      if (!group.has(addon)) continue;
       const existingIndex = resolved.findIndex((value) => group.has(value));
       if (existingIndex !== -1) resolved.splice(existingIndex, 1);
     }

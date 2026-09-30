@@ -135,6 +135,10 @@ function getNodeToolingRequirements(config: RequirementConfig): VersionRequireme
     addNodeRequirement(requirements, "^20.19.0 || >=22.12.0", "Oxlint and Oxfmt");
   }
 
+  if (config.addons.includes("eslint")) {
+    addNodeRequirement(requirements, "^20.19.0 || ^22.13.0 || >=24.0.0", "ESLint 10");
+  }
+
   if (config.addons.includes("husky")) {
     addNodeRequirement(requirements, ">=22.22.1", "lint-staged 17");
   }

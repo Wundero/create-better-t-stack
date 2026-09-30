@@ -354,6 +354,9 @@ export function getCompatibleAddons(
       return false;
     }
 
+    if (addon === "eslint" && existingAddons.includes("vite-plus")) return false;
+    if (addon === "vite-plus" && existingAddons.includes("eslint")) return false;
+
     const { isCompatible } = validateAddonCompatibility(addon, frontend, auth, backend, runtime);
     return isCompatible;
   });
@@ -372,6 +375,12 @@ export function validateAddonsAgainstFrontends(
   if (selectedTaskRunners.length > 1) {
     return validationErr(
       "Cannot combine 'turborepo', 'nx', and 'vite-plus' addons. Choose one task runner.",
+    );
+  }
+
+  if (addons.includes("eslint") && addons.includes("vite-plus")) {
+    return validationErr(
+      "Cannot combine 'eslint' and 'vite-plus' addons. Vite+ already provides linting and formatting.",
     );
   }
 
