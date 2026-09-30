@@ -264,6 +264,139 @@ export function prismaWebEnvEntries(
   return entries;
 }
 
+function awsRuntimeEntries(plan: AlchemyDeploymentPlan, includeCorsOrigin: boolean): string[] {
+  const { auth, dbSetup, payments } = plan.config;
+  const entries: string[] = [];
+
+  if (includeCorsOrigin) {
+    entries.push("CORS_ORIGIN: process.env.CORS_ORIGIN!,");
+  }
+  if (auth === "better-auth") {
+    entries.push(
+      "BETTER_AUTH_SECRET: process.env.BETTER_AUTH_SECRET!,",
+      "BETTER_AUTH_URL: process.env.BETTER_AUTH_URL!,",
+    );
+  }
+  if (hasExample(plan, "ai")) {
+    entries.push("GOOGLE_GENERATIVE_AI_API_KEY: process.env.GOOGLE_GENERATIVE_AI_API_KEY!,");
+  }
+  if (payments === "polar") {
+    entries.push(
+      "POLAR_ACCESS_TOKEN: process.env.POLAR_ACCESS_TOKEN!,",
+      "POLAR_SUCCESS_URL: process.env.POLAR_SUCCESS_URL!,",
+    );
+  }
+  if (dbSetup === "turso") {
+    entries.push("DATABASE_AUTH_TOKEN: process.env.DATABASE_AUTH_TOKEN!,");
+  }
+
+  return entries;
+}
+
+export function awsServerEnvEntries(plan: AlchemyDeploymentPlan): string[] {
+  const { api, auth, backend } = plan.config;
+  const entries = awsRuntimeEntries(plan, true);
+
+  if (auth === "clerk") {
+    entries.push("CLERK_SECRET_KEY: process.env.CLERK_SECRET_KEY!,");
+    if (
+      ["express", "fastify"].includes(backend) ||
+      (api !== "none" && ["hono", "elysia"].includes(backend))
+    ) {
+      entries.push("CLERK_PUBLISHABLE_KEY: process.env.CLERK_PUBLISHABLE_KEY!,");
+    }
+  }
+  if (plan.hasAxiomServerRuntime) {
+    entries.push("...resolvedObservabilityEnv,");
+  }
+
+  return entries;
+}
+
+function awsServerUrlExpression(plan: AlchemyDeploymentPlan): string | undefined {
+  if (plan.server.target === "none") return undefined;
+  if (plan.server.target === "aws" && plan.server.compute === "lambda") {
+    return "serverWorker.functionUrl.as<string>()";
+  }
+  return "serverWorker.url.as<string>()";
+}
+
+export function awsWebEnvEntries(
+  plan: AlchemyDeploymentPlan,
+  framework: DeployedWebFramework,
+): string[] {
+  const { auth, backend } = plan.config;
+  const serverValue = awsServerUrlExpression(plan);
+  const entries: string[] = [];
+
+  if (plan.hasAxiomWebRuntime) {
+    entries.push("...resolvedObservabilityEnv,");
+  }
+
+  if (framework === "astro") {
+    if (backend !== "none") {
+      entries.push(`PUBLIC_SERVER_URL: ${serverValue ?? "process.env.PUBLIC_SERVER_URL!"},`);
+    }
+    return entries;
+  }
+
+  const prefix =
+    framework === "next"
+      ? "NEXT_PUBLIC"
+      : framework === "nuxt"
+        ? "NUXT_PUBLIC"
+        : framework === "svelte"
+          ? "PUBLIC"
+          : "VITE";
+  if (backend === "convex") {
+    entries.push(`${prefix}_CONVEX_URL: process.env.${prefix}_CONVEX_URL!,`);
+    if (auth === "better-auth") {
+      entries.push(`${prefix}_CONVEX_SITE_URL: process.env.${prefix}_CONVEX_SITE_URL!,`);
+    }
+  } else if (backend !== "none") {
+    entries.push(`${prefix}_SERVER_URL: ${serverValue ?? `process.env.${prefix}_SERVER_URL!`},`);
+  }
+
+  if (auth === "clerk" && ["next", "tanstack-start", "react-router"].includes(framework)) {
+    entries.push("CLERK_SECRET_KEY: process.env.CLERK_SECRET_KEY!,");
+    entries.push(
+      framework === "next"
+        ? "NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY!,"
+        : "VITE_CLERK_PUBLISHABLE_KEY: process.env.VITE_CLERK_PUBLISHABLE_KEY!,",
+    );
+  }
+
+  return entries;
+}
+
+export function selfAwsWebEnvEntries(
+  plan: AlchemyDeploymentPlan,
+  framework: DeployedWebFramework,
+): string[] {
+  const { api, auth } = plan.config;
+  const entries = awsRuntimeEntries(plan, false);
+
+  if (auth === "clerk" && ["next", "solid", "tanstack-start"].includes(framework)) {
+    entries.push(
+      "CLERK_SECRET_KEY: process.env.CLERK_SECRET_KEY!,",
+      "CORS_ORIGIN: process.env.CORS_ORIGIN!,",
+    );
+    if (api !== "none") {
+      entries.push("CLERK_PUBLISHABLE_KEY: process.env.CLERK_PUBLISHABLE_KEY!,");
+    }
+    entries.push(
+      framework === "next"
+        ? "NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY!,"
+        : "VITE_CLERK_PUBLISHABLE_KEY: process.env.VITE_CLERK_PUBLISHABLE_KEY!,",
+    );
+  }
+  if (plan.hasAxiomWebRuntime) {
+    entries.push("...resolvedObservabilityEnv,");
+  }
+
+  return entries;
+}
+
 export function splitCloudflareWebEnvEntries(
   plan: AlchemyDeploymentPlan,
   framework: DeployedWebFramework,

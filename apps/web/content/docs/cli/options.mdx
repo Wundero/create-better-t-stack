@@ -187,6 +187,7 @@ Database hosting/setup provider:
 - `supabase`: Supabase (PostgreSQL)
 - `prisma-postgres`: Prisma Postgres
 - `planetscale`: PlanetScale (MySQL/PostgreSQL)
+- `aurora`: AWS Aurora Serverless V2 (PostgreSQL/MySQL; requires an AWS deployment target)
 - `mongodb-atlas`: MongoDB Atlas
 - `docker`: Local Docker containers
 
@@ -222,6 +223,7 @@ Runtime environment:
 - `bun`: Bun runtime
 - `node`: Node.js runtime
 - `workers`: Cloudflare Workers
+- `lambda`: AWS Lambda (Hono only; requires `--server-deploy aws`)
 
 ```bash
 create-better-t-stack --backend hono --runtime bun
@@ -371,6 +373,7 @@ Web deployment configuration:
 - `none`: No deployment setup
 - `cloudflare`: Cloudflare Workers deployment (via Alchemy infrastructure as code)
 - `prisma`: Prisma deployment via Alchemy (all generated web frameworks)
+- `aws`: AWS deployment via Alchemy (`AWS.Website.*` for supported web frameworks, including Solid through nitro's `aws-lambda` output)
 - `docker`: Self-hosted deployment with a Dockerfile and a root `docker-compose.yml`
 - `vercel`: Vercel Services deployment with a root `vercel.json`
 
@@ -378,7 +381,7 @@ Web deployment configuration:
 create-better-t-stack --web-deploy docker
 ```
 
-When the app that consumes Neon, PlanetScale, or Prisma Postgres is deployed with Alchemy, the CLI asks how the database should be provisioned and defaults to Alchemy. You can instead choose the provider's automatic setup when available or configure an existing database manually. With Alchemy selected, the generated stack provisions the database, injects runtime credentials, and applies checked-in migrations. Run `alchemy profile edit` from `packages/infra`; no separate provider setup step is required. See the [Alchemy deployment guide](/docs/guides/cloudflare-alchemy) for details.
+When the app that consumes Neon, PlanetScale, Prisma Postgres, or Aurora is deployed with Alchemy, the CLI asks how the database should be provisioned and defaults to Alchemy. You can instead choose the provider's automatic setup when available or configure an existing database manually. With Alchemy selected, the generated stack provisions the database, injects runtime credentials, and applies checked-in migrations. Run `alchemy profile edit` from `packages/infra`; no separate provider setup step is required. See the [Alchemy deployment guide](/docs/guides/cloudflare-alchemy) for details.
 
 ## Automation Surfaces
 
@@ -400,6 +403,7 @@ Server deployment configuration:
 - `none`: No deployment setup
 - `cloudflare`: Cloudflare Workers deployment (when runtime is workers, via Alchemy infrastructure as code)
 - `prisma`: Prisma deployment via Alchemy (requires the Bun or Node runtime)
+- `aws`: AWS deployment via Alchemy (requires the Bun, Node, or Lambda runtime)
 - `docker`: Self-hosted deployment with a Dockerfile and a root `docker-compose.yml` (requires the bun or node runtime)
 - `vercel`: Vercel Services deployment (requires the bun or node runtime)
 

@@ -1,5 +1,5 @@
 import type { DatabaseConfig } from "./config";
-{{#if (or (eq runtime "bun") (eq runtime "node") (eq runtime "none"))}}
+{{#if (or (eq runtime "bun") (eq runtime "node") (eq runtime "lambda") (eq runtime "none"))}}
 import { relations } from "./relations";
 
 {{#if (eq dbSetup "neon")}}
@@ -9,6 +9,21 @@ import { drizzle } from 'drizzle-orm/neon-http';
 export function createDb(env: DatabaseConfig) {
 	const sql = neon(env.DATABASE_URL);
 	return drizzle({ client: sql, relations });
+}
+{{else if (and (eq dbSetup "aurora") (eq backend "self") (eq webDeploy "cloudflare"))}}
+import { RDSDataClient } from "@aws-sdk/client-rds-data";
+import { drizzle } from "drizzle-orm/aws-data-api/pg";
+
+export function createDb(env: DatabaseConfig) {
+	const client = new RDSDataClient({ region: env.DATABASE_CLUSTER_ARN.split(":")[3] ?? "us-east-1" });
+
+	return drizzle({
+		client,
+		database: env.DATABASE_NAME,
+		resourceArn: env.DATABASE_CLUSTER_ARN,
+		secretArn: env.DATABASE_SECRET_ARN,
+		relations,
+	});
 }
 {{else}}
 {{#if (and (eq backend "self") (eq webDeploy "cloudflare"))}}
@@ -41,6 +56,21 @@ import { drizzle } from 'drizzle-orm/neon-http';
 export function createDb(env: DatabaseConfig) {
 	const sql = neon(env.DATABASE_URL || "");
 	return drizzle({ client: sql, relations });
+}
+{{else if (eq dbSetup "aurora")}}
+import { RDSDataClient } from "@aws-sdk/client-rds-data";
+import { drizzle } from "drizzle-orm/aws-data-api/pg";
+
+export function createDb(env: DatabaseConfig) {
+	const client = new RDSDataClient({ region: env.DATABASE_CLUSTER_ARN.split(":")[3] ?? "us-east-1" });
+
+	return drizzle({
+		client,
+		database: env.DATABASE_NAME,
+		resourceArn: env.DATABASE_CLUSTER_ARN,
+		secretArn: env.DATABASE_SECRET_ARN,
+		relations,
+	});
 }
 {{else}}
 import { drizzle } from "drizzle-orm/postgres-js";

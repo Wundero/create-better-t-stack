@@ -3,6 +3,8 @@ import {
   supportsRuntimeDatabase,
   supportsPaymentsAuth,
   supportsServerDeployRuntime,
+  supportsDatabaseSetup,
+  isAlchemyDeployTarget,
   SERVER_BACKENDS,
   CONVEX_AI_INCOMPATIBLE_FRONTENDS,
 } from "@better-t-stack/types";
@@ -279,6 +281,126 @@ export function validatePrismaWebDeploy(
   if (!supportsPrismaWebDeploy(frontend)) {
     return validationErr(
       "'--web-deploy prisma' requires a supported web frontend. Choose TanStack Router, Next.js, Nuxt, Astro, React Router, TanStack Start, SvelteKit, or Solid.",
+    );
+  }
+
+  return Result.ok(undefined);
+}
+
+export const AWS_WEB_FRONTENDS: readonly Frontend[] = [
+  "next",
+  "nuxt",
+  "astro",
+  "svelte",
+  "solid",
+  "tanstack-start",
+  "react-router",
+  "tanstack-router",
+];
+
+export function supportsAwsWebDeploy(frontend: readonly Frontend[]): boolean {
+  return frontend.some((value) => AWS_WEB_FRONTENDS.some((allowed) => allowed === value));
+}
+
+export function validateAwsWebDeploy(
+  webDeploy: WebDeploy | undefined,
+  frontend: Frontend[] | undefined,
+): ValidationResult {
+  if (webDeploy !== "aws" || !frontend) return Result.ok(undefined);
+
+  if (!supportsAwsWebDeploy(frontend)) {
+    return validationErr(
+      "'--web-deploy aws' requires a supported web frontend. Choose Next.js, Nuxt, Astro, SvelteKit, Solid, TanStack Start, React Router, or TanStack Router.",
+    );
+  }
+
+  return Result.ok(undefined);
+}
+
+export function validateAwsServerDeploy(
+  serverDeploy: ServerDeploy | undefined,
+  backend: Backend | undefined,
+  runtime: Runtime | undefined,
+): ValidationResult {
+  if (serverDeploy !== "aws") return Result.ok(undefined);
+
+  if (backend && backend !== "none" && !SERVER_BACKENDS.includes(backend)) {
+    return validationErr(
+      "'--server-deploy aws' requires a separate server backend (hono, express, fastify, elysia). For a fullstack 'self' backend, use '--web-deploy aws' instead.",
+    );
+  }
+
+  if (!supportsServerDeployRuntime(serverDeploy, runtime)) {
+    return validationErr(
+      "'--server-deploy aws' requires '--runtime bun', '--runtime node', or '--runtime lambda'. Use '--server-deploy cloudflare' for Workers.",
+    );
+  }
+
+  return Result.ok(undefined);
+}
+
+export function validateLambdaRuntime(
+  runtime: Runtime | undefined,
+  serverDeploy: ServerDeploy | undefined,
+  backend: Backend | undefined,
+): ValidationResult {
+  if (runtime !== "lambda") return Result.ok(undefined);
+
+  if (!supportsRuntimeBackend(runtime, backend)) {
+    return validationErr(
+      `AWS Lambda runtime (--runtime lambda) is only supported with Hono backend (--backend hono). Current backend: ${backend}. Please use '--backend hono' or choose a different runtime.`,
+    );
+  }
+
+  if (serverDeploy !== "aws") {
+    return validationErr(
+      "'--runtime lambda' (AWS Lambda) requires '--server-deploy aws'. Choose AWS deployment or a different runtime.",
+    );
+  }
+
+  return Result.ok(undefined);
+}
+
+export function validateAuroraDatabaseSetup(
+  config: Partial<
+    Pick<
+      ProjectConfig,
+      "backend" | "database" | "dbSetup" | "serverDeploy" | "webDeploy" | "runtime" | "orm"
+    >
+  >,
+): ValidationResult {
+  if (config.dbSetup !== "aurora") return Result.ok(undefined);
+
+  if (!supportsDatabaseSetup("aurora", config.database)) {
+    return validationErr(
+      "AWS Aurora setup requires PostgreSQL or MySQL database. Please use '--database postgres' or '--database mysql' or choose a different setup.",
+    );
+  }
+
+  const hasAlchemyTarget =
+    config.backend === "self"
+      ? isAlchemyDeployTarget(config.webDeploy)
+      : isAlchemyDeployTarget(config.serverDeploy);
+
+  if (!hasAlchemyTarget) {
+    return validationErr(
+      "AWS Aurora setup requires an Alchemy deployment target. Use '--server-deploy cloudflare', '--server-deploy aws', or '--server-deploy prisma', or for a fullstack backend an Alchemy '--web-deploy'.",
+    );
+  }
+
+  const isWorkerConsumer =
+    config.runtime === "workers" ||
+    (config.backend === "self" && config.webDeploy === "cloudflare");
+
+  if (isWorkerConsumer && config.orm === "prisma") {
+    return validationErr(
+      "AWS Aurora with the Cloudflare Workers runtime supports Drizzle ORM only: Prisma has no Aurora Data API adapter. Use '--orm drizzle' or a different runtime.",
+    );
+  }
+
+  if (isWorkerConsumer && config.database === "mysql") {
+    return validationErr(
+      "AWS Aurora with the Cloudflare Workers runtime supports PostgreSQL only: Drizzle's RDS Data API driver is PostgreSQL-only. Use '--database postgres' or a different runtime.",
     );
   }
 

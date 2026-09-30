@@ -36,7 +36,7 @@ Notes:
 - `turbo.json` exists only if you picked the Turborepo addon.
 - `nx.json` exists only if you picked the Nx addon.
 - `pnpm-workspace.yaml`, `bunfig.toml`, and `.npmrc` are added based on the package manager you choose.
-- `packages/infra` is created when a Cloudflare or Prisma deployment is enabled.
+- `packages/infra` is created when a Cloudflare, Prisma, or AWS deployment is enabled.
 
 ## Monorepo structure by backend
 
@@ -296,6 +296,8 @@ The server structure depends on your backend choice:
 
 When `runtime=workers`, the server targets Cloudflare Workers. If you also choose Cloudflare deployment, you'll get `packages/infra/alchemy.run.ts` and related infra files.
 
+When `runtime=lambda`, the server targets AWS Lambda and is packaged from `apps/server/src/lambda.ts`. An AWS server or web deployment generates the matching ECS, Lambda, VPC, and Aurora resources in `packages/infra/alchemy.run.ts`.
+
 API and auth scaffolding (conditional):
 
 - API=trpc: `src/lib/trpc.ts`, `src/lib/context.ts`
@@ -434,16 +436,16 @@ Electrobun adds an `apps/desktop` workspace with its own `package.json`, `electr
   "database": "<none|sqlite|postgres|mysql|mongodb>",
   "orm": "<none|drizzle|prisma|mongoose>",
   "backend": "<none|hono|express|fastify|elysia|convex|self>",
-  "runtime": "<bun|node|workers|none>",
+  "runtime": "<bun|node|workers|lambda|none>",
   "frontend": ["<tanstack-router|react-router|tanstack-start|next|nuxt|svelte|solid|astro|native-bare|native-uniwind|native-unistyles|none>"] ,
   "addons": ["<pwa|tauri|electrobun|starlight|fumadocs|biome|lefthook|husky|mcp|turborepo|nx|vite-plus|ultracite|oxlint|opentui|wxt|skills|evlog|axiom|none>"] ,
   "examples": ["<ai|todo|none>"] ,
   "auth": <"better-auth"|"clerk"|"none">,
   "packageManager": "<bun|pnpm|npm>",
-  "dbSetup": "<turso|neon|prisma-postgres|planetscale|mongodb-atlas|supabase|d1|docker|none>",
+  "dbSetup": "<turso|neon|prisma-postgres|planetscale|aurora|mongodb-atlas|supabase|d1|docker|none>",
   "api": "<none|trpc|orpc>",
-  "webDeploy": "<cloudflare|docker|vercel|none>",
-  "serverDeploy": "<cloudflare|docker|vercel|none>"
+  "webDeploy": "<cloudflare|prisma|aws|docker|vercel|none>",
+  "serverDeploy": "<cloudflare|prisma|aws|docker|vercel|none>"
 }
 ```
 
@@ -504,7 +506,7 @@ Better-T-Stack always creates `packages/config`. Other packages are added based 
 - `packages/auth`: when `--auth` is not `none` (non-Convex)
 - `packages/db`: when both `--database` and `--orm` are selected (non-Convex)
 - `packages/backend`: Convex backend only
-- `packages/infra`: Alchemy infrastructure for Cloudflare and/or Prisma deployments
+- `packages/infra`: Alchemy infrastructure for Cloudflare, Prisma, and/or AWS deployments
 
 ## Environment configuration
 
@@ -593,6 +595,6 @@ Notes:
   - `clerk`: Clerk provider setup and authentication components
 - **ORM/DB**: Drizzle/Prisma/Mongoose files added only when selected
 - **Extras**: `pnpm-workspace.yaml`, `bunfig.toml`, or `.npmrc` added based on package manager and choices
-- **Deploy**: Cloudflare or Prisma deployment adds one `packages/infra/alchemy.run.ts` containing the selected application and database resources
+- **Deploy**: Cloudflare, Prisma, or AWS deployment adds one `packages/infra/alchemy.run.ts` containing the selected application and database resources
 
 This reflects the actual files written by the CLI so new projects match what's documented here.
