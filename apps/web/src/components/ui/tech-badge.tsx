@@ -1,8 +1,8 @@
 "use client";
 
-import { useTheme } from "@wrksz/themes/client";
 import Image from "next/image";
 
+import { hasLightVariant, isRenderableIconPath, lightVariantSrc } from "@/lib/tech-icon-src";
 import { cn } from "@/lib/utils";
 
 interface TechBadgeProps {
@@ -29,8 +29,6 @@ const getBadgeColors = (category: string): string => {
       return "border-cyan-300 bg-cyan-100 text-cyan-800 dark:border-cyan-700/30 dark:bg-cyan-900/30 dark:text-cyan-300";
     case "auth":
       return "border-green-300 bg-green-100 text-green-800 dark:border-green-700/30 dark:bg-green-900/30 dark:text-green-300";
-    case "payments":
-      return "border-fuchsia-300 bg-fuchsia-100 text-fuchsia-800 dark:border-fuchsia-700/30 dark:bg-fuchsia-900/30 dark:text-fuchsia-300";
     case "dbSetup":
       return "border-pink-300 bg-pink-100 text-pink-800 dark:border-pink-700/30 dark:bg-pink-900/30 dark:text-pink-300";
     case "addons":
@@ -42,8 +40,6 @@ const getBadgeColors = (category: string): string => {
     case "git":
     case "webDeploy":
     case "serverDeploy":
-    case "emailRenderer":
-    case "emailDeploy":
     case "install":
       return "border-gray-300 bg-gray-100 text-gray-700 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-400";
     default:
@@ -52,34 +48,41 @@ const getBadgeColors = (category: string): string => {
 };
 
 function TechIcon({ icon, name, className }: { icon: string; name: string; className?: string }) {
-  const { theme } = useTheme();
-
   if (!icon) return null;
 
-  if (!icon.startsWith("https://")) {
+  if (!isRenderableIconPath(icon)) {
     return <span className={cn("inline-flex items-center text-lg", className)}>{icon}</span>;
   }
 
-  let iconSrc = icon;
-  if (
-    theme === "light" &&
-    (icon.includes("drizzle") ||
-      icon.includes("prisma") ||
-      icon.includes("express") ||
-      icon.includes("clerk") ||
-      icon.includes("planetscale") ||
-      icon.includes("nx") ||
-      icon.includes("polar") ||
-      icon.includes("astro") ||
-      icon.includes("vercel"))
-  ) {
-    iconSrc = icon.replace(".svg", "-light.svg");
+  if (hasLightVariant(icon)) {
+    return (
+      <>
+        <Image
+          suppressHydrationWarning
+          src={icon}
+          alt={`${name} icon`}
+          width={20}
+          height={20}
+          className={cn("hidden dark:inline-block", className)}
+          unoptimized
+        />
+        <Image
+          suppressHydrationWarning
+          src={lightVariantSrc(icon)}
+          alt={`${name} icon`}
+          width={20}
+          height={20}
+          className={cn("inline-block dark:hidden", className)}
+          unoptimized
+        />
+      </>
+    );
   }
 
   return (
     <Image
       suppressHydrationWarning
-      src={iconSrc}
+      src={icon}
       alt={`${name} icon`}
       width={20}
       height={20}

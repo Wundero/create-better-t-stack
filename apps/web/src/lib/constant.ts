@@ -691,7 +691,7 @@ export const TECH_OPTIONS: TechOptions = {
       id: "eslint",
       name: "ESLint + Prettier",
       description: "ESLint and Prettier (oxlint, Vite+, or Biome preferred)",
-      icon: "",
+      icon: "/icon/eslint-prettier.svg",
       color: "from-purple-500 to-purple-700",
       default: false,
     },
