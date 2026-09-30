@@ -127,6 +127,7 @@ function buildClientVars(
   frontend: string[],
   backend: ProjectConfig["backend"],
   auth: ProjectConfig["auth"],
+  apiPrefix: string,
   addons: ProjectConfig["addons"],
 ): EnvVariable[] {
   const hasNextJs = frontend.includes("next");
@@ -136,7 +137,7 @@ function buildClientVars(
 
   const baseVar = getClientServerVar(frontend, backend);
   const envVarName = backend === "convex" ? getConvexVar(frontend) : baseVar.key;
-  const serverUrl = backend === "convex" ? CONVEX_URL_PLACEHOLDER : baseVar.value;
+  const serverUrl = backend === "convex" ? CONVEX_URL_PLACEHOLDER : `${baseVar.value}${apiPrefix}`;
 
   const vars: EnvVariable[] = [
     {
@@ -621,7 +622,9 @@ export function processEnvVariables(vfs: VirtualFileSystem, config: ProjectConfi
     const clientDir = "apps/web";
     if (vfs.directoryExists(clientDir)) {
       const envPath = `${clientDir}/.env`;
-      const clientVars = buildClientVars(frontend, backend, auth, addons);
+      // Matches the /api base the Vercel build uses when web and server deploy together
+      const apiPrefix = webDeploy === "vercel" && serverDeploy === "vercel" ? "/api" : "";
+      const clientVars = buildClientVars(frontend, backend, auth, apiPrefix, addons);
       writeEnvFile(vfs, envPath, clientVars);
     }
   }
