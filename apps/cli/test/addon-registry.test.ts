@@ -53,26 +53,53 @@ describe("Alchemy addon registry", () => {
     expect(activeAddons(planFor(["axiom", "turborepo", "biome"]))).toEqual([]);
   });
 
-  it("writes nothing for selected provider addons while the registry is empty", () => {
+  it("writes resource declarations for selected provider addons", () => {
     const plan = planFor(["cloudflare-r2"]);
     const writer = createAlchemyWriter();
 
     writeAddonImports(writer, plan);
     writeAddonResources(writer, plan);
 
-    expect(writer.toString()).toBe("");
-    expect(hasAddonRenderers(plan)).toBe(false);
+    expect(writer.toString()).toContain('Cloudflare.R2.Bucket("r2-bucket"');
+    expect(hasAddonRenderers(plan)).toBe(true);
   });
 
-  it("contributes no bindings, env, or infra deps without registered renderers", () => {
+  it("contributes bindings for the registered provider addons only", () => {
     const plan = planFor(["cloudflare-r2", "aws-s3", "fly-tigris", "prisma-buckets"]);
 
-    expect(addonBindings(plan)).toEqual([]);
+    expect(addonBindings(plan)).toEqual(["R2_BUCKET: r2Bucket,"]);
     expect(addonEnv(plan)).toEqual([]);
     expect(addonInfraDeps(plan)).toEqual([]);
   });
 
-  it("starts with no registered renderers", () => {
-    expect(ADDON_RENDERERS).toEqual({});
+  it("registers a renderer for every Cloudflare provider addon", () => {
+    for (const addon of [
+      "cloudflare-durable-objects",
+      "cloudflare-containers",
+      "cloudflare-sandboxes",
+      "cloudflare-r2",
+      "cloudflare-kv",
+      "cloudflare-queues",
+      "cloudflare-workers-ai",
+      "cloudflare-ai-search",
+      "cloudflare-flagship",
+      "cloudflare-pipelines",
+      "cloudflare-stream",
+      "cloudflare-realtime-kit",
+    ] as const) {
+      expect(ADDON_RENDERERS[addon]).toBeDefined();
+    }
+  });
+
+  it("activates no renderers when the provider target is unavailable", () => {
+    const plan = createAlchemyDeploymentPlan({
+      ...baseConfig,
+      webDeploy: "none",
+      serverDeploy: "none",
+      addons: ["cloudflare-r2"],
+    });
+
+    expect(hasAddonRenderers(plan)).toBe(false);
+    expect(addonBindings(plan)).toEqual([]);
   });
 });
