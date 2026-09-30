@@ -540,8 +540,14 @@ export const TECH_OPTIONS: TechOptions = {
       id,
       name: meta.label,
       description: meta.description,
-      icon: meta.iconSlug ? `${ICON_BASE_URL}/${meta.iconSlug}.svg` : "",
+      icon:
+        meta.iconSlug === ""
+          ? ""
+          : meta.iconSlug.startsWith("/")
+            ? meta.iconSlug
+            : `${ICON_BASE_URL}/${meta.iconSlug}.svg`,
       color: meta.color,
+      className: meta.iconClassName,
       default: false,
     };
   }),
