@@ -4,6 +4,23 @@ export * from "./core/template-processor";
 export * from "./generator";
 export { processPnpmWorkspaceConfig } from "./template-handlers/extras";
 export { processAddonTemplates } from "./template-handlers/addons";
+export {
+  ALL_WORKSPACE_PACKAGE_JSON_PATHS,
+  CATALOG_PACKAGE_PATHS,
+  WORKSPACE_APP_DIRS,
+  WORKSPACE_PACKAGE_DIRS,
+} from "./generators/workspace-paths";
+export { planWorkspacePackage } from "./generators/workspace-package";
+export type {
+  PlanWorkspacePackageInput,
+  PlanWorkspacePackageResult,
+} from "./generators/workspace-package";
+export { planWorkspaceApp } from "./generators/workspace-app";
+export type {
+  PlanWorkspaceAppInput,
+  PlanWorkspaceAppResult,
+  WorkspaceAppKind,
+} from "./generators/workspace-app";
 export { processAddonsDeps } from "./processors/addons-deps";
 export { processPwaPlugins } from "./processors/pwa-plugins";
 export { processNxConfig } from "./processors/nx-generator";
