@@ -45,6 +45,14 @@ export const dependencyVersionMap = {
   ws: "^8.21.3",
 
   "@aws-sdk/client-rds-data": "^3.1140.0",
+  "@aws-sdk/client-s3": "^3.1143.0",
+  "@aws-sdk/client-sqs": "^3.1143.0",
+  "@aws-sdk/client-sns": "^3.1143.0",
+  "@aws-sdk/client-kinesis": "^3.1143.0",
+  "@aws-sdk/client-eventbridge": "^3.1143.0",
+  "@aws-sdk/client-scheduler": "^3.1143.0",
+  "@aws-sdk/client-lambda-microvms": "^3.1143.0",
+  ioredis: "^6.0.0",
 
   mysql2: "^3.24.3",
 
@@ -109,6 +117,7 @@ export const dependencyVersionMap = {
 
   ai: "^7.0.93",
   "@ai-sdk/google": "^4.0.64",
+  "@ai-sdk/amazon-bedrock": "^5.0.102",
   "@ai-sdk/vue": "^4.0.93",
   "@ai-sdk/svelte": "^5.0.93",
   "@ai-sdk/react": "^4.0.96",
