@@ -2,6 +2,181 @@
 // Run 'bun run generate-templates' to regenerate
 
 export const EMBEDDED_TEMPLATES: Map<string, string> = new Map([
+  ["addons/aws-bedrock/apps/server/src/aws/bedrock.ts", `import { createAmazonBedrock } from "@ai-sdk/amazon-bedrock";
+import { generateText } from "ai";
+
+const bedrock = createAmazonBedrock({
+  region: process.env.AWS_REGION ?? "us-east-1",
+});
+
+export function askBedrock(prompt: string) {
+  return generateText({
+    model: bedrock(process.env.BEDROCK_MODEL_ID ?? "us.amazon.nova-lite-v1:0"),
+    prompt,
+  });
+}
+`],
+  ["addons/aws-cloudfront/apps/server/src/aws/cloudfront.ts.hbs", `{{#unless (includes addons "aws-s3")}}
+import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
+
+const client = new S3Client({});
+
+export function uploadAsset(key: string, body: string) {
+  return client.send(
+    new PutObjectCommand({
+      Bucket: process.env.CLOUDFRONT_BUCKET_NAME!,
+      Key: key,
+      Body: body,
+    }),
+  );
+}
+{{/unless}}
+
+export const cdn = {
+  distributionId: process.env.CLOUDFRONT_DISTRIBUTION_ID!,
+  url: process.env.CLOUDFRONT_URL!,
+};
+`],
+  ["addons/aws-elasticache/apps/server/src/aws/elasticache.ts", `import Redis from "ioredis";
+
+export function createCacheClient() {
+  return new Redis({
+    host: process.env.ELASTICACHE_HOST!,
+    port: Number(process.env.ELASTICACHE_PORT ?? 6379),
+    tls: process.env.ELASTICACHE_TLS === "true" ? {} : undefined,
+    maxRetriesPerRequest: 2,
+  });
+}
+`],
+  ["addons/aws-eventbridge/apps/server/src/aws/eventbridge.ts.hbs", `import { EventBridgeClient, PutEventsCommand } from "@aws-sdk/client-eventbridge";
+
+type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
+
+const client = new EventBridgeClient({});
+
+export function emitEvent(detailType: string, detail: JsonValue) {
+  return client.send(
+    new PutEventsCommand({
+      Entries: [
+        {
+          EventBusName: process.env.EVENT_BUS_NAME!,
+          Source: "{{projectName}}.app",
+          DetailType: detailType,
+          Detail: JSON.stringify(detail),
+        },
+      ],
+    }),
+  );
+}
+`],
+  ["addons/aws-kinesis/apps/server/src/aws/kinesis.ts", `import { KinesisClient, PutRecordCommand } from "@aws-sdk/client-kinesis";
+
+type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
+
+const client = new KinesisClient({});
+const encoder = new TextEncoder();
+
+export function putRecord(partitionKey: string, data: JsonValue) {
+  return client.send(
+    new PutRecordCommand({
+      StreamName: process.env.KINESIS_STREAM_NAME!,
+      PartitionKey: partitionKey,
+      Data: encoder.encode(JSON.stringify(data)),
+    }),
+  );
+}
+`],
+  ["addons/aws-lambda-microvm/apps/server/src/aws/microvm.ts", `import { LambdaMicrovmsClient, RunMicrovmCommand } from "@aws-sdk/client-lambda-microvms";
+
+const client = new LambdaMicrovmsClient({});
+
+export function runSandbox() {
+  return client.send(
+    new RunMicrovmCommand({
+      imageIdentifier: process.env.MICROVM_IMAGE_ARN!,
+      idlePolicy: {
+        maxIdleDurationSeconds: 900,
+        suspendedDurationSeconds: 300,
+        autoResumeEnabled: true,
+      },
+    }),
+  );
+}
+`],
+  ["addons/aws-lambda-microvm/apps/server/src/aws/microvm/Dockerfile", `FROM public.ecr.aws/lambda/microvms:al2023-minimal
+
+RUN dnf install -y nodejs && dnf clean all
+
+WORKDIR /app
+COPY server.mjs /app/server.mjs
+
+ENV PORT=8080
+EXPOSE 8080
+CMD ["node", "/app/server.mjs"]
+`],
+  ["addons/aws-lambda-microvm/apps/server/src/aws/microvm/server.mjs", `import { createServer } from "node:http";
+
+const port = Number(process.env.PORT ?? 8080);
+
+createServer((request, response) => {
+  response.setHeader("content-type", "application/json");
+  response.end(JSON.stringify({ ok: true, path: request.url }));
+}).listen(port, () => {
+  console.log(\`microvm listening on \${port}\`);
+});
+`],
+  ["addons/aws-s3/apps/server/src/aws/s3.ts", `import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
+
+const client = new S3Client({});
+
+export function putAsset(key: string, value: string) {
+  return client.send(
+    new PutObjectCommand({
+      Bucket: process.env.S3_BUCKET_NAME!,
+      Key: key,
+      Body: value,
+    }),
+  );
+}
+`],
+  ["addons/aws-scheduler/apps/server/src/aws/scheduler.ts", `import { GetScheduleCommand, SchedulerClient } from "@aws-sdk/client-scheduler";
+
+const client = new SchedulerClient({});
+
+export function getSchedule() {
+  return client.send(
+    new GetScheduleCommand({
+      Name: process.env.SCHEDULER_SCHEDULE_NAME!,
+    }),
+  );
+}
+`],
+  ["addons/aws-sns/apps/server/src/aws/sns.ts", `import { PublishCommand, SNSClient } from "@aws-sdk/client-sns";
+
+const client = new SNSClient({});
+
+export function publishNotification(message: string) {
+  return client.send(
+    new PublishCommand({
+      TopicArn: process.env.SNS_TOPIC_ARN!,
+      Message: message,
+    }),
+  );
+}
+`],
+  ["addons/aws-sqs/apps/server/src/aws/sqs.ts", `import { SendMessageCommand, SQSClient } from "@aws-sdk/client-sqs";
+
+const client = new SQSClient({});
+
+export function enqueueJob(job: string) {
+  return client.send(
+    new SendMessageCommand({
+      QueueUrl: process.env.SQS_QUEUE_URL!,
+      MessageBody: job,
+    }),
+  );
+}
+`],
   ["addons/biome/biome.json.hbs", `{
     "$schema": "./node_modules/@biomejs/biome/configuration_schema.json",
 	"vcs": {
@@ -36040,4 +36215,4 @@ export default function Success() {
 `]
 ]);
 
-export const TEMPLATE_COUNT = 546;
+export const TEMPLATE_COUNT = 558;
