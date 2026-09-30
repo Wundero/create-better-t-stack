@@ -163,7 +163,7 @@ function validateDatabaseSetup(config: ProjectConfig, rules: Set<MatrixRule>) {
       supabase: "db-setup-supabase-requires-postgres",
       turso: "db-setup-turso-requires-sqlite",
     } satisfies Record<
-      Exclude<DatabaseSetup, "aurora" | "docker" | "none" | "planetscale">,
+      Exclude<DatabaseSetup, "aurora" | "docker" | "fly" | "none" | "planetscale" | "railway">,
       MatrixRule
     >;
     rules.add(ruleBySetup[config.dbSetup as keyof typeof ruleBySetup]);

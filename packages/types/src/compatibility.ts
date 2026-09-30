@@ -93,6 +93,37 @@ export const ADDON_COMPATIBILITY = {
   skills: [],
   evlog: [],
   axiom: [],
+  "cloudflare-durable-objects": [],
+  "cloudflare-containers": [],
+  "cloudflare-sandboxes": [],
+  "cloudflare-r2": [],
+  "cloudflare-kv": [],
+  "cloudflare-queues": [],
+  "cloudflare-workers-ai": [],
+  "cloudflare-ai-search": [],
+  "cloudflare-flagship": [],
+  "cloudflare-pipelines": [],
+  "cloudflare-stream": [],
+  "cloudflare-realtime-kit": [],
+  "aws-lambda-microvm": [],
+  "aws-s3": [],
+  "aws-bedrock": [],
+  "aws-sns": [],
+  "aws-sqs": [],
+  "aws-kinesis": [],
+  "aws-eventbridge": [],
+  "aws-scheduler": [],
+  "aws-cloudfront": [],
+  "aws-elasticache": [],
+  "fly-sprites": [],
+  "fly-redis": [],
+  "fly-tigris": [],
+  "railway-redis": [],
+  "railway-buckets": [],
+  "railway-sandboxes": [],
+  "neon-ai-gateway": [],
+  "neon-buckets": [],
+  "prisma-buckets": [],
   none: [],
 } as const;
 
@@ -349,6 +380,8 @@ const DATABASE_SETUP_DATABASES = {
   "mongodb-atlas": ["mongodb"],
   docker: ["postgres", "mysql", "mongodb"],
   aurora: ["postgres", "mysql"],
+  fly: ["postgres"],
+  railway: ["postgres", "mysql", "mongodb"],
 } as const satisfies Record<Exclude<DatabaseSetup, "none">, readonly Database[]>;
 
 export function supportsDatabaseSetup(dbSetup: DatabaseSetup, database: Database | undefined) {
@@ -395,6 +428,9 @@ export function supportsServerDeployRuntime(
   // varlock/auto-load launches the Node-based Varlock CLI, and Vercel's Bun runtime has no Node
   if (deploy === "vercel") return runtime === "node";
   if (deploy === "aws") return runtime === "bun" || runtime === "node" || runtime === "lambda";
+  if (deploy === "hetzner" || deploy === "fly" || deploy === "railway" || deploy === "neon") {
+    return runtime === "bun" || runtime === "node";
+  }
   return runtime === "bun" || runtime === "node";
 }
 

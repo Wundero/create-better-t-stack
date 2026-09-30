@@ -24,6 +24,10 @@ import {
   supportsOrmDatabase,
   supportsDatabaseSetup,
   getDatabaseSetupDatabases,
+  isProviderAddon,
+  isProviderAddonAvailable,
+  PROVIDER_ADDON_META,
+  type ProviderAddonProvider,
 } from "@better-t-stack/types";
 
 import { DEFAULT_STACK, type StackState, TECH_OPTIONS, isStackOption } from "@/lib/constant";
@@ -94,6 +98,15 @@ const AWS_WEB_FRONTENDS = [
 const supportsAwsWebDeploy = (frontends: StackState["webFrontend"]) =>
   frontends.some((frontend) => AWS_WEB_FRONTENDS.some((value) => value === frontend));
 
+const PROVIDER_ADDON_REQUIREMENTS = {
+  cloudflare: "Cloudflare web or server deployment",
+  aws: "AWS server deployment",
+  fly: "Fly server deployment",
+  railway: "Railway server deployment",
+  neon: "Neon server deployment",
+  prisma: "Prisma server deployment or a Prisma Postgres database setup",
+} satisfies Record<ProviderAddonProvider, string>;
+
 function getAddonIssue(stack: StackState, addon: StackState["addons"][number]) {
   const result = validateAddonCompatibility(
     addon,
@@ -101,7 +114,20 @@ function getAddonIssue(stack: StackState, addon: StackState["addons"][number]) {
     stack.auth,
     getStackBackend(stack.backend),
   );
-  return result.isCompatible ? null : (result.reason ?? "Incompatible addon");
+  if (!result.isCompatible) return result.reason ?? "Incompatible addon";
+
+  if (
+    isProviderAddon(addon) &&
+    !isProviderAddonAvailable(addon, {
+      webDeploy: stack.webDeploy,
+      serverDeploy: stack.serverDeploy,
+      dbSetup: stack.dbSetup,
+    })
+  ) {
+    return `${PROVIDER_ADDON_META[addon].label} requires ${PROVIDER_ADDON_REQUIREMENTS[PROVIDER_ADDON_META[addon].provider]}`;
+  }
+
+  return null;
 }
 
 export const getCategoryDisplayName = (categoryKey: string): string => {
@@ -933,6 +959,17 @@ export const getDisabledReason = (
     }
     if (optionId === "aws" && !supportsServerDeployRuntime(optionId, currentStack.runtime)) {
       return "AWS server deployment requires the Bun, Node.js, or Lambda runtime";
+    }
+    if (
+      (optionId === "hetzner" ||
+        optionId === "fly" ||
+        optionId === "railway" ||
+        optionId === "neon") &&
+      !supportsServerDeployRuntime(optionId, currentStack.runtime)
+    ) {
+      const name =
+        TECH_OPTIONS.serverDeploy.find((option) => option.id === optionId)?.name ?? optionId;
+      return `${name} server deployment requires the Bun or Node runtime`;
     }
     if (optionId !== "none") {
       if (

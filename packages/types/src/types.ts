@@ -5,6 +5,7 @@ import type {
   ORMSchema,
   BackendSchema,
   RuntimeSchema,
+  ServerComputeSchema,
   FrontendSchema,
   AddonsSchema,
   ExamplesSchema,
@@ -33,6 +34,7 @@ export type Database = z.infer<typeof DatabaseSchema>;
 export type ORM = z.infer<typeof ORMSchema>;
 export type Backend = z.infer<typeof BackendSchema>;
 export type Runtime = z.infer<typeof RuntimeSchema>;
+export type ServerCompute = z.infer<typeof ServerComputeSchema>;
 export type Frontend = z.infer<typeof FrontendSchema>;
 export type Addons = z.infer<typeof AddonsSchema>;
 export type Examples = z.infer<typeof ExamplesSchema>;
