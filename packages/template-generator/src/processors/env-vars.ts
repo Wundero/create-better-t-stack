@@ -128,6 +128,7 @@ function buildClientVars(
   backend: ProjectConfig["backend"],
   auth: ProjectConfig["auth"],
   apiPrefix: string,
+  addons: ProjectConfig["addons"],
 ): EnvVariable[] {
   const hasNextJs = frontend.includes("next");
   const hasReactRouter = frontend.includes("react-router");
@@ -190,6 +191,21 @@ function buildClientVars(
         condition: true,
       });
     }
+  }
+
+  if (addons.includes("turnstile")) {
+    const sitekeyPrefix = hasNextJs
+      ? "NEXT_PUBLIC_"
+      : frontend.includes("nuxt")
+        ? "NUXT_PUBLIC_"
+        : frontend.includes("svelte") || frontend.includes("astro")
+          ? "PUBLIC_"
+          : "VITE_";
+    vars.push({
+      key: `${sitekeyPrefix}TURNSTILE_SITE_KEY`,
+      value: "1x00000000000000000000AA",
+      condition: true,
+    });
   }
 
   return vars;
@@ -431,6 +447,7 @@ function buildServerVars(
   serverDeploy: ProjectConfig["serverDeploy"],
   payments: ProjectConfig["payments"],
   examples: ProjectConfig["examples"],
+  addons: ProjectConfig["addons"],
 ): EnvVariable[] {
   const hasReactRouter = frontend.includes("react-router");
   const hasSvelte = frontend.includes("svelte");
@@ -552,6 +569,16 @@ function buildServerVars(
       value: databaseUrl,
       condition: database !== "none" && dbSetup === "none",
     },
+    {
+      key: "TURNSTILE_DOMAINS",
+      value: "localhost,127.0.0.1",
+      condition: addons.includes("turnstile"),
+    },
+    {
+      key: "TURNSTILE_SECRET_KEY",
+      value: "1x0000000000000000000000000000000AA",
+      condition: addons.includes("turnstile"),
+    },
   ];
 }
 
@@ -569,6 +596,7 @@ export function processEnvVariables(vfs: VirtualFileSystem, config: ProjectConfi
     serverDeploy,
     runtime,
     payments,
+    addons,
   } = config;
 
   const hasReactRouter = frontend.includes("react-router");
@@ -596,7 +624,7 @@ export function processEnvVariables(vfs: VirtualFileSystem, config: ProjectConfi
       const envPath = `${clientDir}/.env`;
       // Matches the /api base the Vercel build uses when web and server deploy together
       const apiPrefix = webDeploy === "vercel" && serverDeploy === "vercel" ? "/api" : "";
-      const clientVars = buildClientVars(frontend, backend, auth, apiPrefix);
+      const clientVars = buildClientVars(frontend, backend, auth, apiPrefix, addons);
       writeEnvFile(vfs, envPath, clientVars);
     }
   }
@@ -694,6 +722,7 @@ export function processEnvVariables(vfs: VirtualFileSystem, config: ProjectConfi
     serverDeploy,
     payments,
     examples,
+    addons,
   );
 
   if (backend === "self") {
