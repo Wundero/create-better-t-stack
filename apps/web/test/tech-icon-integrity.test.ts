@@ -5,8 +5,6 @@ import { join } from "node:path";
 import { TECH_OPTIONS } from "../src/lib/constant";
 import { hasLightVariant, lightVariantSrc } from "../src/lib/tech-icon-src";
 
-type TechOption = { id: string; icon: string };
-
 const PUBLIC_DIR = join(import.meta.dir, "..", "public");
 
 const entries = Object.entries(TECH_OPTIONS).flatMap(([category, options]) =>
