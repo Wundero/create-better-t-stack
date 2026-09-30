@@ -1,7 +1,21 @@
+import { PROVIDER_ADDON_META, PROVIDER_ADDONS } from "@better-t-stack/types";
+
 import type { StackState, TechOptions, TechCategory, StackOptionId } from "./types";
 export type { StackState } from "./types";
 
 export const ICON_BASE_URL = "https://r2.better-t-stack.dev/icons";
+
+const providerAddonOptions = PROVIDER_ADDONS.map((id) => {
+  const { label, hint, iconSlug, color } = PROVIDER_ADDON_META[id];
+  return {
+    id,
+    name: label,
+    description: hint,
+    icon: `/icon/${iconSlug}.svg`,
+    color,
+    default: false,
+  };
+});
 
 export const TECH_OPTIONS: TechOptions = {
   api: [
@@ -175,6 +189,36 @@ export const TECH_OPTIONS: TechOptions = {
       description: "No specific runtime",
       icon: "",
       color: "from-gray-400 to-gray-600",
+    },
+  ],
+  serverCompute: [
+    {
+      id: "fargate",
+      name: "ECS Fargate",
+      description: "Run server containers on AWS Fargate",
+      icon: "/icon/aws.svg",
+      color: "from-amber-500 to-orange-600",
+    },
+    {
+      id: "lambda",
+      name: "Lambda",
+      description: "Run serverless functions on AWS Lambda",
+      icon: "/icon/lambda.svg",
+      color: "from-amber-500 to-orange-600",
+    },
+    {
+      id: "ec2",
+      name: "EC2",
+      description: "Run on AWS EC2 virtual machines",
+      icon: "/icon/aws.svg",
+      color: "from-amber-500 to-orange-600",
+    },
+    {
+      id: "eks",
+      name: "EKS",
+      description: "Run on AWS Elastic Kubernetes Service",
+      icon: "/icon/aws.svg",
+      color: "from-amber-500 to-orange-600",
     },
   ],
   backend: [
@@ -429,6 +473,13 @@ export const TECH_OPTIONS: TechOptions = {
       color: "from-amber-500 to-orange-600",
     },
     {
+      id: "hetzner",
+      name: "Hetzner",
+      description: "Deploy to a Hetzner Cloud server using Alchemy",
+      icon: "/icon/hetzner.svg",
+      color: "from-red-500 to-red-700",
+    },
+    {
       id: "docker",
       name: "Docker",
       description: "Self-host with a Dockerfile and docker-compose.yml",
@@ -473,6 +524,34 @@ export const TECH_OPTIONS: TechOptions = {
       description: "Deploy to AWS using Alchemy",
       icon: "/icon/aws.svg",
       color: "from-amber-500 to-orange-600",
+    },
+    {
+      id: "hetzner",
+      name: "Hetzner",
+      description: "Deploy to a Hetzner Cloud server using Alchemy",
+      icon: "/icon/hetzner.svg",
+      color: "from-red-500 to-red-700",
+    },
+    {
+      id: "fly",
+      name: "Fly.io",
+      description: "Deploy to Fly.io Machines using Alchemy",
+      icon: "/icon/fly.svg",
+      color: "from-violet-500 to-violet-700",
+    },
+    {
+      id: "railway",
+      name: "Railway",
+      description: "Deploy to Railway services using Alchemy",
+      icon: "/icon/railway.svg",
+      color: "from-slate-500 to-slate-700",
+    },
+    {
+      id: "neon",
+      name: "Neon",
+      description: "Deploy Neon Functions next to your database",
+      icon: "/icon/neon.svg",
+      color: "from-emerald-500 to-emerald-700",
     },
     {
       id: "docker",
@@ -720,6 +799,7 @@ export const TECH_OPTIONS: TechOptions = {
       color: "from-violet-500 to-indigo-700",
       default: false,
     },
+    ...providerAddonOptions,
   ],
   examples: [
     {

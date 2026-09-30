@@ -81,6 +81,7 @@ function selectedEntries(stack: StackState): Array<{ category: TechCategory; id:
   const entries: Array<{ category: TechCategory; id: string }> = [];
   for (const category of Object.keys(TECH_OPTIONS) as TechCategory[]) {
     const value = stack[category];
+    if (value === undefined) continue;
     const ids = Array.isArray(value) ? value : [value];
     for (const id of ids) {
       entries.push({ category, id });
