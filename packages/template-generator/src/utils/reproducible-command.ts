@@ -42,9 +42,28 @@ export function generateReproducibleCommand(config: ProjectConfig): string {
   flags.push(`--api ${config.api}`);
   flags.push(`--auth ${config.auth}`);
   flags.push(`--payments ${config.payments}`);
+  flags.push(`--email-renderer ${config.emailRenderer}`);
+  flags.push(`--email-deploy ${config.emailDeploy}`);
 
   flags.push(formatMultiFlag("--addons", addons));
   flags.push(formatMultiFlag("--examples", examples));
+
+  const shadcn = config.shadcn;
+  if (shadcn) {
+    const base = shadcn.base ?? "baseui";
+    if (shadcn.preset) {
+      flags.push(`--shadcn-preset ${shadcn.preset}`);
+    }
+    if (base !== "baseui") {
+      flags.push(`--shadcn-base ${base}`);
+    }
+    if (shadcn.rtl === true) {
+      flags.push("--shadcn-rtl");
+    }
+    if (shadcn.pointer === true) {
+      flags.push("--shadcn-pointer");
+    }
+  }
 
   flags.push(`--db-setup ${config.dbSetup}`);
   if (config.dbSetupOptions?.mode === "manual") {
@@ -54,6 +73,9 @@ export function generateReproducibleCommand(config: ProjectConfig): string {
   }
   flags.push(`--web-deploy ${config.webDeploy}`);
   flags.push(`--server-deploy ${config.serverDeploy}`);
+  if (config.portless) {
+    flags.push("--portless");
+  }
   flags.push(config.git ? "--git" : "--no-git");
   flags.push(`--package-manager ${config.packageManager}`);
   flags.push(config.install ? "--install" : "--no-install");

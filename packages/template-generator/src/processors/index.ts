@@ -15,7 +15,9 @@ import { processExamplesDeps } from "./examples-deps";
 import { processFrontendDeps } from "./frontend-deps";
 import { processInfraDeps } from "./infra-deps";
 import { processNxConfig } from "./nx-generator";
+import { processOxlintConfig } from "./oxlint-generator";
 import { processPaymentsDeps } from "./payments-deps";
+import { processPortlessMode } from "./portless";
 import { processPwaPlugins } from "./pwa-plugins";
 import { processReadme } from "./readme-generator";
 import { processRuntimeDeps } from "./runtime-deps";
@@ -40,6 +42,7 @@ export function processDependencies(vfs: VirtualFileSystem, config: ProjectConfi
   processTurboConfig(vfs, config);
   processNxConfig(vfs, config);
   processVitePlusConfig(vfs, config);
+  processOxlintConfig(vfs, config);
 }
 
 export {
@@ -54,7 +57,9 @@ export {
   processFrontendDeps,
   processInfraDeps,
   processPaymentsDeps,
+  processPortlessMode,
   processNxConfig,
+  processOxlintConfig,
   processReadme,
   processRuntimeDeps,
   processTurboConfig,

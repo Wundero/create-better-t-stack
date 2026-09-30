@@ -16,6 +16,8 @@ const baseConfig: ProjectConfig = {
   orm: "drizzle",
   auth: "none",
   payments: "none",
+  emailRenderer: "none",
+  emailDeploy: "none",
   addons: ["nx"],
   examples: [],
   git: false,

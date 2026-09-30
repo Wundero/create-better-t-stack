@@ -1,0 +1,31 @@
+---
+interface Props {
+  planLabel?: string;
+  isActive?: boolean;
+  pending?: boolean;
+}
+
+const { planLabel = "Free", isActive = false, pending = false } = Astro.props;
+---
+
+<div class="flex items-center justify-between" data-payment-actions>
+  <p id="payment-plan-label" class="text-white">Plan: {planLabel}</p>
+  <button
+    id="payment-portal"
+    type="button"
+    class="rounded px-3 py-1.5 text-sm bg-neutral-700 hover:bg-neutral-600 text-white transition-colors"
+    disabled={pending}
+    hidden={!isActive}
+  >
+    Manage Subscription
+  </button>
+  <button
+    id="payment-checkout"
+    type="button"
+    class="rounded px-3 py-1.5 text-sm bg-indigo-600 hover:bg-indigo-700 text-white transition-colors"
+    disabled={pending}
+    hidden={isActive}
+  >
+    Upgrade to Pro
+  </button>
+</div>

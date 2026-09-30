@@ -19,7 +19,9 @@ const prismaWasm =
 
 export default defineConfig({
   server: {
+{{#unless portless}}
     port: 3001,
+{{/unless}}
   },
 {{#if (and (eq webDeploy "cloudflare") (eq backend "self"))}}
   build: {

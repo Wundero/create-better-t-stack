@@ -3,20 +3,11 @@
 import { Terminal } from "lucide-react";
 
 import { track } from "@/lib/analytics";
+import type { ShowcaseProject } from "@/lib/api-client";
 
 import { PageHeader } from "../../_components/page-header";
 import { PageShell } from "../../_components/page-shell";
 import ShowcaseItem from "../_components/showcase-item";
-
-type ShowcaseProject = {
-  _id: string;
-  _creationTime: number;
-  title: string;
-  description: string;
-  imageUrl: string;
-  liveUrl: string;
-  tags: string[];
-};
 
 export function ShowcasePage({ showcaseProjects }: { showcaseProjects: Array<ShowcaseProject> }) {
   return (
@@ -43,7 +34,7 @@ export function ShowcasePage({ showcaseProjects }: { showcaseProjects: Array<Sho
       ) : (
         <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
           {showcaseProjects.map((project, index) => (
-            <ShowcaseItem key={project._id} {...project} index={index} />
+            <ShowcaseItem key={project.id} {...project} index={index} />
           ))}
         </div>
       )}

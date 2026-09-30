@@ -1,0 +1,28 @@
+import { Section, Text } from "react-email";
+import type { CSSProperties } from "react";
+
+export type InputProps = {
+  value?: string;
+  placeholder?: string;
+  style?: CSSProperties;
+};
+
+export function Input({ value, placeholder, style }: InputProps) {
+  const inputStyle = {
+    border: "1px solid #d4d4d8",
+    borderRadius: "6px",
+    paddingTop: "10px",
+    paddingBottom: "10px",
+    paddingLeft: "12px",
+    paddingRight: "12px",
+    ...style,
+  };
+
+  return (
+    <Section style={inputStyle}>
+      <Text style=\{{ margin: 0, fontSize: "14px", color: value ? "#18181b" : "#a1a1aa" }}>
+        {value || placeholder || ""}
+      </Text>
+    </Section>
+  );
+}

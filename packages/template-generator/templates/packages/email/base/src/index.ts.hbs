@@ -1,0 +1,6 @@
+{{#if (eq emailRenderer "react-email")}}
+export * from "./render";
+{{/if}}
+{{#if (ne emailDeploy "none")}}
+export * from "./send";
+{{/if}}

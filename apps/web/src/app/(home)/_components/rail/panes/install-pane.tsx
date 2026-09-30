@@ -5,15 +5,16 @@ import Link from "next/link";
 import { useState } from "react";
 
 import { track } from "@/lib/analytics";
+import { getInstallCommand } from "@/lib/cli-commands";
 import { cn } from "@/lib/utils";
 
 import PackageIcon from "../../icons";
 import { GroupHeader } from "../chrome";
 
 const COMMANDS = {
-  bun: "bun create better-t-stack@latest",
-  pnpm: "pnpm create better-t-stack@latest",
-  npm: "npx create-better-t-stack@latest",
+  bun: getInstallCommand("bun"),
+  pnpm: getInstallCommand("pnpm"),
+  npm: getInstallCommand("npm"),
 } as const;
 
 type PackageManager = keyof typeof COMMANDS;

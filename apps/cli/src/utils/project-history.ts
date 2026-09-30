@@ -28,6 +28,8 @@ export type ProjectHistoryEntry = {
     runtime: string;
     auth: string;
     payments: string;
+    emailRenderer: string;
+    emailDeploy: string;
     api: string;
     addons: string[];
     examples: string[];
@@ -150,6 +152,8 @@ export async function addToHistory(
       runtime: config.runtime,
       auth: config.auth,
       payments: config.payments,
+      emailRenderer: config.emailRenderer,
+      emailDeploy: config.emailDeploy,
       api: config.api,
       addons: config.addons,
       examples: config.examples,

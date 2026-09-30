@@ -19,6 +19,8 @@ export default function DashboardPage() {
 		queryFn: async () => (await authClient.customer.state()).data,
 		enabled: Boolean(session?.user),
 	});
+{{else if (and (ne payments "none") (ne payments "polar"))}}
+	// Payment state is resolved inside the client dashboard component.
 {{/if}}
 
 	useEffect(() => {
@@ -78,6 +80,8 @@ export default async function DashboardPage() {
 			headers: await headers(),
 		},
 	});
+	{{else if (and (ne payments "none") (ne payments "polar"))}}
+	// Payment state is resolved inside the client dashboard component.
 	{{/if}}
 
 	return (

@@ -25,7 +25,7 @@ const config: NextConfig = {
       },
     ];
   },
-  serverExternalPackages: ["create-better-t-stack", "fs-extra", "tinyglobby", "handlebars"],
+  serverExternalPackages: ["create-better-t-stack", "fs-extra", "tinyglobby"],
 };
 
 export default withMDX(config);

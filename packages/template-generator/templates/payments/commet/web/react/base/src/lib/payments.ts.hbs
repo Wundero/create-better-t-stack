@@ -1,0 +1,75 @@
+import { useEffect, useState } from "react";
+{{#if (ne backend "self")}}
+{{#unless (includes frontend "next")}}
+import { ENV } from "../env{{#if (eq webDeploy "cloudflare")}}.public{{/if}}";
+{{/unless}}
+{{/if}}
+import { authClient } from "@/lib/auth-client";
+
+const PRO_PLAN_CODE = "pro";
+const ACTIVE_STATUSES = ["active", "trialing"];
+
+{{#if (eq backend "self")}}
+const COMMET_CHECKOUT_URL = "/api/payments/commet/checkout";
+{{else if (includes frontend "next")}}
+const COMMET_CHECKOUT_URL = `${process.env.NEXT_PUBLIC_SERVER_URL!}/api/payments/commet/checkout`;
+{{else}}
+const COMMET_CHECKOUT_URL = `${ENV.VITE_SERVER_URL.replace(/\/$/, "")}/api/payments/commet/checkout`;
+{{/if}}
+
+export interface PaymentState {
+  isActive: boolean;
+  planLabel: string;
+}
+
+export function usePayment(): {
+  state: PaymentState;
+  isLoading: boolean;
+  checkout: () => Promise<void>;
+  portal: () => Promise<void>;
+} {
+  const [isActive, setIsActive] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function load() {
+      const { data, error } = await authClient.subscription.get();
+      if (cancelled) return;
+      setIsActive(!error && ACTIVE_STATUSES.includes(data?.status ?? ""));
+      setIsLoading(false);
+    }
+
+    void load();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const checkout = async () => {
+    const response = await fetch(COMMET_CHECKOUT_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ planCode: PRO_PLAN_CODE }),
+    });
+    if (response.status === 204 || !response.ok) return;
+    const data = (await response.json()) as { url?: string };
+    if (!data.url) return;
+    window.location.href = data.url;
+  };
+
+  const portal = async () => {
+    const { data, error } = await authClient.customer.portal();
+    if (error || !data?.url) return;
+    window.location.href = data.url;
+  };
+
+  return {
+    state: { isActive, planLabel: isActive ? "Pro" : "Free" },
+    isLoading,
+    checkout,
+    portal,
+  };
+}

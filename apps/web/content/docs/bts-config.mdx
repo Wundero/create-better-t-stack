@@ -28,7 +28,7 @@ The file is JSONC with comments enabled and includes a `$schema` URL for tooling
 // Better-T-Stack project metadata
 //
 // Keep this file to use the `add` command.
-// Add addons: bunx create-better-t-stack@latest add
+// Add addons: bunx @wundero/bts@latest add
 //
 // Docs: https://www.better-t-stack.dev/docs
 // Stack Builder: https://www.better-t-stack.dev/new
@@ -36,7 +36,7 @@ The file is JSONC with comments enabled and includes a `$schema` URL for tooling
   "$schema": "https://r2.better-t-stack.dev/schema.json",
   "version": "x.y.z",
   "createdAt": "2025-01-01T00:00:00.000Z",
-  "reproducibleCommand": "bun create better-t-stack@latest my-app --frontend tanstack-router ...",
+  "reproducibleCommand": "bunx @wundero/bts@latest my-app --frontend tanstack-router ...",
   "frontend": ["tanstack-router"],
   "backend": "hono",
   "runtime": "bun",
@@ -59,6 +59,12 @@ The file is JSONC with comments enabled and includes a `$schema` URL for tooling
   "webDeploy": "none",
   "serverDeploy": "none",
   "packageManager": "bun",
+  "shadcn": {
+    "preset": "b1x9M8ZeJW",
+    "base": "baseui",
+    "rtl": false,
+    "pointer": false,
+  },
 }
 ```
 
@@ -69,6 +75,19 @@ Notes:
 - Deeply nested structured options remain in `addonOptions` or `dbSetupOptions` and may not be fully represented in the one-line command
 - `addonOptions` stores nested configuration for prompt-driven addons
 - `dbSetupOptions` stores structured database setup behavior for automation
+- `shadcn` is only written when a shadcn theme is configured for a React web frontend
 - The file may be updated when you run `add` (addons and addon-specific config)
+- `payments` accepts `polar`, `stripe`, `autumn`, `dodo`, `creem`, `chargebee`, `commet`, or `none`; all providers require `better-auth`
+
+## shadcn
+
+The optional `shadcn` object records the shadcn/ui theme applied to a React web frontend. It requires `next`, `tanstack-start`, `tanstack-router`, or `react-router`.
+
+| Field     | Type    | Description                                                                                                                                                              |
+| --------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `preset`  | string  | Preset code (e.g. `b1x9M8ZeJW`), named preset (`nova`, `vega`, `maia`, `lyra`, `mira`, `luma`, `sera`, or `rhea`), or preset URL. Required whenever `shadcn` is present. |
+| `base`    | string  | Headless component base: `baseui` (default), `radixui`, or `react-aria`.                                                                                                 |
+| `rtl`     | boolean | Enable right-to-left styles.                                                                                                                                             |
+| `pointer` | boolean | Enable pointer cursor styles.                                                                                                                                            |
 
 See also: [`add` command](/docs/cli#add)

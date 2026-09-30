@@ -16,6 +16,14 @@ pre-commit:
     - name: oxfmt
       run: {{packageManager}} oxfmt --write {staged_files}
       stage_fixed: true
+{{else if (includes addons "eslint")}}
+    - name: eslint
+      glob: "*.{js,jsx,ts,tsx,mjs,cjs,mts,cts,json,jsonc,css,scss,md,mdx,yml,yaml,html,vue,svelte,astro}"
+      run: {{packageManager}} eslint --fix {staged_files}
+      stage_fixed: true
+    - name: prettier
+      run: {{packageManager}} prettier --write {staged_files}
+      stage_fixed: true
 {{else if (includes addons "vite-plus")}}
     - name: vite-plus
       run: {{packageManager}} vp staged

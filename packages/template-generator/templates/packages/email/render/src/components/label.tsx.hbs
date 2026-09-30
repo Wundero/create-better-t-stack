@@ -1,0 +1,19 @@
+import { Text } from "react-email";
+import type { CSSProperties, ReactNode } from "react";
+
+export type LabelProps = {
+  children: ReactNode;
+  style?: CSSProperties;
+};
+
+export function Label({ children, style }: LabelProps) {
+  const labelStyle = {
+    margin: "0 0 6px",
+    fontSize: "12px",
+    fontWeight: 600,
+    color: "#3f3f46",
+    ...style,
+  };
+
+  return <Text style={labelStyle}>{children}</Text>;
+}

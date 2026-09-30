@@ -1,6 +1,7 @@
 import { Result } from "better-result";
 import { $ } from "execa";
 import pc from "picocolors";
+import z from "zod";
 
 import { navigableMultiselect, navigableSelect } from "../../prompts/navigable";
 import { navigableGroup } from "../../prompts/navigable-group";
@@ -612,23 +613,34 @@ export async function setupSkills(
   const globalFlags = scope === "global" ? ["-g"] : [];
   const agentTargets = expandSkillsAgentTargets(selectedAgents);
 
+  const runSkillsAdd = async (source: string, skills: string[]) => {
+    const args = [
+      ...runner,
+      "skills@latest",
+      "add",
+      source,
+      ...globalFlags,
+      "--skill",
+      ...skills,
+      "--agent",
+      ...agentTargets,
+      "-y",
+    ];
+    await $({ cwd: projectDir, env: { CI: "true" } })`${args}`;
+  };
+
+  const failedSources: string[] = [];
+
   // Install skills grouped by source (project scope, no -g flag)
   for (const [source, skills] of Object.entries(skillsBySource)) {
     const installResult = await Result.tryPromise({
       try: async () => {
-        const args = [
-          ...runner,
-          "skills@latest",
-          "add",
-          source,
-          ...globalFlags,
-          "--skill",
-          ...skills,
-          "--agent",
-          ...agentTargets,
-          "-y",
-        ];
-        await $({ cwd: projectDir, env: { CI: "true" } })`${args}`;
+        try {
+          await runSkillsAdd(source, skills);
+        } catch {
+          // clone failures on large skill repos are usually transient
+          await runSkillsAdd(source, skills);
+        }
       },
       catch: (e) =>
         new AddonSetupError({
@@ -639,11 +651,51 @@ export async function setupSkills(
     });
 
     if (installResult.isErr()) {
-      cliLog.warn(pc.yellow(`Warning: Could not install skills from ${source}`));
+      failedSources.push(source);
+      const reason = getInstallFailureReason(installResult.error.cause);
+      cliLog.warn(
+        pc.yellow(
+          `Warning: Could not install skills from ${source}${reason ? ` (${reason})` : ""}`,
+        ),
+      );
     }
   }
 
-  installSpinner.stop("Skills installed");
+  installSpinner.stop(
+    failedSources.length > 0 ? "Skills installed (some sources failed)" : "Skills installed",
+  );
+
+  if (failedSources.length > 0) {
+    const retryCommands = failedSources
+      .map((source) => `  ${[...runner, "skills", "add", source].join(" ")}`)
+      .join("\n");
+    cliLog.info(`Retry the failed sources manually inside the project:\n${retryCommands}`);
+  }
 
   return Result.ok(undefined);
+}
+
+const ANSI_ESCAPE = String.fromCharCode(27);
+
+export function stripAnsi(text: string): string {
+  return text
+    .split(ANSI_ESCAPE)
+    .map((chunk) => chunk.replace(/^\[[0-9;]*m/u, ""))
+    .join("");
+}
+
+const FailureCauseSchema = z.object({
+  stderr: z.string().optional(),
+  stdout: z.string().optional(),
+});
+
+export function getInstallFailureReason(cause: unknown): string | undefined {
+  const parsed = FailureCauseSchema.safeParse(cause);
+  if (!parsed.success) return undefined;
+  const { stderr, stdout } = parsed.data;
+  const lines = stripAnsi(`${stderr ?? ""}\n${stdout ?? ""}`)
+    .split("\n")
+    .map((line) => line.replace(/^[\s\u2500-\u25FF|]+(?:Error:\s*)?/u, "").trim())
+    .filter((line) => /failed|error|invalid/iu.test(line));
+  return lines.at(0)?.slice(0, 200) || undefined;
 }

@@ -1,0 +1,144 @@
+{{#if (includes addons "turnstile")}}
+<script setup lang="ts">
+const props = withDefaults(
+  defineProps<{
+    siteKey: string
+    action?: string
+    resetKey?: number
+  }>(),
+  {
+    resetKey: 0,
+  },
+)
+
+const emit = defineEmits<{
+  "update:token": [token: string | null]
+}>()
+
+type TurnstileWidgetId = string
+
+interface TurnstileRenderOptions {
+  sitekey: string
+  action?: string
+  callback: (token: string) => void
+  "expired-callback": () => void
+  "error-callback": () => void
+}
+
+interface TurnstileApi {
+  render: (container: HTMLElement, options: TurnstileRenderOptions) => TurnstileWidgetId
+  remove: (widgetId: TurnstileWidgetId) => void
+  reset: (widgetId: TurnstileWidgetId) => void
+}
+
+const TURNSTILE_SCRIPT_SRC = "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit"
+
+let turnstileScriptPromise: Promise<void> | null = null
+
+function getTurnstile(): TurnstileApi | undefined {
+  if (typeof window === "undefined") {
+    return undefined
+  }
+
+  return (window as Window & { turnstile?: TurnstileApi }).turnstile
+}
+
+function loadTurnstileScript(): Promise<void> {
+  if (typeof window === "undefined") {
+    return Promise.reject(new Error("Turnstile can only load in the browser"))
+  }
+
+  if (getTurnstile()) {
+    return Promise.resolve()
+  }
+
+  if (turnstileScriptPromise) {
+    return turnstileScriptPromise
+  }
+
+  turnstileScriptPromise = new Promise<void>((resolve, reject) => {
+    const existingScript = document.querySelector<HTMLScriptElement>(
+      `script[src="${TURNSTILE_SCRIPT_SRC}"]`,
+    )
+
+    if (existingScript) {
+      existingScript.addEventListener("load", () => resolve())
+      existingScript.addEventListener("error", () => {
+        turnstileScriptPromise = null
+        reject(new Error("Failed to load the Turnstile script"))
+      })
+      return
+    }
+
+    const script = document.createElement("script")
+    script.src = TURNSTILE_SCRIPT_SRC
+    script.async = true
+    script.defer = true
+    script.addEventListener("load", () => resolve())
+    script.addEventListener("error", () => {
+      turnstileScriptPromise = null
+      reject(new Error("Failed to load the Turnstile script"))
+    })
+    document.head.appendChild(script)
+  })
+
+  return turnstileScriptPromise
+}
+
+const container = ref<HTMLDivElement | null>(null)
+let widgetId: TurnstileWidgetId | null = null
+
+onMounted(() => {
+  if (!container.value) {
+    return
+  }
+
+  void loadTurnstileScript()
+    .then(() => {
+      const turnstile = getTurnstile()
+
+      if (!turnstile || !container.value) {
+        return
+      }
+
+      widgetId = turnstile.render(container.value, {
+        sitekey: props.siteKey,
+        action: props.action,
+        callback: (token) => emit("update:token", token),
+        "expired-callback": () => emit("update:token", null),
+        "error-callback": () => emit("update:token", null),
+      })
+    })
+    .catch(() => {
+      emit("update:token", null)
+    })
+})
+
+onBeforeUnmount(() => {
+  const turnstile = getTurnstile()
+
+  if (widgetId !== null && turnstile) {
+    turnstile.remove(widgetId)
+  }
+
+  widgetId = null
+})
+
+watch(
+  () => props.resetKey,
+  () => {
+    emit("update:token", null)
+
+    const turnstile = getTurnstile()
+
+    if (widgetId !== null && turnstile) {
+      turnstile.reset(widgetId)
+    }
+  },
+)
+</script>
+
+<template>
+  <div ref="container"></div>
+</template>
+{{/if}}

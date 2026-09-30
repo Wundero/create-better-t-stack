@@ -15,6 +15,8 @@ import {
   DatabaseSetupSchema,
   DbSetupOptionsSchema,
   DirectoryConflictSchema,
+  EmailDeploySchema,
+  EmailRendererSchema,
   ExamplesSchema,
   FrontendSchema,
   ORMSchema,
@@ -22,6 +24,7 @@ import {
   PaymentsSchema,
   RuntimeSchema,
   ServerDeploySchema,
+  ShadcnConfigSchema,
   WebDeploySchema,
 } from "./types";
 import { setProcessMode } from "./utils/context";
@@ -49,6 +52,8 @@ const McpCreateProjectInputSchema = CreateInputSchema.safeExtend({
   api: APISchema.describe("Explicit API layer"),
   auth: AuthSchema.describe("Explicit authentication provider"),
   payments: PaymentsSchema.describe("Explicit payments provider"),
+  emailRenderer: EmailRendererSchema.describe("Explicit email renderer"),
+  emailDeploy: EmailDeploySchema.describe("Explicit email deployment choice"),
   addons: z.array(AddonsSchema).describe("Explicit addon list. Use [] when no addons are needed."),
   examples: z
     .array(ExamplesSchema)
@@ -61,6 +66,9 @@ const McpCreateProjectInputSchema = CreateInputSchema.safeExtend({
   serverDeploy: ServerDeploySchema.describe("Explicit server deployment choice"),
   addonOptions: AddonOptionsSchema.optional(),
   dbSetupOptions: DbSetupOptionsSchema.optional(),
+  shadcn: ShadcnConfigSchema.optional().describe(
+    "shadcn theme configuration. Set preset to a preset code, named preset, or preset URL.",
+  ),
   directoryConflict: DirectoryConflictSchema.optional(),
 }).describe(
   "Explicit Better T Stack project configuration for MCP use. Provide the full stack config instead of relying on inferred defaults.",
@@ -140,6 +148,8 @@ function getStackGuidance() {
         "api",
         "auth",
         "payments",
+        "emailRenderer",
+        "emailDeploy",
         "addons",
         "examples",
         "git",
@@ -149,7 +159,7 @@ function getStackGuidance() {
         "webDeploy",
         "serverDeploy",
       ],
-      optionalFields: ["addonOptions", "dbSetupOptions", "directoryConflict"],
+      optionalFields: ["addonOptions", "dbSetupOptions", "shadcn", "directoryConflict"],
       rule: "Do not call bts_plan_project or bts_create_project with a partial payload. MCP project creation requires the full explicit stack config.",
     },
     fieldNotes: {
@@ -163,11 +173,17 @@ function getStackGuidance() {
         "webDeploy is always required. Use 'none' when no web deployment target is requested.",
       serverDeploy:
         "serverDeploy is always required. Use 'none' when no server deployment target is requested.",
+      emailRenderer:
+        "emailRenderer is always required. Use 'none' when no email rendering setup is requested.",
+      emailDeploy:
+        "emailDeploy is always required. Use 'none' when no email deployment target is requested.",
       packageManager:
         "packageManager is always required because installation and reproducible commands depend on it.",
       install:
         "install is always required. For MCP project creation, prefer false because many clients enforce request timeouts around long-running dependency installs.",
       git: "git is always required. Set it to true or false explicitly instead of relying on defaults.",
+      shadcn:
+        "shadcn is optional and only applies to React web frontends. When provided it must include a preset (code, named preset, or preset URL); base defaults to baseui.",
     },
     ambiguityRules: [
       "If the user request leaves major stack choices unspecified, stop and resolve them before calling bts_plan_project.",

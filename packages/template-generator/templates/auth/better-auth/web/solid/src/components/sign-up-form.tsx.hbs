@@ -1,5 +1,6 @@
 import { useNavigate } from "@solidjs/router";
-import { createSignal, Show } from "solid-js";
+import { createSignal, Show } from "solid-js";{{#if (includes addons "turnstile")}}
+import Turnstile from "./Turnstile";{{/if}}
 import { authClient } from "~/lib/auth-client";
 import z from "zod";
 
@@ -12,7 +13,10 @@ const signUpSchema = z.object({
 export default function SignUpForm({ onSwitchToSignIn }: { onSwitchToSignIn: () => void }) {
   const navigate = useNavigate();
   const [error, setError] = createSignal<string>();
-  const [isSubmitting, setIsSubmitting] = createSignal(false);
+  const [isSubmitting, setIsSubmitting] = createSignal(false);{{#if (includes addons "turnstile")}}
+
+  const [turnstileToken, setTurnstileToken] = createSignal<string | null>(null);
+  const [turnstileResetKey, setTurnstileResetKey] = createSignal(0);{{/if}}
 
   const submit = async (event: SubmitEvent & { currentTarget: HTMLFormElement }) => {
     event.preventDefault();
@@ -23,9 +27,16 @@ export default function SignUpForm({ onSwitchToSignIn }: { onSwitchToSignIn: () 
     }
 
     setIsSubmitting(true);
-    setError();
+    setError();{{#if (includes addons "turnstile")}}
+    const captchaToken = turnstileToken();{{/if}}
     try {
-      await authClient.signUp.email(result.data, {
+      await authClient.signUp.email({{#if (includes addons "turnstile")}}
+        {
+          ...result.data,
+          fetchOptions: captchaToken
+            ? { headers: { "x-captcha-response": captchaToken } }
+            : undefined,
+        }, {{else}}result.data, {{/if}}{
         onSuccess: async () => {
           await authClient.useSession.get().refetch();
           const session = authClient.useSession.get();
@@ -36,7 +47,9 @@ export default function SignUpForm({ onSwitchToSignIn }: { onSwitchToSignIn: () 
           navigate("/dashboard");
         },
         onError: ({ error }) => {
-          setError(error.message);
+          setError(error.message);{{#if (includes addons "turnstile")}}
+          setTurnstileToken(null);
+          setTurnstileResetKey((key) => key + 1);{{/if}}
         },
       });
     } finally {
@@ -67,11 +80,17 @@ export default function SignUpForm({ onSwitchToSignIn }: { onSwitchToSignIn: () 
             class="w-full rounded border p-2"
           />
         </div>
-        <Show when={error()}>{(message) => <p class="text-sm text-red-600">{message()}</p>}</Show>
+        <Show when={error()}>{(message) => <p class="text-sm text-red-600">{message()}</p>}</Show>{{#if (includes addons "turnstile")}}
+        <Turnstile
+          siteKey={import.meta.env.VITE_TURNSTILE_SITE_KEY}
+          action="sign-up"
+          onToken={setTurnstileToken}
+          resetKey={turnstileResetKey()}
+        />{{/if}}
         <button
           type="submit"
           class="w-full rounded bg-indigo-600 p-2 text-white hover:bg-indigo-700 disabled:opacity-50"
-          disabled={isSubmitting()}
+          disabled={{#if (includes addons "turnstile")}}{isSubmitting() || !turnstileToken()}{{else}}{isSubmitting()}{{/if}}
         >
           {isSubmitting() ? "Submitting..." : "Sign Up"}
         </button>

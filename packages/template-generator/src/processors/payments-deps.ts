@@ -1,7 +1,8 @@
 import type { ProjectConfig } from "@better-t-stack/types";
+import { getPaymentProvider, isPaymentProvider } from "@better-t-stack/types";
 
 import type { VirtualFileSystem } from "../core/virtual-fs";
-import { addPackageDependency } from "../utils/add-deps";
+import { addPackageDependency, type AvailableDependencies } from "../utils/add-deps";
 
 export function processPaymentsDeps(vfs: VirtualFileSystem, config: ProjectConfig): void {
   const { payments, frontend, backend } = config;
@@ -10,6 +11,28 @@ export function processPaymentsDeps(vfs: VirtualFileSystem, config: ProjectConfi
   const backendPath = "packages/backend/package.json";
   const authPath = "packages/auth/package.json";
   const webPath = "apps/web/package.json";
+
+  if (isPaymentProvider(payments) && payments !== "polar") {
+    const meta = getPaymentProvider(payments);
+
+    if (vfs.exists(authPath) && meta.serverDeps.length > 0) {
+      addPackageDependency({
+        vfs,
+        packagePath: authPath,
+        dependencies: [...meta.serverDeps] as AvailableDependencies[],
+      });
+    }
+
+    if (vfs.exists(webPath) && meta.webDeps.length > 0) {
+      addPackageDependency({
+        vfs,
+        packagePath: webPath,
+        dependencies: [...meta.webDeps] as AvailableDependencies[],
+      });
+    }
+
+    return;
+  }
 
   if (payments === "polar") {
     if (backend === "convex") {

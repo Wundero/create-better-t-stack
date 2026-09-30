@@ -25,6 +25,8 @@ const defaultStack = {
   orm: "drizzle",
   auth: "none",
   payments: "none",
+  emailRenderer: "none",
+  emailDeploy: "none",
   addons: ["none"],
   examples: ["none"],
   dbSetup: "none",

@@ -25,6 +25,8 @@ const CLI_STACK_FLAGS = new Set([
   "auth",
   "dbSetup",
   "payments",
+  "emailRenderer",
+  "emailDeploy",
   "api",
   "webDeploy",
   "serverDeploy",
@@ -68,9 +70,12 @@ function randomStack(rand: () => number): StackState {
     dbSetup: pick(rand, ids("dbSetup")) as StackState["dbSetup"],
     auth: pick(rand, ids("auth")) as StackState["auth"],
     payments: pick(rand, ids("payments")) as StackState["payments"],
+    emailRenderer: pick(rand, ids("emailRenderer")) as StackState["emailRenderer"],
+    emailDeploy: pick(rand, ids("emailDeploy")) as StackState["emailDeploy"],
     packageManager: pick(rand, ids("packageManager")) as StackState["packageManager"],
     webDeploy: pick(rand, ids("webDeploy")) as StackState["webDeploy"],
     serverDeploy: pick(rand, ids("serverDeploy")) as StackState["serverDeploy"],
+    portless: pick(rand, ids("portless")) as StackState["portless"],
     addons: multi("addons"),
     examples: multi("examples"),
     yolo: "false",
@@ -200,6 +205,38 @@ describe("compatibility adjustment invariants", () => {
     expect(getDisabledReason(stack, "auth", "clerk")).toBeNull();
     expect(getCliCompatibilityError(stack)).toBeNull();
     expect(stackStateToConfig(stack).frontend).toEqual(["none"]);
+  });
+
+  test("never leaves portless enabled when the stack cannot run a local dev server", () => {
+    const incompatibleStacks = [
+      sanitizeStackState({ ...DEFAULT_STACK, portless: "true", nativeFrontend: ["native-bare"] }),
+      sanitizeStackState({ ...DEFAULT_STACK, portless: "true", addons: ["tauri"] }),
+      sanitizeStackState({
+        ...DEFAULT_STACK,
+        portless: "true",
+        backend: "convex",
+        runtime: "none",
+        database: "none",
+        orm: "none",
+        api: "none",
+        dbSetup: "none",
+        auth: "none",
+        serverDeploy: "none",
+      }),
+      sanitizeStackState({
+        ...DEFAULT_STACK,
+        portless: "true",
+        backend: "hono",
+        runtime: "workers",
+        dbSetup: "d1",
+        serverDeploy: "cloudflare",
+      }),
+      sanitizeStackState({ ...DEFAULT_STACK, portless: "true", webDeploy: "docker" }),
+    ];
+
+    for (const stack of incompatibleStacks) {
+      expect(resolveStackCompatibility(stack).stack.portless).toBe("false");
+    }
   });
 
   test("tauri is removed when Convex Better Auth targets Next.js or TanStack Start", () => {

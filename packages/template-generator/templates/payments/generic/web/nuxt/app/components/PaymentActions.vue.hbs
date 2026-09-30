@@ -1,0 +1,28 @@
+<script setup lang="ts">
+defineProps<{
+  isActive: boolean;
+  planLabel: string;
+  pending: boolean;
+}>();
+
+const emit = defineEmits<{
+  checkout: [];
+  portal: [];
+}>();
+</script>
+
+<template>
+  <div class="flex items-center justify-between">
+    <div class="flex items-center gap-2">
+      <UIcon
+        :name="isActive ? 'i-lucide-crown' : 'i-lucide-user'"
+        :class="isActive ? 'text-warning' : 'text-muted'"
+      />
+      <span>Plan: \{{ planLabel }}</span>
+    </div>
+    <UButton v-if="isActive" variant="outline" :loading="pending" @click="emit('portal')">
+      Manage Subscription
+    </UButton>
+    <UButton v-else :loading="pending" @click="emit('checkout')"> Upgrade to Pro </UButton>
+  </div>
+</template>

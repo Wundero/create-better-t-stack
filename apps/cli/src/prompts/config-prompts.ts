@@ -8,6 +8,8 @@ import type {
   Database,
   DatabaseSetup,
   DbSetupOptions,
+  EmailDeploy,
+  EmailRenderer,
   Examples,
   Frontend,
   ORM,
@@ -16,6 +18,7 @@ import type {
   ProjectConfig,
   Runtime,
   ServerDeploy,
+  ShadcnConfig,
   WebDeploy,
 } from "../types";
 import { isSilent } from "../utils/context";
@@ -26,6 +29,8 @@ import { getAuthChoice } from "./auth";
 import { getBackendFrameworkChoice } from "./backend";
 import { getDatabaseChoice } from "./database";
 import { getDBSetupChoice, getDbProvisioningChoice } from "./database-setup";
+import { getEmailDeployChoice } from "./email-deploy";
+import { getEmailsChoice } from "./emails";
 import { getExamplesChoice } from "./examples";
 import { getFrontendChoice } from "./frontend";
 import { getGitChoice } from "./git";
@@ -34,8 +39,10 @@ import { navigableGroup } from "./navigable-group";
 import { getORMChoice } from "./orm";
 import { getPackageManagerChoice } from "./package-manager";
 import { getPaymentsChoice } from "./payments";
+import { getPortlessChoice } from "./portless";
 import { getRuntimeChoice } from "./runtime";
 import { getServerDeploymentChoice } from "./server-deploy";
+import { getShadcnChoice } from "./shadcn";
 import { getDeploymentChoice } from "./web-deploy";
 
 type PromptGroupResults = {
@@ -47,14 +54,18 @@ type PromptGroupResults = {
   api: API;
   auth: Auth;
   payments: Payments;
+  emails: EmailRenderer;
   addons: Addons[];
   examples: Examples[];
   dbSetup: DatabaseSetup;
   git: boolean;
   packageManager: PackageManager;
   install: boolean;
+  portless: boolean;
   webDeploy: WebDeploy;
   serverDeploy: ServerDeploy;
+  shadcn: ShadcnConfig | undefined;
+  emailDeploy: EmailDeploy;
   dbSetupMode: DbSetupOptions["mode"];
 };
 
@@ -79,15 +90,19 @@ export async function gatherConfig(
       orm: flags.orm ?? DEFAULT_CONFIG.orm,
       auth: flags.auth ?? DEFAULT_CONFIG.auth,
       payments: flags.payments ?? DEFAULT_CONFIG.payments,
+      emailRenderer: flags.emailRenderer ?? DEFAULT_CONFIG.emailRenderer,
+      emailDeploy: flags.emailDeploy ?? DEFAULT_CONFIG.emailDeploy,
       addons: flags.addons ?? [...DEFAULT_CONFIG.addons],
       examples: flags.examples ?? [...DEFAULT_CONFIG.examples],
       git: flags.git ?? DEFAULT_CONFIG.git,
       packageManager: flags.packageManager ?? DEFAULT_CONFIG.packageManager,
       install: flags.install ?? DEFAULT_CONFIG.install,
+      portless: flags.portless ?? DEFAULT_CONFIG.portless,
       dbSetup: flags.dbSetup ?? DEFAULT_CONFIG.dbSetup,
       api: flags.api ?? DEFAULT_CONFIG.api,
       webDeploy: flags.webDeploy ?? DEFAULT_CONFIG.webDeploy,
       serverDeploy: flags.serverDeploy ?? DEFAULT_CONFIG.serverDeploy,
+      shadcn: flags.shadcn,
     };
   }
 
@@ -131,6 +146,7 @@ export async function gatherConfig(
           results.frontend,
           previousAnswer,
         ),
+      emails: ({ previousAnswer }) => getEmailsChoice(flags.emailRenderer, previousAnswer),
       addons: ({ results, previousAnswer }) =>
         getAddonsChoice(
           flags.addons,
@@ -169,6 +185,16 @@ export async function gatherConfig(
           results.webDeploy,
           previousAnswer,
         ),
+      shadcn: ({ results, previousAnswer }) =>
+        getShadcnChoice(flags.shadcn, results.frontend ?? [], previousAnswer),
+      emailDeploy: ({ results, previousAnswer }) =>
+        getEmailDeployChoice(
+          flags.emailDeploy,
+          results.backend,
+          results.webDeploy,
+          results.serverDeploy,
+          previousAnswer,
+        ),
       dbSetupMode: ({ results, previousAnswer }) =>
         getDbProvisioningChoice(
           flags.dbSetupOptions?.mode ?? (options.manualDb === true ? "manual" : undefined),
@@ -182,16 +208,29 @@ export async function gatherConfig(
       packageManager: ({ previousAnswer }) =>
         getPackageManagerChoice(flags.packageManager, previousAnswer),
       install: ({ previousAnswer }) => getinstallChoice(flags.install, previousAnswer),
+      portless: ({ previousAnswer }) => getPortlessChoice(flags.portless, previousAnswer),
     },
     {
       preselected: options.skipCompatibilityChecks ? flags : undefined,
       sections: [
         { label: "App", prompts: ["frontend", "backend", "runtime", "api"] },
         { label: "Data", prompts: ["database", "orm", "dbSetup"] },
-        { label: "Product", prompts: ["auth", "payments", "addons", "examples"] },
+        {
+          label: "Product",
+          prompts: ["auth", "payments", "emails", "addons", "examples", "shadcn"],
+        },
         {
           label: "Ship",
-          prompts: ["webDeploy", "serverDeploy", "dbSetupMode", "git", "packageManager", "install"],
+          prompts: [
+            "webDeploy",
+            "serverDeploy",
+            "emailDeploy",
+            "dbSetupMode",
+            "git",
+            "packageManager",
+            "install",
+            "portless",
+          ],
         },
       ],
       onCancel: () => {
@@ -213,14 +252,18 @@ export async function gatherConfig(
     orm: result.orm,
     auth: result.auth,
     payments: result.payments,
+    emailRenderer: result.emails,
+    emailDeploy: result.emailDeploy,
     addons: result.addons,
     examples: result.examples,
     git: result.git,
     packageManager: result.packageManager,
     install: result.install,
+    portless: result.portless,
     dbSetup: result.dbSetup,
     api: result.api,
     webDeploy: result.webDeploy,
     serverDeploy: result.serverDeploy,
+    shadcn: result.shadcn,
   };
 }

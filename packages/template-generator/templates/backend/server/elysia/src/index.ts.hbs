@@ -26,6 +26,9 @@ import { createContext } from "@{{projectName}}/api/context";
 {{#if (eq auth "better-auth")}}
 import { auth } from "@{{projectName}}/auth";
 {{/if}}
+{{#if (eq payments "commet")}}
+import { createCommetCheckoutUrl } from "@{{projectName}}/auth/lib/payments";
+{{/if}}
 
 {{#if (eq api "orpc")}}
 const rpcHandler = new RPCHandler(appRouter, {
@@ -55,7 +58,7 @@ const apiHandler = new OpenAPIHandler(appRouter, {
 			origin: {{#if (and (ne backend "self") (or (includes addons "electrobun") (includes addons "tauri")))}}[ENV.CORS_ORIGIN, ...desktopOrigins]{{else}}ENV.CORS_ORIGIN{{/if}},
 			methods: ["GET", "POST", "OPTIONS"],
 {{#if (or (eq auth "better-auth") (eq auth "clerk"))}}
-			allowedHeaders: ["Content-Type", "Authorization"],
+			allowedHeaders: ["Content-Type", "Authorization"{{#if (includes addons "turnstile")}}, "x-captcha-response"{{/if}}],
 {{/if}}
 {{#if (eq auth "better-auth")}}
 			credentials: true,
@@ -95,6 +98,27 @@ const apiHandler = new OpenAPIHandler(appRouter, {
 			return auth.handler(request);
 		}
 		return status(405)
+	})
+{{/if}}
+{{#if (eq payments "commet")}}
+	.post("/api/payments/commet/checkout", async (context) => {
+		const session = await auth.api.getSession({ headers: context.request.headers });
+		if (!session?.user) {
+			return context.status(401, { error: "Unauthorized" });
+		}
+
+		const body = (await context.request.json().catch(() => ({}))) as { planCode?: string };
+		const planCode = body.planCode ?? "pro";
+		const successUrl = `${ENV.CORS_ORIGIN}/success`;
+		const url = await createCommetCheckoutUrl({
+			userId: session.user.id,
+			planCode,
+			successUrl,
+		});
+		if (!url) {
+			return context.status(204);
+		}
+		return { url };
 	})
 {{/if}}
 {{#if (eq api "orpc")}}
@@ -162,12 +186,12 @@ export default app;
 // Elysia's default export is not auto-served by Bun or Node, so start a local
 // server outside Vercel while still exporting the app for Vercel functions.
 if (!process.env.VERCEL) {
-	app.listen(3000, () => {
+	app.listen({{#if portless}}Number(process.env.PORT) || 3000{{else}}3000{{/if}}, () => {
 		console.log("Server is running on http://localhost:3000");
 	});
 }
 {{else}}
-	.listen(3000, () => {
+	.listen({{#if portless}}Number(process.env.PORT) || 3000{{else}}3000{{/if}}, () => {
 		console.log("Server is running on http://localhost:3000");
 	});
 {{/if}}

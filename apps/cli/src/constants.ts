@@ -21,6 +21,8 @@ export const DEFAULT_CONFIG_BASE = {
   orm: "drizzle",
   auth: "better-auth",
   payments: "none",
+  emailRenderer: "none",
+  emailDeploy: "none",
   addons: ["turborepo"],
   examples: [],
   git: true,
@@ -31,6 +33,7 @@ export const DEFAULT_CONFIG_BASE = {
   api: "trpc",
   webDeploy: "none",
   serverDeploy: "none",
+  portless: false,
 } as const;
 
 export function getDefaultConfig() {

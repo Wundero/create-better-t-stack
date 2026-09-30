@@ -1,4 +1,6 @@
+import { getStackCommandBase } from "@/lib/cli-commands";
 import { DEFAULT_STACK, isStackDefault, type StackState, TECH_OPTIONS } from "@/lib/constant";
+import { DEFAULT_SHADCN_BASE, DEFAULT_SHADCN_PRESET, getShadcnConfig } from "@/lib/shadcn-config";
 import { SITE_URL } from "@/lib/site";
 import { stackUrlKeys } from "@/lib/stack-url-keys";
 
@@ -17,11 +19,14 @@ const CATEGORY_ORDER: Array<keyof typeof TECH_OPTIONS> = [
   "serverDeploy",
   "auth",
   "payments",
+  "emailRenderer",
+  "emailDeploy",
   "packageManager",
   "addons",
   "examples",
   "git",
   "install",
+  "portless",
 ];
 
 const desktopAddonNames = {
@@ -60,7 +65,7 @@ export function getSelectedTechs(stack: StackState): SelectedTech[] {
   const selected: SelectedTech[] = [];
   for (const category of CATEGORY_ORDER) {
     const options = TECH_OPTIONS[category];
-    const value = stack[category as keyof StackState];
+    const value = stack[category];
     if (!options || value === undefined) continue;
 
     const ids = Array.isArray(value) ? value : [value];
@@ -84,7 +89,7 @@ export function getSelectedTechs(stack: StackState): SelectedTech[] {
 export function generateStackSummary(stack: StackState) {
   const selectedTechs = CATEGORY_ORDER.flatMap((category) => {
     const options = TECH_OPTIONS[category];
-    const selectedValue = stack[category as keyof StackState];
+    const selectedValue = stack[category];
 
     if (!options) return [];
 
@@ -138,15 +143,7 @@ export function getDesktopBuildNote(stack: Pick<StackState, "addons" | "backend"
 }
 
 export function generateStackCommand(stack: StackState) {
-  const packageManagerCommands = {
-    npm: "npx create-better-t-stack@latest",
-    pnpm: "pnpm create better-t-stack@latest",
-    default: "bun create better-t-stack@latest",
-  };
-
-  const base =
-    packageManagerCommands[stack.packageManager as keyof typeof packageManagerCommands] ||
-    packageManagerCommands.default;
+  const base = getStackCommandBase(stack.packageManager);
   const projectName = quoteShellArgument(stack.projectName || "my-better-t-app");
 
   const isStackDefaultExceptProjectName = Object.entries(DEFAULT_STACK).every(
@@ -166,6 +163,8 @@ export function generateStackCommand(stack: StackState) {
     `--api ${stack.api}`,
     `--auth ${stack.auth}`,
     `--payments ${stack.payments}`,
+    `--email-renderer ${stack.emailRenderer}`,
+    `--email-deploy ${stack.emailDeploy}`,
     `--database ${stack.database}`,
     `--orm ${stack.orm}`,
     `--db-setup ${stack.dbSetup}`,
@@ -187,8 +186,26 @@ export function generateStackCommand(stack: StackState) {
     `--examples ${stack.examples.join(" ") || "none"}`,
   ];
 
+  const shadcn = getShadcnConfig(stack);
+  if (shadcn) {
+    flags.push(`--shadcn-preset ${shadcn.preset ?? DEFAULT_SHADCN_PRESET}`);
+    if (shadcn.base && shadcn.base !== DEFAULT_SHADCN_BASE) {
+      flags.push(`--shadcn-base ${shadcn.base}`);
+    }
+    if (shadcn.rtl) {
+      flags.push("--shadcn-rtl");
+    }
+    if (shadcn.pointer) {
+      flags.push("--shadcn-pointer");
+    }
+  }
+
   if (stack.yolo === "true") {
     flags.push("--yolo");
+  }
+
+  if (stack.portless === "true") {
+    flags.push("--portless");
   }
 
   return `${base} ${projectName} ${flags.join(" ")}`;

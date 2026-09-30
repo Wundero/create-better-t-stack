@@ -1,0 +1,71 @@
+import { Button as EmailButton } from "react-email";
+import type { CSSProperties, ReactNode } from "react";
+
+export type ButtonVariant = "default" | "secondary" | "outline" | "ghost" | "destructive" | "link";
+export type ButtonSize = "default" | "sm" | "lg";
+
+const baseStyle: CSSProperties = {
+  display: "inline-block",
+  borderRadius: "6px",
+  fontSize: "14px",
+  fontWeight: 600,
+  lineHeight: "1",
+  textDecoration: "none",
+  textAlign: "center",
+};
+
+const variantStyles = {
+  default: { backgroundColor: "#18181b", color: "#fafafa" },
+  secondary: { backgroundColor: "#f4f4f5", color: "#18181b" },
+  outline: { backgroundColor: "transparent", color: "#18181b", border: "1px solid #d4d4d8" },
+  ghost: { backgroundColor: "transparent", color: "#18181b" },
+  destructive: { backgroundColor: "#dc2626", color: "#fafafa" },
+  link: { backgroundColor: "transparent", color: "#2563eb", textDecoration: "underline" },
+} satisfies Record<ButtonVariant, CSSProperties>;
+
+const sizeStyles = {
+  default: { paddingTop: "10px", paddingBottom: "10px", paddingLeft: "20px", paddingRight: "20px" },
+  sm: {
+    paddingTop: "8px",
+    paddingBottom: "8px",
+    paddingLeft: "14px",
+    paddingRight: "14px",
+    fontSize: "13px",
+  },
+  lg: {
+    paddingTop: "12px",
+    paddingBottom: "12px",
+    paddingLeft: "24px",
+    paddingRight: "24px",
+    fontSize: "15px",
+  },
+} satisfies Record<ButtonSize, CSSProperties>;
+
+export type ButtonProps = {
+  children: ReactNode;
+  href?: string;
+  variant?: ButtonVariant;
+  size?: ButtonSize;
+  style?: CSSProperties;
+};
+
+export function Button({
+  children,
+  href,
+  variant = "default",
+  size = "default",
+  style,
+}: ButtonProps) {
+  const computedStyle = {
+    ...baseStyle,
+    ...variantStyles[variant],
+    ...sizeStyles[size],
+    ...style,
+  };
+
+  return (
+    <EmailButton href={href} style={computedStyle}>
+      {children}
+    </EmailButton>
+  );
+}

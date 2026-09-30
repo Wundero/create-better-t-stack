@@ -1,6 +1,9 @@
 {{#if (eq payments "polar") }}
 import { Button } from "@{{projectName}}/ui/components/button";
 import { authClient } from "@/lib/auth-client";
+{{else if (and (ne payments "none") (ne payments "polar"))}}
+import { PaymentActions } from "@/components/payment-actions";
+import { usePayment } from "@/lib/payments";
 {{/if}}
 {{#if (eq api "trpc") }}
 import { useTRPC } from "@/utils/trpc";
@@ -29,6 +32,8 @@ function RouteComponent() {
 
   {{#if (eq payments "polar") }}
   const hasProSubscription = (customerState?.activeSubscriptions?.length ?? 0) > 0;
+  {{else if (and (ne payments "none") (ne payments "polar"))}}
+  const { state, isLoading, checkout, portal } = usePayment();
   {{/if}}
 
   return (
@@ -63,6 +68,14 @@ function RouteComponent() {
           Upgrade to Pro
         </Button>
       )}
+      {{else if (and (ne payments "none") (ne payments "polar"))}}
+      <PaymentActions
+        isActive={state.isActive}
+        planLabel={state.planLabel}
+        pending={isLoading}
+        onCheckout={checkout}
+        onPortal={portal}
+      />
       {{/if}}
     </div>
   );

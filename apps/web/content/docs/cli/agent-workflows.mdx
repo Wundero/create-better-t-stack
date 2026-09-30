@@ -108,13 +108,13 @@ Useful patterns:
 Run Better-T-Stack itself as a local MCP server over stdio:
 
 ```bash
-npx create-better-t-stack@latest mcp
+npx @wundero/bts@latest mcp
 ```
 
 Install it into supported agent configs with `add-mcp`:
 
 ```bash
-npx -y add-mcp@latest "npx -y create-better-t-stack@latest mcp"
+npx -y add-mcp@latest "npx -y @wundero/bts@latest mcp"
 ```
 
 Exposed tools:
@@ -162,6 +162,7 @@ Important field rules:
 - `addons` must be an explicit array. Use `[]` when none are requested.
 - `examples` must be an explicit array. Use `[]` when none are requested.
 - `dbSetup`, `webDeploy`, and `serverDeploy` should be explicit even when the answer is `none`.
+- Accepted values: `runtime` is one of `bun`, `node`, `workers`, `lambda`, or `none`; `dbSetup` is one of `turso`, `d1`, `neon`, `supabase`, `prisma-postgres`, `planetscale`, `aurora`, `mongodb-atlas`, `docker`, or `none`; `webDeploy` and `serverDeploy` are one of `cloudflare`, `prisma`, `aws`, `docker`, `vercel`, or `none`.
 - `git`, `install`, and `packageManager` should always be set explicitly.
 - `install` should usually be `false` for `bts_create_project`, because dependency installation can exceed common MCP client timeouts. Run `npm install`, `pnpm install`, or `bun install` separately after scaffolding.
 - If a request is still ambiguous after reading the guidance, the agent should resolve that ambiguity before calling `bts_plan_project`.
@@ -169,10 +170,10 @@ Important field rules:
 If you scaffold a project with the `mcp` addon, Better-T-Stack itself is now one of the recommended MCP servers. The addon installs it through `add-mcp` with a package runner command so the generated config does not rely on a globally installed CLI:
 
 ```bash
-npx -y add-mcp@latest "npx -y create-better-t-stack@latest mcp"
+npx -y add-mcp@latest "npx -y @wundero/bts@latest mcp"
 ```
 
-For Bun projects, the generated config uses the equivalent `bunx create-better-t-stack@latest mcp` server command inside `add-mcp`. That means MCP-capable agents inside the generated project can talk back to Better-T-Stack without any extra global install, alongside other recommended docs, framework, and database MCP servers.
+For Bun projects, the generated config uses the equivalent `bunx @wundero/bts@latest mcp` server command inside `add-mcp`. That means MCP-capable agents inside the generated project can talk back to Better-T-Stack without any extra global install, alongside other recommended docs, framework, and database MCP servers.
 
 ## Use it inside your AI agent
 
@@ -199,7 +200,7 @@ Add the same marketplace from the Codex plugins screen and install **Better-T-St
 Prefer just the tools without the plugin? Wire the MCP server into Codex with `add-mcp`:
 
 ```bash
-npx -y add-mcp@latest "npx -y create-better-t-stack@latest mcp"   # choose "codex"
+npx -y add-mcp@latest "npx -y @wundero/bts@latest mcp"   # choose "codex"
 ```
 
 Or add it to `~/.codex/config.toml` directly:
@@ -207,7 +208,7 @@ Or add it to `~/.codex/config.toml` directly:
 ```toml
 [mcp_servers.better-t-stack]
 command = "npx"
-args = ["-y", "create-better-t-stack@latest", "mcp"]
+args = ["-y", "@wundero/bts@latest", "mcp"]
 ```
 
 ### opencode
@@ -215,14 +216,14 @@ args = ["-y", "create-better-t-stack@latest", "mcp"]
 Add the MCP server, then ask for a project in chat:
 
 ```bash
-npx -y add-mcp@latest "npx -y create-better-t-stack@latest mcp"   # choose "opencode"
+npx -y add-mcp@latest "npx -y @wundero/bts@latest mcp"   # choose "opencode"
 ```
 
 ### Other agents
 
 Any other agent works too, because Better-T-Stack is a CLI underneath:
 
-- **MCP-capable agents** (Cursor, VS Code, Gemini CLI, Zed, and more) — wire the server with `npx -y add-mcp@latest "npx -y create-better-t-stack@latest mcp"` and pick your agent.
+- **MCP-capable agents** (Cursor, VS Code, Gemini CLI, Zed, and more) — wire the server with `npx -y add-mcp@latest "npx -y @wundero/bts@latest mcp"` and pick your agent.
 - **CLI-first agents** like [pi](https://pi.dev) — just ask it to scaffold with Better-T-Stack and it runs the `create-better-t-stack` CLI directly.
 
 ## Structured Addon Options
@@ -286,7 +287,7 @@ create-better-t-stack create-json --input '{
 
 Current behavior:
 
-- When the database-consuming application deploys through Alchemy and the selected setup is Neon, PlanetScale, or Prisma Postgres, provisioning defaults to `alchemy`.
+- When the database-consuming application deploys through Alchemy and the selected setup is Neon, PlanetScale, Prisma Postgres, or Aurora, provisioning defaults to `alchemy`.
 
 - Otherwise, providers with automatic cloud provisioning default to `manual` in silent/agent flows:
   - `turso`

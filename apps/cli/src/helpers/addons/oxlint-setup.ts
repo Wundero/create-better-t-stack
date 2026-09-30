@@ -41,17 +41,14 @@ export async function setupOxlint(
       const s = createSpinner();
 
       try {
-        s.start("Initializing oxlint and oxfmt...");
-
-        const oxlintArgs = getPackageExecutionArgs(packageManager, "oxlint@latest --init");
-        await $({ cwd: projectDir, env: { CI: "true" } })`${oxlintArgs}`;
+        s.start("Initializing oxfmt...");
 
         const oxfmtArgs = getPackageExecutionArgs(packageManager, "oxfmt@latest --init");
         await $({ cwd: projectDir, env: { CI: "true" } })`${oxfmtArgs}`;
 
-        s.stop("oxlint and oxfmt initialized successfully!");
+        s.stop("oxfmt initialized successfully!");
       } catch (error) {
-        s.stop("Failed to initialize oxlint and oxfmt");
+        s.stop("Failed to initialize oxfmt");
         throw error;
       }
     },

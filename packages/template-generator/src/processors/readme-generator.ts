@@ -8,6 +8,7 @@ import {
 import type { VirtualFileSystem } from "../core/virtual-fs";
 import { getDbScriptSupport } from "../utils/db-scripts";
 import { isDatabaseConsumedByDocker } from "../utils/docker-database";
+import { getPortlessNames } from "./portless";
 
 function getDesktopStaticBuildNote(frontend: ProjectConfig["frontend"]): string {
   const staticBuildFrontends = new Map([
@@ -249,6 +250,7 @@ ${packageManagerRunCmd} dev
 \`\`\`
 
 ${generateRunningInstructions(frontend, backend, webPort, hasNative, isConvex)}
+${generatePortlessSection(options)}
 ${generateReactUiSection(hasReactWeb, projectName)}
 ## Environment Configuration
 
@@ -365,6 +367,34 @@ function generateRunningInstructions(
   }
 
   return instructions.join("\n");
+}
+
+function generatePortlessSection(config: ProjectConfig): string {
+  if (config.portless !== true) return "";
+
+  const { web, server } = getPortlessNames(config.projectName);
+  const lines = [
+    "## Portless Development",
+    "",
+    "This project uses Portless to serve the apps over trusted HTTPS `.localhost` domains instead of localhost ports.",
+    "",
+    "Trust the local certificate authority once (requires Node.js 24 or newer):",
+    "",
+    "```bash",
+    "portless trust",
+    "```",
+    "",
+  ];
+
+  if (hasWebFrontend(config.frontend)) {
+    lines.push(`- Web: https://${web}.localhost`);
+  }
+
+  if (config.backend !== "self" && config.backend !== "none") {
+    lines.push(`- API: https://${server}.localhost`);
+  }
+
+  return `\n${lines.join("\n")}\n`;
 }
 
 function generateReactUiSection(hasReactWeb: boolean, projectName: string): string {
@@ -588,12 +618,14 @@ function generateFeaturesList(
     electrobun: "- **Electrobun** - Lightweight desktop shell for web frontends",
     biome: "- **Biome** - Linting and formatting",
     oxlint: "- **Oxlint** - Oxlint + Oxfmt (linting & formatting)",
+    eslint: "- **ESLint + Prettier** - Linting and formatting (oxlint, Vite+, or Biome preferred)",
     husky: "- **Husky** - Git hooks for code quality",
     starlight: "- **Starlight** - Documentation site with Astro",
     turborepo: "- **Turborepo** - Optimized monorepo build system",
     nx: "- **Nx** - Smart monorepo task orchestration and caching",
     "vite-plus":
       "- **Vite+** - Unified Vite toolchain, workspace task runner, linting, and formatting",
+    turnstile: "- **Cloudflare Turnstile** - CAPTCHA on Better Auth sign-in/sign-up",
   } satisfies Record<string, string>;
 
   for (const addon of addons) {
@@ -637,7 +669,9 @@ ${packageManagerRunCmd} db:generate
         ? "Prisma Postgres"
         : dbSetup === "planetscale"
           ? "PlanetScale"
-          : "Neon";
+          : dbSetup === "aurora"
+            ? "Aurora Serverless V2"
+            : "Neon";
     const migrationWorkflow =
       orm === "prisma"
         ? `The scaffold includes an initial Prisma migration when generated models need one. Create and commit later migrations with \`${packageManagerRunCmd} db:migrate\`; deployment applies checked-in migrations with \`prisma migrate deploy\`.`
@@ -645,7 +679,9 @@ ${packageManagerRunCmd} db:generate
     const costNote =
       dbSetup === "planetscale"
         ? "\n\nThe generated PlanetScale resource uses the `PS_DEV` size. PlanetScale may charge for this database; adjust `clusterSize` in `packages/infra/alchemy.run.ts` before deployment if needed."
-        : "";
+        : dbSetup === "aurora"
+          ? "\n\nAurora Serverless V2 bills per ACU-hour and keeps a 0.5 ACU minimum while idle. The generated network also creates a NAT gateway, and a Fargate server deployment adds an Application Load Balancer — both bill hourly even without traffic. Run `destroy` when the stage is no longer needed to stop these charges."
+          : "";
 
     return `${setup}Alchemy provisions ${provider}, passes its connection credentials directly to the deployed application, and manages database deployment in the same stack as the consuming app. You do not need to copy a hosted \`DATABASE_URL\` into the app environment.
 
@@ -818,6 +854,8 @@ function generateScriptsList(
     scripts += `\n- \`${packageManagerRunCmd} check\`: Run Biome formatting and linting`;
   } else if (addons.includes("oxlint")) {
     scripts += `\n- \`${packageManagerRunCmd} check\`: Run Oxlint and Oxfmt`;
+  } else if (addons.includes("eslint")) {
+    scripts += `\n- \`${packageManagerRunCmd} check\`: Run ESLint and Prettier`;
   }
 
   if (addons.includes("pwa")) {
@@ -869,6 +907,13 @@ function generateScriptsList(
   return scripts;
 }
 
+function getAlchemyTargetLabel(target: ProjectConfig["webDeploy"]): string {
+  if (target === "cloudflare") return "Cloudflare";
+  if (target === "prisma") return "Prisma";
+  if (target === "aws") return "AWS";
+  return target;
+}
+
 function generateDeploymentCommands(
   packageManagerRunCmd: string,
   webDeploy: ProjectConfig["webDeploy"],
@@ -880,10 +925,9 @@ function generateDeploymentCommands(
   dbSetup: ProjectConfig["dbSetup"],
   addons: ProjectConfig["addons"],
 ): string {
-  const hasCloudflare = webDeploy === "cloudflare" || serverDeploy === "cloudflare";
-  const hasPrismaCompute = webDeploy === "prisma" || serverDeploy === "prisma";
   const hasAxiom = addons.includes("axiom");
-  const hasAlchemyCompute = hasCloudflare || hasPrismaCompute;
+  const hasTurnstile = addons.includes("turnstile");
+  const hasAlchemyCompute = isAlchemyDeployTarget(webDeploy) || isAlchemyDeployTarget(serverDeploy);
   const hasAlchemy = hasAlchemyCompute || hasAxiom;
   const hasDocker = webDeploy === "docker" || serverDeploy === "docker";
   const hasVercel = webDeploy === "vercel" || serverDeploy === "vercel";
@@ -896,11 +940,9 @@ function generateDeploymentCommands(
 
   if (hasAlchemy) {
     const targetLabel = [
-      ...(isAlchemyDeployTarget(webDeploy)
-        ? [`web on ${webDeploy === "cloudflare" ? "Cloudflare" : "Prisma"}`]
-        : []),
+      ...(isAlchemyDeployTarget(webDeploy) ? [`web on ${getAlchemyTargetLabel(webDeploy)}`] : []),
       ...(isAlchemyDeployTarget(serverDeploy) && backend !== "self"
-        ? [`server on ${serverDeploy === "cloudflare" ? "Cloudflare" : "Prisma"}`]
+        ? [`server on ${getAlchemyTargetLabel(serverDeploy)}`]
         : []),
       ...(hasAxiom ? ["Axiom observability"] : []),
     ].join(" + ");
@@ -952,6 +994,13 @@ function generateDeploymentCommands(
           "For a deployed Docker image, pass `AXIOM_API_KEY`, `AXIOM_DATASET`, and `AXIOM_EDGE_URL` through the target platform's secret manager. Local observed development runs through Alchemy with the credentials injected in memory.",
         );
       }
+    }
+
+    if (hasTurnstile) {
+      lines.push(
+        "",
+        "Alchemy creates a Cloudflare Turnstile widget and injects its public sitekey and secret into the deployed apps. Set `TURNSTILE_DOMAINS` in `.env` to a comma-separated list of the production hostname(s) before deploying; it defaults to `localhost,127.0.0.1` and development uses Cloudflare's always-pass test keys automatically.",
+      );
     }
 
     const hasWeb = hasWebFrontend(frontend);
@@ -1066,7 +1115,11 @@ function generateGitHooksSection(
   const hasLefthook = addons.includes("lefthook");
   const hasVitePlus = addons.includes("vite-plus");
   const hasVitePlusNativeHooks = hasVitePlus && !hasHusky && !hasLefthook;
-  const hasLinting = addons.includes("biome") || addons.includes("oxlint") || hasVitePlus;
+  const hasLinting =
+    addons.includes("biome") ||
+    addons.includes("oxlint") ||
+    addons.includes("eslint") ||
+    hasVitePlus;
 
   if (!hasHusky && !hasLinting) {
     return "";

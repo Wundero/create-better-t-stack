@@ -10,7 +10,7 @@ type PackageJson = {
 };
 
 export function processRuntimeDeps(vfs: VirtualFileSystem, config: ProjectConfig): void {
-  const { runtime, backend } = config;
+  const { runtime, backend, portless } = config;
 
   if (backend === "convex" || backend === "self" || runtime === "none") return;
 
@@ -32,7 +32,10 @@ export function processRuntimeDeps(vfs: VirtualFileSystem, config: ProjectConfig
       devDependencies: ["@types/bun"],
     });
   } else if (runtime === "node") {
-    pkgJson.scripts.dev = "tsx watch src/index.ts";
+    pkgJson.scripts.dev =
+      portless === true
+        ? "tsx watch --env-file=.env.development src/index.ts"
+        : "tsx watch src/index.ts";
     pkgJson.scripts.start = "node dist/index.mjs";
 
     addPackageDependency({
@@ -54,7 +57,18 @@ export function processRuntimeDeps(vfs: VirtualFileSystem, config: ProjectConfig
         dependencies: ["@elysiajs/node"],
       });
     }
+  } else if (runtime === "lambda") {
+    pkgJson.scripts.dev = "bun run --hot src/lambda.ts";
+    pkgJson.scripts.start = "bun run src/lambda.ts";
   }
 
   vfs.writeJson(serverPath, pkgJson);
+
+  if (runtime === "lambda") {
+    addPackageDependency({
+      vfs,
+      packagePath: serverPath,
+      customDevDependencies: { "@types/aws-lambda": "^8.10.163" },
+    });
+  }
 }

@@ -208,6 +208,7 @@ describe("local tool requirements", () => {
     [{ examples: ["ai"] }, "21.7.0", "22.3.0", "AI SDK 7"],
     [{ orm: "mongoose" }, "20.18.0", "22.3.0", "Mongoose 9 and MongoDB 7"],
     [{ addons: ["oxlint"] }, "20.18.0", "22.12.0", "Oxlint and Oxfmt"],
+    [{ addons: ["eslint"] }, "20.18.0", "22.13.0", "ESLint 10"],
     [
       { addons: ["ultracite"], addonOptions: { ultracite: { linter: "oxlint" } } },
       "20.18.0",

@@ -1,9 +1,8 @@
 export const dynamic = "force-static";
 
-import { api } from "@better-t-stack/backend/convex/_generated/api";
-import { fetchQuery } from "convex/nextjs";
 import type { Metadata } from "next";
 
+import { fetchShowcaseProjects, fetchWithFallback } from "@/lib/api-client";
 import { SITE_URL } from "@/lib/site";
 
 import { ShowcasePage } from "./_components/showcase-page";
@@ -36,6 +35,9 @@ export const metadata: Metadata = {
 };
 
 export default async function Showcase() {
-  const showcaseProjects = await fetchQuery(api.showcase.getShowcaseProjects);
+  const showcaseProjects = await fetchWithFallback(
+    () => fetchShowcaseProjects({ cache: "force-cache" }),
+    [],
+  );
   return <ShowcasePage showcaseProjects={showcaseProjects} />;
 }

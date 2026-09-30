@@ -1,0 +1,51 @@
+import type { ComputedRef, Ref } from "vue";
+
+const PRO_ITEM_PRICE_ID = "pro-USD-Monthly";
+const ACTIVE_STATUSES = ["active", "in_trial", "non_renewing"];
+
+export interface PaymentState {
+  isActive: boolean;
+  planLabel: string;
+}
+
+export function usePayment(): {
+  state: ComputedRef<PaymentState>;
+  isLoading: Ref<boolean>;
+  checkout: () => Promise<void>;
+  portal: () => Promise<void>;
+} {
+  const { $authClient } = useNuxtApp();
+  const isActive = ref(false);
+  const isLoading = ref(true);
+
+  onMounted(async () => {
+    const { data, error } = await $authClient.subscription.list();
+    isActive.value =
+      !error &&
+      (data ?? []).some((subscription) => ACTIVE_STATUSES.includes(subscription.status));
+    isLoading.value = false;
+  });
+
+  const checkout = async () => {
+    const { data, error } = await $authClient.subscription.create({
+      itemPriceId: PRO_ITEM_PRICE_ID,
+      successUrl: "/success",
+      cancelUrl: "/dashboard",
+    });
+    if (error || !data?.url) return;
+    window.location.href = data.url;
+  };
+
+  const portal = async () => {
+    const { data, error } = await $authClient.subscription.portal({ returnUrl: "/dashboard" });
+    if (error || !data?.url) return;
+    window.location.href = data.url;
+  };
+
+  const state = computed<PaymentState>(() => ({
+    isActive: isActive.value,
+    planLabel: isActive.value ? "Pro" : "Free",
+  }));
+
+  return { state, isLoading, checkout, portal };
+}

@@ -1,4 +1,4 @@
-import type { ProjectConfig } from "@better-t-stack/types";
+import { isAlchemyDeployTarget, type ProjectConfig } from "@better-t-stack/types";
 import { parse, stringify } from "yaml";
 
 import type { VirtualFileSystem } from "../core/virtual-fs";
@@ -40,7 +40,7 @@ export function processInfraDeps(vfs: VirtualFileSystem, config: ProjectConfig):
   if (!vfs.exists(infraPath)) return;
 
   const { serverDeploy, webDeploy } = config;
-  if (webDeploy === "prisma") {
+  if (webDeploy === "prisma" || webDeploy === "aws") {
     addPackageDependency({
       vfs,
       packagePath: infraPath,
@@ -54,10 +54,18 @@ export function processInfraDeps(vfs: VirtualFileSystem, config: ProjectConfig):
       devDependencies: ["@vercel/nft"],
     });
   }
+  if (config.emailDeploy === "ses") {
+    addPackageDependency({
+      vfs,
+      packagePath: infraPath,
+      dependencies: ["@aws-sdk/client-sesv2"],
+    });
+  }
   if (
-    ["cloudflare", "prisma"].includes(serverDeploy) ||
-    ["cloudflare", "prisma"].includes(webDeploy) ||
-    config.addons.includes("axiom")
+    isAlchemyDeployTarget(serverDeploy) ||
+    isAlchemyDeployTarget(webDeploy) ||
+    config.addons.includes("axiom") ||
+    config.emailDeploy === "ses"
   ) {
     addPackageDependency({
       vfs,

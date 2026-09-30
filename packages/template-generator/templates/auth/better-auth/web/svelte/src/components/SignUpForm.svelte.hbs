@@ -2,9 +2,14 @@
 	import { createForm } from '@tanstack/svelte-form';
 	import { z } from 'zod';
 	import { authClient } from '$lib/auth-client';
-	import { goto } from '$app/navigation';
+	import { goto } from '$app/navigation';{{#if (includes addons "turnstile")}}
+	import { PUBLIC_TURNSTILE_SITE_KEY } from '$env/static/public';
+	import Turnstile from './Turnstile.svelte';{{/if}}
 
-	let { switchToSignIn } = $props<{ switchToSignIn: () => void }>();
+	let { switchToSignIn } = $props<{ switchToSignIn: () => void }>();{{#if (includes addons "turnstile")}}
+
+	let turnstileToken = $state<string | null>(null);
+	let turnstileResetKey = $state(0);{{/if}}
 
 	const validationSchema = z.object({
 		name: z.string().min(2, 'Name must be at least 2 characters'),
@@ -20,14 +25,19 @@
 					{
 						email: value.email,
 						password: value.password,
-						name: value.name,
+						name: value.name,{{#if (includes addons "turnstile")}}
+						fetchOptions: turnstileToken
+							? { headers: { 'x-captcha-response': turnstileToken } }
+							: undefined,{{/if}}
 					},
 					{
 						onSuccess: () => {
 							goto('/dashboard');
 						},
 						onError: (error) => {
-							console.log(error.error.message || 'Sign up failed. Please try again.');
+							console.log(error.error.message || 'Sign up failed. Please try again.');{{#if (includes addons "turnstile")}}
+							turnstileToken = null;
+							turnstileResetKey += 1;{{/if}}
 						},
 					}
 				);
@@ -125,11 +135,18 @@
 					{/if}
 				</div>
 			{/snippet}
-		</form.Field>
+		</form.Field>{{#if (includes addons "turnstile")}}
+
+		<Turnstile
+			siteKey={PUBLIC_TURNSTILE_SITE_KEY}
+			action="sign-up"
+			onToken={(t) => (turnstileToken = t)}
+			resetKey={turnstileResetKey}
+		/>{{/if}}
 
 		<form.Subscribe selector={(state: typeof form.state): SubmitState => ({ canSubmit: state.canSubmit, isSubmitting: state.isSubmitting })}>
 			{#snippet children(state: SubmitState)}
-				<button type="submit" class="w-full" disabled={!state.canSubmit || state.isSubmitting}>
+				<button type="submit" class="w-full" disabled={{#if (includes addons "turnstile")}}{!state.canSubmit || state.isSubmitting || !turnstileToken}{{else}}{!state.canSubmit || state.isSubmitting}{{/if}}>
 					{state.isSubmitting ? 'Submitting...' : 'Sign Up'}
 				</button>
 			{/snippet}
