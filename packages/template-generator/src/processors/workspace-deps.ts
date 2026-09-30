@@ -15,6 +15,7 @@ export function processWorkspaceDeps(vfs: VirtualFileSystem, config: ProjectConf
     auth: vfs.exists("packages/auth/package.json"),
     api: vfs.exists("packages/api/package.json"),
     ui: vfs.exists("packages/ui/package.json"),
+    email: vfs.exists("packages/email/package.json"),
     backend: vfs.exists("packages/backend/package.json"),
     server: vfs.exists("apps/server/package.json"),
     web: vfs.exists("apps/web/package.json"),
@@ -107,6 +108,9 @@ export function processWorkspaceDeps(vfs: VirtualFileSystem, config: ProjectConf
     if (api !== "none" && packages.api) serverDeps[`@${projectName}/api`] = workspaceVersion;
     if (auth !== "none" && packages.auth) serverDeps[`@${projectName}/auth`] = workspaceVersion;
     if (database !== "none" && packages.db) serverDeps[`@${projectName}/db`] = workspaceVersion;
+    if (packages.email && backend !== "self") {
+      serverDeps[`@${projectName}/email`] = workspaceVersion;
+    }
     addPackageDependency({
       vfs,
       packagePath: "apps/server/package.json",
@@ -129,6 +133,9 @@ export function processWorkspaceDeps(vfs: VirtualFileSystem, config: ProjectConf
       webPackageDeps[`@${projectName}/auth`] = workspaceVersion;
     }
     if (backend === "self" && packages.db) webPackageDeps[`@${projectName}/db`] = workspaceVersion;
+    if (packages.email && backend === "self") {
+      webPackageDeps[`@${projectName}/email`] = workspaceVersion;
+    }
     if (backend === "convex" && packages.backend)
       webPackageDeps[`@${projectName}/backend`] = workspaceVersion;
 

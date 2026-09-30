@@ -47,6 +47,7 @@ const PACKAGE_PATHS = [
   "packages/config",
   "packages/infra",
   "packages/ui",
+  "packages/email",
 ];
 
 /**

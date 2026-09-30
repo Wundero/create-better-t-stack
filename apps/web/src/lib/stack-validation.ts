@@ -5,6 +5,7 @@ import {
   supportsDatabaseSetupRuntime,
   supportsServerDeployRuntime,
   supportsPaymentsAuth,
+  supportsCloudflareEmailDeploy,
 } from "@better-t-stack/types";
 import { ProjectNameSchema } from "@better-t-stack/types";
 import {
@@ -536,6 +537,23 @@ export const analyzeStackCompatibility = (stack: StackState): CompatibilityResul
     });
   }
 
+  if (
+    nextStack.emailDeploy === "cloudflare" &&
+    !supportsCloudflareEmailDeploy(
+      getStackBackend(nextStack.backend),
+      nextStack.webDeploy,
+      nextStack.serverDeploy,
+    )
+  ) {
+    nextStack.emailDeploy = "none";
+    changed = true;
+    changes.push({
+      category: "emailDeploy",
+      message:
+        "Email deploy set to 'None' (Cloudflare Email Sending requires a Cloudflare Workers deployment)",
+    });
+  }
+
   return {
     adjustedStack: changed ? nextStack : null,
     notes,
@@ -854,6 +872,18 @@ export const getDisabledReason = (
     }
     if (optionId === "none" && currentStack.runtime === "workers") {
       return "Workers requires server deployment";
+    }
+  }
+
+  if (category === "emailDeploy" && optionId === "cloudflare") {
+    if (
+      !supportsCloudflareEmailDeploy(
+        getStackBackend(currentStack.backend),
+        currentStack.webDeploy,
+        currentStack.serverDeploy,
+      )
+    ) {
+      return "Cloudflare Email Sending requires a Cloudflare Workers deployment";
     }
   }
 

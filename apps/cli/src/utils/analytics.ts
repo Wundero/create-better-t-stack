@@ -42,6 +42,8 @@ export function buildAnalyticsEvent(config: ProjectConfig, mode?: AnalyticsMode)
     examples: config.examples,
     auth: config.auth,
     payments: config.payments,
+    emailRenderer: config.emailRenderer,
+    emailDeploy: config.emailDeploy,
     git: config.git,
     packageManager: config.packageManager,
     install: config.install,

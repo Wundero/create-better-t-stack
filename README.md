@@ -60,6 +60,7 @@ Then ask: _"create a fullstack app with Next, Hono, Postgres and Better Auth"_, 
 - Examples: Todo, AI
 - DB Setup: Turso, Neon, Supabase, Prisma PostgreSQL, MongoDB Atlas, Cloudflare D1, Docker
 - Web Deploy: Cloudflare Workers
+- Email: React Email rendering (react-email) and Cloudflare Email Sending or AWS SES sending (optional)
 
 Type safety end-to-end, clean monorepo layout, and zero lock-in: you choose only what you need.
 

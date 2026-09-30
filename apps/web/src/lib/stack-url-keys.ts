@@ -16,6 +16,8 @@ export const stackUrlKeys: UrlKeys<StackUrlState> = {
   dbSetup: "dbs",
   auth: "au",
   payments: "pay",
+  emailRenderer: "er",
+  emailDeploy: "ed",
   packageManager: "pm",
   addons: "add",
   examples: "ex",

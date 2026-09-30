@@ -26,6 +26,7 @@ import {
   processApiTemplates,
   processConfigPackage,
   processUiPackage,
+  processEmailPackage,
   processAuthTemplates,
   processPaymentsTemplates,
   processAddonTemplates,
@@ -75,6 +76,7 @@ export async function generate(
       await processApiTemplates(vfs, templates, config);
       await processConfigPackage(vfs, templates, config);
       await processUiPackage(vfs, templates, config);
+      await processEmailPackage(vfs, templates, config);
       await processAuthTemplates(vfs, templates, config);
       await processPaymentsTemplates(vfs, templates, config);
       await processAddonTemplates(vfs, templates, config);
