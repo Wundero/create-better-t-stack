@@ -141,6 +141,8 @@ export function processFlags(options: ShadcnFlaggedInput, projectName?: string) 
 
   if (options.runtime) {
     config.runtime = options.runtime as Runtime;
+  } else if (options.serverDeploy === "vercel") {
+    config.runtime = "node";
   }
 
   if (options.dbSetup) {
