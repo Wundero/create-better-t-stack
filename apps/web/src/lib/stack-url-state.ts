@@ -1,7 +1,9 @@
+import { SHADCN_BASE_VALUES } from "@better-t-stack/types";
 import {
   createLoader,
   createSerializer,
   parseAsArrayOf as parseAsArrayOfServer,
+  parseAsBoolean as parseAsBooleanServer,
   parseAsStringEnum as parseAsStringEnumServer,
   parseAsString as parseAsStringServer,
   type UrlKeys,
@@ -61,6 +63,12 @@ const serverStackParsers = {
   yolo: parseAsStringEnumServer<StackState["yolo"]>(["true", "false"]).withDefault(
     DEFAULT_STACK.yolo,
   ),
+  shadcnPreset: parseAsStringServer.withDefault(DEFAULT_STACK.shadcnPreset),
+  shadcnBase: parseAsStringEnumServer<StackState["shadcnBase"]>([
+    ...SHADCN_BASE_VALUES,
+  ]).withDefault(DEFAULT_STACK.shadcnBase),
+  shadcnRtl: parseAsBooleanServer.withDefault(DEFAULT_STACK.shadcnRtl),
+  shadcnPointer: parseAsBooleanServer.withDefault(DEFAULT_STACK.shadcnPointer),
 };
 
 const rawLoadStackParams = createLoader(serverStackParsers, {

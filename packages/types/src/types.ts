@@ -26,6 +26,8 @@ import type {
   ProjectConfigSchema,
   BetterTStackConfigSchema,
   InitResultSchema,
+  ShadcnBaseSchema,
+  ShadcnConfigSchema,
 } from "./schemas";
 
 // Inferred types from Zod schemas
@@ -48,6 +50,8 @@ export type Template = z.infer<typeof TemplateSchema>;
 export type AddonOptions = z.infer<typeof AddonOptionsSchema>;
 export type DbSetupOptions = z.infer<typeof DbSetupOptionsSchema>;
 export type ProjectName = z.infer<typeof ProjectNameSchema>;
+export type ShadcnBase = z.infer<typeof ShadcnBaseSchema>;
+export type ShadcnConfig = z.infer<typeof ShadcnConfigSchema>;
 
 export type CreateInput = z.infer<typeof CreateInputSchema>;
 export type AddInput = z.infer<typeof AddInputSchema>;

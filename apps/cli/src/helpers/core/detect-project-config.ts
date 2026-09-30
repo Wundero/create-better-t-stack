@@ -31,6 +31,7 @@ export async function detectProjectConfig(projectDir: string) {
           projectName: scope || rootPackage?.name || path.basename(projectDir),
           addonOptions: btsConfig.addonOptions,
           dbSetupOptions: btsConfig.dbSetupOptions,
+          shadcn: btsConfig.shadcn,
           database: btsConfig.database,
           orm: btsConfig.orm,
           backend: btsConfig.backend,

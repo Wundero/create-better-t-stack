@@ -788,6 +788,10 @@ export const PRESET_TEMPLATES: {
       webDeploy: "none",
       serverDeploy: "none",
       yolo: "false",
+      shadcnPreset: "",
+      shadcnBase: "baseui",
+      shadcnRtl: false,
+      shadcnPointer: false,
     },
   },
   {
@@ -814,6 +818,10 @@ export const PRESET_TEMPLATES: {
       webDeploy: "none",
       serverDeploy: "none",
       yolo: "false",
+      shadcnPreset: "",
+      shadcnBase: "baseui",
+      shadcnRtl: false,
+      shadcnPointer: false,
     },
   },
   {
@@ -840,6 +848,10 @@ export const PRESET_TEMPLATES: {
       webDeploy: "none",
       serverDeploy: "none",
       yolo: "false",
+      shadcnPreset: "",
+      shadcnBase: "baseui",
+      shadcnRtl: false,
+      shadcnPointer: false,
     },
   },
   {
@@ -866,6 +878,10 @@ export const PRESET_TEMPLATES: {
       webDeploy: "none",
       serverDeploy: "none",
       yolo: "false",
+      shadcnPreset: "",
+      shadcnBase: "baseui",
+      shadcnRtl: false,
+      shadcnPointer: false,
     },
   },
 ];
@@ -890,6 +906,10 @@ export const DEFAULT_STACK: StackState = {
   webDeploy: "none",
   serverDeploy: "none",
   yolo: "false",
+  shadcnPreset: "",
+  shadcnBase: "baseui",
+  shadcnRtl: false,
+  shadcnPointer: false,
 };
 
 export const isStackDefault = <K extends keyof StackState>(

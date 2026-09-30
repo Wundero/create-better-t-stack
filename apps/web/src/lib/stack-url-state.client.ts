@@ -1,5 +1,12 @@
 "use client";
-import { parseAsArrayOf, parseAsString, parseAsStringEnum, useQueryStates } from "nuqs";
+import { SHADCN_BASE_VALUES } from "@better-t-stack/types";
+import {
+  parseAsArrayOf,
+  parseAsBoolean,
+  parseAsString,
+  parseAsStringEnum,
+  useQueryStates,
+} from "nuqs";
 import { useCallback, useMemo } from "react";
 
 import { DEFAULT_STACK, type StackState, getStackOptionIds } from "@/lib/constant";
@@ -51,6 +58,12 @@ export const stackParsers = {
     getStackOptionIds("serverDeploy"),
   ).withDefault(DEFAULT_STACK.serverDeploy),
   yolo: parseAsStringEnum<StackState["yolo"]>(["true", "false"]).withDefault(DEFAULT_STACK.yolo),
+  shadcnPreset: parseAsString.withDefault(DEFAULT_STACK.shadcnPreset),
+  shadcnBase: parseAsStringEnum<StackState["shadcnBase"]>([...SHADCN_BASE_VALUES]).withDefault(
+    DEFAULT_STACK.shadcnBase,
+  ),
+  shadcnRtl: parseAsBoolean.withDefault(DEFAULT_STACK.shadcnRtl),
+  shadcnPointer: parseAsBoolean.withDefault(DEFAULT_STACK.shadcnPointer),
   viewMode: parseAsStringEnum<"command" | "preview">(["command", "preview"]).withDefault("command"),
   selectedFile: parseAsString.withDefault(""),
 };
@@ -85,6 +98,10 @@ function getStackFromQueryState(queryState: RawStackLists): StackState {
     webDeploy: queryState.webDeploy,
     serverDeploy: queryState.serverDeploy,
     yolo: queryState.yolo,
+    shadcnPreset: queryState.shadcnPreset,
+    shadcnBase: queryState.shadcnBase,
+    shadcnRtl: queryState.shadcnRtl,
+    shadcnPointer: queryState.shadcnPointer,
   });
 }
 

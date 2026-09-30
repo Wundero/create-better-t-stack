@@ -11,7 +11,8 @@ import "./index.css";
 import Header from "./components/header";
 import { ThemeProvider } from "./components/theme-provider";
 import { Toaster } from "@{{projectName}}/ui/components/sonner";
-{{#if (eq auth "clerk")}}
+{{#if shadcn.rtl}}import { DirectionProvider } from "@{{projectName}}/ui/components/direction";
+{{/if}}{{#if (eq auth "clerk")}}
 import { ClerkProvider{{#if (or (eq backend "convex") (ne api "none"))}}, useAuth{{/if}} } from "@clerk/react-router";
 import { clerkMiddleware, rootAuthLoader } from "@clerk/react-router/server";
 {{/if}}
@@ -78,7 +79,7 @@ export const links: Route.LinksFunction = () => [
 
 export function Layout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="en"{{#if shadcn.rtl}} dir="rtl"{{/if}}>
       <head>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -86,9 +87,11 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <Links />
       </head>
       <body>
-        {children}
+        {{#if shadcn.rtl}}<DirectionProvider direction="rtl">
+        {{/if}}{children}
         <ScrollRestoration />
-        <Scripts />
+        <Scripts />{{#if shadcn.rtl}}
+        </DirectionProvider>{{/if}}
       </body>
     </html>
   );
