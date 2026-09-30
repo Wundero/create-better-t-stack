@@ -1479,7 +1479,7 @@ export const link = new RPCLink({
 	url: \`\${ENV.EXPO_PUBLIC_SERVER_URL}/rpc\`,
 {{/if}}
 {{else}}
-	url: \`\${ENV.EXPO_PUBLIC_SERVER_URL}/rpc\`,
+	url: \`\${ENV.EXPO_PUBLIC_SERVER_URL}{{apiPrefix webDeploy serverDeploy}}/rpc\`,
 {{/if}}
 {{#if (eq auth "better-auth")}}
 	fetch(request, init) {
@@ -2463,7 +2463,7 @@ const trpcClient = createTRPCClient<AppRouter>({
 {{#if (eq backend "self")}}
 			url: \`\${ENV.EXPO_PUBLIC_SERVER_URL}/api/trpc\`,
 {{else}}
-			url: \`\${ENV.EXPO_PUBLIC_SERVER_URL}/trpc\`,
+			url: \`\${ENV.EXPO_PUBLIC_SERVER_URL}{{apiPrefix webDeploy serverDeploy}}/trpc\`,
 {{/if}}
 {{#if (eq auth "better-auth")}}
 			fetch:
@@ -6276,7 +6276,7 @@ const openPolarLink = async (url: string, returnUrl: string) => {
 };
 
 const getPolarReturnUrl = (returnUrl: string) => {
-	const url = new URL("/polar/success", ENV.EXPO_PUBLIC_SERVER_URL);
+	const url = new URL("{{apiPrefix webDeploy serverDeploy}}/polar/success", ENV.EXPO_PUBLIC_SERVER_URL);
 	url.searchParams.set("returnUrl", returnUrl);
 	return url.toString();
 };
@@ -7060,7 +7060,7 @@ export default function Home() {
   };
 
   const getPolarReturnUrl = (returnUrl: string) => {
-    const url = new URL("/polar/success", ENV.EXPO_PUBLIC_SERVER_URL);
+    const url = new URL("{{apiPrefix webDeploy serverDeploy}}/polar/success", ENV.EXPO_PUBLIC_SERVER_URL);
     url.searchParams.set("returnUrl", returnUrl);
     return url.toString();
   };
@@ -7805,7 +7805,7 @@ const openPolarLink = async (url: string, returnUrl: string) => {
 };
 
 const getPolarReturnUrl = (returnUrl: string) => {
-  const url = new URL("/polar/success", ENV.EXPO_PUBLIC_SERVER_URL);
+  const url = new URL("{{apiPrefix webDeploy serverDeploy}}/polar/success", ENV.EXPO_PUBLIC_SERVER_URL);
   url.searchParams.set("returnUrl", returnUrl);
   return url.toString();
 };
@@ -14669,7 +14669,7 @@ const apiHandler = new OpenAPIHandler(appRouter, {
 		}),
 	)
 {{#if (and (eq auth "better-auth") (eq payments "polar") (or (includes frontend "native-bare") (includes frontend "native-uniwind") (includes frontend "native-unistyles")))}}
-	.get("/polar/success", ({ request, status }) => {
+	.get("{{apiPrefix webDeploy serverDeploy}}/polar/success", ({ request, status }) => {
 		const nativeAppUrl = "{{projectName}}://";
 		const allowedNativeProtocols = new Set(["exp:", new URL(nativeAppUrl).protocol]);
 		const requestUrl = new URL(request.url);
@@ -14705,10 +14705,10 @@ const apiHandler = new OpenAPIHandler(appRouter, {
 {{/if}}
 {{#if (eq api "orpc")}}
 	.all(
-		"/rpc*",
+		"{{apiPrefix webDeploy serverDeploy}}/rpc*",
 		async (context) => {
 			const { response } = await rpcHandler.handle(context.request, {
-				prefix: "/rpc",
+				prefix: "{{apiPrefix webDeploy serverDeploy}}/rpc",
 				context: await createContext({ context }),
 			});
 			return response ?? new Response("Not Found", { status: 404 });
@@ -14718,10 +14718,10 @@ const apiHandler = new OpenAPIHandler(appRouter, {
 		}
 	)
 	.all(
-		"/api-reference*",
+		"{{apiPrefix webDeploy serverDeploy}}/api-reference*",
 		async (context) => {
 			const { response } = await apiHandler.handle(context.request, {
-				prefix: "/api-reference",
+				prefix: "{{apiPrefix webDeploy serverDeploy}}/api-reference",
 				context: await createContext({ context }),
 			});
 			return response ?? new Response("Not Found", { status: 404 });
@@ -14732,9 +14732,9 @@ const apiHandler = new OpenAPIHandler(appRouter, {
 	)
 {{/if}}
 {{#if (eq api "trpc")}}
-	.all("/trpc/*", async (context) => {
+	.all("{{apiPrefix webDeploy serverDeploy}}/trpc/*", async (context) => {
 		const res = await fetchRequestHandler({
-			endpoint: "/trpc",
+			endpoint: "{{apiPrefix webDeploy serverDeploy}}/trpc",
 			router: appRouter,
 			req: context.request,
 			createContext: () => createContext({ context }),
@@ -14743,7 +14743,7 @@ const apiHandler = new OpenAPIHandler(appRouter, {
 	})
 {{/if}}
 {{#if (includes examples "ai")}}
-	.post("/ai", async (context) => {
+	.post("{{apiPrefix webDeploy serverDeploy}}/ai", async (context) => {
 		const body = (await context.request.json()) as { messages?: UIMessage[] };
 		const uiMessages = body.messages || [];
 		const model = wrapLanguageModel({
@@ -14835,7 +14835,7 @@ app.all("/api/auth{/*path}", toNodeHandler(auth));
 const nativeAppUrl = "{{projectName}}://";
 const allowedNativeProtocols = new Set(["exp:", new URL(nativeAppUrl).protocol]);
 
-app.get("/polar/success", (req, res) => {
+app.get("{{apiPrefix webDeploy serverDeploy}}/polar/success", (req, res) => {
 	const requestUrl = new URL(req.url, ENV.BETTER_AUTH_URL);
 	const returnUrl = requestUrl.searchParams.get("returnUrl") || nativeAppUrl;
 
@@ -14858,7 +14858,7 @@ app.get("/polar/success", (req, res) => {
 {{/if}}
 {{#if (eq api "trpc")}}
 app.use(
-	"/trpc",
+	"{{apiPrefix webDeploy serverDeploy}}/trpc",
 	createExpressMiddleware({
 		router: appRouter,
 		createContext,
@@ -14889,13 +14889,13 @@ const apiHandler = new OpenAPIHandler(appRouter, {
 
 app.use(async (req, res, next) => {
 	const rpcResult = await rpcHandler.handle(req, res, {
-		prefix: "/rpc",
+		prefix: "{{apiPrefix webDeploy serverDeploy}}/rpc",
 		context: await createContext({ req }),
 	});
 	if (rpcResult.matched) return;
 
 	const apiResult = await apiHandler.handle(req, res, {
-		prefix: "/api-reference",
+		prefix: "{{apiPrefix webDeploy serverDeploy}}/api-reference",
 		context: await createContext({ req }),
 	});
 	if (apiResult.matched) return;
@@ -14907,7 +14907,7 @@ app.use(async (req, res, next) => {
 app.use(express.json());
 
 {{#if (includes examples "ai")}}
-app.post("/ai", async (req, res) => {
+app.post("{{apiPrefix webDeploy serverDeploy}}/ai", async (req, res) => {
 	const { messages = [] } = (req.body || {}) as { messages: UIMessage[] };
 	const model = wrapLanguageModel({
 		model: google("gemini-2.5-flash"),
@@ -15020,7 +15020,7 @@ fastify.register(clerkPlugin, {
 const nativeAppUrl = "{{projectName}}://";
 const allowedNativeProtocols = new Set(["exp:", new URL(nativeAppUrl).protocol]);
 
-fastify.get("/polar/success", async (request, reply) => {
+fastify.get("{{apiPrefix webDeploy serverDeploy}}/polar/success", async (request, reply) => {
 	const requestUrl = new URL(request.url, ENV.BETTER_AUTH_URL);
 	const returnUrl = requestUrl.searchParams.get("returnUrl") || nativeAppUrl;
 
@@ -15048,10 +15048,10 @@ fastify.register(async (rpcApp) => {
 		done(null, undefined);
 	});
 
-	rpcApp.all("/rpc/*", async (request, reply) => {
+	rpcApp.all("{{apiPrefix webDeploy serverDeploy}}/rpc/*", async (request, reply) => {
 		const { matched } = await rpcHandler.handle(request, reply, {
 			context: await createContext({{#if (eq auth "clerk")}}request{{else}}request.headers{{/if}}),
-			prefix: "/rpc",
+			prefix: "{{apiPrefix webDeploy serverDeploy}}/rpc",
 		});
 
 		if (!matched) {
@@ -15059,10 +15059,10 @@ fastify.register(async (rpcApp) => {
 		}
 	});
 
-	rpcApp.all("/api-reference/*", async (request, reply) => {
+	rpcApp.all("{{apiPrefix webDeploy serverDeploy}}/api-reference/*", async (request, reply) => {
 		const { matched } = await apiHandler.handle(request, reply, {
 			context: await createContext({{#if (eq auth "clerk")}}request{{else}}request.headers{{/if}}),
-			prefix: "/api-reference",
+			prefix: "{{apiPrefix webDeploy serverDeploy}}/api-reference",
 		});
 
 		if (!matched) {
@@ -15105,7 +15105,7 @@ fastify.route({
 
 {{#if (eq api "trpc")}}
 fastify.register(fastifyTRPCPlugin, {
-	prefix: "/trpc",
+	prefix: "{{apiPrefix webDeploy serverDeploy}}/trpc",
 	trpcOptions: {
 		router: appRouter,
 		createContext,
@@ -15122,7 +15122,7 @@ interface AiRequestBody {
 	messages: UIMessage[];
 }
 
-fastify.post('/ai', async function (request) {
+fastify.post('{{apiPrefix webDeploy serverDeploy}}/ai', async function (request) {
 	const { messages } = request.body as AiRequestBody;
 	const model = wrapLanguageModel({
 		model: google('gemini-2.5-flash'),
@@ -15221,7 +15221,7 @@ app.on(
 const nativeAppUrl = "{{projectName}}://";
 const allowedNativeProtocols = new Set(["exp:", new URL(nativeAppUrl).protocol]);
 
-app.get("/polar/success", (c) => {
+app.get("{{apiPrefix webDeploy serverDeploy}}/polar/success", (c) => {
 	const requestUrl = new URL(c.req.url);
 	const returnUrl = requestUrl.searchParams.get("returnUrl") || nativeAppUrl;
 
@@ -15266,7 +15266,7 @@ app.use("/*", async (c, next) => {
 	const context = await createContext({ context: c });
 
 	const rpcResult = await rpcHandler.handle(c.req.raw, {
-		prefix: "/rpc",
+		prefix: "{{apiPrefix webDeploy serverDeploy}}/rpc",
 		context: context,
 	});
 
@@ -15275,7 +15275,7 @@ app.use("/*", async (c, next) => {
 	}
 
 	const apiResult = await apiHandler.handle(c.req.raw, {
-		prefix: "/api-reference",
+		prefix: "{{apiPrefix webDeploy serverDeploy}}/api-reference",
 		context: context,
 	});
 
@@ -15289,8 +15289,9 @@ app.use("/*", async (c, next) => {
 
 {{#if (eq api "trpc")}}
 app.use(
-	"/trpc/*",
+	"{{apiPrefix webDeploy serverDeploy}}/trpc/*",
 	trpcServer({
+		endpoint: "{{apiPrefix webDeploy serverDeploy}}/trpc",
 		router: appRouter,
 		createContext: (_opts, context) => {
 			return createContext({ context });
@@ -15300,7 +15301,7 @@ app.use(
 {{/if}}
 
 {{#if (and (includes examples "ai") (or (eq runtime "bun") (eq runtime "node")))}}
-app.post("/ai", async (c) => {
+app.post("{{apiPrefix webDeploy serverDeploy}}/ai", async (c) => {
 	const body = await c.req.json();
 	const uiMessages = body.messages || [];
 	const model = wrapLanguageModel({
@@ -15319,7 +15320,7 @@ app.post("/ai", async (c) => {
 {{/if}}
 
 {{#if (and (includes examples "ai") (eq runtime "workers"))}}
-app.post("/ai", async (c) => {
+app.post("{{apiPrefix webDeploy serverDeploy}}/ai", async (c) => {
 	const body = await c.req.json();
 	const uiMessages = body.messages || [];
 	const google = createGoogleGenerativeAI({
@@ -15718,6 +15719,7 @@ export default defineConfig({
   schema: "./src/schema/index.ts",
   out: "./src/migrations",
   dialect: "postgresql",
+  schemaFilter: ["public"],
   dbCredentials: {
     url: process.env.DATABASE_URL || "",
   },
@@ -17140,17 +17142,19 @@ app.listen(port, "0.0.0.0", () => {
 **/.env
 **/.env.*
 !**/.env.example
+!**/.env.schema
 local.db
 local.db-*
 .alchemy/
 `],
   ["deploy/vercel/scripts/sync-vercel-env.ts.hbs", `import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
 import { parseEnv } from "node:util";
 
 const DEFAULT_ENVIRONMENT = "preview";
 const VALID_ENVIRONMENTS = new Set(["development", "preview", "production"]);
-const VERCEL_COMMAND = [{{#if (eq packageManager "npm")}}"npx", "vercel"{{else if (eq packageManager "pnpm")}}"pnpm", "exec", "vercel"{{else}}"bunx", "vercel"{{/if}}] as const;
+const VERCEL_COMMAND = [{{#if (eq packageManager "npm")}}"npx", "--yes", "vercel"{{else if (eq packageManager "pnpm")}}"pnpm", "dlx", "vercel"{{else}}"bunx", "vercel"{{/if}}] as const;
 const DEFAULT_FILES = [
 {{#if (eq webDeploy "vercel")}}
 	"apps/web/.env",
@@ -17204,6 +17208,8 @@ const vercelArgs = [...passthroughArgs, ...forwardedArgs];
 const envFiles = files.length > 0 ? files : DEFAULT_FILES;
 
 const env = new Map<string, string>();
+const undeclaredKeys: string[] = [];
+const emptyKeys: string[] = [];
 
 for (const file of envFiles) {
 	if (!existsSync(file)) {
@@ -17211,10 +17217,35 @@ for (const file of envFiles) {
 		continue;
 	}
 
+	// Only the keys an app declares in its .env.schema are config; tools such as
+	// database CLIs also write local-only values (claim links, direct URLs) to .env
+	const schemaFile = join(dirname(file), ".env.schema");
+	const declaredKeys = existsSync(schemaFile)
+		? new Set(Object.keys(parseEnv(readFileSync(schemaFile, "utf8"))))
+		: undefined;
+
 	for (const [key, value] of Object.entries(parseEnv(readFileSync(file, "utf8")))) {
 		if (SKIP_KEYS.has(key)) continue;
-		env.set(key, OVERRIDE_KEYS.get(key) ?? value);
+		if (declaredKeys && !declaredKeys.has(key)) {
+			undeclaredKeys.push(key);
+			continue;
+		}
+		const syncedValue = OVERRIDE_KEYS.get(key) ?? value;
+		if (!syncedValue) {
+			emptyKeys.push(key);
+			continue;
+		}
+		env.set(key, syncedValue);
 	}
+}
+
+if (undeclaredKeys.length > 0) {
+	console.log(\`Skipping \${undeclaredKeys.join(", ")}: not declared in .env.schema.\`);
+}
+if (emptyKeys.length > 0) {
+	console.warn(
+		\`Warning: \${emptyKeys.join(", ")} \${emptyKeys.length === 1 ? "is" : "are"} empty in your .env file(s) and won't be synced. Required values must be set before deploying, or the build or server fails env validation.\`,
+	);
 }
 
 {{#if (includes addons "axiom")}}
@@ -18174,7 +18205,7 @@ export default function AIScreen() {
   const [input, setInput] = useState("");
   const { messages, error, sendMessage, status, setMessages } = useChat({
     transport: new DefaultChatTransport({
-      api: generateAPIUrl("/ai"),
+      api: generateAPIUrl("{{apiPrefix webDeploy serverDeploy}}/ai"),
     }),
     onError: (error) => console.error(error, "AI Chat Error"),
   });
@@ -19267,7 +19298,7 @@ export default function AIScreen() {
   const [input, setInput] = useState("");
   const { messages, error, sendMessage, status, setMessages } = useChat({
     transport: new DefaultChatTransport({
-      api: generateAPIUrl("/ai"),
+      api: generateAPIUrl("{{apiPrefix webDeploy serverDeploy}}/ai"),
     }),
     onError: (error) => console.error(error, "AI Chat Error"),
   });
@@ -20107,7 +20138,7 @@ export default function AIScreen() {
   const [input, setInput] = useState("");
   const { messages, error, sendMessage, status, setMessages } = useChat({
     transport: new DefaultChatTransport({
-      api: generateAPIUrl("/ai"),
+      api: generateAPIUrl("{{apiPrefix webDeploy serverDeploy}}/ai"),
     }),
     onError: (error) => console.error(error, "AI Chat Error"),
   });
@@ -30407,6 +30438,11 @@ export default defineNuxtConfig({
   },
   {{/unless}}
   css: ['~/assets/css/main.css'],
+  {{#if (and (eq webDeploy "vercel") (eq serverDeploy "vercel"))}}
+  icon: {
+    localApiEndpoint: "/_nuxt_icon",
+  },
+  {{/if}}
   devServer: {
     port: 3001
   },
