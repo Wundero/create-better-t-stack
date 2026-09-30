@@ -1,3 +1,4 @@
+import { addonUsesServerHost, writeAddonHostBindings, writeAddonServerPrelude } from "./addons";
 import { awsServerEnvEntries, cloudflareServerEnvEntries, prismaServerEnvEntries } from "./env";
 import type { AlchemyDeploymentPlan, AlchemyServerCompute } from "./plan";
 import { writeLines, writeObject, type AlchemyWriter } from "./writer";
@@ -108,9 +109,11 @@ function writeAwsServerPrelude(writer: AlchemyWriter, plan: AlchemyDeploymentPla
   if (plan.hasAxiomServerRuntime) {
     writer.writeLine("const resolvedObservabilityEnv = yield* observabilityEnv;");
   }
+  writeAddonServerPrelude(writer, plan);
 }
 
 function writeAwsFargateServer(writer: AlchemyWriter, plan: AlchemyDeploymentPlan): void {
+  const bindsAddons = addonUsesServerHost(plan);
   writer.writeLine("export const server = Effect.gen(function* () {");
   writer.indent(() => {
     writeAwsServerPrelude(writer, plan);
@@ -118,7 +121,9 @@ function writeAwsFargateServer(writer: AlchemyWriter, plan: AlchemyDeploymentPla
     writer.blankLine();
     writeObject(
       writer,
-      'return yield* AWS.ECS.Service("server", {',
+      bindsAddons
+        ? 'const serverHost = yield* AWS.ECS.Service("server", {'
+        : 'return yield* AWS.ECS.Service("server", {',
       () => {
         writer.writeLine("cluster,");
         writer.writeLine('context: "../..",');
@@ -137,6 +142,10 @@ function writeAwsFargateServer(writer: AlchemyWriter, plan: AlchemyDeploymentPla
       },
       "});",
     );
+    if (bindsAddons) {
+      writeAddonHostBindings(writer, plan);
+      writer.writeLine("return serverHost;");
+    }
   });
   writer.writeLine("});");
 }
@@ -174,17 +183,30 @@ function writeAwsLambdaFunction(
 }
 
 function writeAwsLambdaServer(writer: AlchemyWriter, plan: AlchemyDeploymentPlan): void {
-  if (plan.hasAwsNetwork || plan.hasAlchemyManagedDatabase || plan.hasAxiomServerRuntime) {
-    writer.writeLine("export const server = Effect.gen(function* () {");
-    writer.indent(() => {
-      writeAwsServerPrelude(writer, plan);
-      writeAwsLambdaFunction(writer, plan, "return yield* ");
-    });
-    writer.writeLine("});");
+  const bindsAddons = addonUsesServerHost(plan);
+  const needsEffect =
+    plan.hasAwsNetwork ||
+    plan.hasAlchemyManagedDatabase ||
+    plan.hasAxiomServerRuntime ||
+    bindsAddons;
+
+  if (!needsEffect) {
+    writeAwsLambdaFunction(writer, plan, "export const server = ");
     return;
   }
 
-  writeAwsLambdaFunction(writer, plan, "export const server = ");
+  writer.writeLine("export const server = Effect.gen(function* () {");
+  writer.indent(() => {
+    writeAwsServerPrelude(writer, plan);
+    if (bindsAddons) {
+      writeAwsLambdaFunction(writer, plan, "const serverHost = yield* ");
+      writeAddonHostBindings(writer, plan);
+      writer.writeLine("return serverHost;");
+    } else {
+      writeAwsLambdaFunction(writer, plan, "return yield* ");
+    }
+  });
+  writer.writeLine("});");
 }
 
 function writeAwsServer(
