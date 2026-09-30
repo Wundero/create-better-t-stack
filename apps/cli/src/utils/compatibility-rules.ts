@@ -18,6 +18,9 @@ import {
   TRPC_INCOMPATIBLE_FRONTENDS,
   isExampleAIAllowed,
   isExampleTodoAllowed,
+  NATIVE_FRONTENDS,
+  PORTLESS_BLOCKED_ADDONS,
+  supportsPortlessMode,
 } from "@better-t-stack/types";
 export {
   TASK_RUNNER_ADDONS,
@@ -324,6 +327,67 @@ export function validatePrismaWebDeployDesktopAddons(
 
   return validationErr(
     `'--web-deploy prisma' is not compatible with the ${desktopAddons.join(", ")} addon on '${affected}' because desktop addons replace its executable server output with a static export, while Prisma Compute requires an executable server artifact. Remove the addon or choose a server deployment that supports this desktop build.`,
+  );
+}
+
+export function validatePortlessCompatibility(config: Partial<ProjectConfig>): ValidationResult {
+  if (!config.portless) return Result.ok(undefined);
+
+  const frontend = config.frontend ?? [];
+  const addons = config.addons ?? [];
+  const backend = config.backend ?? "none";
+  const runtime = config.runtime ?? "none";
+  const webDeploy = config.webDeploy ?? "none";
+  const serverDeploy = config.serverDeploy ?? "none";
+
+  if (supportsPortlessMode({ frontend, addons, backend, runtime, webDeploy, serverDeploy })) {
+    return Result.ok(undefined);
+  }
+
+  const nativeFrontend = frontend.find((value) =>
+    NATIVE_FRONTENDS.some((native) => native === value),
+  );
+  if (nativeFrontend) {
+    return validationErr(
+      `Portless dev mode is not compatible with the native frontend '${nativeFrontend}'. Remove --portless or choose a different frontend.`,
+    );
+  }
+
+  const blockedAddon = addons.find((value) =>
+    PORTLESS_BLOCKED_ADDONS.some((blocked) => blocked === value),
+  );
+  if (blockedAddon) {
+    return validationErr(
+      `Portless dev mode is not compatible with the '${blockedAddon}' addon. Remove --portless or choose a different addon.`,
+    );
+  }
+
+  if (backend === "convex") {
+    return validationErr(
+      "Portless dev mode is not compatible with the Convex backend. Remove --portless or choose a different backend.",
+    );
+  }
+
+  if (runtime === "workers") {
+    return validationErr(
+      "Portless dev mode is not compatible with the Cloudflare Workers runtime. Remove --portless or choose a different runtime.",
+    );
+  }
+
+  if (webDeploy === "docker") {
+    return validationErr(
+      "Portless dev mode is not compatible with '--web-deploy docker'. Remove --portless or choose a different deployment.",
+    );
+  }
+
+  if (serverDeploy === "docker") {
+    return validationErr(
+      "Portless dev mode is not compatible with '--server-deploy docker'. Remove --portless or choose a different deployment.",
+    );
+  }
+
+  return validationErr(
+    "Portless dev mode is not compatible with the selected configuration. Remove --portless or choose a different configuration.",
   );
 }
 

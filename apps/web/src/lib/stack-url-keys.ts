@@ -21,6 +21,7 @@ export const stackUrlKeys: UrlKeys<StackUrlState> = {
   examples: "ex",
   git: "git",
   install: "i",
+  portless: "portless",
   webDeploy: "wd",
   serverDeploy: "sd",
   yolo: "yolo",

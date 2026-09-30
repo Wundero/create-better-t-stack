@@ -745,6 +745,26 @@ export const TECH_OPTIONS: TechOptions = {
       color: "from-yellow-400 to-yellow-600",
     },
   ],
+  portless: [
+    {
+      id: "false",
+      name: "Standard localhost",
+      description: "Run dev servers on standard localhost ports",
+      icon: "/icon/monitor.svg",
+      className: "invert-0 dark:invert",
+
+      color: "from-gray-400 to-gray-600",
+      default: true,
+    },
+    {
+      id: "true",
+      name: "Portless",
+      description: "Run dev servers on stable .localhost hostnames instead of ports",
+      icon: `${ICON_BASE_URL}/vercel.svg`,
+      color: "from-sky-400 to-sky-600",
+      experimental: true,
+    },
+  ],
 };
 
 export function getStackOptionIds<K extends TechCategory>(category: K): StackOptionId<K>[] {
@@ -788,6 +808,7 @@ export const PRESET_TEMPLATES: {
       webDeploy: "none",
       serverDeploy: "none",
       yolo: "false",
+      portless: "false",
     },
   },
   {
@@ -814,6 +835,7 @@ export const PRESET_TEMPLATES: {
       webDeploy: "none",
       serverDeploy: "none",
       yolo: "false",
+      portless: "false",
     },
   },
   {
@@ -840,6 +862,7 @@ export const PRESET_TEMPLATES: {
       webDeploy: "none",
       serverDeploy: "none",
       yolo: "false",
+      portless: "false",
     },
   },
   {
@@ -866,6 +889,7 @@ export const PRESET_TEMPLATES: {
       webDeploy: "none",
       serverDeploy: "none",
       yolo: "false",
+      portless: "false",
     },
   },
 ];
@@ -890,6 +914,7 @@ export const DEFAULT_STACK: StackState = {
   webDeploy: "none",
   serverDeploy: "none",
   yolo: "false",
+  portless: "false",
 };
 
 export const isStackDefault = <K extends keyof StackState>(
