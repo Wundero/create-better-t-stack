@@ -116,6 +116,7 @@ export const dependencyVersionMap = {
   unwasm: "^0.6.0",
 
   ai: "^7.0.93",
+  "@neon/ai-sdk-provider": "^0.10.0",
   "@ai-sdk/google": "^4.0.64",
   "@ai-sdk/amazon-bedrock": "^5.0.102",
   "@ai-sdk/vue": "^4.0.93",

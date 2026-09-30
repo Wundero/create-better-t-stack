@@ -493,6 +493,39 @@ pre-commit:
     #   run: {{packageManagerRunCmd}} lint
 {{/if}}
 `],
+  ["addons/neon-ai-gateway/apps/server/src/neon/ai-gateway.ts", `import { createNeon } from "@neon/ai-sdk-provider";
+import { generateText } from "ai";
+
+const neon = createNeon({
+  baseURL: process.env.NEON_AI_GATEWAY_BASE_URL,
+  apiKey: process.env.NEON_AI_GATEWAY_TOKEN,
+});
+
+export function askNeonAI(prompt: string) {
+  return generateText({ model: neon("gpt-5-mini"), prompt });
+}
+`],
+  ["addons/neon-buckets/apps/server/src/neon/buckets.ts", `import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
+
+const client = new S3Client({
+  endpoint: process.env.AWS_ENDPOINT_URL_S3,
+  region: process.env.AWS_REGION,
+  credentials: {
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
+  },
+});
+
+export function putAsset(key: string, value: string) {
+  return client.send(
+    new PutObjectCommand({
+      Bucket: process.env.S3_BUCKET_NAME!,
+      Key: key,
+      Body: value,
+    }),
+  );
+}
+`],
   ["addons/pwa/apps/web/next/public/favicon/apple-touch-icon.png", `[Binary file]`],
   ["addons/pwa/apps/web/next/public/favicon/favicon-96x96.png", `[Binary file]`],
   ["addons/pwa/apps/web/next/public/favicon/favicon.svg", `<svg xmlns="http://www.w3.org/2000/svg" version="1.1" xmlns:xlink="http://www.w3.org/1999/xlink" width="92" height="92"><svg width="92" height="92" viewBox="0 0 92 92" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -36215,4 +36248,4 @@ export default function Success() {
 `]
 ]);
 
-export const TEMPLATE_COUNT = 558;
+export const TEMPLATE_COUNT = 560;
