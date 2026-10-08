@@ -8,6 +8,32 @@ import { expectError, expectSuccess, runCreateTest, type TestConfig } from "./te
 
 describe("Authentication Configurations", () => {
   describe("Better-Auth Provider", () => {
+    it.each(["self", "hono"] as const)(
+      "classifies Nuxt browser-visible auth origins as public for %s",
+      async (backend) => {
+        const result = await runCreateTest({
+          projectName: `auth-origin-schema-${backend}`,
+          frontend: ["nuxt"],
+          backend,
+          runtime: backend === "self" ? "none" : "bun",
+          api: "orpc",
+          auth: "better-auth",
+        });
+        expectSuccess(result);
+        const app = backend === "self" ? "web" : "server";
+        const schema = await fs.readFile(
+          path.join(result.projectDir, `apps/${app}/.env.schema`),
+          "utf8",
+        );
+        expect(schema).toMatch(/# @public @dynamic @type=url\nBETTER_AUTH_URL=/);
+        if (backend !== "self")
+          expect(schema).toMatch(/# @public @dynamic @type=url\nCORS_ORIGIN=/);
+        expect(schema).toContain("# @defaultSensitive=true");
+        expect(schema).toMatch(/# @type=string\(minLength=32\)\nBETTER_AUTH_SECRET=/);
+        expect(schema).toMatch(/# @type=string\(minLength=1\)\nDATABASE_URL=/);
+      },
+    );
+
     it.each(["drizzle", "prisma"] as const)(
       "omits schema generation when yolo skips the database package with %s",
       async (orm) => {
@@ -1009,7 +1035,7 @@ describe("Authentication Configurations", () => {
   });
 
   describe("Authentication with Different Backends", () => {
-    const backends = ["hono", "express", "fastify", "elysia", "self"];
+    const backends = ["hono", "express", "fastify", "elysia", "nitro", "self"];
 
     for (const backend of backends) {
       it(`should work with better-auth + ${backend}`, async () => {

@@ -12,6 +12,7 @@ import { createAlchemyWriter, writeObject, type AlchemyWriter } from "./writer";
 function databaseProvidersUseCommand(plan: AlchemyDeploymentPlan): boolean {
   if (plan.managedDatabase.kind === "aurora") return true;
   return (
+    (plan.server.target === "cloudflare" && plan.config.backend === "nitro") ||
     plan.managedDatabase.kind === "prisma-postgres" ||
     (plan.managedDatabase.kind !== "none" && plan.managedDatabase.orm === "prisma")
   );
@@ -31,6 +32,7 @@ function usesOutput(plan: AlchemyDeploymentPlan): boolean {
   const database = plan.managedDatabase;
   return (
     plan.hasAwsSolidWeb ||
+    (plan.server.target === "cloudflare" && plan.config.backend === "nitro") ||
     database.kind === "neon" ||
     database.kind === "prisma-postgres" ||
     database.kind === "aurora" ||

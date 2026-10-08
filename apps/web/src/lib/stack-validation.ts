@@ -1,5 +1,6 @@
 import {
   getBackendDisabledOptions,
+  SERVER_BACKENDS,
   supportsRuntimeBackend,
   supportsRuntimeDatabase,
   supportsDatabaseSetupRuntime,
@@ -43,7 +44,7 @@ export function validateProjectName(name: string): string | undefined {
 }
 
 const clerkBackendRequirementMessage =
-  "Clerk requires Convex, Hono, Express, Fastify, Elysia, or Next.js/TanStack Start fullstack backend";
+  "Clerk requires Convex, Hono, Express, Fastify, Elysia, Nitro, or Next.js/TanStack Start fullstack backend";
 const clerkFrontendRequirementMessage =
   "Clerk requires React Router, TanStack Router, TanStack Start, Next.js, or React Native";
 const convexBetterAuthFrontendRequirementMessage =
@@ -197,6 +198,7 @@ export const analyzeStackCompatibility = (stack: StackState): CompatibilityResul
 
   if (
     nextStack.runtime === "workers" &&
+    getStackBackend(nextStack.backend) !== "nitro" &&
     !supportsRuntimeBackend(nextStack.runtime, getStackBackend(nextStack.backend))
   ) {
     nextStack.backend = "hono";
@@ -349,13 +351,20 @@ export const analyzeStackCompatibility = (stack: StackState): CompatibilityResul
           });
         }
       } else {
-        if (nextStack.runtime !== "workers" || nextStack.backend !== "hono") {
+        if (nextStack.runtime !== "workers") {
           nextStack.runtime = "workers";
+          changed = true;
+          changes.push({
+            category: "dbSetup",
+            message: "Runtime set to 'Workers' (required for D1)",
+          });
+        }
+        if (!["hono", "nitro"].includes(getStackBackend(nextStack.backend))) {
           nextStack.backend = "hono";
           changed = true;
           changes.push({
             category: "dbSetup",
-            message: "Runtime set to 'Workers' with 'Hono' (required for D1)",
+            message: "Backend set to 'Hono' (required for D1)",
           });
         }
         if (nextStack.serverDeploy !== "cloudflare") {
@@ -584,12 +593,27 @@ export const analyzeStackCompatibility = (stack: StackState): CompatibilityResul
   }
 
   if (nextStack.serverDeploy === "cloudflare") {
-    if (nextStack.runtime !== "workers" || nextStack.backend !== "hono") {
+    if (
+      nextStack.runtime !== "workers" ||
+      !["hono", "nitro"].includes(getStackBackend(nextStack.backend))
+    ) {
       nextStack.serverDeploy = "none";
       changed = true;
       changes.push({
         category: "serverDeploy",
-        message: "Server deploy set to 'None' (Cloudflare requires Workers + Hono)",
+        message: "Server deploy set to 'None' (Cloudflare requires Workers + Hono or Nitro)",
+      });
+    }
+  }
+
+  if (nextStack.serverDeploy === "aws") {
+    const backend = getStackBackend(nextStack.backend);
+    if (backend !== "none" && !SERVER_BACKENDS.includes(backend)) {
+      nextStack.serverDeploy = "none";
+      changed = true;
+      changes.push({
+        category: "serverDeploy",
+        message: "Server deploy set to 'None' (AWS requires Hono, Express, Fastify, or Elysia)",
       });
     }
   }
@@ -704,18 +728,20 @@ export const getDisabledReason = (
     if (
       currentStack.runtime === "workers" &&
       optionId !== "none" &&
+      optionId !== "nitro" &&
       !supportsRuntimeBackend(currentStack.runtime, getStackBackend(optionId))
     ) {
-      return "Workers runtime only works with Hono";
+      return "Workers runtime only works with Hono or Nitro";
     }
   }
 
   if (category === "runtime") {
     if (
       optionId === "workers" &&
+      getStackBackend(currentStack.backend) !== "nitro" &&
       !supportsRuntimeBackend(optionId, getStackBackend(currentStack.backend))
     ) {
-      return "Workers requires Hono backend";
+      return "Workers requires Hono or Nitro backend";
     }
     if (
       optionId === "lambda" &&
@@ -919,8 +945,11 @@ export const getDisabledReason = (
     if (optionId === "cloudflare") {
       if (!supportsServerDeployRuntime(optionId, currentStack.runtime))
         return "Cloudflare requires Workers runtime";
-      if (!supportsRuntimeBackend("workers", getStackBackend(currentStack.backend)))
-        return "Cloudflare requires Hono backend";
+      if (
+        getStackBackend(currentStack.backend) !== "nitro" &&
+        !supportsRuntimeBackend("workers", getStackBackend(currentStack.backend))
+      )
+        return "Cloudflare requires Hono or Nitro backend";
     }
     if (optionId === "docker" && !supportsServerDeployRuntime(optionId, currentStack.runtime)) {
       return "Docker server deployment requires the Bun or Node runtime";
@@ -933,6 +962,12 @@ export const getDisabledReason = (
     }
     if (optionId === "aws" && !supportsServerDeployRuntime(optionId, currentStack.runtime)) {
       return "AWS server deployment requires the Bun, Node.js, or Lambda runtime";
+    }
+    if (optionId === "aws") {
+      const backend = getStackBackend(currentStack.backend);
+      if (backend !== "none" && !SERVER_BACKENDS.includes(backend)) {
+        return "AWS server deployment requires Hono, Express, Fastify, or Elysia backend";
+      }
     }
     if (optionId !== "none") {
       if (
