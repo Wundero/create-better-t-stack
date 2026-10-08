@@ -6,18 +6,18 @@ export const neonAiGatewayRenderer: AddonRenderer = {
     return ['import * as Neon from "alchemy/Neon";'];
   },
   resources(writer) {
-    writer.writeLine("export const neonAiGateway = Effect.gen(function* () {");
+    writer.writeLine("export const neonAiGateway = Effect.flatMap(neonBranch, (neonBranch) =>");
     writer.indent(() => {
       writeObject(
         writer,
-        'return yield* Neon.AIGateway("ai-gateway", {',
+        'Neon.AIGateway("ai-gateway", {',
         () => {
           writer.writeLine("branch: neonBranch,");
         },
-        "});",
+        "}),",
       );
     });
-    writer.writeLine("});");
+    writer.writeLine(");");
   },
   serverPrelude(writer) {
     writer.writeLine("yield* neonAiGateway;");

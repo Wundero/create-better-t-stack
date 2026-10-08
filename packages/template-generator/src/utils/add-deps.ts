@@ -174,16 +174,16 @@ export const dependencyVersionMap = {
   "@cloudflare/containers": "^0.3.7",
   "@cloudflare/sandbox": "1.0.0",
   "workers-ai-provider": "^4.0.0",
-  "@alchemy.run/frontend-frameworks": "2.0.0-beta.80",
+  "@alchemy.run/frontend-frameworks": "2.0.0-beta.81",
   "@astrojs/node": "^11.1.5",
   "@astrojs/vercel": "^11.0.10",
 
   // exact pins: caret ranges on prereleases can resolve to stray npm test tags
   "@vercel/nft": "^1.11.0",
-  alchemy: "2.0.0-beta.80",
-  effect: "4.0.0-rc.115",
-  "@effect/platform-node": "4.0.0-rc.115",
-  "@effect/platform-bun": "4.0.0-rc.115",
+  alchemy: "2.0.0-beta.81",
+  effect: "4.0.0-rc.118",
+  "@effect/platform-node": "4.0.0-rc.118",
+  "@effect/platform-bun": "4.0.0-rc.118",
 
   "babel-preset-expo": "~57.0.10",
   varlock: "1.18.0",

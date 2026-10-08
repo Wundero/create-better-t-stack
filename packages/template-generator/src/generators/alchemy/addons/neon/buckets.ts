@@ -6,20 +6,19 @@ export const neonBucketsRenderer: AddonRenderer = {
     return ['import * as Neon from "alchemy/Neon";'];
   },
   resources(writer) {
-    writer.writeLine("export const neonBuckets = Effect.gen(function* () {");
+    writer.writeLine("export const neonBuckets = Effect.flatMap(neonBranch, (neonBranch) =>");
     writer.indent(() => {
       writeObject(
         writer,
-        'const bucket = yield* Neon.Bucket("bucket", {',
+        'Neon.Bucket("bucket", {',
         () => {
           writer.writeLine("branch: neonBranch,");
           writer.writeLine("forceDestroy: true,");
         },
-        "});",
+        "}).pipe(Effect.map((bucket) => ({ bucket }))),",
       );
-      writer.writeLine("return { bucket };");
     });
-    writer.writeLine("});");
+    writer.writeLine(");");
   },
   serverPrelude(writer) {
     writer.writeLine("const { bucket: neonBucket } = yield* neonBuckets;");
