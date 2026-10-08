@@ -23,6 +23,7 @@ import { Result } from "better-result";
 import { transformComponentSource } from "./apply";
 import { resolveComponentClosure, SHADCN_RTL_COMPONENT, SHADCN_UI_COMPONENTS } from "./components";
 import { shadcnAliases } from "./components-json";
+import { REPLACED_SHADCN_DEPENDENCIES } from "./dependency-versions";
 import {
   ShadcnRegistryError,
   isRegistryFontItem,
@@ -193,8 +194,10 @@ async function resolveUtilsSource(
  * The deduped, first-seen npm dependencies the registry base and its component
  * closure introduce. Font packages are excluded: each font carries its own
  * `RegistryFont.dependency` and the ui package composer pins those separately.
- * `registryDependencies` are component references (and `utils`/`font-*`), never
- * npm package names, so they are not collected here.
+ * Replaced dependencies (`REPLACED_SHADCN_DEPENDENCIES`) are excluded because
+ * the generator rewrites their imports onto another package. `registryDependencies`
+ * are component references (and `utils`/`font-*`), never npm package names, so
+ * they are not collected here.
  */
 function collectDependencies(
   base: RegistryBase,
@@ -205,7 +208,9 @@ function collectDependencies(
   const names: string[] = [];
   const seen = new Set<string>();
   const add = (name: string): void => {
-    if (seen.has(name) || fontDependencies.has(name)) return;
+    if (seen.has(name) || fontDependencies.has(name) || REPLACED_SHADCN_DEPENDENCIES.has(name)) {
+      return;
+    }
     seen.add(name);
     names.push(name);
   };

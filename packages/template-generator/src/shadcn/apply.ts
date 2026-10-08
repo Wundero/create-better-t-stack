@@ -45,6 +45,13 @@ const ICON_PROP_NAMES: readonly ShadcnIconLibrary[] = [
   "remixicon",
 ];
 
+const NEXT_THEMES_MODULE = "next-themes";
+const THEME_CONTEXT_MODULE = "@wrksz/themes/client";
+const THEME_CONTEXT_NAME = "ThemeContext";
+const USE_CONTEXT_NAME = "useContext";
+const REACT_MODULE = "react";
+const FALLBACK_THEME_EXPRESSION = '{ theme: "system" }';
+
 type IconPlaceholderElement = JsxSelfClosingElement | JsxElement;
 
 function isIconPropName(name: string): boolean {
@@ -91,6 +98,52 @@ function removeIconPlaceholderImports(sourceFile: SourceFile): void {
       declaration.remove();
     }
   }
+}
+
+function ensureNamedImport(sourceFile: SourceFile, moduleSpecifier: string, name: string): void {
+  const existing = sourceFile
+    .getImportDeclarations()
+    .find((declaration) => declaration.getModuleSpecifierValue() === moduleSpecifier);
+  if (existing === undefined) {
+    sourceFile.addImportDeclaration({ moduleSpecifier, namedImports: [name] });
+    return;
+  }
+  if (!existing.getNamedImports().some((specifier) => specifier.getName() === name)) {
+    existing.addNamedImport(name);
+  }
+}
+
+/**
+ * The registry still ships `sonner` reading the theme through
+ * `useTheme` from `next-themes`, but templates migrated to `@wrksz/themes`,
+ * whose `useTheme` throws outside a provider. Rewrite the import and the call
+ * onto a defensive `ThemeContext` read so the shared Toaster matches the
+ * templates and needs no `next-themes` dependency.
+ */
+function rewriteNextThemesUsage(sourceFile: SourceFile): void {
+  const declarations = sourceFile
+    .getImportDeclarations()
+    .filter((declaration) => declaration.getModuleSpecifierValue() === NEXT_THEMES_MODULE);
+  if (declarations.length === 0) return;
+
+  const calls = sourceFile.getDescendantsOfKind(SyntaxKind.CallExpression).filter((call) => {
+    const expression = call.getExpression();
+    return Node.isIdentifier(expression) && expression.getText() === "useTheme";
+  });
+  for (const call of calls) {
+    call.replaceWithText(
+      `${USE_CONTEXT_NAME}(${THEME_CONTEXT_NAME}) ?? ${FALLBACK_THEME_EXPRESSION}`,
+    );
+  }
+
+  for (const declaration of declarations) {
+    declaration.setModuleSpecifier(THEME_CONTEXT_MODULE);
+    for (const specifier of declaration.getNamedImports()) {
+      if (specifier.getName() === "useTheme") specifier.setName(THEME_CONTEXT_NAME);
+    }
+  }
+
+  ensureNamedImport(sourceFile, REACT_MODULE, USE_CONTEXT_NAME);
 }
 
 function placeholderAttributes(element: IconPlaceholderElement): readonly JsxAttributeLike[] {
@@ -184,10 +237,11 @@ function addIconImports(
 
 /**
  * Rewrites a registry component source into project-local source: registry
- * sibling imports are re-pointed at project aliases, every `IconPlaceholder` is
- * replaced by the configured library's icon usage, the placeholder import is
- * dropped, and the required icon imports are inserted. Unmanaged imports,
- * directives (`"use client"`) and all other content are preserved.
+ * sibling imports are re-pointed at project aliases, the next-themes theme read
+ * is rewritten onto `@wrksz/themes`, every `IconPlaceholder` is replaced by the
+ * configured library's icon usage, the placeholder import is dropped, and the
+ * required icon imports are inserted. Unmanaged imports, directives
+ * (`"use client"`) and all other content are preserved.
  */
 export function transformComponentSource(
   content: string,
@@ -198,6 +252,7 @@ export function transformComponentSource(
 
   rewriteImportSpecifiers(sourceFile, options.aliases);
   removeIconPlaceholderImports(sourceFile);
+  rewriteNextThemesUsage(sourceFile);
   const usedIconNames = transformIconPlaceholders(sourceFile, options.iconLibrary);
   addIconImports(sourceFile, options.iconLibrary, usedIconNames);
 

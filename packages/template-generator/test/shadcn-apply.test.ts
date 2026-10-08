@@ -225,6 +225,18 @@ describe("alias rewriting", () => {
     expect(output).toContain('from "cn"');
     expect(output).toContain('from "@base-ui/react/checkbox"');
   });
+
+  test("rewrites the next-themes theme read onto the @wrksz/themes context", async () => {
+    const source = await loadComponent("base-maia", "sonner");
+    const output = transformComponentSource(source, { aliases: ALIASES, iconLibrary: "lucide" });
+
+    expect(output).not.toContain("next-themes");
+    expect(output).not.toContain("useTheme");
+    expect(output).toContain('from "@wrksz/themes/client"');
+    expect(output).toContain("ThemeContext");
+    expect(output).toContain('import { useContext } from "react"');
+    expect(output).toContain('useContext(ThemeContext) ?? { theme: "system" }');
+  });
 });
 
 describe("golden transformed output", () => {
