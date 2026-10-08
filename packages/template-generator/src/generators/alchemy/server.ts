@@ -1,5 +1,10 @@
 import { addonUsesServerHost, writeAddonHostBindings, writeAddonServerPrelude } from "./addons";
-import { awsServerEnvEntries, cloudflareServerEnvEntries, prismaServerEnvEntries } from "./env";
+import {
+  awsServerEnvEntries,
+  cloudflareServerEnvEntries,
+  neonServerEnvEntries,
+  prismaServerEnvEntries,
+} from "./env";
 import type { AlchemyDeploymentPlan, AlchemyServerCompute } from "./plan";
 import { writeLines, writeObject, type AlchemyWriter } from "./writer";
 
@@ -87,6 +92,35 @@ function writePrismaServer(writer: AlchemyWriter, plan: AlchemyDeploymentPlan): 
     writer.writeLine("};");
   });
   writer.writeLine("}));");
+}
+
+function writeNeonServer(writer: AlchemyWriter, plan: AlchemyDeploymentPlan): void {
+  writer.writeLine("export const server = Effect.gen(function* () {");
+  writer.indent(() => {
+    if (plan.hasAxiomServerRuntime) {
+      writer.writeLine("const resolvedObservabilityEnv = yield* observabilityEnv;");
+    }
+    writer.writeLine("const branch = yield* neonBranch;");
+    writeAddonServerPrelude(writer, plan);
+    writeObject(
+      writer,
+      'return yield* Neon.Function("server", {',
+      () => {
+        writer.writeLine("branch,");
+        writer.writeLine('main: "../../apps/server/src/index.ts",');
+        writeObject(
+          writer,
+          "env: {",
+          () => {
+            writeLines(writer, neonServerEnvEntries(plan));
+          },
+          "},",
+        );
+      },
+      "});",
+    );
+  });
+  writer.writeLine("});");
 }
 
 function writeAwsServerEnv(writer: AlchemyWriter, plan: AlchemyDeploymentPlan): void {
@@ -223,6 +257,10 @@ export function writeServerResource(writer: AlchemyWriter, plan: AlchemyDeployme
   if (server.target === "none") return;
   if (server.target === "aws") {
     writeAwsServer(writer, plan, server.compute);
+    return;
+  }
+  if (server.target === "neon") {
+    writeNeonServer(writer, plan);
     return;
   }
   if (server.target === "cloudflare") writeCloudflareServer(writer, plan);

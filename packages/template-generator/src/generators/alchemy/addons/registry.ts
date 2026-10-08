@@ -30,6 +30,8 @@ import { cloudflareRealtimeKitRenderer } from "./cloudflare/realtime-kit";
 import { cloudflareSandboxesRenderer } from "./cloudflare/sandboxes";
 import { cloudflareStreamRenderer } from "./cloudflare/stream";
 import { cloudflareWorkersAiRenderer } from "./cloudflare/workers-ai";
+import { neonAiGatewayRenderer } from "./neon/ai-gateway";
+import { neonBucketsRenderer } from "./neon/buckets";
 import type { AddonRenderer } from "./types";
 
 export const ADDON_RENDERERS = {
@@ -55,6 +57,8 @@ export const ADDON_RENDERERS = {
   "cloudflare-pipelines": cloudflarePipelinesRenderer,
   "cloudflare-stream": cloudflareStreamRenderer,
   "cloudflare-realtime-kit": cloudflareRealtimeKitRenderer,
+  "neon-ai-gateway": neonAiGatewayRenderer,
+  "neon-buckets": neonBucketsRenderer,
 } satisfies Partial<Record<Addons, AddonRenderer>>;
 
 type RegisteredAddon = keyof typeof ADDON_RENDERERS;
