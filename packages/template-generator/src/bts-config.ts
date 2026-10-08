@@ -20,6 +20,7 @@ export function writeBtsConfigToVfs(
     reproducibleCommand,
     addonOptions: projectConfig.addonOptions,
     dbSetupOptions: projectConfig.dbSetupOptions,
+    shadcn: projectConfig.shadcn,
     database: projectConfig.database,
     orm: projectConfig.orm,
     backend: projectConfig.backend,
@@ -29,11 +30,14 @@ export function writeBtsConfigToVfs(
     examples: projectConfig.examples,
     auth: projectConfig.auth,
     payments: projectConfig.payments,
+    emailRenderer: projectConfig.emailRenderer,
+    emailDeploy: projectConfig.emailDeploy,
     packageManager: projectConfig.packageManager,
     dbSetup: projectConfig.dbSetup,
     api: projectConfig.api,
     webDeploy: projectConfig.webDeploy,
     serverDeploy: projectConfig.serverDeploy,
+    portless: projectConfig.portless,
   };
 
   const baseContent = {

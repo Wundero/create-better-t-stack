@@ -35,12 +35,12 @@
     "test": "bun run check && cd apps/cli && bun test",
     "test:complete": "bun run check && bun run build && cd apps/cli && BTS_MATRIX_MODE=smoke BTS_BUILD_SAMPLES=1 bun test --bail=5",
     "lint": "turbo run lint",
-    "check": "oxfmt . && oxlint .",
+    "check": "oxfmt . && bunx --bun oxlint .",
     "prepare": "lefthook install",
     "release": "bun run scripts/release.ts",
     "bump": "bun run scripts/bump-version.ts",
     "canary": "bun run scripts/canary-release.ts",
-    "deploy:convex": "turbo run --filter=@better-t-stack/backend deploy",
+    "deploy:backend": "turbo run --filter=@better-t-stack/backend deploy",
     "deploy:web": "turbo run deploy --filter=web",
     "generate": "turbo run generate-schema --filter=web",
     "deploy": "turbo run deploy --filter=web",
@@ -60,7 +60,8 @@
     "oxfmt": "catalog:",
     "oxlint": "1.81.0",
     "turbo": "^2.10.12",
-    "typescript": "catalog:"
+    "typescript": "catalog:",
+    "unrun": "^0.3.1"
   },
   "overrides": {
     "mdast-util-to-markdown": "2.1.2"

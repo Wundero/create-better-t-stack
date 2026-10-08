@@ -10,7 +10,12 @@ import type { Route } from "./+types/root";
 import "./index.css";
 import Header from "./components/header";
 import { ThemeProvider } from "./components/theme-provider";
+import { ThemeScript } from "@wrksz/themes/script";
 import { Toaster } from "@{{projectName}}/ui/components/sonner";
+{{#if shadcn.rtl}}import { DirectionProvider } from "@{{projectName}}/ui/components/direction";
+{{/if}}{{#if (eq payments "autumn")}}
+import { AutumnProvider } from "autumn-js/react";
+{{/if}}
 {{#if (eq auth "clerk")}}
 import { ClerkProvider{{#if (or (eq backend "convex") (ne api "none"))}}, useAuth{{/if}} } from "@clerk/react-router";
 import { clerkMiddleware, rootAuthLoader } from "@clerk/react-router/server";
@@ -78,17 +83,23 @@ export const links: Route.LinksFunction = () => [
 
 export function Layout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en" suppressHydrationWarning{{#if shadcn.rtl}} dir="rtl"{{/if}}>
       <head>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <Meta />
         <Links />
+        <ThemeScript attribute="class" defaultTheme="dark" storageKey="vite-ui-theme" />
       </head>
       <body>
+        {{#if shadcn.rtl}}<DirectionProvider direction="rtl">
+        {{/if}}{{#if (eq payments "autumn")}}<AutumnProvider useBetterAuth={true}>
+{{/if}}
         {children}
         <ScrollRestoration />
-        <Scripts />
+        <Scripts />{{#if (eq payments "autumn")}}
+        </AutumnProvider>{{/if}}{{#if shadcn.rtl}}
+        </DirectionProvider>{{/if}}
       </body>
     </html>
   );

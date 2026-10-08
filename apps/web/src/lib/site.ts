@@ -1,5 +1,5 @@
 export const SITE_NAME = "Better-T-Stack";
-export const SITE_URL = "https://www.better-t-stack.dev";
+export const SITE_URL = "https://create.1d.gg";
 export const SITE_DESCRIPTION =
   "A modern CLI for scaffolding end-to-end type-safe TypeScript projects with best practices and customizable configurations.";
 

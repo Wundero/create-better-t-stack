@@ -45,6 +45,8 @@ export const dependencyVersionMap = {
   "@types/ws": "^8.18.1",
   ws: "^8.21.3",
 
+  "@aws-sdk/client-rds-data": "^3.1140.0",
+
   mysql2: "^3.24.3",
 
   "@prisma/client": "^7.10.0",
@@ -70,11 +72,20 @@ export const dependencyVersionMap = {
 
   oxlint: "^1.81.0",
   oxfmt: "^0.66.0",
+  "@shadcn/lint": "^0.2.0",
+
+  eslint: "^10.11.0",
+  "@eslint/js": "^10.0.1",
+  "typescript-eslint": "^8.70.1",
+  "eslint-config-prettier": "^10.1.8",
+  prettier: "^3.9.9",
+  globals: "^17.12.0",
 
   husky: "^9.1.7",
   lefthook: "^2.1.12",
   "lint-staged": "^17.5.0",
 
+  portless: "^0.15.6",
   tsx: "^4.23.13",
   "@types/node": "^26.4.1",
 
@@ -161,6 +172,7 @@ export const dependencyVersionMap = {
   "@sveltejs/adapter-vercel": "^7.0.0",
   "@cloudflare/workers-types": "^5.20260906.1",
   "@alchemy.run/frontend-frameworks": "2.0.0-beta.81",
+  "@aws-sdk/client-sesv2": "^3.910.0",
   "@astrojs/node": "^11.1.5",
   "@astrojs/vercel": "^11.0.10",
 
@@ -188,6 +200,17 @@ export const dependencyVersionMap = {
   "@polar-sh/sdk": "^0.47.0",
   "@stripe/react-stripe-js": "^6.9.0",
   "@stripe/stripe-js": "^9.15.0",
+
+  "@better-auth/stripe": "^1.7.6",
+  stripe: "^22.6.2",
+  "@dodopayments/better-auth": "^1.6.6",
+  dodopayments: "^2.51.0",
+  "@creem_io/better-auth": "^2.0.4",
+  "@chargebee/better-auth": "^1.2.0",
+  chargebee: "^3.34.0",
+  "@commet/better-auth": "^8.1.0",
+  "@commet/node": "^9.3.0",
+  "autumn-js": "^1.3.19",
 
   evlog: "^2.28.1",
 } as const;

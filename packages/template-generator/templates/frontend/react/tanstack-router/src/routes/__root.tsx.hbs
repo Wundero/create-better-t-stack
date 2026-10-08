@@ -1,6 +1,10 @@
 import Header from "@/components/header";
 import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "@{{projectName}}/ui/components/sonner";
+{{#if shadcn.rtl}}import { DirectionProvider } from "@{{projectName}}/ui/components/direction";
+{{/if}}{{#if (eq payments "autumn")}}
+import { AutumnProvider } from "autumn-js/react";
+{{/if}}
 {{#if (eq api "orpc")}}
 import { link, orpc } from "@/utils/orpc";
 import type { QueryClient } from "@tanstack/react-query";
@@ -65,8 +69,12 @@ function RootComponent() {
   {{/if}}
 
   return (
-    <>
+    {{#if shadcn.rtl}}<DirectionProvider direction="rtl">
+    {{/if}}<>
       <HeadContent />
+{{#if (eq payments "autumn")}}
+      <AutumnProvider useBetterAuth={true}>
+{{/if}}
       {{#if (eq api "orpc")}}
         <ThemeProvider
           attribute="class"
@@ -94,10 +102,14 @@ function RootComponent() {
         <Toaster richColors />
       </ThemeProvider>
       {{/if}}
+{{#if (eq payments "autumn")}}
+      </AutumnProvider>
+{{/if}}
       <TanStackRouterDevtools position="bottom-left" />
       {{#if (or (eq api "orpc") (eq api "trpc"))}}
       <ReactQueryDevtools position="bottom" buttonPosition="bottom-right" />
       {{/if}}
-    </>
+    </>{{#if shadcn.rtl}}
+    </DirectionProvider>{{/if}}
   );
 }

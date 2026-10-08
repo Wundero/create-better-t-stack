@@ -162,7 +162,10 @@ function validateDatabaseSetup(config: ProjectConfig, rules: Set<MatrixRule>) {
       "prisma-postgres": "db-setup-prisma-postgres-requires-postgres",
       supabase: "db-setup-supabase-requires-postgres",
       turso: "db-setup-turso-requires-sqlite",
-    } satisfies Record<Exclude<DatabaseSetup, "docker" | "none" | "planetscale">, MatrixRule>;
+    } satisfies Record<
+      Exclude<DatabaseSetup, "aurora" | "docker" | "none" | "planetscale">,
+      MatrixRule
+    >;
     rules.add(ruleBySetup[config.dbSetup as keyof typeof ruleBySetup]);
   }
 

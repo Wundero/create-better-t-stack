@@ -41,6 +41,14 @@ export async function getRuntimeChoice(
     });
   }
 
+  if (backend && supportsRuntimeBackend("lambda", backend)) {
+    runtimeOptions.push({
+      value: "lambda",
+      label: "AWS Lambda",
+      hint: "Serverless functions on AWS Lambda",
+    });
+  }
+
   const response = await navigableSelect<Runtime>({
     message: "Choose a runtime",
     options: runtimeOptions,

@@ -33,8 +33,10 @@ import { queryClient } from "@/utils/trpc";
 {{/if}}
 {{/unless}}
 {{/if}}
-import { ThemeProvider } from "./theme-provider";
 import { Toaster } from "@{{projectName}}/ui/components/sonner";
+{{#if (eq payments "autumn")}}
+import { AutumnProvider } from "autumn-js/react";
+{{/if}}
 
 {{#if (eq backend "convex")}}
 const convex = new ConvexReactClient(ENV.NEXT_PUBLIC_CONVEX_URL);
@@ -68,12 +70,10 @@ export default function Providers({
 {{/if}}
 }) {
   return (
-    <ThemeProvider
-      attribute="class"
-      defaultTheme="system"
-      enableSystem
-      disableTransitionOnChange
-    >
+{{#if (eq payments "autumn")}}
+    <AutumnProvider useBetterAuth={true}>
+{{/if}}
+    <>
       {{#if (eq backend "convex")}}
       {{#if (eq auth "clerk")}}
       <ConvexProviderWithClerk client={convex} useAuth={useAuth}>
@@ -109,6 +109,9 @@ export default function Providers({
       {{/unless}}
       {{/if}}
       <Toaster richColors />
-    </ThemeProvider>
+    </>
+{{#if (eq payments "autumn")}}
+    </AutumnProvider>
+{{/if}}
   );
 }

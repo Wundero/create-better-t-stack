@@ -102,6 +102,15 @@ export function TechCategories({
                   categoryKey as TechCategory,
                   tech.id,
                 );
+                // The "Install Dependencies" card reflects the currently selected
+                // package manager (bun / npm / pnpm).
+                const installPmOption =
+                  categoryKey === "install" && tech.id === "true"
+                    ? TECH_OPTIONS.packageManager.find((pm) => pm.id === stack.packageManager)
+                    : undefined;
+                const iconValue = installPmOption?.icon ?? tech.icon;
+                const iconClassName =
+                  installPmOption?.className ?? ("className" in tech ? tech.className : undefined);
 
                 const card = (
                   <button
@@ -134,14 +143,11 @@ export function TechCategories({
                           )}
                         >
                           <div className="flex min-w-0 items-center">
-                            {tech.icon !== "" && (
+                            {iconValue !== "" && (
                               <TechIcon
-                                icon={tech.icon}
+                                icon={iconValue}
                                 name={tech.name}
-                                className={cn(
-                                  "mr-1.5 h-4 w-4 shrink-0",
-                                  "className" in tech ? tech.className : undefined,
-                                )}
+                                className={cn("mr-1.5 h-4 w-4 shrink-0", iconClassName)}
                               />
                             )}
                             <span

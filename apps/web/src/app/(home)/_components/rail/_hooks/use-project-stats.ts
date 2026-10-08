@@ -1,14 +1,17 @@
 "use client";
 
-import { api } from "@better-t-stack/backend/convex/_generated/api";
-import { useNpmDownloadCounter } from "@erquhart/convex-oss-stats/react";
-import { useQuery } from "convex/react";
+import { useQuery } from "@tanstack/react-query";
 
-type NpmPackageStats = NonNullable<Parameters<typeof useNpmDownloadCounter>[0]>;
-type GithubRepoStats = {
-  starCount: number;
-  contributorCount: number;
-};
+import {
+  analyticsStatsQuery,
+  githubStatsQuery,
+  monthlyStatsQuery,
+  npmStatsQuery,
+} from "@/lib/queries";
+import { useNpmDownloadCounter } from "@/lib/use-npm-download-counter";
+
+const GITHUB_REPO = "AmanVarshney01/create-better-t-stack";
+const NPM_PACKAGES = ["create-better-t-stack"] as const;
 
 const MILLISECONDS_PER_DAY = 24 * 60 * 60 * 1000;
 
@@ -21,39 +24,39 @@ function getDaySpan(firstDate: string | null, lastDate: string | null): number {
 }
 
 export function useProjectStats() {
-  const stats = useQuery(api.analytics.getStats, {});
-  const monthlyStats = useQuery(api.analytics.getMonthlyStats, {});
-  const githubRepo = useQuery(api.stats.getGithubRepo, {
-    name: "AmanVarshney01/create-better-t-stack",
-  }) as GithubRepoStats | null | undefined;
-  const npmPackages = useQuery(api.stats.getNpmPackages, {
-    names: ["create-better-t-stack"],
-  }) as NpmPackageStats | null | undefined;
+  const stats = useQuery(analyticsStatsQuery());
+  const monthlyStats = useQuery(monthlyStatsQuery());
+  const githubRepo = useQuery(githubStatsQuery(GITHUB_REPO));
+  const npmPackages = useQuery(npmStatsQuery(NPM_PACKAGES));
 
-  const liveNpmDownloadCount = useNpmDownloadCounter(npmPackages);
+  const npmPackage = npmPackages.data?.packages[0] ?? null;
+  const liveNpmDownloadCount = useNpmDownloadCounter(npmPackage);
 
-  const totalProjects = stats?.totalProjects ?? null;
-  const trackingDays = getDaySpan(monthlyStats?.firstDate ?? null, monthlyStats?.lastDate ?? null);
+  const totalProjects = stats.data?.totalProjects ?? null;
+  const trackingDays = getDaySpan(
+    monthlyStats.data?.firstDate ?? null,
+    monthlyStats.data?.lastDate ?? null,
+  );
 
   return {
     totalProjects,
     avgProjectsPerDay:
       trackingDays > 0 && totalProjects ? (totalProjects / trackingDays).toFixed(1) : null,
-    lastUpdated: stats?.lastEventTime
-      ? new Date(stats.lastEventTime).toLocaleDateString("en-US", {
+    lastUpdated: stats.data?.lastEventTime
+      ? new Date(stats.data.lastEventTime).toLocaleDateString("en-US", {
           month: "short",
           day: "numeric",
           year: "numeric",
         })
       : null,
-    starCount: githubRepo?.starCount ?? null,
-    contributorCount: githubRepo?.contributorCount ?? null,
+    starCount: githubRepo.data?.starCount ?? null,
+    contributorCount: githubRepo.data?.contributorCount ?? null,
     downloadCount: liveNpmDownloadCount?.count ?? null,
     downloadIntervalMs: liveNpmDownloadCount?.intervalMs ?? 1000,
-    npmAvgPerDay: npmPackages?.dayOfWeekAverages
+    npmAvgPerDay: npmPackage?.dayOfWeekAverages
       ? Math.round(
-          npmPackages.dayOfWeekAverages.reduce((a: number, b: number) => a + b, 0) /
-            npmPackages.dayOfWeekAverages.length,
+          npmPackage.dayOfWeekAverages.reduce((a: number, b: number) => a + b, 0) /
+            npmPackage.dayOfWeekAverages.length,
         )
       : null,
   };

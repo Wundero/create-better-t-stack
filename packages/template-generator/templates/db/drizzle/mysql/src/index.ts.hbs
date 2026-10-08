@@ -1,5 +1,5 @@
 import type { DatabaseConfig } from "./config";
-{{#if (or (eq runtime "bun") (eq runtime "node") (eq runtime "none"))}}
+{{#if (or (eq runtime "bun") (eq runtime "node") (eq runtime "lambda") (eq runtime "none"))}}
 import { relations } from "./relations";
 
 {{#if (eq dbSetup "planetscale")}}

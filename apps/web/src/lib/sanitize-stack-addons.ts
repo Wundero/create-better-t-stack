@@ -1,4 +1,11 @@
-import { TASK_RUNNER_ADDONS, OBSERVABILITY_ADDONS, type Addons } from "@better-t-stack/types";
+import {
+  TASK_RUNNER_ADDONS,
+  OBSERVABILITY_ADDONS,
+  SHADCN_BASE_VALUES,
+  isValidPreset,
+  type Addons,
+  type ShadcnBase,
+} from "@better-t-stack/types";
 
 import { DEFAULT_STACK, type StackState, TECH_OPTIONS } from "./constant";
 
@@ -44,11 +51,12 @@ function resolveAddonConflicts(addons: readonly Addons[]): Addons[] {
   const exclusiveGroups = [
     new Set<Addons>(TASK_RUNNER_ADDONS),
     new Set<Addons>(OBSERVABILITY_ADDONS),
+    new Set<Addons>(["eslint", "vite-plus"]),
   ];
 
   for (const addon of addons) {
-    const group = exclusiveGroups.find((values) => values.has(addon));
-    if (group) {
+    for (const group of exclusiveGroups) {
+      if (!group.has(addon)) continue;
       const existingIndex = resolved.findIndex((value) => group.has(value));
       if (existingIndex !== -1) resolved.splice(existingIndex, 1);
     }
@@ -82,6 +90,18 @@ export function sanitizeNativeFrontends(nativeFrontend: readonly string[] | null
   );
 }
 
+function isShadcnBase(value: string | null | undefined): value is ShadcnBase {
+  return value !== null && value !== undefined && SHADCN_BASE_VALUES.some((base) => base === value);
+}
+
+function sanitizeShadcnPreset(preset: string | null | undefined) {
+  return preset !== null && preset !== undefined && isValidPreset(preset) ? preset : "";
+}
+
+function sanitizeShadcnBase(base: string | null | undefined) {
+  return isShadcnBase(base) ? base : DEFAULT_STACK.shadcnBase;
+}
+
 export type RawStackLists = Omit<
   StackState,
   "webFrontend" | "nativeFrontend" | "addons" | "examples"
@@ -95,6 +115,8 @@ export type RawStackLists = Omit<
 export function sanitizeStackState(stack: RawStackLists): StackState {
   return {
     ...stack,
+    shadcnPreset: sanitizeShadcnPreset(stack.shadcnPreset),
+    shadcnBase: sanitizeShadcnBase(stack.shadcnBase),
     webFrontend: sanitizeWebFrontends(stack.webFrontend),
     nativeFrontend: sanitizeNativeFrontends(stack.nativeFrontend),
     addons: sanitizeAddons(stack.addons),

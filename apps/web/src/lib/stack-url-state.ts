@@ -1,7 +1,9 @@
+import { SHADCN_BASE_VALUES } from "@better-t-stack/types";
 import {
   createLoader,
   createSerializer,
   parseAsArrayOf as parseAsArrayOfServer,
+  parseAsBoolean as parseAsBooleanServer,
   parseAsStringEnum as parseAsStringEnumServer,
   parseAsString as parseAsStringServer,
   type UrlKeys,
@@ -43,6 +45,12 @@ const serverStackParsers = {
   payments: parseAsStringEnumServer<StackState["payments"]>(
     getStackOptionIds("payments"),
   ).withDefault(DEFAULT_STACK.payments),
+  emailRenderer: parseAsStringEnumServer<StackState["emailRenderer"]>(
+    getStackOptionIds("emailRenderer"),
+  ).withDefault(DEFAULT_STACK.emailRenderer),
+  emailDeploy: parseAsStringEnumServer<StackState["emailDeploy"]>(
+    getStackOptionIds("emailDeploy"),
+  ).withDefault(DEFAULT_STACK.emailDeploy),
   packageManager: parseAsStringEnumServer<StackState["packageManager"]>(
     getStackOptionIds("packageManager"),
   ).withDefault(DEFAULT_STACK.packageManager),
@@ -51,6 +59,9 @@ const serverStackParsers = {
   git: parseAsStringEnumServer<StackState["git"]>(["true", "false"]).withDefault(DEFAULT_STACK.git),
   install: parseAsStringEnumServer<StackState["install"]>(["true", "false"]).withDefault(
     DEFAULT_STACK.install,
+  ),
+  portless: parseAsStringEnumServer<StackState["portless"]>(["true", "false"]).withDefault(
+    DEFAULT_STACK.portless,
   ),
   webDeploy: parseAsStringEnumServer<StackState["webDeploy"]>(
     getStackOptionIds("webDeploy"),
@@ -61,6 +72,12 @@ const serverStackParsers = {
   yolo: parseAsStringEnumServer<StackState["yolo"]>(["true", "false"]).withDefault(
     DEFAULT_STACK.yolo,
   ),
+  shadcnPreset: parseAsStringServer.withDefault(DEFAULT_STACK.shadcnPreset),
+  shadcnBase: parseAsStringEnumServer<StackState["shadcnBase"]>([
+    ...SHADCN_BASE_VALUES,
+  ]).withDefault(DEFAULT_STACK.shadcnBase),
+  shadcnRtl: parseAsBooleanServer.withDefault(DEFAULT_STACK.shadcnRtl),
+  shadcnPointer: parseAsBooleanServer.withDefault(DEFAULT_STACK.shadcnPointer),
 };
 
 const rawLoadStackParams = createLoader(serverStackParsers, {

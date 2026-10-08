@@ -13,6 +13,8 @@ import {
   APISchema,
   AuthSchema,
   PaymentsSchema,
+  EmailRendererSchema,
+  EmailDeploySchema,
   WebDeploySchema,
   ServerDeploySchema,
   DirectoryConflictSchema,
@@ -21,10 +23,14 @@ import {
   DbSetupOptionsSchema,
   CreateInputSchema,
   AddInputSchema,
+  ScaffoldAppInputSchema,
+  ScaffoldPackageInputSchema,
+  GenerateInputSchema,
   ProjectConfigSchema,
   BetterTStackConfigSchema,
   BetterTStackConfigFileSchema,
   InitResultSchema,
+  ShadcnConfigSchema,
 } from "./schemas";
 
 // Generate JSON schemas for each type
@@ -76,6 +82,14 @@ export function getPaymentsJsonSchema() {
   return z.toJSONSchema(PaymentsSchema);
 }
 
+export function getEmailRendererJsonSchema() {
+  return z.toJSONSchema(EmailRendererSchema);
+}
+
+export function getEmailDeployJsonSchema() {
+  return z.toJSONSchema(EmailDeploySchema);
+}
+
 export function getWebDeployJsonSchema() {
   return z.toJSONSchema(WebDeploySchema);
 }
@@ -108,6 +122,18 @@ export function getAddInputJsonSchema() {
   return z.toJSONSchema(AddInputSchema);
 }
 
+export function getScaffoldAppInputJsonSchema() {
+  return z.toJSONSchema(ScaffoldAppInputSchema);
+}
+
+export function getScaffoldPackageInputJsonSchema() {
+  return z.toJSONSchema(ScaffoldPackageInputSchema);
+}
+
+export function getGenerateInputJsonSchema() {
+  return z.toJSONSchema(GenerateInputSchema);
+}
+
 export function getProjectConfigJsonSchema() {
   return z.toJSONSchema(ProjectConfigSchema);
 }
@@ -122,6 +148,10 @@ export function getBetterTStackConfigFileJsonSchema() {
 
 export function getInitResultJsonSchema() {
   return z.toJSONSchema(InitResultSchema);
+}
+
+export function getShadcnConfigJsonSchema() {
+  return z.toJSONSchema(ShadcnConfigSchema);
 }
 
 // Get all JSON schemas as a single object
@@ -139,6 +169,8 @@ export function getAllJsonSchemas() {
     api: getAPIJsonSchema(),
     auth: getAuthJsonSchema(),
     payments: getPaymentsJsonSchema(),
+    emailRenderer: getEmailRendererJsonSchema(),
+    emailDeploy: getEmailDeployJsonSchema(),
     webDeploy: getWebDeployJsonSchema(),
     serverDeploy: getServerDeployJsonSchema(),
     directoryConflict: getDirectoryConflictJsonSchema(),
@@ -147,9 +179,13 @@ export function getAllJsonSchemas() {
     dbSetupOptions: getDbSetupOptionsJsonSchema(),
     createInput: getCreateInputJsonSchema(),
     addInput: getAddInputJsonSchema(),
+    scaffoldAppInput: getScaffoldAppInputJsonSchema(),
+    scaffoldPackageInput: getScaffoldPackageInputJsonSchema(),
+    generateInput: getGenerateInputJsonSchema(),
     projectConfig: getProjectConfigJsonSchema(),
     betterTStackConfig: getBetterTStackConfigJsonSchema(),
     betterTStackConfigFile: getBetterTStackConfigFileJsonSchema(),
     initResult: getInitResultJsonSchema(),
+    shadcnConfig: getShadcnConfigJsonSchema(),
   };
 }

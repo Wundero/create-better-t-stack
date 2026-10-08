@@ -1,0 +1,50 @@
+import type { ComputedRef, Ref } from "vue";
+
+export interface PaymentState {
+  isActive: boolean;
+  planLabel: string;
+}
+
+export function usePayment(): {
+  state: ComputedRef<PaymentState>;
+  isLoading: Ref<boolean>;
+  checkout: () => Promise<void>;
+  portal: () => Promise<void>;
+} {
+  const { $authClient } = useNuxtApp();
+  const isActive = ref(false);
+  const isLoading = ref(true);
+
+  onMounted(async () => {
+    const { data, error } = await $authClient.subscription.list();
+    isActive.value =
+      !error &&
+      (data?.some(
+        (subscription) => subscription.status === "active" || subscription.status === "trialing",
+      ) ?? false);
+    isLoading.value = false;
+  });
+
+  const checkout = async () => {
+    const { error } = await $authClient.subscription.upgrade({
+      plan: "pro",
+      successUrl: "/success",
+      cancelUrl: "/dashboard",
+    });
+    if (error) return;
+  };
+
+  const portal = async () => {
+    const { error } = await $authClient.subscription.billingPortal({
+      returnUrl: "/dashboard",
+    });
+    if (error) return;
+  };
+
+  const state = computed<PaymentState>(() => ({
+    isActive: isActive.value,
+    planLabel: isActive.value ? "Pro" : "Free",
+  }));
+
+  return { state, isLoading, checkout, portal };
+}

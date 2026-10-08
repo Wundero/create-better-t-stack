@@ -1,9 +1,10 @@
 import type { ProjectConfig } from "@better-t-stack/types";
 
 import { processTemplateString, transformFilename, isBinaryFile } from "../core/template-processor";
+import type { TemplateData } from "../core/template-spec";
 import type { VirtualFileSystem } from "../core/virtual-fs";
 
-export type TemplateData = Map<string, string>;
+export type { TemplateData } from "../core/template-spec";
 
 export function hasTemplatesWithPrefix(templates: TemplateData, prefix: string): boolean {
   const normalizedPrefix = prefix.endsWith("/") ? prefix : `${prefix}/`;
@@ -21,18 +22,12 @@ export function processSingleTemplate(
   config: ProjectConfig,
 ): void {
   const templateKey = templatePath.endsWith(".hbs") ? templatePath : `${templatePath}.hbs`;
-  const content = templates.get(templateKey);
+  const entry = templates.get(templateKey);
 
-  if (!content) return;
+  if (!entry) return;
 
-  let processedContent: string;
-  if (isBinaryFile(templateKey)) {
-    processedContent = "[Binary file]";
-  } else if (templateKey.endsWith(".hbs")) {
-    processedContent = processTemplateString(content, config);
-  } else {
-    processedContent = content;
-  }
+  const processedContent =
+    entry.kind === "raw" ? entry.content : processTemplateString(entry, config);
 
   // Pass original template path for binary files
   const sourcePath = isBinaryFile(templateKey) ? templateKey : undefined;
@@ -48,21 +43,15 @@ export function processTemplatesFromPrefix(
 ): void {
   const normalizedPrefix = prefix.endsWith("/") ? prefix : `${prefix}/`;
 
-  for (const [templatePath, content] of templates) {
+  for (const [templatePath, entry] of templates) {
     if (!templatePath.startsWith(normalizedPrefix)) continue;
 
     const relativePath = templatePath.slice(normalizedPrefix.length);
     const outputPath = transformFilename(relativePath);
     const destPath = destPrefix ? `${destPrefix}/${outputPath}` : outputPath;
 
-    let processedContent: string;
-    if (isBinaryFile(templatePath)) {
-      processedContent = "[Binary file]";
-    } else if (templatePath.endsWith(".hbs")) {
-      processedContent = processTemplateString(content, config);
-    } else {
-      processedContent = content;
-    }
+    const processedContent =
+      entry.kind === "raw" ? entry.content : processTemplateString(entry, config);
 
     // Pass original template path for binary files
     const sourcePath = isBinaryFile(templatePath) ? templatePath : undefined;

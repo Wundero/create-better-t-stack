@@ -1,0 +1,138 @@
+{{#if (includes addons "turnstile")}}
+---
+interface Props {
+  action?: string;
+}
+
+const { action } = Astro.props;
+---
+
+<div class="cf-turnstile-container" data-action={action}></div>
+
+<script>
+  type TurnstileWidgetId = string;
+
+  interface TurnstileRenderOptions {
+    sitekey: string;
+    action?: string;
+    callback: (token: string) => void;
+    "expired-callback": () => void;
+    "error-callback": () => void;
+  }
+
+  interface TurnstileApi {
+    render: (container: HTMLElement, options: TurnstileRenderOptions) => TurnstileWidgetId;
+    remove: (widgetId: TurnstileWidgetId) => void;
+    reset: (widgetId: TurnstileWidgetId) => void;
+    getResponse: (widgetId?: TurnstileWidgetId) => string | undefined;
+  }
+
+  declare global {
+    interface Window {
+      turnstile?: TurnstileApi;
+      __resetTurnstile?: () => void;
+    }
+  }
+
+  const TURNSTILE_SCRIPT_SRC =
+    "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
+
+  let turnstileScriptPromise: Promise<void> | null = null;
+
+  function loadTurnstileScript(): Promise<void> {
+    if (window.turnstile) {
+      return Promise.resolve();
+    }
+
+    if (turnstileScriptPromise) {
+      return turnstileScriptPromise;
+    }
+
+    turnstileScriptPromise = new Promise<void>((resolve, reject) => {
+      const existingScript = document.querySelector<HTMLScriptElement>(
+        `script[src="${TURNSTILE_SCRIPT_SRC}"]`,
+      );
+
+      if (existingScript) {
+        existingScript.addEventListener("load", () => resolve());
+        existingScript.addEventListener("error", () => {
+          turnstileScriptPromise = null;
+          reject(new Error("Failed to load the Turnstile script"));
+        });
+        return;
+      }
+
+      const script = document.createElement("script");
+      script.src = TURNSTILE_SCRIPT_SRC;
+      script.async = true;
+      script.defer = true;
+      script.addEventListener("load", () => resolve());
+      script.addEventListener("error", () => {
+        turnstileScriptPromise = null;
+        reject(new Error("Failed to load the Turnstile script"));
+      });
+      document.head.appendChild(script);
+    });
+
+    return turnstileScriptPromise;
+  }
+
+  function renderWidget(container: HTMLElement): void {
+    if (container.dataset.turnstileRendered === "true") {
+      return;
+    }
+
+    container.dataset.turnstileRendered = "true";
+
+    void loadTurnstileScript()
+      .then(() => {
+        if (!window.turnstile) {
+          return;
+        }
+
+        const widgetId = window.turnstile.render(container, {
+          sitekey: import.meta.env.PUBLIC_TURNSTILE_SITE_KEY,
+          action: container.dataset.action,
+          callback: (token) => {
+            document.dispatchEvent(
+              new CustomEvent("turnstile-token", { detail: { token } }),
+            );
+          },
+          "expired-callback": () => {
+            document.dispatchEvent(
+              new CustomEvent("turnstile-token", { detail: { token: null } }),
+            );
+          },
+          "error-callback": () => {
+            document.dispatchEvent(
+              new CustomEvent("turnstile-token", { detail: { token: null } }),
+            );
+          },
+        });
+
+        container.dataset.turnstileWidgetId = widgetId;
+        window.__resetTurnstile = () => {
+          window.turnstile?.reset(widgetId);
+        };
+      })
+      .catch((error) => {
+        container.dataset.turnstileRendered = "false";
+        console.error(error);
+      });
+  }
+
+  function initTurnstileWidgets(): void {
+    document
+      .querySelectorAll<HTMLElement>(".cf-turnstile-container")
+      .forEach(renderWidget);
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", initTurnstileWidgets);
+  } else {
+    initTurnstileWidgets();
+  }
+
+  document.addEventListener("astro:page-load", initTurnstileWidgets);
+</script>
+{{/if}}

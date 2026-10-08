@@ -1,0 +1,8 @@
+import { DodoPayments } from "dodopayments";
+
+export function createDodoPayments(config: { DODO_PAYMENTS_API_KEY: string }) {
+  return new DodoPayments({
+    bearerToken: config.DODO_PAYMENTS_API_KEY,
+    environment: "test_mode",
+  });
+}

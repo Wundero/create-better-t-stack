@@ -1,10 +1,15 @@
 import {
   getBackendDisabledOptions,
+  SERVER_BACKENDS,
+  supportsPortlessMode,
   supportsRuntimeBackend,
   supportsRuntimeDatabase,
   supportsDatabaseSetupRuntime,
   supportsServerDeployRuntime,
-  supportsPaymentsAuth,
+  supportsCloudflareEmailDeploy,
+  NATIVE_FRONTENDS,
+  PORTLESS_BLOCKED_ADDONS,
+  getPaymentsCapabilityIssue,
 } from "@better-t-stack/types";
 import { ProjectNameSchema } from "@better-t-stack/types";
 import {
@@ -14,6 +19,7 @@ import {
   supportsConvexBetterAuth,
   isFrontendAllowedWithBackend,
   validateAddonCompatibility,
+  validateTurnstileCompatibility,
   supportsPrismaWebDeploy,
   hasCloudflareNextPostgresConflict,
   getDesktopDeployConflict,
@@ -80,6 +86,61 @@ const getPrismaDesktopConflict = (
   frontend: StackState["webFrontend"],
 ) => getDesktopDeployConflict("prisma", addons, frontend);
 
+const getPortlessDisabledReason = (stack: StackState): string | null => {
+  const isPortlessSupported = supportsPortlessMode({
+    frontend: getStackFrontends(stack),
+    addons: stack.addons,
+    backend: getStackBackend(stack.backend),
+    runtime: stack.runtime,
+    webDeploy: stack.webDeploy,
+    serverDeploy: stack.serverDeploy,
+  });
+
+  if (isPortlessSupported) {
+    return null;
+  }
+
+  const nativeFrontend = [...stack.webFrontend, ...stack.nativeFrontend].find((frontend) =>
+    NATIVE_FRONTENDS.some((native) => native === frontend),
+  );
+  if (nativeFrontend) {
+    return "Portless mode is not compatible with native frontends";
+  }
+
+  const blockedAddon = stack.addons.find((addon) =>
+    PORTLESS_BLOCKED_ADDONS.some((blocked) => blocked === addon),
+  );
+  if (blockedAddon) {
+    const addonName =
+      TECH_OPTIONS.addons.find((option) => option.id === blockedAddon)?.name ?? blockedAddon;
+    return `Portless mode is not compatible with the ${addonName} addon`;
+  }
+
+  if (getStackBackend(stack.backend) === "convex") {
+    return "Portless mode is not compatible with the Convex backend";
+  }
+
+  if (stack.runtime === "workers") {
+    return "Portless mode is not compatible with the Workers runtime";
+  }
+
+  return "Portless mode is not compatible with Docker deployment";
+};
+
+const AWS_WEB_FRONTENDS = [
+  "tanstack-router",
+  "react-router",
+  "tanstack-start",
+  "next",
+  "nuxt",
+  "svelte",
+  "solid",
+  "astro",
+] as const;
+
+const supportsAwsWebDeploy = (frontends: StackState["webFrontend"]) =>
+  frontends.some((frontend) => AWS_WEB_FRONTENDS.some((value) => value === frontend));
+
 function getAddonIssue(stack: StackState, addon: StackState["addons"][number]) {
   const result = validateAddonCompatibility(
     addon,
@@ -87,7 +148,18 @@ function getAddonIssue(stack: StackState, addon: StackState["addons"][number]) {
     stack.auth,
     getStackBackend(stack.backend),
   );
-  return result.isCompatible ? null : (result.reason ?? "Incompatible addon");
+  if (!result.isCompatible) return result.reason ?? "Incompatible addon";
+
+  if (addon === "turnstile") {
+    const deployResult = validateTurnstileCompatibility({
+      webDeploy: stack.webDeploy,
+      serverDeploy: stack.serverDeploy,
+      backend: getStackBackend(stack.backend),
+    });
+    if (!deployResult.isCompatible) return deployResult.reason ?? "Incompatible addon";
+  }
+
+  return null;
 }
 
 export const getCategoryDisplayName = (categoryKey: string): string => {
@@ -197,6 +269,24 @@ export const analyzeStackCompatibility = (stack: StackState): CompatibilityResul
     changes.push({
       category: "runtime",
       message: "Server deploy set to 'Cloudflare' (required for Workers)",
+    });
+  }
+
+  if (
+    nextStack.runtime === "lambda" &&
+    !supportsRuntimeBackend(nextStack.runtime, getStackBackend(nextStack.backend))
+  ) {
+    nextStack.backend = "hono";
+    changed = true;
+    changes.push({ category: "runtime", message: "Backend set to 'Hono' (required for Lambda)" });
+  }
+
+  if (nextStack.runtime === "lambda" && nextStack.serverDeploy !== "aws") {
+    nextStack.serverDeploy = "aws";
+    changed = true;
+    changes.push({
+      category: "runtime",
+      message: "Server deploy set to 'AWS' (required for Lambda)",
     });
   }
 
@@ -368,6 +458,32 @@ export const analyzeStackCompatibility = (stack: StackState): CompatibilityResul
         });
       }
     }
+    if (nextStack.dbSetup === "aurora") {
+      const hasAwsTarget = isSelfHostedFullstackBackend(nextStack.backend)
+        ? nextStack.webDeploy === "aws"
+        : nextStack.serverDeploy === "aws";
+      if (!hasAwsTarget) {
+        nextStack.dbSetup = "none";
+        changed = true;
+        changes.push({
+          category: "dbSetup",
+          message: "DB Setup set to 'None' (Aurora requires AWS deployment)",
+        });
+      } else if (
+        !supportsDatabaseSetupRuntime(
+          "aurora",
+          nextStack.runtime,
+          getStackBackend(nextStack.backend),
+        )
+      ) {
+        nextStack.dbSetup = "none";
+        changed = true;
+        changes.push({
+          category: "dbSetup",
+          message: "DB Setup set to 'None' (Aurora is not compatible with Lambda or Workers)",
+        });
+      }
+    }
   }
 
   if (nextStack.backend !== "convex" && nextStack.backend !== "none") {
@@ -399,14 +515,16 @@ export const analyzeStackCompatibility = (stack: StackState): CompatibilityResul
     }
   }
 
-  if (nextStack.payments === "polar") {
-    if (!supportsPaymentsAuth(nextStack.payments, nextStack.auth)) {
+  if (nextStack.payments !== "none" && nextStack.payments !== undefined) {
+    const issue = getPaymentsCapabilityIssue(nextStack.payments, {
+      auth: nextStack.auth,
+      backend: getStackBackend(nextStack.backend),
+      frontend: [...nextStack.webFrontend, ...nextStack.nativeFrontend],
+    });
+    if (issue) {
       nextStack.payments = "none";
       changed = true;
-      changes.push({
-        category: "payments",
-        message: "Payments set to 'None' (Polar requires Better Auth)",
-      });
+      changes.push({ category: "payments", message: `Payments set to 'None' (${issue})` });
     }
   }
 
@@ -514,6 +632,15 @@ export const analyzeStackCompatibility = (stack: StackState): CompatibilityResul
     }
   }
 
+  if (nextStack.webDeploy === "aws" && !supportsAwsWebDeploy(nextStack.webFrontend)) {
+    nextStack.webDeploy = "none";
+    changed = true;
+    changes.push({
+      category: "webDeploy",
+      message: "Web deploy set to 'None' (AWS requires a supported web frontend)",
+    });
+  }
+
   const cloudflareNextIssue = getCloudflareNextIssue(nextStack);
   if (cloudflareNextIssue) {
     nextStack.webDeploy = "none";
@@ -538,12 +665,50 @@ export const analyzeStackCompatibility = (stack: StackState): CompatibilityResul
     }
   }
 
+  if (nextStack.serverDeploy === "aws") {
+    const backend = getStackBackend(nextStack.backend);
+    if (backend !== "none" && !SERVER_BACKENDS.includes(backend)) {
+      nextStack.serverDeploy = "none";
+      changed = true;
+      changes.push({
+        category: "serverDeploy",
+        message: "Server deploy set to 'None' (AWS requires Hono, Express, Fastify, or Elysia)",
+      });
+    }
+  }
+
   if (!supportsServerDeployRuntime(nextStack.serverDeploy, nextStack.runtime)) {
     nextStack.serverDeploy = nextStack.runtime === "workers" ? "cloudflare" : "none";
     changed = true;
     changes.push({
       category: "serverDeploy",
       message: `Server deploy set to '${nextStack.serverDeploy}' (required for ${nextStack.runtime})`,
+    });
+  }
+
+  if (
+    nextStack.emailDeploy === "cloudflare" &&
+    !supportsCloudflareEmailDeploy(
+      getStackBackend(nextStack.backend),
+      nextStack.webDeploy,
+      nextStack.serverDeploy,
+    )
+  ) {
+    nextStack.emailDeploy = "none";
+    changed = true;
+    changes.push({
+      category: "emailDeploy",
+      message:
+        "Email deploy set to 'None' (Cloudflare Email Sending requires a Cloudflare Workers deployment)",
+    });
+  }
+
+  if (nextStack.portless === "true" && getPortlessDisabledReason(nextStack)) {
+    nextStack.portless = "false";
+    changed = true;
+    changes.push({
+      category: "portless",
+      message: "Portless mode set to 'false' (incompatible with the selected stack)",
     });
   }
 
@@ -663,6 +828,12 @@ export const getDisabledReason = (
     ) {
       return "Workers requires Hono or Nitro backend";
     }
+    if (
+      optionId === "lambda" &&
+      !supportsRuntimeBackend(optionId, getStackBackend(currentStack.backend))
+    ) {
+      return "Lambda requires Hono backend";
+    }
     if (optionId === "none") {
       if (!supportsRuntimeBackend(optionId, getStackBackend(currentStack.backend))) {
         return "Runtime 'None' only for Convex or fullstack backends";
@@ -711,6 +882,14 @@ export const getDisabledReason = (
       const names = getDatabaseSetupDatabases(optionId).join(" or ");
       return `${TECH_OPTIONS.dbSetup.find((option) => option.id === optionId)?.name ?? optionId} requires ${names || "a compatible database"}`;
     }
+    if (optionId === "aurora") {
+      const hasAwsTarget = isSelfHostedFullstackBackend(currentStack.backend)
+        ? currentStack.webDeploy === "aws"
+        : currentStack.serverDeploy === "aws";
+      if (!hasAwsTarget) {
+        return "Aurora requires AWS deployment";
+      }
+    }
     if (
       !supportsDatabaseSetupRuntime(
         optionId,
@@ -718,9 +897,13 @@ export const getDisabledReason = (
         getStackBackend(currentStack.backend),
       )
     ) {
-      return optionId === "d1"
-        ? "D1 requires Cloudflare Workers runtime or a self fullstack backend"
-        : "Docker is incompatible with Workers";
+      if (optionId === "d1") {
+        return "D1 requires Cloudflare Workers runtime or a self fullstack backend";
+      }
+      if (optionId === "aurora") {
+        return "Aurora requires the Bun or Node.js runtime";
+      }
+      return "Docker is incompatible with Workers";
     }
   }
 
@@ -747,10 +930,13 @@ export const getDisabledReason = (
     }
   }
 
-  if (category === "payments" && optionId === "polar") {
-    if (!supportsPaymentsAuth(optionId, currentStack.auth)) {
-      return "Polar requires Better Auth";
-    }
+  if (category === "payments" && isStackOption("payments", optionId)) {
+    const issue = getPaymentsCapabilityIssue(optionId, {
+      auth: currentStack.auth,
+      backend: getStackBackend(currentStack.backend),
+      frontend: [...currentStack.webFrontend, ...currentStack.nativeFrontend],
+    });
+    if (issue) return issue;
   }
 
   if (category === "addons" && isStackOption("addons", optionId)) {
@@ -825,6 +1011,9 @@ export const getDisabledReason = (
         return `Prisma cannot deploy the static output required by ${prismaDesktopConflict.selectedDesktopAddons.join(" and ")} on ${prismaDesktopConflict.affectedFrontend}`;
       }
     }
+    if (optionId === "aws" && !supportsAwsWebDeploy(currentStack.webFrontend)) {
+      return "AWS requires TanStack Router, Next.js, Nuxt, Astro, React Router, TanStack Start, Solid, or Svelte";
+    }
     if (optionId === "cloudflare") {
       const issue = getCloudflareNextIssue({ ...currentStack, webDeploy: "cloudflare" });
       if (issue) return issue;
@@ -859,6 +1048,15 @@ export const getDisabledReason = (
     if (optionId === "prisma" && !supportsServerDeployRuntime(optionId, currentStack.runtime)) {
       return "Prisma server deployment requires the Bun or Node runtime";
     }
+    if (optionId === "aws" && !supportsServerDeployRuntime(optionId, currentStack.runtime)) {
+      return "AWS server deployment requires the Bun, Node.js, or Lambda runtime";
+    }
+    if (optionId === "aws") {
+      const backend = getStackBackend(currentStack.backend);
+      if (backend !== "none" && !SERVER_BACKENDS.includes(backend)) {
+        return "AWS server deployment requires Hono, Express, Fastify, or Elysia backend";
+      }
+    }
     if (optionId !== "none") {
       if (
         getBackendDisabledOptions(getStackBackend(currentStack.backend)).some(
@@ -868,9 +1066,29 @@ export const getDisabledReason = (
         return "Server deployment not needed for this backend";
       }
     }
-    if (optionId === "none" && currentStack.runtime === "workers") {
-      return "Workers requires server deployment";
+    if (
+      optionId === "none" &&
+      (currentStack.runtime === "workers" || currentStack.runtime === "lambda")
+    ) {
+      return `${currentStack.runtime === "workers" ? "Workers" : "Lambda"} requires server deployment`;
     }
+  }
+
+  if (category === "emailDeploy" && optionId === "cloudflare") {
+    if (
+      !supportsCloudflareEmailDeploy(
+        getStackBackend(currentStack.backend),
+        currentStack.webDeploy,
+        currentStack.serverDeploy,
+      )
+    ) {
+      return "Cloudflare Email Sending requires a Cloudflare Workers deployment";
+    }
+  }
+
+  if (category === "portless" && optionId === "true") {
+    const reason = getPortlessDisabledReason(currentStack);
+    if (reason) return reason;
   }
 
   return null;
