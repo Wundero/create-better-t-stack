@@ -33490,7 +33490,10 @@ export default defineConfig({
       extensions: [".jsx", ".tsx"],
     }),
 {{#unless (eq webDeploy "cloudflare")}}
-    nitro({ serverEntry: false }),
+    // Rolldown's dynamic-entry chunking (Vite 8.2+/rolldown 1.2.x) duplicates the
+    // server-functions namespace during Nitro's SSR re-bundle. Inline the SSR service
+    // until the upstream chunking fix lands. https://github.com/rolldown/rolldown/issues/10734
+    nitro({ serverEntry: false, inlineDynamicImports: true }),
 {{/unless}}
     fileRoutes({ httpMethods: true }),
     tailwindcss(),
