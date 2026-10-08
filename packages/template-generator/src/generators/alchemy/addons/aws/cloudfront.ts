@@ -119,7 +119,11 @@ export const awsCloudfrontRenderer: AddonRenderer = {
     });
     writer.writeLine("});");
   },
-  serverPrelude(writer) {
+  serverPrelude(writer, plan) {
+    if (usesSharedBucket(plan)) {
+      writer.writeLine("const { distribution } = yield* awsCloudfront;");
+      return;
+    }
     writer.writeLine("const { distribution, bucket: cdnBucket } = yield* awsCloudfront;");
   },
   hostBindings(writer, plan) {

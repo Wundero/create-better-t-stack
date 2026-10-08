@@ -172,7 +172,7 @@ export const dependencyVersionMap = {
   "@sveltejs/adapter-vercel": "^6.3.4",
   "@cloudflare/workers-types": "^5.20260906.1",
   "@cloudflare/containers": "^0.3.7",
-  "@cloudflare/sandbox": "1.0.0",
+  "@cloudflare/sandbox": "0.12.6",
   "workers-ai-provider": "^4.0.0",
   "@alchemy.run/frontend-frameworks": "2.0.0-beta.81",
   "@astrojs/node": "^11.1.5",
