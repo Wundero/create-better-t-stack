@@ -147,7 +147,7 @@ describe("Deployment Configurations", () => {
     });
 
     it("should work with server deploy + all compatible backends", async () => {
-      const backends = ["hono", "express", "fastify", "elysia"] as const;
+      const backends = ["hono", "express", "fastify", "elysia", "nitro"] as const;
 
       for (const backend of backends) {
         const config: TestConfig = {
@@ -299,9 +299,7 @@ describe("Deployment Configurations", () => {
       // Vercel Services pass the original path, so the server serves /api itself
       expect(vercelConfig.services?.server?.routes).toBeUndefined();
       expect(files.get("apps/server/src/index.ts")).toContain('"/api/trpc/*"');
-      expect(files.get("apps/web/.env")).toContain(
-        "NEXT_PUBLIC_SERVER_URL=http://localhost:3000/api",
-      );
+      expect(files.get("apps/web/.env")).toContain("NEXT_PUBLIC_SERVER_URL=/api");
       // The function runs from the repo root, where varlock/auto-load looks for config
       expect(packageJson.varlock).toEqual({ loadPath: "./apps/server/" });
       expect(vercelConfig.services?.server?.functions?.["src/index.ts"]?.includeFiles).toContain(
@@ -356,11 +354,81 @@ describe("Deployment Configurations", () => {
       // Server-side better-auth must build public callback URLs through the
       // /api rewrite prefix, not the bare origin
       expect(files.get("apps/server/.env.schema")).toContain("${VERCEL_ORIGIN}/api/auth");
+      // better-auth and tRPC clients must normalize the same-origin /api path;
+      // both reject relative URLs (BetterAuthError / SSR fetch failure)
+      const authClient = files.get("apps/web/src/lib/auth-client.ts") ?? "";
+      expect(authClient).toContain("function getServerUrl(url: string | undefined)");
+      // The /api/auth suffix is required: better-auth uses a baseURL with a
+      // path as-is, so the origin-only shortcut breaks same-origin deploys
+      expect(authClient).toContain(
+        "baseURL: `${getServerUrl(process.env.NEXT_PUBLIC_SERVER_URL!)}/auth`",
+      );
+      const trpcClient = files.get("apps/web/src/utils/trpc.ts") ?? "";
+      expect(trpcClient).toContain(
+        "url: `${getServerUrl(process.env.NEXT_PUBLIC_SERVER_URL!)}/trpc`",
+      );
       expect(files.get("README.md")).toContain("### Vercel Services");
       expect(files.get("README.md")).toContain("Sync preview env");
       expect(files.get("README.md")).toContain("Config: `vercel.json`");
       expect(files.get("README.md")).toContain("env:production --scope your-team");
       expect(files.get("README.md")).toContain("https://www.better-t-stack.dev/docs/guides/vercel");
+    });
+
+    it("should seed same-origin /api client URLs for combined Vercel tanstack-router stacks", async () => {
+      const result = await createVirtual({
+        projectName: "san",
+        webDeploy: "vercel",
+        serverDeploy: "vercel",
+        backend: "hono",
+        runtime: "node",
+        database: "postgres",
+        orm: "drizzle",
+        auth: "better-auth",
+        payments: "polar",
+        api: "trpc",
+        frontend: ["tanstack-router"],
+        addons: ["biome", "evlog", "lefthook", "pwa", "skills", "turborepo"],
+        examples: ["ai", "todo"],
+        dbSetup: "none",
+        install: false,
+        git: false,
+        packageManager: "bun",
+      });
+
+      if (result.isErr()) throw result.error;
+
+      const files = collectFiles(result.value.root, result.value.root.path);
+      expect(files.get("apps/web/.env")).toContain("VITE_SERVER_URL=/api");
+      expect(files.get("apps/web/.env.schema")).toContain("VITE_SERVER_URL=/api");
+
+      const trpc = files.get("apps/web/src/utils/trpc.ts") ?? "";
+      const rpcExpression = trpc.match(/url: (`[^`\n]+`)/)?.[1];
+      expect(rpcExpression).toBeDefined();
+      const getServerUrlFn = trpc
+        .slice(trpc.indexOf("function getServerUrl"), trpc.indexOf("export const queryClient"))
+        .trim();
+      const executable = new Bun.Transpiler({ loader: "ts" }).transformSync(getServerUrlFn);
+      const evaluateRpcUrl = new Function(
+        "ENV",
+        "window",
+        "process",
+        `${executable}\nreturn ${rpcExpression};`,
+      );
+      const processEnv = {
+        VERCEL_ENV: "preview",
+        VERCEL_URL: "preview.example.test",
+        VERCEL_PROJECT_PRODUCTION_URL: "production.example.test",
+      };
+      expect(
+        evaluateRpcUrl(
+          {},
+          { location: { origin: "https://browser.example.test" } },
+          { env: processEnv },
+        ),
+      ).toBe("https://browser.example.test/api/trpc");
+      expect(evaluateRpcUrl({}, undefined, { env: processEnv })).toBe(
+        "https://preview.example.test/api/trpc",
+      );
     });
 
     it("should name deploy scripts by target for mixed Vercel + Cloudflare deploys", async () => {
@@ -783,7 +851,7 @@ describe("Deployment Configurations", () => {
       }
 
       const files = collectFiles(result.value.root, result.value.root.path);
-      const svelteConfig = files.get("apps/web/svelte.config.js");
+      const svelteConfig = files.get("apps/web/vite.config.ts");
       const webPkg = JSON.parse(files.get("apps/web/package.json") ?? "{}");
 
       // Vercel docs recommend the explicit adapter over adapter-auto
@@ -1628,7 +1696,7 @@ describe("Deployment Configurations", () => {
       }
 
       const files = collectFiles(result.value.root, result.value.root.path);
-      const svelteConfig = files.get("apps/web/svelte.config.js");
+      const svelteConfig = files.get("apps/web/vite.config.ts");
       const webPkg = JSON.parse(files.get("apps/web/package.json") ?? "{}");
       const webDockerfile = files.get("apps/web/Dockerfile");
 
@@ -2156,9 +2224,12 @@ describe("Client URL selection", () => {
     { frontend: "tanstack-router", api: "orpc", deploy: "none" },
     { frontend: "next", api: "orpc", deploy: "none" },
     { frontend: "next", api: "trpc", deploy: "vercel" },
+    { frontend: "next", api: "orpc", deploy: "vercel" },
     { frontend: "next", api: "orpc", deploy: "docker" },
     { frontend: "svelte", api: "orpc", deploy: "none" },
+    { frontend: "svelte", api: "orpc", deploy: "vercel" },
     { frontend: "astro", api: "orpc", deploy: "none" },
+    { frontend: "astro", api: "orpc", deploy: "vercel" },
     { frontend: "tanstack-router", api: "trpc", deploy: "vercel" },
     { frontend: "tanstack-router", api: "orpc", deploy: "docker" },
   ] as const;
@@ -2207,7 +2278,6 @@ export const urls = [authClient.baseURL, ${rpcExpression}];`)
         "createAuthClient",
         "ENV",
         "window",
-        "globalThis",
         "process",
         `${executable}\nreturn urls;`,
       );
@@ -2233,14 +2303,24 @@ export const urls = [authClient.baseURL, ${rpcExpression}];`)
           (options: { baseURL: string }) => options,
           { [envKey]: publicUrl },
           windowValue,
-          {
-            process: { env: processEnv },
-          },
-          { env: { [envKey]: publicUrl } },
+          { env: { ...processEnv, [envKey]: publicUrl } },
         );
         expect(urls).toEqual([
           deploy === "none" ? publicUrl : `${origin}/api/auth`,
           `${origin}${deploy === "vercel" ? "/api" : ""}/${api === "trpc" ? "trpc" : "rpc"}`,
+        ]);
+      }
+      if (deploy === "vercel") {
+        const binding = "https://internal.example.test/service-server/";
+        const urls = evaluate(
+          (options: { baseURL: string }) => options,
+          { [envKey]: publicUrl },
+          undefined,
+          { env: { ...processEnv, [envKey]: publicUrl, SERVER_URL: binding } },
+        );
+        expect(urls).toEqual([
+          `${binding}api/auth`,
+          `${binding}api/${api === "trpc" ? "trpc" : "rpc"}`,
         ]);
       }
       if (deploy !== "vercel") {
