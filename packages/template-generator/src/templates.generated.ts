@@ -41,7 +41,7 @@ export const EMBEDDED_TEMPLATES: Map<string, string> = new Map([
 	"linter": {
 		"enabled": true,
 		"rules": {
-			"recommended": true,
+			"preset": "recommended",
 			"correctness": {
 				"useExhaustiveDependencies": "info"
 			},
@@ -100,7 +100,9 @@ export const EMBEDDED_TEMPLATES: Map<string, string> = new Map([
 	{{/if}}
 }
 `],
-  ["addons/electrobun/apps/desktop/.gitignore", `artifacts
+  ["addons/electrobun/apps/desktop/.gitignore", `.hutch/
+/artifacts/
+/build/
 `],
   ["addons/electrobun/apps/desktop/electrobun.config.ts.hbs", `import type { ElectrobunConfig } from "electrobun";
 
@@ -117,7 +119,8 @@ export default {
     exitOnLastWindowClosed: true,
   },
   build: {
-    bun: {
+    mainProcess: "cottontail",
+    cottontail: {
       entrypoint: "src/bun/index.ts",
     },
     copy: {
@@ -144,18 +147,15 @@ export default {
   "private": true,
   "type": "module",
   "scripts": {},
-  "dependencies": {
-    "electrobun": "^1.18.1"
-  },
   "devDependencies": {
-    "@types/bun": "^1.3.14",
-    "@types/three": "^0.185.1",
-    "concurrently": "^10.0.4",
+    "@types/bun": "^1.4.2",
+    "concurrently": "^10.0.5",
+    "electrobun": "^2.0.1",
     "typescript": "^6.0.3"
   }
 }
 `],
-  ["addons/electrobun/apps/desktop/src/bun/index.ts.hbs", `import { BrowserWindow, Updater } from "electrobun/bun";
+  ["addons/electrobun/apps/desktop/src/bun/index.ts.hbs", `import { BrowserWindow, Updater } from "electrobun/main";
 
 const DEV_SERVER_PORT = {{#if (or (includes frontend "react-router") (includes frontend "svelte"))}}5173{{else if (includes frontend "astro")}}4321{{else}}3001{{/if}};
 const DEV_SERVER_URL = \`http://localhost:\${DEV_SERVER_PORT}\`;
@@ -182,6 +182,7 @@ const url = await getMainViewUrl();
 new BrowserWindow({
   title: "{{projectName}}",
   url,
+  preload: url.startsWith("views://") ? 'history.replaceState(null, "", "/");' : undefined,
   frame: {
     width: 1280,
     height: 820,
@@ -193,16 +194,15 @@ new BrowserWindow({
 console.log("Electrobun desktop shell started.");
 `],
   ["addons/electrobun/apps/desktop/tsconfig.json.hbs", `{
-  "extends": "../../packages/config/tsconfig.base.json",
+  "extends": ["../../packages/config/tsconfig.base.json", "./.hutch/devkit/tsconfig.json"],
   "compilerOptions": {
+    "ignoreDeprecations": "6.0",
     "lib": ["ESNext", "DOM"],
     "target": "ESNext",
     "module": "ESNext",
     "moduleResolution": "bundler",
     "noEmit": true,
-    "paths": {
-      "@/*": ["./src/*"]
-    }
+    "types": ["bun"]
   },
   "include": ["src/**/*.ts", "electrobun.config.ts"]
 }
@@ -270,6 +270,66 @@ pre-commit:
 `],
   ["addons/pwa/apps/web/next/public/favicon/web-app-manifest-192x192.png", `[Binary file]`],
   ["addons/pwa/apps/web/next/public/favicon/web-app-manifest-512x512.png", `[Binary file]`],
+  ["addons/pwa/apps/web/next/public/sw.js", `// Bump this version when changing offline.html so installed apps refresh it.
+const CACHE_NAME = "bts-pwa-offline-v1";
+const OFFLINE_URL = "/offline.html";
+
+self.addEventListener("install", (event) => {
+  event.waitUntil(
+    caches.open(CACHE_NAME).then(async (cache) => {
+      await cache.add(new Request(OFFLINE_URL, { cache: "reload" }));
+      await self.skipWaiting();
+    }),
+  );
+});
+
+self.addEventListener("activate", (event) => {
+  event.waitUntil(
+    caches.keys().then(async (keys) => {
+      await Promise.all(
+        keys
+          .filter((key) => key.startsWith("bts-pwa-offline-") && key !== CACHE_NAME)
+          .map((key) => caches.delete(key)),
+      );
+      await self.clients.claim();
+    }),
+  );
+});
+
+// Never cache authenticated HTML or API responses. Server-rendered pages need
+// a connection; a precached page keeps offline navigation understandable.
+self.addEventListener("fetch", (event) => {
+  if (event.request.mode !== "navigate" || event.request.method !== "GET") return;
+  event.respondWith(
+    fetch(event.request).catch(async () => {
+      return (await caches.match(OFFLINE_URL)) ?? Response.error();
+    }),
+  );
+});
+`],
+  ["addons/pwa/apps/web/next/pwa.config.ts", `import type { NextConfig } from "next";
+
+export function withPwa(config: NextConfig): NextConfig {
+  // Static exports need these headers configured at the hosting layer.
+  if (config.output === "export") return config;
+  return {
+    ...config,
+    async headers() {
+      return [
+        ...((await config.headers?.()) ?? []),
+        {
+          source: "/sw.js",
+          headers: [
+            { key: "Content-Type", value: "application/javascript; charset=utf-8" },
+            { key: "Cache-Control", value: "no-cache, no-store, must-revalidate" },
+            { key: "Content-Security-Policy", value: "default-src 'self'; script-src 'self'" },
+          ],
+        },
+      ];
+    },
+  };
+}
+`],
   ["addons/pwa/apps/web/next/src/app/manifest.ts.hbs", `import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
@@ -278,7 +338,7 @@ export default function manifest(): MetadataRoute.Manifest {
 		short_name: "{{projectName}}",
 		description:
 			"my pwa app",
-		start_url: "/new",
+		start_url: "/",
 		display: "standalone",
 		background_color: "#ffffff",
 		theme_color: "#000000",
@@ -297,6 +357,52 @@ export default function manifest(): MetadataRoute.Manifest {
 	};
 }
 `],
+  ["addons/pwa/apps/web/next/src/components/pwa-registration.tsx", `"use client";
+
+import { useEffect } from "react";
+
+export default function PwaRegistration() {
+  useEffect(() => {
+    if (!("serviceWorker" in navigator)) return;
+    navigator.serviceWorker
+      .register("/sw.js", { scope: "/", updateViaCache: "none" })
+      .catch((error) => console.error("Service worker registration failed:", error));
+  }, []);
+
+  return null;
+}
+`],
+  ["addons/pwa/apps/web/ssr/public/offline.html", `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>You are offline</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        font-family: system-ui, sans-serif;
+      }
+      body {
+        min-height: 90vh;
+        display: grid;
+        place-content: center;
+        padding: 1.5rem;
+      }
+      a {
+        color: inherit;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>You are offline</h1>
+      <p>Reconnect to the internet to load this page.</p>
+      <a href="/">Try again</a>
+    </main>
+  </body>
+</html>
+`],
   ["addons/pwa/apps/web/vite/public/logo.png", `[Binary file]`],
   ["addons/pwa/apps/web/vite/pwa-assets.config.ts.hbs", `import {
   defineConfig,
@@ -310,6 +416,456 @@ export default defineConfig({
   preset,
   images: ["public/logo.png"],
 });
+`],
+  ["api/orpc/context.ts.hbs", `import type { Context as ApiContext } from "@{{projectName}}/api/context";
+{{#if (ne database "none")}}
+import { {{#if (or (eq runtime "workers") (eq serverDeploy "cloudflare") (and (eq backend "self") (eq webDeploy "cloudflare")))}}getDb{{else}}db{{/if}} } from "@{{projectName}}/app-services";
+{{/if}}
+{{#if (eq auth "clerk")}}
+type ClerkContextAuth = ApiContext["auth"];
+
+
+function toClerkContextAuth(auth: ClerkContextAuth): ClerkContextAuth {
+	return auth ? { userId: auth.userId } : null;
+}
+{{/if}}
+
+{{#if (and (eq auth "clerk") (or (eq backend 'self') (eq backend 'hono') (eq backend 'elysia')))}}
+{{#if (usesRequestScopedCloudflareEnv backend webDeploy frontend)}}
+{{else}}
+import { createClerkClient } from "@clerk/backend";
+import { ENV } from "./env.server";
+
+const clerkClient = createClerkClient({
+	secretKey: ENV.CLERK_SECRET_KEY,
+	publishableKey: ENV.CLERK_PUBLISHABLE_KEY,
+});
+
+async function authenticateClerkRequest(request: Request): Promise<ClerkContextAuth> {
+	const requestState = await clerkClient.authenticateRequest(request, {
+		authorizedParties: [ENV.CORS_ORIGIN],
+	});
+	return toClerkContextAuth(requestState.toAuth());
+}
+{{/if}}
+{{/if}}
+
+{{#if (and (eq backend 'self') (includes frontend "next"))}}
+import type { NextRequest } from "next/server";
+{{#if (eq auth "better-auth")}}
+{{#if (or (eq runtime "workers") (eq serverDeploy "cloudflare") (and (eq backend "self") (eq webDeploy "cloudflare")))}}
+import { createAuth } from "@{{projectName}}/auth";
+{{else}}
+import { auth } from "@{{projectName}}/auth";
+{{/if}}
+{{/if}}
+
+export async function createContext({{#if (eq auth "none")}}_req{{else}}req{{/if}}: NextRequest): Promise<ApiContext> {
+{{#if (and (ne database "none") (or (eq runtime "workers") (eq serverDeploy "cloudflare") (and (eq backend "self") (eq webDeploy "cloudflare"))))}}
+  const db = await getDb({{#if (usesRequestScopedCloudflareEnv backend webDeploy frontend)}}env{{/if}});
+{{/if}}
+{{#if (eq auth "better-auth")}}
+	const session = await {{#if (or (eq runtime "workers") (eq serverDeploy "cloudflare") (and (eq backend "self") (eq webDeploy "cloudflare")))}}(await createAuth({{#if (ne database "none")}}db{{/if}})){{else}}auth{{/if}}.api.getSession({
+		headers: req.headers,
+	});
+	return {
+{{#if (ne database "none")}}
+    db,
+{{/if}}
+		session,
+	};
+{{else if (eq auth "clerk")}}
+	const clerkAuth = await authenticateClerkRequest(req);
+	return {
+{{#if (ne database "none")}}
+    db,
+{{/if}}
+		auth: clerkAuth,
+	};
+{{else}}
+	return {
+{{#if (ne database "none")}}
+    db,
+{{/if}}
+	};
+{{/if}}
+}
+
+{{else if (and (eq backend 'self') (includes frontend "tanstack-start"))}}
+{{#if (eq auth "better-auth")}}
+{{#if (or (eq runtime "workers") (eq serverDeploy "cloudflare") (and (eq backend "self") (eq webDeploy "cloudflare")))}}
+import { createAuth } from "@{{projectName}}/auth";
+{{else}}
+import { auth } from "@{{projectName}}/auth";
+{{/if}}
+{{/if}}
+
+export async function createContext({{#if (eq auth "none")}}_options{{else}}{ req }{{/if}}: { req: Request }): Promise<ApiContext> {
+{{#if (and (ne database "none") (or (eq runtime "workers") (eq serverDeploy "cloudflare") (and (eq backend "self") (eq webDeploy "cloudflare"))))}}
+  const db = await getDb({{#if (usesRequestScopedCloudflareEnv backend webDeploy frontend)}}env{{/if}});
+{{/if}}
+{{#if (eq auth "better-auth")}}
+	const session = await {{#if (or (eq runtime "workers") (eq serverDeploy "cloudflare") (and (eq backend "self") (eq webDeploy "cloudflare")))}}(await createAuth({{#if (ne database "none")}}db{{/if}})){{else}}auth{{/if}}.api.getSession({
+		headers: req.headers,
+	});
+	return {
+{{#if (ne database "none")}}
+    db,
+{{/if}}
+		session,
+	};
+{{else if (eq auth "clerk")}}
+	const clerkAuth = await authenticateClerkRequest(req);
+	return {
+{{#if (ne database "none")}}
+    db,
+{{/if}}
+		auth: clerkAuth,
+	};
+{{else}}
+	return {
+{{#if (ne database "none")}}
+    db,
+{{/if}}
+	};
+{{/if}}
+}
+
+{{else if (and (eq backend 'self') (includes frontend "nuxt"))}}
+{{#if (eq auth "better-auth")}}
+{{#if (or (eq runtime "workers") (eq serverDeploy "cloudflare") (and (eq backend "self") (eq webDeploy "cloudflare")))}}
+import { createAuth } from "@{{projectName}}/auth";
+{{else}}
+import { auth } from "@{{projectName}}/auth";
+{{/if}}
+{{/if}}
+{{#if (eq webDeploy "cloudflare")}}
+import type { CloudflareEnv } from "./env.server";
+{{/if}}
+
+export type CreateContextOptions = {
+	headers: Headers;
+{{#if (eq webDeploy "cloudflare")}}
+	env: CloudflareEnv;
+{{/if}}
+};
+
+export async function createContext({{#if (eq auth "none")}}{{#if (eq webDeploy "cloudflare")}}{ env }{{else}}_options{{/if}}{{else}}{ headers{{#if (eq webDeploy "cloudflare")}}, env{{/if}} }{{/if}}: CreateContextOptions): Promise<ApiContext> {
+{{#if (and (ne database "none") (or (eq runtime "workers") (eq serverDeploy "cloudflare") (and (eq backend "self") (eq webDeploy "cloudflare"))))}}
+  const db = await getDb({{#if (usesRequestScopedCloudflareEnv backend webDeploy frontend)}}env{{/if}});
+{{/if}}
+{{#if (eq auth "better-auth")}}
+	const session = await {{#if (or (eq runtime "workers") (eq serverDeploy "cloudflare") (and (eq backend "self") (eq webDeploy "cloudflare")))}}(await createAuth({{#if (eq webDeploy "cloudflare")}}env{{#if (ne database "none")}}, {{/if}}{{/if}}{{#if (ne database "none")}}db{{/if}})){{else}}auth{{/if}}.api.getSession({ headers });
+	return {
+{{#if (ne database "none")}}
+    db,
+{{/if}}
+		session,
+	};
+{{else}}
+	return {
+{{#if (ne database "none")}}
+    db,
+{{/if}}
+	};
+{{/if}}
+}
+
+{{else if (and (eq backend 'self') (includes frontend "svelte"))}}
+{{#if (eq auth "better-auth")}}
+{{#if (or (eq runtime "workers") (eq serverDeploy "cloudflare") (and (eq backend "self") (eq webDeploy "cloudflare")))}}
+import { createAuth } from "@{{projectName}}/auth";
+{{else}}
+import { auth } from "@{{projectName}}/auth";
+{{/if}}
+{{/if}}
+{{#if (eq webDeploy "cloudflare")}}
+import type { CloudflareEnv } from "./env.server";
+{{/if}}
+
+export type CreateContextOptions = {
+	headers: Headers;
+{{#if (eq webDeploy "cloudflare")}}
+	env: CloudflareEnv;
+{{/if}}
+};
+
+export async function createContext({{#if (eq auth "none")}}{{#if (eq webDeploy "cloudflare")}}{ env }{{else}}_options{{/if}}{{else}}{ headers{{#if (eq webDeploy "cloudflare")}}, env{{/if}} }{{/if}}: CreateContextOptions): Promise<ApiContext> {
+{{#if (and (ne database "none") (or (eq runtime "workers") (eq serverDeploy "cloudflare") (and (eq backend "self") (eq webDeploy "cloudflare"))))}}
+  const db = await getDb({{#if (usesRequestScopedCloudflareEnv backend webDeploy frontend)}}env{{/if}});
+{{/if}}
+{{#if (eq auth "better-auth")}}
+	const session = await {{#if (or (eq runtime "workers") (eq serverDeploy "cloudflare") (and (eq backend "self") (eq webDeploy "cloudflare")))}}(await createAuth({{#if (eq webDeploy "cloudflare")}}env{{#if (ne database "none")}}, {{/if}}{{/if}}{{#if (ne database "none")}}db{{/if}})){{else}}auth{{/if}}.api.getSession({ headers });
+	return {
+{{#if (ne database "none")}}
+    db,
+{{/if}}
+		session,
+	};
+{{else}}
+	return {
+{{#if (ne database "none")}}
+    db,
+{{/if}}
+	};
+{{/if}}
+}
+
+{{else if (and (eq backend 'self') (includes frontend "solid"))}}
+{{#if (eq auth "better-auth")}}
+{{#if (and (eq webDeploy "cloudflare") (eq backend "self"))}}
+import { createAuth } from "@{{projectName}}/auth";
+{{else}}
+import { auth } from "@{{projectName}}/auth";
+{{/if}}
+{{/if}}
+
+export type CreateContextOptions = {
+	headers: Headers;
+};
+
+export async function createContext({{#if (eq auth "none")}}_options{{else}}{ headers }{{/if}}: CreateContextOptions): Promise<ApiContext> {
+{{#if (and (ne database "none") (or (eq runtime "workers") (eq serverDeploy "cloudflare") (and (eq backend "self") (eq webDeploy "cloudflare"))))}}
+  const db = await getDb({{#if (usesRequestScopedCloudflareEnv backend webDeploy frontend)}}env{{/if}});
+{{/if}}
+{{#if (eq auth "better-auth")}}
+	const session = await {{#if (and (eq webDeploy "cloudflare") (eq backend "self"))}}(await createAuth({{#if (ne database "none")}}db{{/if}})){{else}}auth{{/if}}.api.getSession({ headers });
+	return {
+{{#if (ne database "none")}}
+    db,
+{{/if}}
+		session,
+	};
+{{else}}
+	return {
+{{#if (ne database "none")}}
+    db,
+{{/if}}
+	};
+{{/if}}
+}
+
+{{else if (and (eq backend 'self') (includes frontend "astro"))}}
+{{#if (eq auth "better-auth")}}
+{{#if (or (eq runtime "workers") (eq serverDeploy "cloudflare") (and (eq backend "self") (eq webDeploy "cloudflare")))}}
+import { createAuth } from "@{{projectName}}/auth";
+{{else}}
+import { auth } from "@{{projectName}}/auth";
+{{/if}}
+{{/if}}
+
+export type CreateContextOptions = {
+	headers: Headers;
+};
+
+export async function createContext({{#if (eq auth "none")}}_options{{else}}{ headers }{{/if}}: CreateContextOptions): Promise<ApiContext> {
+{{#if (and (ne database "none") (or (eq runtime "workers") (eq serverDeploy "cloudflare") (and (eq backend "self") (eq webDeploy "cloudflare"))))}}
+  const db = await getDb({{#if (usesRequestScopedCloudflareEnv backend webDeploy frontend)}}env{{/if}});
+{{/if}}
+{{#if (eq auth "better-auth")}}
+	const session = await {{#if (or (eq runtime "workers") (eq serverDeploy "cloudflare") (and (eq backend "self") (eq webDeploy "cloudflare")))}}(await createAuth({{#if (ne database "none")}}db{{/if}})){{else}}auth{{/if}}.api.getSession({ headers });
+	return {
+{{#if (ne database "none")}}
+    db,
+{{/if}}
+		session,
+	};
+{{else}}
+	return {
+{{#if (ne database "none")}}
+    db,
+{{/if}}
+	};
+{{/if}}
+}
+
+{{else if (eq backend 'hono')}}
+import type { Context as HonoContext } from "hono";
+{{#if (eq auth "better-auth")}}
+{{#if (or (eq runtime "workers") (eq serverDeploy "cloudflare") (and (eq backend "self") (eq webDeploy "cloudflare")))}}
+import { createAuth } from "@{{projectName}}/auth";
+{{else}}
+import { auth } from "@{{projectName}}/auth";
+{{/if}}
+{{/if}}
+
+export type CreateContextOptions = {
+	context: HonoContext;
+};
+
+export async function createContext({{#if (eq auth "none")}}_options{{else}}{ context }{{/if}}: CreateContextOptions): Promise<ApiContext> {
+{{#if (and (ne database "none") (or (eq runtime "workers") (eq serverDeploy "cloudflare") (and (eq backend "self") (eq webDeploy "cloudflare"))))}}
+  const db = await getDb({{#if (usesRequestScopedCloudflareEnv backend webDeploy frontend)}}env{{/if}});
+{{/if}}
+{{#if (eq auth "better-auth")}}
+	const session = await {{#if (or (eq runtime "workers") (eq serverDeploy "cloudflare") (and (eq backend "self") (eq webDeploy "cloudflare")))}}(await createAuth({{#if (ne database "none")}}db{{/if}})){{else}}auth{{/if}}.api.getSession({
+		headers: context.req.raw.headers,
+	});
+	return {
+{{#if (ne database "none")}}
+    db,
+{{/if}}
+		session,
+	};
+{{else if (eq auth "clerk")}}
+	const clerkAuth = await authenticateClerkRequest(context.req.raw);
+	return {
+{{#if (ne database "none")}}
+    db,
+{{/if}}
+		auth: clerkAuth,
+	};
+{{else}}
+	return {
+{{#if (ne database "none")}}
+    db,
+{{/if}}
+	};
+{{/if}}
+}
+
+{{else if (eq backend 'elysia')}}
+import type { Context as ElysiaContext } from "elysia";
+{{#if (eq auth "better-auth")}}
+import { auth } from "@{{projectName}}/auth";
+{{/if}}
+
+export type CreateContextOptions = {
+	context: ElysiaContext;
+};
+
+export async function createContext({{#if (eq auth "none")}}_options{{else}}{ context }{{/if}}: CreateContextOptions): Promise<ApiContext> {
+{{#if (and (ne database "none") (or (eq runtime "workers") (eq serverDeploy "cloudflare") (and (eq backend "self") (eq webDeploy "cloudflare"))))}}
+  const db = await getDb({{#if (usesRequestScopedCloudflareEnv backend webDeploy frontend)}}env{{/if}});
+{{/if}}
+{{#if (eq auth "better-auth")}}
+	const session = await auth.api.getSession({
+		headers: context.request.headers,
+	});
+	return {
+{{#if (ne database "none")}}
+    db,
+{{/if}}
+		session,
+	};
+{{else if (eq auth "clerk")}}
+	const clerkAuth = await authenticateClerkRequest(context.request);
+	return {
+{{#if (ne database "none")}}
+    db,
+{{/if}}
+		auth: clerkAuth,
+	};
+{{else}}
+	return {
+{{#if (ne database "none")}}
+    db,
+{{/if}}
+	};
+{{/if}}
+}
+
+{{else if (eq backend 'express')}}
+import type { Request } from "express";
+{{#if (eq auth "better-auth")}}
+import { fromNodeHeaders } from "better-auth/node";
+import { auth } from "@{{projectName}}/auth";
+{{else if (eq auth "clerk")}}
+import { getAuth } from "@clerk/express";
+{{/if}}
+
+interface CreateContextOptions {
+	req: Request;
+}
+
+export async function createContext({{#if (eq auth "none")}}_opts{{else}}opts{{/if}}: CreateContextOptions): Promise<ApiContext> {
+{{#if (and (ne database "none") (or (eq runtime "workers") (eq serverDeploy "cloudflare") (and (eq backend "self") (eq webDeploy "cloudflare"))))}}
+  const db = await getDb({{#if (usesRequestScopedCloudflareEnv backend webDeploy frontend)}}env{{/if}});
+{{/if}}
+{{#if (eq auth "better-auth")}}
+	const session = await auth.api.getSession({
+		headers: fromNodeHeaders(opts.req.headers),
+	});
+	return {
+{{#if (ne database "none")}}
+    db,
+{{/if}}
+		session,
+	};
+{{else if (eq auth "clerk")}}
+	const clerkAuth = toClerkContextAuth(getAuth(opts.req));
+	return {
+{{#if (ne database "none")}}
+    db,
+{{/if}}
+		auth: clerkAuth,
+	};
+{{else}}
+	return {
+{{#if (ne database "none")}}
+    db,
+{{/if}}
+	};
+{{/if}}
+}
+
+{{else if (eq backend 'fastify')}}
+{{#if (eq auth "better-auth")}}
+import type { IncomingHttpHeaders } from "node:http";
+import { fromNodeHeaders } from "better-auth/node";
+import { auth } from "@{{projectName}}/auth";
+{{else if (eq auth "clerk")}}
+import { getAuth } from "@clerk/fastify";
+{{else}}
+import type { IncomingHttpHeaders } from "node:http";
+{{/if}}
+
+export async function createContext(req: {{#if (eq auth "clerk")}}Parameters<typeof getAuth>[0]{{else}}IncomingHttpHeaders{{/if}}): Promise<ApiContext> {
+{{#if (and (ne database "none") (or (eq runtime "workers") (eq serverDeploy "cloudflare") (and (eq backend "self") (eq webDeploy "cloudflare"))))}}
+  const db = await getDb({{#if (usesRequestScopedCloudflareEnv backend webDeploy frontend)}}env{{/if}});
+{{/if}}
+{{#if (eq auth "better-auth")}}
+	const session = await auth.api.getSession({
+		headers: fromNodeHeaders(req),
+	});
+	return {
+{{#if (ne database "none")}}
+    db,
+{{/if}}
+		session,
+	};
+{{else if (eq auth "clerk")}}
+	const clerkAuth = toClerkContextAuth(getAuth(req));
+	return {
+{{#if (ne database "none")}}
+    db,
+{{/if}}
+		auth: clerkAuth,
+	};
+{{else}}
+	void req;
+	return {
+{{#if (ne database "none")}}
+    db,
+{{/if}}
+	};
+{{/if}}
+}
+
+{{else}}
+export async function createContext(): Promise<ApiContext> {
+{{#if (and (ne database "none") (or (eq runtime "workers") (eq serverDeploy "cloudflare") (and (eq backend "self") (eq webDeploy "cloudflare"))))}}
+  const db = await getDb({{#if (usesRequestScopedCloudflareEnv backend webDeploy frontend)}}env{{/if}});
+{{/if}}
+	return {
+{{#if (ne database "none")}}
+    db,
+{{/if}}
+	};
+}
+{{/if}}
+
+export type Context = Awaited<ReturnType<typeof createContext>>;
 `],
   ["api/orpc/fullstack/astro/src/pages/rpc/[...rest].ts.hbs", `import type { APIRoute } from "astro";
 import { OpenAPIHandler } from "@orpc/openapi/fetch";
@@ -439,21 +995,11 @@ export default defineNuxtPlugin(() => {
   };
 });
 `],
-  ["api/orpc/fullstack/nuxt/app/plugins/orpc.server.ts.hbs", `{{#if (and (eq webDeploy "cloudflare") (eq orm "prisma"))}}
-import type { AppRouterClient } from "@{{projectName}}/api/routers/index";
+  ["api/orpc/fullstack/nuxt/app/plugins/orpc.server.ts.hbs", `import type { AppRouterClient } from "@{{projectName}}/api/routers/index";
 import { createORPCClient } from "@orpc/client";
 import { RPCLink } from "@orpc/client/fetch";
-{{else}}
-import { createRouterClient } from "@orpc/server";
-import { appRouter } from "@{{projectName}}/api/routers/index";
-import { createContext } from "@{{projectName}}/api/context";
-{{/if}}
-{{#if (eq webDeploy "cloudflare")}}
-import type { CloudflareEnv } from "@{{projectName}}/env/server";
-{{/if}}
 import { createTanstackQueryUtils } from "@orpc/tanstack-query";
 
-{{#if (and (eq webDeploy "cloudflare") (eq orm "prisma"))}}
 export default defineNuxtPlugin(() => {
   const event = useRequestEvent();
 
@@ -462,29 +1008,13 @@ export default defineNuxtPlugin(() => {
   }
 
   const rpcLink = new RPCLink({
-    url: "/rpc",
+    url: new URL("/rpc", useRequestURL()).href,
     fetch(request, init) {
       return event.fetch(request, init);
     },
   });
 
   const client: AppRouterClient = createORPCClient(rpcLink);
-{{else}}
-export default defineNuxtPlugin(async () => {
-  const event = useRequestEvent();
-
-  const context = await createContext({
-    headers: event?.headers ?? new Headers(),
-    {{#if (eq webDeploy "cloudflare")}}
-    env: (event?.context.cloudflare as { env: CloudflareEnv }).env,
-    {{/if}}
-  });
-
-  const client = createRouterClient(appRouter, {
-    context,
-  });
-{{/if}}
-
   const orpc = createTanstackQueryUtils(client);
 
   return {
@@ -503,7 +1033,7 @@ import { ZodToJsonSchemaConverter } from "@orpc/zod/zod4";
 import { appRouter } from "@{{projectName}}/api/routers/index";
 import { createContext } from "@{{projectName}}/api/context";
 {{#if (eq webDeploy "cloudflare")}}
-import type { CloudflareEnv } from "@{{projectName}}/env/server";
+import type { CloudflareEnv } from "../../../src/env.server";
 {{/if}}
 
 const rpcHandler = new RPCHandler(appRouter, {
@@ -639,7 +1169,7 @@ globalThis.$client = createRouterClient(appRouter, {
 import { createContext } from "@{{projectName}}/api/context";
 import { appRouter, type AppRouterClient } from "@{{projectName}}/api/routers/index";
 {{#if (eq webDeploy "cloudflare")}}
-import { env as localEnv } from "@{{projectName}}/env/server";
+import { ENV } from "../env.server";
 {{/if}}
 import { createRouterClient } from "@orpc/server";
 
@@ -650,27 +1180,23 @@ if (typeof window !== "undefined") {
 const serverClient: AppRouterClient = createRouterClient(appRouter, {
 	context: async () => {
 		const event = getRequestEvent();
-{{#if (eq webDeploy "cloudflare")}}
-		const env = event.platform?.env ?? localEnv;
-
-{{/if}}
 		return createContext({
 			headers: event.request.headers,
 {{#if (eq webDeploy "cloudflare")}}
-			env,
+			env: ENV,
 {{/if}}
 		});
 	},
 });
 
-// oRPC's SvelteKit SSR setup loads this from hooks.server.ts so $lib/orpc can
+// oRPC's SvelteKit SSR setup loads this from hooks.server.ts so #lib/orpc.ts can
 // reuse the in-process server client during SSR and fall back to HTTP in the browser.
 globalThis.$client = serverClient;
 `],
   ["api/orpc/fullstack/svelte/src/routes/rpc/[...rest]/+server.ts.hbs", `import { createContext } from "@{{projectName}}/api/context";
 import { appRouter } from "@{{projectName}}/api/routers/index";
 {{#if (eq webDeploy "cloudflare")}}
-import { env as localEnv } from "@{{projectName}}/env/server";
+import { ENV } from "../../../env.server";
 {{/if}}
 import { OpenAPIHandler } from "@orpc/openapi/fetch";
 import { OpenAPIReferencePlugin } from "@orpc/openapi/plugins";
@@ -700,15 +1226,11 @@ const apiHandler = new OpenAPIHandler(appRouter, {
 	],
 });
 
-const handle: RequestHandler = async ({ request{{#if (eq webDeploy "cloudflare")}}, platform{{/if}} }) => {
-{{#if (eq webDeploy "cloudflare")}}
-	const env = platform?.env ?? localEnv;
-
-{{/if}}
+const handle: RequestHandler = async ({ request }) => {
 	const context = await createContext({
 		headers: request.headers,
 {{#if (eq webDeploy "cloudflare")}}
-		env,
+		env: ENV,
 {{/if}}
 	});
 
@@ -797,7 +1319,7 @@ import { RPCLink } from "@orpc/client/fetch";
 import { createTanstackQueryUtils } from "@orpc/tanstack-query";
 import { QueryCache, QueryClient } from "@tanstack/react-query";
 import type { AppRouterClient } from "@{{projectName}}/api/routers/index";
-import { env } from "@{{projectName}}/env/native";
+import { ENV } from "../src/env";
 {{#if (eq auth "better-auth")}}
 import { authClient } from "@/lib/auth-client";
 import { Platform } from "react-native";
@@ -828,12 +1350,12 @@ async function expoFetch(request: Request, init?: RequestInit) {
 export const link = new RPCLink({
 {{#if (eq backend "self")}}
 {{#if (or (includes frontend "next") (includes frontend "tanstack-start"))}}
-	url: \`\${env.EXPO_PUBLIC_SERVER_URL}/api/rpc\`,
+	url: \`\${ENV.EXPO_PUBLIC_SERVER_URL}/api/rpc\`,
 {{else}}
-	url: \`\${env.EXPO_PUBLIC_SERVER_URL}/rpc\`,
+	url: \`\${ENV.EXPO_PUBLIC_SERVER_URL}/rpc\`,
 {{/if}}
 {{else}}
-	url: \`\${env.EXPO_PUBLIC_SERVER_URL}/rpc\`,
+	url: \`\${ENV.EXPO_PUBLIC_SERVER_URL}{{apiPrefix webDeploy serverDeploy}}/rpc\`,
 {{/if}}
 {{#if (eq auth "better-auth")}}
 	fetch(request, init) {
@@ -843,12 +1365,12 @@ export const link = new RPCLink({
 			credentials: Platform.OS === "web" ? "include" : "omit",
 		});
 	},
-	headers() {
+	async headers() {
 		if (Platform.OS === "web") {
 			return {};
 		}
 		const headers = new Map<string, string>();
-		const cookies = authClient.getCookie();
+		const cookies = await authClient.getCookie();
 		if (cookies) {
 			headers.set("Cookie", cookies);
 		}
@@ -907,439 +1429,37 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
   ["api/orpc/server/package.json.hbs", `{
   "name": "@{{projectName}}/api",
   "exports": {
-    ".": {
-      "default": "./src/index.ts"
-    },
-    "./*": {
-      "default": "./src/*.ts"
-    }
+    ".": "./src/index.ts",
+    "./*": "./src/*.ts"
   },
   "type": "module",
-  "scripts": {},
+  "scripts": {
+    "build": "tsc -b",
+    "check-types": "tsc -b"
+  },
   "devDependencies": {},
   "dependencies": {}
 }`],
-  ["api/orpc/server/src/context.ts.hbs", `{{#if (eq auth "clerk")}}
-type ClerkContextAuth = {
-	userId: string | null;
-};
-
-type ClerkRequestContext = {
-	auth: ClerkContextAuth | null;
-	session: null;
-};
-
-function toClerkContextAuth(auth: { userId: string | null } | null): ClerkContextAuth | null {
-	return auth ? { userId: auth.userId } : null;
-}
+  ["api/orpc/server/src/context.ts.hbs", `{{#if (eq auth "better-auth")}}
+import type { Session } from "@{{projectName}}/auth";
+{{/if}}
+{{#if (eq auth "clerk")}}
+import type { SessionAuthObject } from "@clerk/backend";
+{{/if}}
+{{#if (ne database "none")}}
+import type { Database } from "@{{projectName}}/db";
 {{/if}}
 
-{{#if (and (eq auth "clerk") (or (eq backend 'self') (eq backend 'hono') (eq backend 'elysia') (eq backend 'nitro')))}}
-{{#if (usesRequestScopedCloudflareEnv backend webDeploy frontend)}}
-{{else}}
-import { createClerkClient } from "@clerk/backend";
-import { env } from "@{{projectName}}/env/server";
-
-const clerkClient = createClerkClient({
-	secretKey: env.CLERK_SECRET_KEY,
-	publishableKey: env.CLERK_PUBLISHABLE_KEY,
-});
-
-async function authenticateClerkRequest(request: Request): Promise<ClerkContextAuth | null> {
-	const requestState = await clerkClient.authenticateRequest(request, {
-		authorizedParties: [env.CORS_ORIGIN],
-	});
-	return toClerkContextAuth(requestState.toAuth());
-}
+export type Context = {
+{{#if (eq auth "clerk")}}
+  auth: Pick<SessionAuthObject, "userId"> | null;
+{{else if (eq auth "better-auth")}}
+  session: Session | null;
 {{/if}}
-{{/if}}
-
-{{#if (and (eq backend 'self') (includes frontend "next"))}}
-import type { NextRequest } from "next/server";
-{{#if (eq auth "better-auth")}}
-{{#if (or (eq runtime "workers") (eq serverDeploy "cloudflare") (and (eq backend "self") (eq webDeploy "cloudflare")))}}
-import { createAuth } from "@{{projectName}}/auth";
-{{else}}
-import { auth } from "@{{projectName}}/auth";
-{{/if}}
-{{/if}}
-
-export async function createContext({{#if (eq auth "none")}}_req{{else}}req{{/if}}: NextRequest){{#if (eq auth "clerk")}}: Promise<ClerkRequestContext>{{/if}} {
-{{#if (eq auth "better-auth")}}
-	const session = await {{#if (or (eq runtime "workers") (eq serverDeploy "cloudflare") (and (eq backend "self") (eq webDeploy "cloudflare")))}}createAuth(){{else}}auth{{/if}}.api.getSession({
-		headers: req.headers,
-	});
-	return {
-		auth: null,
-		session,
-	};
-{{else if (eq auth "clerk")}}
-	const clerkAuth = await authenticateClerkRequest(req);
-	return {
-		auth: clerkAuth,
-		session: null,
-	};
-{{else}}
-	return {
-		auth: null,
-		session: null,
-	};
-{{/if}}
-}
-
-{{else if (and (eq backend 'self') (includes frontend "tanstack-start"))}}
-{{#if (eq auth "better-auth")}}
-{{#if (or (eq runtime "workers") (eq serverDeploy "cloudflare") (and (eq backend "self") (eq webDeploy "cloudflare")))}}
-import { createAuth } from "@{{projectName}}/auth";
-{{else}}
-import { auth } from "@{{projectName}}/auth";
-{{/if}}
-{{/if}}
-
-export async function createContext({{#if (eq auth "none")}}_options{{else}}{ req }{{/if}}: { req: Request }){{#if (eq auth "clerk")}}: Promise<ClerkRequestContext>{{/if}} {
-{{#if (eq auth "better-auth")}}
-	const session = await {{#if (or (eq runtime "workers") (eq serverDeploy "cloudflare") (and (eq backend "self") (eq webDeploy "cloudflare")))}}createAuth(){{else}}auth{{/if}}.api.getSession({
-		headers: req.headers,
-	});
-	return {
-		auth: null,
-		session,
-	};
-{{else if (eq auth "clerk")}}
-	const clerkAuth = await authenticateClerkRequest(req);
-	return {
-		auth: clerkAuth,
-		session: null,
-	};
-{{else}}
-	return {
-		auth: null,
-		session: null,
-	};
-{{/if}}
-}
-
-{{else if (and (eq backend 'self') (includes frontend "nuxt"))}}
-{{#if (eq auth "better-auth")}}
-{{#if (or (eq runtime "workers") (eq serverDeploy "cloudflare") (and (eq backend "self") (eq webDeploy "cloudflare")))}}
-import { createAuth } from "@{{projectName}}/auth";
-{{else}}
-import { auth } from "@{{projectName}}/auth";
-{{/if}}
-{{/if}}
-{{#if (eq webDeploy "cloudflare")}}
-import type { CloudflareEnv } from "@{{projectName}}/env/server";
-{{/if}}
-
-export type CreateContextOptions = {
-	headers: Headers;
-{{#if (eq webDeploy "cloudflare")}}
-	env: CloudflareEnv;
+{{#if (ne database "none")}}
+  db: Database;
 {{/if}}
 };
-
-export async function createContext({{#if (eq auth "none")}}{{#if (eq webDeploy "cloudflare")}}{ env }{{else}}_options{{/if}}{{else}}{ headers{{#if (eq webDeploy "cloudflare")}}, env{{/if}} }{{/if}}: CreateContextOptions) {
-{{#if (eq auth "better-auth")}}
-	const session = await {{#if (or (eq runtime "workers") (eq serverDeploy "cloudflare") (and (eq backend "self") (eq webDeploy "cloudflare")))}}createAuth({{#if (eq webDeploy "cloudflare")}}env{{/if}}){{else}}auth{{/if}}.api.getSession({ headers });
-	return {
-		auth: null,
-		session,
-{{#if (eq webDeploy "cloudflare")}}
-		env,
-{{/if}}
-	};
-{{else}}
-	return {
-		auth: null,
-		session: null,
-{{#if (eq webDeploy "cloudflare")}}
-		env,
-{{/if}}
-	};
-{{/if}}
-}
-
-{{else if (and (eq backend 'self') (includes frontend "svelte"))}}
-{{#if (eq auth "better-auth")}}
-{{#if (or (eq runtime "workers") (eq serverDeploy "cloudflare") (and (eq backend "self") (eq webDeploy "cloudflare")))}}
-import { createAuth } from "@{{projectName}}/auth";
-{{else}}
-import { auth } from "@{{projectName}}/auth";
-{{/if}}
-{{/if}}
-{{#if (eq webDeploy "cloudflare")}}
-import type { CloudflareEnv } from "@{{projectName}}/env/server";
-{{/if}}
-
-export type CreateContextOptions = {
-	headers: Headers;
-{{#if (eq webDeploy "cloudflare")}}
-	env: CloudflareEnv;
-{{/if}}
-};
-
-export async function createContext({{#if (eq auth "none")}}{{#if (eq webDeploy "cloudflare")}}{ env }{{else}}_options{{/if}}{{else}}{ headers{{#if (eq webDeploy "cloudflare")}}, env{{/if}} }{{/if}}: CreateContextOptions) {
-{{#if (eq auth "better-auth")}}
-	const session = await {{#if (or (eq runtime "workers") (eq serverDeploy "cloudflare") (and (eq backend "self") (eq webDeploy "cloudflare")))}}createAuth({{#if (eq webDeploy "cloudflare")}}env{{/if}}){{else}}auth{{/if}}.api.getSession({ headers });
-	return {
-		auth: null,
-		session,
-{{#if (eq webDeploy "cloudflare")}}
-		env,
-{{/if}}
-	};
-{{else}}
-	return {
-		auth: null,
-		session: null,
-{{#if (eq webDeploy "cloudflare")}}
-		env,
-{{/if}}
-	};
-{{/if}}
-}
-
-{{else if (and (eq backend 'self') (includes frontend "solid"))}}
-{{#if (eq auth "better-auth")}}
-{{#if (and (eq webDeploy "cloudflare") (eq backend "self"))}}
-import { createAuth } from "@{{projectName}}/auth";
-{{else}}
-import { auth } from "@{{projectName}}/auth";
-{{/if}}
-{{/if}}
-
-export type CreateContextOptions = {
-	headers: Headers;
-};
-
-export async function createContext({{#if (eq auth "none")}}_options{{else}}{ headers }{{/if}}: CreateContextOptions) {
-{{#if (eq auth "better-auth")}}
-	const session = await {{#if (and (eq webDeploy "cloudflare") (eq backend "self"))}}createAuth(){{else}}auth{{/if}}.api.getSession({ headers });
-	return {
-		auth: null,
-		session,
-	};
-{{else}}
-	return {
-		auth: null,
-		session: null,
-	};
-{{/if}}
-}
-
-{{else if (and (eq backend 'self') (includes frontend "astro"))}}
-{{#if (eq auth "better-auth")}}
-{{#if (or (eq runtime "workers") (eq serverDeploy "cloudflare") (and (eq backend "self") (eq webDeploy "cloudflare")))}}
-import { createAuth } from "@{{projectName}}/auth";
-{{else}}
-import { auth } from "@{{projectName}}/auth";
-{{/if}}
-{{/if}}
-
-export type CreateContextOptions = {
-	headers: Headers;
-};
-
-export async function createContext({{#if (eq auth "none")}}_options{{else}}{ headers }{{/if}}: CreateContextOptions) {
-{{#if (eq auth "better-auth")}}
-	const session = await {{#if (or (eq runtime "workers") (eq serverDeploy "cloudflare") (and (eq backend "self") (eq webDeploy "cloudflare")))}}createAuth(){{else}}auth{{/if}}.api.getSession({ headers });
-	return {
-		auth: null,
-		session,
-	};
-{{else}}
-	return {
-		auth: null,
-		session: null,
-	};
-{{/if}}
-}
-
-{{else if (eq backend 'nitro')}}
-{{#if (eq auth "better-auth")}}
-{{#if (or (eq runtime "workers") (eq serverDeploy "cloudflare"))}}
-import { createAuth } from "@{{projectName}}/auth";
-{{else}}
-import { auth } from "@{{projectName}}/auth";
-{{/if}}
-{{/if}}
-
-export type CreateContextOptions = {
-	request: Request;
-};
-
-export async function createContext({{#if (eq auth "none")}}_options{{else}}{ request }{{/if}}: CreateContextOptions){{#if (eq auth "clerk")}}: Promise<ClerkRequestContext>{{/if}} {
-{{#if (eq auth "better-auth")}}
-	const session = await {{#if (or (eq runtime "workers") (eq serverDeploy "cloudflare"))}}createAuth(){{else}}auth{{/if}}.api.getSession({ headers: request.headers });
-	return {
-		auth: null,
-		session,
-	};
-{{else if (eq auth "clerk")}}
-	const clerkAuth = await authenticateClerkRequest(request);
-	return {
-		auth: clerkAuth,
-		session: null,
-	};
-{{else}}
-	return {
-		auth: null,
-		session: null,
-	};
-{{/if}}
-}
-
-{{else if (eq backend 'hono')}}
-import type { Context as HonoContext } from "hono";
-{{#if (eq auth "better-auth")}}
-{{#if (or (eq runtime "workers") (eq serverDeploy "cloudflare") (and (eq backend "self") (eq webDeploy "cloudflare")))}}
-import { createAuth } from "@{{projectName}}/auth";
-{{else}}
-import { auth } from "@{{projectName}}/auth";
-{{/if}}
-{{/if}}
-
-export type CreateContextOptions = {
-	context: HonoContext;
-};
-
-export async function createContext({{#if (eq auth "none")}}_options{{else}}{ context }{{/if}}: CreateContextOptions){{#if (eq auth "clerk")}}: Promise<ClerkRequestContext>{{/if}} {
-{{#if (eq auth "better-auth")}}
-	const session = await {{#if (or (eq runtime "workers") (eq serverDeploy "cloudflare") (and (eq backend "self") (eq webDeploy "cloudflare")))}}createAuth(){{else}}auth{{/if}}.api.getSession({
-		headers: context.req.raw.headers,
-	});
-	return {
-		auth: null,
-		session,
-	};
-{{else if (eq auth "clerk")}}
-	const clerkAuth = await authenticateClerkRequest(context.req.raw);
-	return {
-		auth: clerkAuth,
-		session: null,
-	};
-{{else}}
-	return {
-		auth: null,
-		session: null,
-	};
-{{/if}}
-}
-
-{{else if (eq backend 'elysia')}}
-import type { Context as ElysiaContext } from "elysia";
-{{#if (eq auth "better-auth")}}
-import { auth } from "@{{projectName}}/auth";
-{{/if}}
-
-export type CreateContextOptions = {
-	context: ElysiaContext;
-};
-
-export async function createContext({{#if (eq auth "none")}}_options{{else}}{ context }{{/if}}: CreateContextOptions){{#if (eq auth "clerk")}}: Promise<ClerkRequestContext>{{/if}} {
-{{#if (eq auth "better-auth")}}
-	const session = await auth.api.getSession({
-		headers: context.request.headers,
-	});
-	return {
-		auth: null,
-		session,
-	};
-{{else if (eq auth "clerk")}}
-	const clerkAuth = await authenticateClerkRequest(context.request);
-	return {
-		auth: clerkAuth,
-		session: null,
-	};
-{{else}}
-	return {
-		auth: null,
-		session: null,
-	};
-{{/if}}
-}
-
-{{else if (eq backend 'express')}}
-import type { Request } from "express";
-{{#if (eq auth "better-auth")}}
-import { fromNodeHeaders } from "better-auth/node";
-import { auth } from "@{{projectName}}/auth";
-{{else if (eq auth "clerk")}}
-import { getAuth } from "@clerk/express";
-{{/if}}
-
-interface CreateContextOptions {
-	req: Request;
-}
-
-export async function createContext({{#if (eq auth "none")}}_opts{{else}}opts{{/if}}: CreateContextOptions){{#if (eq auth "clerk")}}: Promise<ClerkRequestContext>{{/if}} {
-{{#if (eq auth "better-auth")}}
-	const session = await auth.api.getSession({
-		headers: fromNodeHeaders(opts.req.headers),
-	});
-	return {
-		auth: null,
-		session,
-	};
-{{else if (eq auth "clerk")}}
-	const clerkAuth = toClerkContextAuth(getAuth(opts.req));
-	return {
-		auth: clerkAuth,
-		session: null,
-	};
-{{else}}
-	return {
-		auth: null,
-		session: null,
-	};
-{{/if}}
-}
-
-{{else if (eq backend 'fastify')}}
-{{#if (eq auth "better-auth")}}
-import type { IncomingHttpHeaders } from "node:http";
-import { fromNodeHeaders } from "better-auth/node";
-import { auth } from "@{{projectName}}/auth";
-{{else if (eq auth "clerk")}}
-import { getAuth } from "@clerk/fastify";
-{{else}}
-import type { IncomingHttpHeaders } from "node:http";
-{{/if}}
-
-export async function createContext(req: {{#if (eq auth "clerk")}}Parameters<typeof getAuth>[0]{{else}}IncomingHttpHeaders{{/if}}){{#if (eq auth "clerk")}}: Promise<ClerkRequestContext>{{/if}} {
-{{#if (eq auth "better-auth")}}
-	const session = await auth.api.getSession({
-		headers: fromNodeHeaders(req),
-	});
-	return {
-		auth: null,
-		session,
-	};
-{{else if (eq auth "clerk")}}
-	const clerkAuth = toClerkContextAuth(getAuth(req));
-	return {
-		auth: clerkAuth,
-		session: null,
-	};
-{{else}}
-	void req;
-	return {
-		auth: null,
-		session: null,
-	};
-{{/if}}
-}
-
-{{else}}
-export async function createContext() {
-	return {
-		auth: null,
-		session: null,
-	};
-}
-{{/if}}
-
-export type Context = Awaited<ReturnType<typeof createContext>>;
 `],
   ["api/orpc/server/src/index.ts.hbs", `import { {{#if (or (eq auth "better-auth") (eq auth "clerk"))}}ORPCError, {{/if}}os } from "@orpc/server";
 import type { Context } from "./context";
@@ -1437,13 +1557,17 @@ export type AppRouter = typeof appRouter;
   ["api/orpc/server/tsconfig.json.hbs", `{
   "extends": "@{{projectName}}/config/tsconfig.base.json",
   "compilerOptions": {
+    "composite": true,
     "declaration": true,
     "declarationMap": true,
-    "sourceMap": true,
-    "outDir": "dist",
-    "composite": true
-  }
-}`],
+    "emitDeclarationOnly": true,
+    "outDir": "dist"
+  },
+  "include": ["src/**/*.ts"],
+  "references": [{{#if (ne database "none")}}{ "path": "../db" }{{#if (eq auth "better-auth")}},{{/if}}{{/if}}
+    {{#if (eq auth "better-auth")}}{ "path": "../auth" }{{/if}}]
+}
+`],
   ["api/orpc/web/astro/src/lib/orpc.ts.hbs", `import type { AppRouterClient } from "@{{projectName}}/api/routers/index";
 
 import { createORPCClient } from "@orpc/client";
@@ -1455,12 +1579,16 @@ export const link = new RPCLink({
   url: () => \`\${window.location.origin}/rpc\`,
 });
 {{else}}
-import { PUBLIC_SERVER_URL } from "astro:env/client";
+import { ENV } from "../env{{#if (eq webDeploy "cloudflare")}}.public{{/if}}";
 
 {{> getServerUrlSpaces}}
 
 export const link = new RPCLink({
-  url: \`\${getServerUrl(PUBLIC_SERVER_URL)}/rpc\`,
+{{#if (and (eq webDeploy serverDeploy) (or (eq webDeploy "vercel") (eq webDeploy "docker")))}}
+  url: \`\${getServerUrl(ENV.PUBLIC_SERVER_URL)}/rpc\`,
+{{else}}
+  url: \`\${ENV.PUBLIC_SERVER_URL.replace(/\\/$/, "")}/rpc\`,
+{{/if}}
 {{#if (eq auth "better-auth")}}
   fetch(url, options) {
     return fetch(url, {
@@ -1480,28 +1608,19 @@ import { createORPCClient } from '@orpc/client'
 import { RPCLink } from '@orpc/client/fetch'
 import { createTanstackQueryUtils } from "@orpc/tanstack-query";
 
-function getServerUrl(url: string) {
-  const normalized = url.endsWith("/") ? url.slice(0, -1) : url;
-
-  if (!normalized.startsWith("/")) {
-    return normalized;
-  }
-
-  if (import.meta.server) {
-    return \`\${useRequestURL().origin}\${normalized}\`;
-  }
-
-  return \`\${window.location.origin}\${normalized}\`;
-}
+{{> getServerUrlSpaces}}
 
 export default defineNuxtPlugin(() => {
+  const requestURL = useRequestURL();
   const config = useRuntimeConfig();
   const serverUrl =
     (import.meta.server && config.serverUrl) || config.public.serverUrl;
-  const rpcUrl = \`\${getServerUrl(serverUrl)}/rpc\`;
+  const resolvedServerUrl = {{#if (and (eq webDeploy serverDeploy) (or (eq webDeploy "vercel") (eq webDeploy "docker")))}}getServerUrl(serverUrl){{else}}serverUrl.replace(/\\/$/, ""){{/if}};
+  const rpcUrl = new URL(\`\${resolvedServerUrl}/rpc\`, requestURL.origin).href;
 
   const rpcLink = new RPCLink({
     url: rpcUrl,
+    headers: import.meta.server ? useRequestHeaders(["cookie"]) : {},
     {{#if (eq auth "better-auth")}}
     fetch(url, options) {
         return fetch(url, {
@@ -1568,7 +1687,10 @@ export default defineNuxtPlugin((nuxt) => {
 
   if (import.meta.client) {
     nuxt.hooks.hook('app:created', () => {
-      hydrate(queryClient, vueQueryState.value)
+      const dehydratedState = vueQueryState.value
+      if (dehydratedState) {
+        hydrate(queryClient, dehydratedState)
+      }
     })
   }
 })
@@ -1586,16 +1708,15 @@ import { getRequest } from "@tanstack/react-start/server";
 import { appRouter } from "@{{projectName}}/api/routers/index";
 import { createContext } from "@{{projectName}}/api/context";
 {{else if (includes frontend "tanstack-start")}}
-import type { RouterClient } from "@orpc/server";
-import type { AppRouter } from "@{{projectName}}/api/routers/index";
-import { env } from "@{{projectName}}/env/web";
+import type { AppRouterClient } from "@{{projectName}}/api/routers/index";
+import { ENV } from "../env{{#if (eq webDeploy "cloudflare")}}.public{{/if}}";
 {{#if (eq auth "clerk")}}
 import { getClerkAuthToken } from "@/utils/clerk-auth";
 {{/if}}
 {{else}}
 import type { AppRouterClient } from "@{{projectName}}/api/routers/index";
-{{#unless (eq backend "self")}}
-import { env } from "@{{projectName}}/env/web";
+{{#unless (or (eq backend "self") (includes frontend "next"))}}
+import { ENV } from "../env{{#if (eq webDeploy "cloudflare")}}.public{{/if}}";
 {{/unless}}
 {{#if (eq auth "clerk")}}
 import { getClerkAuthToken } from "@/utils/clerk-auth";
@@ -1658,7 +1779,11 @@ const getORPCClient = createIsomorphicFn()
 export const client: RouterClient<typeof appRouter> = getORPCClient();
 {{else if (includes frontend "tanstack-start")}}
 const link = new RPCLink({
-	url: \`\${getServerUrl(env.VITE_SERVER_URL)}/rpc\`,
+{{#if (and (eq webDeploy serverDeploy) (or (eq webDeploy "vercel") (eq webDeploy "docker")))}}
+	url: \`\${getServerUrl(ENV.VITE_SERVER_URL)}/rpc\`,
+{{else}}
+	url: \`\${ENV.VITE_SERVER_URL.replace(/\\/$/, "")}/rpc\`,
+{{/if}}
 {{#if (eq auth "clerk")}}
 	headers: async () => {
 		const token = await getClerkAuthToken();
@@ -1675,19 +1800,23 @@ const link = new RPCLink({
 {{/if}}
 });
 
-const getORPCClient = () => {
-	return createORPCClient(link) as RouterClient<AppRouter>;
-};
-
-export const client: RouterClient<AppRouter> = getORPCClient();
+export const client: AppRouterClient = createORPCClient(link);
 {{else}}
 export const link = new RPCLink({
 {{#if (and (eq backend "self") (includes frontend "next"))}}
 	url: \`\${typeof window !== "undefined" ? window.location.origin : "http://localhost:3001"}/api/rpc\`,
 {{else if (includes frontend "next")}}
-	url: \`\${getServerUrl(env.NEXT_PUBLIC_SERVER_URL)}/rpc\`,
+{{#if (and (eq webDeploy serverDeploy) (or (eq webDeploy "vercel") (eq webDeploy "docker")))}}
+	url: \`\${getServerUrl(process.env.NEXT_PUBLIC_SERVER_URL!)}/rpc\`,
 {{else}}
-	url: \`\${getServerUrl(env.VITE_SERVER_URL)}/rpc\`,
+	url: \`\${process.env.NEXT_PUBLIC_SERVER_URL!.replace(/\\/$/, "")}/rpc\`,
+{{/if}}
+{{else}}
+{{#if (and (eq webDeploy serverDeploy) (or (eq webDeploy "vercel") (eq webDeploy "docker")))}}
+	url: \`\${getServerUrl(ENV.VITE_SERVER_URL)}/rpc\`,
+{{else}}
+	url: \`\${ENV.VITE_SERVER_URL.replace(/\\/$/, "")}/rpc\`,
+{{/if}}
 {{/if}}
 {{#if (eq auth "clerk")}}
 	headers: async () => {
@@ -1742,7 +1871,7 @@ import { getRequestEvent } from "@solidjs/web";
 {{/unless}}
 import type { AppRouterClient } from "@{{projectName}}/api/routers/index";
 {{#unless (eq backend "self")}}
-import { env } from "@{{projectName}}/env/web";
+import { ENV } from "../env{{#if (eq webDeploy "cloudflare")}}.public{{/if}}";
 {{/unless}}
 
 {{#if (eq backend "self")}}
@@ -1775,7 +1904,11 @@ const link = new RPCLink({
 {{> getServerUrl}}
 
 const link = new RPCLink({
-	url: \`\${getServerUrl(env.VITE_SERVER_URL)}/rpc\`,
+{{#if (and (eq webDeploy serverDeploy) (or (eq webDeploy "vercel") (eq webDeploy "docker")))}}
+	url: \`\${getServerUrl(ENV.VITE_SERVER_URL)}/rpc\`,
+{{else}}
+	url: \`\${ENV.VITE_SERVER_URL.replace(/\\/$/, "")}/rpc\`,
+{{/if}}
 	headers: () => getRequestEvent()?.request.headers ?? {},
 {{#if (eq auth "better-auth")}}
 	fetch(url, options) {
@@ -1803,7 +1936,7 @@ export function createQueryClient() {
 }
 `],
   ["api/orpc/web/svelte/src/lib/orpc.ts.hbs", `{{#unless (eq backend "self")}}
-import { PUBLIC_SERVER_URL } from "$env/static/public";
+import { ENV } from "../env{{#if (eq webDeploy "cloudflare")}}.public{{else}}.generated{{/if}}";
 {{/unless}}
 import { createORPCClient } from "@orpc/client";
 import { RPCLink } from "@orpc/client/fetch";
@@ -1833,7 +1966,11 @@ export const link = new RPCLink({
 		return \`\${window.location.origin}/rpc\`;
 	},
 	{{else}}
-	url: \`\${getServerUrl(PUBLIC_SERVER_URL)}/rpc\`,
+{{#if (and (eq webDeploy serverDeploy) (or (eq webDeploy "vercel") (eq webDeploy "docker")))}}
+	url: \`\${getServerUrl(ENV.PUBLIC_SERVER_URL)}/rpc\`,
+{{else}}
+	url: \`\${ENV.PUBLIC_SERVER_URL.replace(/\\/$/, "")}/rpc\`,
+{{/if}}
 	{{/if}}
 	{{#if (eq auth "better-auth")}}
 	fetch(url, options) {
@@ -1852,6 +1989,299 @@ export const client: AppRouterClient = createORPCClient(link);
 {{/if}}
 
 export const orpc = createTanstackQueryUtils(client);
+`],
+  ["api/trpc/context.ts.hbs", `import type { Context as ApiContext } from "@{{projectName}}/api/context";
+{{#if (ne database "none")}}
+import { {{#if (or (eq runtime "workers") (eq serverDeploy "cloudflare") (and (eq backend "self") (eq webDeploy "cloudflare")))}}getDb{{else}}db{{/if}} } from "@{{projectName}}/app-services";
+{{/if}}
+{{#if (eq auth "clerk")}}
+type ClerkContextAuth = ApiContext["auth"];
+
+
+function toClerkContextAuth(auth: ClerkContextAuth): ClerkContextAuth {
+	return auth ? { userId: auth.userId } : null;
+}
+{{/if}}
+
+{{#if (and (eq auth "clerk") (or (eq backend 'self') (eq backend 'hono') (eq backend 'elysia')))}}
+import { createClerkClient } from "@clerk/backend";
+import { ENV } from "./env.server";
+
+const clerkClient = createClerkClient({
+	secretKey: ENV.CLERK_SECRET_KEY,
+	publishableKey: ENV.CLERK_PUBLISHABLE_KEY,
+});
+
+async function authenticateClerkRequest(request: Request): Promise<ClerkContextAuth> {
+	const requestState = await clerkClient.authenticateRequest(request, {
+		authorizedParties: [ENV.CORS_ORIGIN],
+	});
+	return toClerkContextAuth(requestState.toAuth());
+}
+{{/if}}
+
+{{#if (and (eq backend 'self') (includes frontend "next"))}}
+import type { NextRequest } from "next/server";
+{{#if (eq auth "better-auth")}}
+{{#if (or (eq runtime "workers") (eq serverDeploy "cloudflare") (and (eq backend "self") (eq webDeploy "cloudflare")))}}
+import { createAuth } from "@{{projectName}}/auth";
+{{else}}
+import { auth } from "@{{projectName}}/auth";
+{{/if}}
+{{/if}}
+
+export async function createContext({{#if (eq auth "none")}}_req{{else}}req{{/if}}: NextRequest): Promise<ApiContext> {
+{{#if (and (ne database "none") (or (eq runtime "workers") (eq serverDeploy "cloudflare") (and (eq backend "self") (eq webDeploy "cloudflare"))))}}
+  const db = await getDb({{#if (usesRequestScopedCloudflareEnv backend webDeploy frontend)}}env{{/if}});
+{{/if}}
+{{#if (eq auth "better-auth")}}
+	const session = await {{#if (or (eq runtime "workers") (eq serverDeploy "cloudflare") (and (eq backend "self") (eq webDeploy "cloudflare")))}}(await createAuth({{#if (ne database "none")}}db{{/if}})){{else}}auth{{/if}}.api.getSession({
+		headers: req.headers,
+	});
+	return {
+{{#if (ne database "none")}}
+    db,
+{{/if}}
+		session,
+	};
+{{else if (eq auth "clerk")}}
+	const clerkAuth = await authenticateClerkRequest(req);
+	return {
+{{#if (ne database "none")}}
+    db,
+{{/if}}
+		auth: clerkAuth,
+	};
+{{else}}
+	return {
+{{#if (ne database "none")}}
+    db,
+{{/if}}
+	};
+{{/if}}
+}
+
+{{else if (and (eq backend 'self') (includes frontend "tanstack-start"))}}
+{{#if (eq auth "better-auth")}}
+{{#if (or (eq runtime "workers") (eq serverDeploy "cloudflare") (and (eq backend "self") (eq webDeploy "cloudflare")))}}
+import { createAuth } from "@{{projectName}}/auth";
+{{else}}
+import { auth } from "@{{projectName}}/auth";
+{{/if}}
+{{/if}}
+
+export async function createContext({{#if (eq auth "none")}}_options{{else}}{ req }{{/if}}: { req: Request }): Promise<ApiContext> {
+{{#if (and (ne database "none") (or (eq runtime "workers") (eq serverDeploy "cloudflare") (and (eq backend "self") (eq webDeploy "cloudflare"))))}}
+  const db = await getDb({{#if (usesRequestScopedCloudflareEnv backend webDeploy frontend)}}env{{/if}});
+{{/if}}
+{{#if (eq auth "better-auth")}}
+	const session = await {{#if (or (eq runtime "workers") (eq serverDeploy "cloudflare") (and (eq backend "self") (eq webDeploy "cloudflare")))}}(await createAuth({{#if (ne database "none")}}db{{/if}})){{else}}auth{{/if}}.api.getSession({
+		headers: req.headers,
+	});
+	return {
+{{#if (ne database "none")}}
+    db,
+{{/if}}
+		session,
+	};
+{{else if (eq auth "clerk")}}
+	const clerkAuth = await authenticateClerkRequest(req);
+	return {
+{{#if (ne database "none")}}
+    db,
+{{/if}}
+		auth: clerkAuth,
+	};
+{{else}}
+	return {
+{{#if (ne database "none")}}
+    db,
+{{/if}}
+	};
+{{/if}}
+}
+
+{{else if (eq backend 'hono')}}
+import type { Context as HonoContext } from "hono";
+{{#if (eq auth "better-auth")}}
+{{#if (or (eq runtime "workers") (eq serverDeploy "cloudflare") (and (eq backend "self") (eq webDeploy "cloudflare")))}}
+import { createAuth } from "@{{projectName}}/auth";
+{{else}}
+import { auth } from "@{{projectName}}/auth";
+{{/if}}
+{{/if}}
+
+export type CreateContextOptions = {
+	context: HonoContext;
+};
+
+export async function createContext({{#if (eq auth "none")}}_options{{else}}{ context }{{/if}}: CreateContextOptions): Promise<ApiContext> {
+{{#if (and (ne database "none") (or (eq runtime "workers") (eq serverDeploy "cloudflare") (and (eq backend "self") (eq webDeploy "cloudflare"))))}}
+  const db = await getDb({{#if (usesRequestScopedCloudflareEnv backend webDeploy frontend)}}env{{/if}});
+{{/if}}
+{{#if (eq auth "better-auth")}}
+	const session = await {{#if (or (eq runtime "workers") (eq serverDeploy "cloudflare") (and (eq backend "self") (eq webDeploy "cloudflare")))}}(await createAuth({{#if (ne database "none")}}db{{/if}})){{else}}auth{{/if}}.api.getSession({
+		headers: context.req.raw.headers,
+	});
+	return {
+{{#if (ne database "none")}}
+    db,
+{{/if}}
+		session,
+	};
+{{else if (eq auth "clerk")}}
+	const clerkAuth = await authenticateClerkRequest(context.req.raw);
+	return {
+{{#if (ne database "none")}}
+    db,
+{{/if}}
+		auth: clerkAuth,
+	};
+{{else}}
+	return {
+{{#if (ne database "none")}}
+    db,
+{{/if}}
+	};
+{{/if}}
+}
+
+{{else if (eq backend 'elysia')}}
+import type { Context as ElysiaContext } from "elysia";
+{{#if (eq auth "better-auth")}}
+import { auth } from "@{{projectName}}/auth";
+{{/if}}
+
+export type CreateContextOptions = {
+	context: ElysiaContext;
+};
+
+export async function createContext({{#if (eq auth "none")}}_options{{else}}{ context }{{/if}}: CreateContextOptions): Promise<ApiContext> {
+{{#if (and (ne database "none") (or (eq runtime "workers") (eq serverDeploy "cloudflare") (and (eq backend "self") (eq webDeploy "cloudflare"))))}}
+  const db = await getDb({{#if (usesRequestScopedCloudflareEnv backend webDeploy frontend)}}env{{/if}});
+{{/if}}
+{{#if (eq auth "better-auth")}}
+	const session = await auth.api.getSession({
+		headers: context.request.headers,
+	});
+	return {
+{{#if (ne database "none")}}
+    db,
+{{/if}}
+		session,
+	};
+{{else if (eq auth "clerk")}}
+	const clerkAuth = await authenticateClerkRequest(context.request);
+	return {
+{{#if (ne database "none")}}
+    db,
+{{/if}}
+		auth: clerkAuth,
+	};
+{{else}}
+	return {
+{{#if (ne database "none")}}
+    db,
+{{/if}}
+	};
+{{/if}}
+}
+
+{{else if (eq backend 'express')}}
+import type { CreateExpressContextOptions } from "@trpc/server/adapters/express";
+{{#if (eq auth "better-auth")}}
+import { fromNodeHeaders } from "better-auth/node";
+import { auth } from "@{{projectName}}/auth";
+{{else if (eq auth "clerk")}}
+import { getAuth } from "@clerk/express";
+{{/if}}
+
+export async function createContext({{#if (eq auth "none")}}_opts{{else}}opts{{/if}}: CreateExpressContextOptions): Promise<ApiContext> {
+{{#if (and (ne database "none") (or (eq runtime "workers") (eq serverDeploy "cloudflare") (and (eq backend "self") (eq webDeploy "cloudflare"))))}}
+  const db = await getDb({{#if (usesRequestScopedCloudflareEnv backend webDeploy frontend)}}env{{/if}});
+{{/if}}
+{{#if (eq auth "better-auth")}}
+	const session = await auth.api.getSession({
+		headers: fromNodeHeaders(opts.req.headers),
+	});
+	return {
+{{#if (ne database "none")}}
+    db,
+{{/if}}
+		session,
+	};
+{{else if (eq auth "clerk")}}
+	const clerkAuth = toClerkContextAuth(getAuth(opts.req));
+	return {
+{{#if (ne database "none")}}
+    db,
+{{/if}}
+		auth: clerkAuth,
+	};
+{{else}}
+	return {
+{{#if (ne database "none")}}
+    db,
+{{/if}}
+	};
+{{/if}}
+}
+
+{{else if (eq backend 'fastify')}}
+import type { CreateFastifyContextOptions } from "@trpc/server/adapters/fastify";
+{{#if (eq auth "better-auth")}}
+import { fromNodeHeaders } from "better-auth/node";
+import { auth } from "@{{projectName}}/auth";
+{{else if (eq auth "clerk")}}
+import { getAuth } from "@clerk/fastify";
+{{/if}}
+
+export async function createContext({ req }: CreateFastifyContextOptions): Promise<ApiContext> {
+{{#if (and (ne database "none") (or (eq runtime "workers") (eq serverDeploy "cloudflare") (and (eq backend "self") (eq webDeploy "cloudflare"))))}}
+  const db = await getDb({{#if (usesRequestScopedCloudflareEnv backend webDeploy frontend)}}env{{/if}});
+{{/if}}
+{{#if (eq auth "better-auth")}}
+	const session = await auth.api.getSession({
+		headers: fromNodeHeaders(req.headers),
+	});
+	return {
+{{#if (ne database "none")}}
+    db,
+{{/if}}
+		session,
+	};
+{{else if (eq auth "clerk")}}
+	const clerkAuth = toClerkContextAuth(getAuth(req));
+	return {
+{{#if (ne database "none")}}
+    db,
+{{/if}}
+		auth: clerkAuth,
+	};
+{{else}}
+	void req;
+	return {
+{{#if (ne database "none")}}
+    db,
+{{/if}}
+	};
+{{/if}}
+}
+
+{{else}}
+export async function createContext(): Promise<ApiContext> {
+{{#if (and (ne database "none") (or (eq runtime "workers") (eq serverDeploy "cloudflare") (and (eq backend "self") (eq webDeploy "cloudflare"))))}}
+  const db = await getDb({{#if (usesRequestScopedCloudflareEnv backend webDeploy frontend)}}env{{/if}});
+{{/if}}
+	return {
+{{#if (ne database "none")}}
+    db,
+{{/if}}
+	};
+}
+{{/if}}
+
+export type Context = Awaited<ReturnType<typeof createContext>>;
 `],
   ["api/trpc/fullstack/next/src/app/api/trpc/[trpc]/route.ts.hbs", `import { fetchRequestHandler } from "@trpc/server/adapters/fetch";
 import { appRouter } from "@{{projectName}}/api/routers/index";
@@ -1901,7 +2331,7 @@ import { QueryClient } from "@tanstack/react-query";
 import { createTRPCClient, httpBatchLink } from "@trpc/client";
 import { createTRPCOptionsProxy } from "@trpc/tanstack-react-query";
 import type { AppRouter } from "@{{projectName}}/api/routers/index";
-import { env } from "@{{projectName}}/env/native";
+import { ENV } from "../src/env";
 
 export const queryClient = new QueryClient();
 
@@ -1909,9 +2339,9 @@ const trpcClient = createTRPCClient<AppRouter>({
 	links: [
 		httpBatchLink({
 {{#if (eq backend "self")}}
-			url: \`\${env.EXPO_PUBLIC_SERVER_URL}/api/trpc\`,
+			url: \`\${ENV.EXPO_PUBLIC_SERVER_URL}/api/trpc\`,
 {{else}}
-			url: \`\${env.EXPO_PUBLIC_SERVER_URL}/trpc\`,
+			url: \`\${ENV.EXPO_PUBLIC_SERVER_URL}{{apiPrefix webDeploy serverDeploy}}/trpc\`,
 {{/if}}
 {{#if (eq auth "better-auth")}}
 			fetch:
@@ -1922,12 +2352,12 @@ const trpcClient = createTRPCClient<AppRouter>({
 						credentials: Platform.OS === "web" ? "include" : "omit",
 					});
 				},
-			headers() {
+			async headers() {
 				if (Platform.OS === "web") {
 					return {};
 				}
 				const headers = new Map<string, string>();
-				const cookies = authClient.getCookie();
+				const cookies = await authClient.getCookie();
 				if (cookies) {
 					headers.set("Cookie", cookies);
 				}
@@ -1986,293 +2416,35 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
   ["api/trpc/server/package.json.hbs", `{
   "name": "@{{projectName}}/api",
   "exports": {
-    ".": {
-      "default": "./src/index.ts"
-    },
-    "./*": {
-      "default": "./src/*.ts"
-    }
+    ".": "./src/index.ts",
+    "./*": "./src/*.ts"
   },
   "type": "module",
-  "scripts": {},
+  "scripts": {
+    "check-types": "tsc --noEmit"
+  },
   "devDependencies": {}
 }`],
-  ["api/trpc/server/src/context.ts.hbs", `{{#if (eq auth "clerk")}}
-type ClerkContextAuth = {
-	userId: string | null;
+  ["api/trpc/server/src/context.ts.hbs", `{{#if (eq auth "better-auth")}}
+import type { Session } from "@{{projectName}}/auth";
+{{/if}}
+{{#if (eq auth "clerk")}}
+import type { SessionAuthObject } from "@clerk/backend";
+{{/if}}
+{{#if (ne database "none")}}
+import type { Database } from "@{{projectName}}/db";
+{{/if}}
+
+export type Context = {
+{{#if (eq auth "clerk")}}
+  auth: Pick<SessionAuthObject, "userId"> | null;
+{{else if (eq auth "better-auth")}}
+  session: Session | null;
+{{/if}}
+{{#if (ne database "none")}}
+  db: Database;
+{{/if}}
 };
-
-type ClerkRequestContext = {
-	auth: ClerkContextAuth | null;
-	session: null;
-};
-
-function toClerkContextAuth(auth: { userId: string | null } | null): ClerkContextAuth | null {
-	return auth ? { userId: auth.userId } : null;
-}
-{{/if}}
-
-{{#if (and (eq auth "clerk") (or (eq backend 'self') (eq backend 'hono') (eq backend 'elysia') (eq backend 'nitro')))}}
-import { createClerkClient } from "@clerk/backend";
-import { env } from "@{{projectName}}/env/server";
-
-const clerkClient = createClerkClient({
-	secretKey: env.CLERK_SECRET_KEY,
-	publishableKey: env.CLERK_PUBLISHABLE_KEY,
-});
-
-async function authenticateClerkRequest(request: Request): Promise<ClerkContextAuth | null> {
-	const requestState = await clerkClient.authenticateRequest(request, {
-		authorizedParties: [env.CORS_ORIGIN],
-	});
-	return toClerkContextAuth(requestState.toAuth());
-}
-{{/if}}
-
-{{#if (and (eq backend 'self') (includes frontend "next"))}}
-import type { NextRequest } from "next/server";
-{{#if (eq auth "better-auth")}}
-{{#if (or (eq runtime "workers") (eq serverDeploy "cloudflare") (and (eq backend "self") (eq webDeploy "cloudflare")))}}
-import { createAuth } from "@{{projectName}}/auth";
-{{else}}
-import { auth } from "@{{projectName}}/auth";
-{{/if}}
-{{/if}}
-
-export async function createContext({{#if (eq auth "none")}}_req{{else}}req{{/if}}: NextRequest){{#if (eq auth "clerk")}}: Promise<ClerkRequestContext>{{/if}} {
-{{#if (eq auth "better-auth")}}
-	const session = await {{#if (or (eq runtime "workers") (eq serverDeploy "cloudflare") (and (eq backend "self") (eq webDeploy "cloudflare")))}}createAuth(){{else}}auth{{/if}}.api.getSession({
-		headers: req.headers,
-	});
-	return {
-		auth: null,
-		session,
-	};
-{{else if (eq auth "clerk")}}
-	const clerkAuth = await authenticateClerkRequest(req);
-	return {
-		auth: clerkAuth,
-		session: null,
-	};
-{{else}}
-	return {
-		auth: null,
-		session: null,
-	};
-{{/if}}
-}
-
-{{else if (and (eq backend 'self') (includes frontend "tanstack-start"))}}
-{{#if (eq auth "better-auth")}}
-{{#if (or (eq runtime "workers") (eq serverDeploy "cloudflare") (and (eq backend "self") (eq webDeploy "cloudflare")))}}
-import { createAuth } from "@{{projectName}}/auth";
-{{else}}
-import { auth } from "@{{projectName}}/auth";
-{{/if}}
-{{/if}}
-
-export async function createContext({{#if (eq auth "none")}}_options{{else}}{ req }{{/if}}: { req: Request }){{#if (eq auth "clerk")}}: Promise<ClerkRequestContext>{{/if}} {
-{{#if (eq auth "better-auth")}}
-	const session = await {{#if (or (eq runtime "workers") (eq serverDeploy "cloudflare") (and (eq backend "self") (eq webDeploy "cloudflare")))}}createAuth(){{else}}auth{{/if}}.api.getSession({
-		headers: req.headers,
-	});
-	return {
-		auth: null,
-		session,
-	};
-{{else if (eq auth "clerk")}}
-	const clerkAuth = await authenticateClerkRequest(req);
-	return {
-		auth: clerkAuth,
-		session: null,
-	};
-{{else}}
-	return {
-		auth: null,
-		session: null,
-	};
-{{/if}}
-}
-
-{{else if (eq backend 'nitro')}}
-{{#if (eq auth "better-auth")}}
-{{#if (or (eq runtime "workers") (eq serverDeploy "cloudflare"))}}
-import { createAuth } from "@{{projectName}}/auth";
-{{else}}
-import { auth } from "@{{projectName}}/auth";
-{{/if}}
-{{/if}}
-
-export type CreateContextOptions = {
-	request: Request;
-};
-
-export async function createContext({{#if (eq auth "none")}}_options{{else}}{ request }{{/if}}: CreateContextOptions){{#if (eq auth "clerk")}}: Promise<ClerkRequestContext>{{/if}} {
-{{#if (eq auth "better-auth")}}
-	const session = await {{#if (or (eq runtime "workers") (eq serverDeploy "cloudflare"))}}createAuth(){{else}}auth{{/if}}.api.getSession({ headers: request.headers });
-	return {
-		auth: null,
-		session,
-	};
-{{else if (eq auth "clerk")}}
-	const clerkAuth = await authenticateClerkRequest(request);
-	return {
-		auth: clerkAuth,
-		session: null,
-	};
-{{else}}
-	return {
-		auth: null,
-		session: null,
-	};
-{{/if}}
-}
-
-{{else if (eq backend 'hono')}}
-import type { Context as HonoContext } from "hono";
-{{#if (eq auth "better-auth")}}
-{{#if (or (eq runtime "workers") (eq serverDeploy "cloudflare") (and (eq backend "self") (eq webDeploy "cloudflare")))}}
-import { createAuth } from "@{{projectName}}/auth";
-{{else}}
-import { auth } from "@{{projectName}}/auth";
-{{/if}}
-{{/if}}
-
-export type CreateContextOptions = {
-	context: HonoContext;
-};
-
-export async function createContext({{#if (eq auth "none")}}_options{{else}}{ context }{{/if}}: CreateContextOptions){{#if (eq auth "clerk")}}: Promise<ClerkRequestContext>{{/if}} {
-{{#if (eq auth "better-auth")}}
-	const session = await {{#if (or (eq runtime "workers") (eq serverDeploy "cloudflare") (and (eq backend "self") (eq webDeploy "cloudflare")))}}createAuth(){{else}}auth{{/if}}.api.getSession({
-		headers: context.req.raw.headers,
-	});
-	return {
-		auth: null,
-		session,
-	};
-{{else if (eq auth "clerk")}}
-	const clerkAuth = await authenticateClerkRequest(context.req.raw);
-	return {
-		auth: clerkAuth,
-		session: null,
-	};
-{{else}}
-	return {
-		auth: null,
-		session: null,
-	};
-{{/if}}
-}
-
-{{else if (eq backend 'elysia')}}
-import type { Context as ElysiaContext } from "elysia";
-{{#if (eq auth "better-auth")}}
-import { auth } from "@{{projectName}}/auth";
-{{/if}}
-
-export type CreateContextOptions = {
-	context: ElysiaContext;
-};
-
-export async function createContext({{#if (eq auth "none")}}_options{{else}}{ context }{{/if}}: CreateContextOptions){{#if (eq auth "clerk")}}: Promise<ClerkRequestContext>{{/if}} {
-{{#if (eq auth "better-auth")}}
-	const session = await auth.api.getSession({
-		headers: context.request.headers,
-	});
-	return {
-		auth: null,
-		session,
-	};
-{{else if (eq auth "clerk")}}
-	const clerkAuth = await authenticateClerkRequest(context.request);
-	return {
-		auth: clerkAuth,
-		session: null,
-	};
-{{else}}
-	return {
-		auth: null,
-		session: null,
-	};
-{{/if}}
-}
-
-{{else if (eq backend 'express')}}
-import type { CreateExpressContextOptions } from "@trpc/server/adapters/express";
-{{#if (eq auth "better-auth")}}
-import { fromNodeHeaders } from "better-auth/node";
-import { auth } from "@{{projectName}}/auth";
-{{else if (eq auth "clerk")}}
-import { getAuth } from "@clerk/express";
-{{/if}}
-
-export async function createContext({{#if (eq auth "none")}}_opts{{else}}opts{{/if}}: CreateExpressContextOptions){{#if (eq auth "clerk")}}: Promise<ClerkRequestContext>{{/if}} {
-{{#if (eq auth "better-auth")}}
-	const session = await auth.api.getSession({
-		headers: fromNodeHeaders(opts.req.headers),
-	});
-	return {
-		auth: null,
-		session,
-	};
-{{else if (eq auth "clerk")}}
-	const clerkAuth = toClerkContextAuth(getAuth(opts.req));
-	return {
-		auth: clerkAuth,
-		session: null,
-	};
-{{else}}
-	return {
-		auth: null,
-		session: null,
-	};
-{{/if}}
-}
-
-{{else if (eq backend 'fastify')}}
-import type { CreateFastifyContextOptions } from "@trpc/server/adapters/fastify";
-{{#if (eq auth "better-auth")}}
-import { fromNodeHeaders } from "better-auth/node";
-import { auth } from "@{{projectName}}/auth";
-{{else if (eq auth "clerk")}}
-import { getAuth } from "@clerk/fastify";
-{{/if}}
-
-export async function createContext({ req }: CreateFastifyContextOptions){{#if (eq auth "clerk")}}: Promise<ClerkRequestContext>{{/if}} {
-{{#if (eq auth "better-auth")}}
-	const session = await auth.api.getSession({
-		headers: fromNodeHeaders(req.headers),
-	});
-	return {
-		auth: null,
-		session,
-	};
-{{else if (eq auth "clerk")}}
-	const clerkAuth = toClerkContextAuth(getAuth(req));
-	return {
-		auth: clerkAuth,
-		session: null,
-	};
-{{else}}
-	void req;
-	return {
-		auth: null,
-		session: null,
-	};
-{{/if}}
-}
-
-{{else}}
-export async function createContext() {
-	return {
-		auth: null,
-		session: null,
-	};
-}
-{{/if}}
-
-export type Context = Awaited<ReturnType<typeof createContext>>;
 `],
   ["api/trpc/server/src/index.ts.hbs", `import { initTRPC{{#if (or (eq auth "better-auth") (eq auth "clerk"))}}, TRPCError{{/if}} } from "@trpc/server";
 import type { Context } from "./context";
@@ -2378,13 +2550,10 @@ export type AppRouter = typeof appRouter;
   ["api/trpc/server/tsconfig.json.hbs", `{
   "extends": "@{{projectName}}/config/tsconfig.base.json",
   "compilerOptions": {
-    "declaration": true,
-    "declarationMap": true,
-    "sourceMap": true,
-    "outDir": "dist",
-    "composite": true
+    "noEmit": true
   }
-}`],
+}
+`],
   ["api/trpc/web/react/base/src/utils/trpc.ts.hbs", `{{#if (includes frontend 'next')}}
 import { QueryCache, QueryClient } from '@tanstack/react-query';
 import { createTRPCClient, httpBatchLink } from '@trpc/client';
@@ -2392,7 +2561,6 @@ import { createTRPCOptionsProxy } from '@trpc/tanstack-react-query';
 import type { AppRouter } from "@{{projectName}}/api/routers/index";
 import { toast } from 'sonner';
 {{#unless (eq backend "self")}}
-import { env } from "@{{projectName}}/env/web";
 
 {{> getServerUrl}}
 {{/unless}}
@@ -2421,7 +2589,11 @@ const trpcClient = createTRPCClient<AppRouter>({
 {{#if (eq backend "self")}}
 			url: "/api/trpc",
 {{else}}
-			url: \`\${getServerUrl(env.NEXT_PUBLIC_SERVER_URL)}/trpc\`,
+{{#if (and (eq webDeploy serverDeploy) (or (eq webDeploy "vercel") (eq webDeploy "docker")))}}
+			url: \`\${getServerUrl(process.env.NEXT_PUBLIC_SERVER_URL!)}/trpc\`,
+{{else}}
+			url: \`\${process.env.NEXT_PUBLIC_SERVER_URL!.replace(/\\/$/, "")}/trpc\`,
+{{/if}}
 {{/if}}
 {{#if (eq auth "clerk")}}
 			headers: async () => {
@@ -2467,7 +2639,7 @@ import { QueryCache, QueryClient } from "@tanstack/react-query";
 import { createTRPCClient, httpBatchLink } from "@trpc/client";
 import { createTRPCOptionsProxy } from "@trpc/tanstack-react-query";
 import { toast } from "sonner";
-import { env } from "@{{projectName}}/env/web";
+import { ENV } from "../env{{#if (eq webDeploy "cloudflare")}}.public{{/if}}";
 {{#if (eq auth "clerk")}}
 import { getClerkAuthToken } from "@/utils/clerk-auth";
 {{/if}}
@@ -2492,7 +2664,11 @@ export const queryClient = new QueryClient({
 export const trpcClient = createTRPCClient<AppRouter>({
 	links: [
 		httpBatchLink({
-			url: \`\${getServerUrl(env.VITE_SERVER_URL)}/trpc\`,
+{{#if (and (eq webDeploy serverDeploy) (or (eq webDeploy "vercel") (eq webDeploy "docker")))}}
+			url: \`\${getServerUrl(ENV.VITE_SERVER_URL)}/trpc\`,
+{{else}}
+			url: \`\${ENV.VITE_SERVER_URL.replace(/\\/$/, "")}/trpc\`,
+{{/if}}
 {{#if (eq auth "clerk")}}
 			headers: async () => {
 				const token = await getClerkAuthToken();
@@ -2521,20 +2697,24 @@ export const trpc = createTRPCOptionsProxy<AppRouter>({
 {{#if (eq payments "polar")}}
 import { polarClient } from "@polar-sh/better-auth/client";
 {{/if}}
-{{#unless (eq backend "self")}}
-import { env } from "@{{projectName}}/env/web";
 
-{{> getServerUrl}}
-{{/unless}}
-
-export const authClient = createAuthClient({
-{{#unless (eq backend "self")}}
-	baseURL: new URL("/api/auth", getServerUrl(env.VITE_SERVER_URL)).toString(),
-{{/unless}}
+type ClientOptions = {
+  baseURL?: string;
 {{#if (eq payments "polar")}}
-	plugins: [polarClient()],
+  plugins: ReturnType<typeof polarClient>[];
 {{/if}}
-});
+};
+
+export function createClient(baseURL?: string): ReturnType<typeof createAuthClient<ClientOptions>> {
+  return createAuthClient({
+    baseURL,
+{{#if (eq payments "polar")}}
+    plugins: [polarClient()],
+{{/if}}
+  });
+}
+
+export type AuthClient = ReturnType<typeof createClient>;
 `],
   ["auth/better-auth/convex/backend/convex/auth.config.ts.hbs", `import { getAuthConfigProvider } from "@convex-dev/better-auth/auth-config";
 import type { AuthConfig } from "convex/server";
@@ -3168,10 +3348,10 @@ import { expoClient } from "@better-auth/expo/client";
 import Constants from "expo-constants";
 import * as SecureStore from "expo-secure-store";
 import { Platform } from "react-native";
-import { env } from "@{{projectName}}/env/native";
+import { ENV } from "../src/env";
 
 export const authClient = createAuthClient({
-	baseURL: env.EXPO_PUBLIC_CONVEX_SITE_URL,
+	baseURL: ENV.EXPO_PUBLIC_CONVEX_SITE_URL,
 	plugins: [
 		convexClient(),
 		Platform.OS === "web"
@@ -4405,7 +4585,7 @@ export const authClient = createAuthClient({
 });
 `],
   ["auth/better-auth/convex/web/react/next/src/lib/auth-server.ts.hbs", `import { convexBetterAuthNextJs } from "@convex-dev/better-auth/nextjs";
-import { env } from "@{{projectName}}/env/web";
+import { ENV } from "../env{{#if (eq webDeploy "cloudflare")}}.public{{/if}}";
 
 export const {
 	handler,
@@ -4416,8 +4596,8 @@ export const {
 	fetchAuthMutation,
 	fetchAuthAction,
 } = convexBetterAuthNextJs({
-	convexUrl: env.NEXT_PUBLIC_CONVEX_URL,
-	convexSiteUrl: env.NEXT_PUBLIC_CONVEX_SITE_URL,
+	convexUrl: ENV.NEXT_PUBLIC_CONVEX_URL,
+	convexSiteUrl: ENV.NEXT_PUBLIC_CONVEX_SITE_URL,
 });
 `],
   ["auth/better-auth/convex/web/react/react-router/src/components/sign-in-form.tsx.hbs", `import { authClient } from "@/lib/auth-client";
@@ -4763,10 +4943,10 @@ import {
   convexClient,
   crossDomainClient,
 } from "@convex-dev/better-auth/client/plugins";
-import { env } from "@{{projectName}}/env/web";
+import { ENV } from "../env{{#if (eq webDeploy "cloudflare")}}.public{{/if}}";
 
 export const authClient = createAuthClient({
-  baseURL: env.VITE_CONVEX_SITE_URL,
+  baseURL: ENV.VITE_CONVEX_SITE_URL,
   plugins: [convexClient(), crossDomainClient()],
 });
 `],
@@ -5204,10 +5384,10 @@ import {
 	convexClient,
 	crossDomainClient,
 } from "@convex-dev/better-auth/client/plugins";
-import { env } from "@{{projectName}}/env/web";
+import { ENV } from "../env{{#if (eq webDeploy "cloudflare")}}.public{{/if}}";
 
 export const authClient = createAuthClient({
-	baseURL: env.VITE_CONVEX_SITE_URL,
+	baseURL: ENV.VITE_CONVEX_SITE_URL,
 	plugins: [convexClient(), crossDomainClient()],
 });
 `],
@@ -5649,7 +5829,7 @@ export const authClient = createAuthClient({
   plugins: [convexClient()],
 });`],
   ["auth/better-auth/convex/web/react/tanstack-start/src/lib/auth-server.ts.hbs", `import { convexBetterAuthReactStart } from "@convex-dev/better-auth/react-start";
-import { env } from "@{{projectName}}/env/web";
+import { ENV } from "../env{{#if (eq webDeploy "cloudflare")}}.public{{/if}}";
 
 export const {
 	handler,
@@ -5658,8 +5838,8 @@ export const {
 	fetchAuthMutation,
 	fetchAuthAction,
 } = convexBetterAuthReactStart({
-	convexUrl: env.VITE_CONVEX_URL,
-	convexSiteUrl: env.VITE_CONVEX_SITE_URL,
+	convexUrl: ENV.VITE_CONVEX_URL,
+	convexSiteUrl: ENV.VITE_CONVEX_SITE_URL,
 });
 `],
   ["auth/better-auth/convex/web/react/tanstack-start/src/routes/_auth/dashboard.tsx.hbs", `import UserMenu from "@/components/user-menu";
@@ -5764,7 +5944,7 @@ export const Route = createFileRoute("/api/auth/$")({
   },
 });
 `],
-  ["auth/better-auth/fullstack/astro/src/env.d.ts.hbs", `/// <reference path="../.astro/types.d.ts" />
+  ["auth/better-auth/fullstack/astro/src/app.d.ts.hbs", `/// <reference path="../.astro/types.d.ts" />
 
 declare namespace App {
   interface Locals {
@@ -5782,7 +5962,7 @@ import { defineMiddleware } from "astro:middleware";
 
 export const onRequest = defineMiddleware(async (context, next) => {
 {{#if (or (eq runtime "workers") (eq serverDeploy "cloudflare") (and (eq backend "self") (eq webDeploy "cloudflare")))}}
-  const auth = createAuth();
+  const auth = await createAuth();
 {{/if}}
   const isAuthed = await auth.api.getSession({
     headers: context.request.headers,
@@ -5808,7 +5988,7 @@ import type { APIRoute } from "astro";
 
 export const ALL: APIRoute = async (ctx) => {
 {{#if (or (eq runtime "workers") (eq serverDeploy "cloudflare") (and (eq backend "self") (eq webDeploy "cloudflare")))}}
-  const auth = createAuth();
+  const auth = await createAuth();
 {{/if}}
   return auth.handler(ctx.request);
 };
@@ -5822,11 +6002,11 @@ import { toNextJsHandler } from "better-auth/next-js";
 
 {{#if (or (eq runtime "workers") (eq serverDeploy "cloudflare") (and (eq backend "self") (eq webDeploy "cloudflare")))}}
 export async function GET(request: Request) {
-	return toNextJsHandler(createAuth()).GET(request);
+	return toNextJsHandler(await createAuth()).GET(request);
 }
 
 export async function POST(request: Request) {
-	return toNextJsHandler(createAuth()).POST(request);
+	return toNextJsHandler(await createAuth()).POST(request);
 }
 {{else}}
 export const { GET, POST } = toNextJsHandler(auth);
@@ -5838,12 +6018,12 @@ import { createAuth } from "@{{projectName}}/auth";
 import { auth } from "@{{projectName}}/auth";
 {{/if}}
 {{#if (eq webDeploy "cloudflare")}}
-import type { CloudflareEnv } from "@{{projectName}}/env/server";
+import type { CloudflareEnv } from "../../../src/env.server";
 {{/if}}
 
-export default defineEventHandler((event) => {
+export default defineEventHandler(async (event) => {
 {{#if (or (eq runtime "workers") (eq serverDeploy "cloudflare") (and (eq backend "self") (eq webDeploy "cloudflare")))}}
-  const auth = createAuth({{#if (eq webDeploy "cloudflare")}}(event.context.cloudflare as { env: CloudflareEnv }).env{{/if}});
+  const auth = (await createAuth({{#if (eq webDeploy "cloudflare")}}(event.context.cloudflare as { env: CloudflareEnv }).env{{/if}}));
 {{/if}}
   return auth.handler(toWebRequest(event));
 });
@@ -5856,7 +6036,7 @@ import { auth } from "@{{projectName}}/auth";
 import type { APIHandler } from "filesystem-routing/api";
 
 {{#if (and (eq backend "self") (eq webDeploy "cloudflare"))}}
-const handle: APIHandler = ({ request }) => createAuth().handler(request);
+const handle: APIHandler = async ({ request }) => (await createAuth()).handler(request);
 {{else}}
 const handle: APIHandler = ({ request }) => auth.handler(request);
 {{/if}}
@@ -5867,17 +6047,17 @@ export const POST = handle;
   ["auth/better-auth/fullstack/svelte/src/hooks.server.ts.hbs", `{{#if (eq api "orpc")}}
 import "./lib/orpc.server";
 {{/if}}
-import { building } from "$app/environment";
+import { building } from "$app/env";
 {{#if (or (eq runtime "workers") (eq serverDeploy "cloudflare") (and (eq backend "self") (eq webDeploy "cloudflare")))}}
 import { createAuth } from "@{{projectName}}/auth";
 {{#if (and (eq backend "self") (eq webDeploy "cloudflare"))}}
-import { env as localEnv } from "@{{projectName}}/env/server";
+import { ENV } from "./env.server";
 {{/if}}
 {{else}}
 import { auth } from "@{{projectName}}/auth";
 {{/if}}
 import { svelteKitHandler } from "better-auth/svelte-kit";
-import type { Handle } from "@sveltejs/kit";
+import type { Handle } from "@sveltejs/kit/hooks";
 
 export const handle: Handle = async ({ event, resolve }) => {
 {{#if (or (eq runtime "workers") (eq serverDeploy "cloudflare") (and (eq backend "self") (eq webDeploy "cloudflare")))}}
@@ -5886,10 +6066,9 @@ export const handle: Handle = async ({ event, resolve }) => {
 		return resolve(event);
 	}
 
-	const authEnv = event.platform?.env ?? localEnv;
-	const authInstance = createAuth(authEnv);
+	const authInstance = await createAuth(ENV);
 {{else}}
-	const authInstance = createAuth();
+	const authInstance = await createAuth();
 {{/if}}
 {{else}}
 	const authInstance = auth;
@@ -5913,15 +6092,15 @@ import { createFileRoute } from '@tanstack/react-router'
 export const Route = createFileRoute('/api/auth/$')({
   server: {
     handlers: {
-      GET: ({ request }) => {
+      GET: async ({ request }) => {
         {{#if (or (eq runtime "workers") (eq serverDeploy "cloudflare") (and (eq backend "self") (eq webDeploy "cloudflare")))}}
-        const auth = createAuth()
+        const auth = await createAuth()
         {{/if}}
         return auth.handler(request)
       },
-      POST: ({ request }) => {
+      POST: async ({ request }) => {
         {{#if (or (eq runtime "workers") (eq serverDeploy "cloudflare") (and (eq backend "self") (eq webDeploy "cloudflare")))}}
-        const auth = createAuth()
+        const auth = await createAuth()
         {{/if}}
         return auth.handler(request)
       },
@@ -5929,17 +6108,51 @@ export const Route = createFileRoute('/api/auth/$')({
   },
 })
 `],
+  ["auth/better-auth/loaders/svelte/dashboard.ts.hbs", `import { authClient } from '#lib/auth-client.ts';
+import type { BetterFetchOption } from 'better-auth/client';
+import { redirect } from '@sveltejs/kit';
+{{#if (or (eq backend "self") (and (eq webDeploy serverDeploy) (or (eq webDeploy "vercel") (eq webDeploy "docker"))))}}
+import type { PageServerLoad } from './$types';
+
+export const load = (async ({ fetch, request{{#if (eq backend "self")}}, url{{/if}} }) => {
+{{else}}
+import type { PageLoad } from './$types';
+
+// The session cookie belongs to the separate API origin and is available in the browser.
+export const ssr = false;
+
+export const load = (async ({ fetch }) => {
+{{/if}}
+  const fetchOptions = {
+    customFetchImpl: fetch,
+{{#if (eq backend "self")}}
+    baseURL: new URL('/api/auth', url).toString(),
+{{/if}}
+{{#if (or (eq backend "self") (and (eq webDeploy serverDeploy) (or (eq webDeploy "vercel") (eq webDeploy "docker"))))}}
+    headers: { cookie: request.headers.get('cookie') ?? '' },
+    signal: request.signal,
+{{/if}}
+    throw: true,
+  } satisfies BetterFetchOption;
+  const session = await authClient.getSession({ fetchOptions });
+  if (!session) redirect(307, '/login');
+{{#if (eq payments "polar")}}
+  const customerState = await authClient.customer.state({ fetchOptions });
+{{/if}}
+  return { user: session.user{{#if (eq payments "polar")}}, customerState{{/if}} };
+}) satisfies {{#if (or (eq backend "self") (and (eq webDeploy serverDeploy) (or (eq webDeploy "vercel") (eq webDeploy "docker"))))}}PageServerLoad{{else}}PageLoad{{/if}};
+`],
   ["auth/better-auth/native/bare/app/(drawer)/index.tsx.hbs", `import { Button, Column, Host, Text as ExpoUIText } from "@expo/ui";
 import { View, ScrollView, StyleSheet{{#if (eq payments "polar")}}, Alert{{/if}} } from "react-native";
 {{#if (eq payments "polar")}}
 import * as Linking from "expo-linking";
 import * as WebBrowser from "expo-web-browser";
-import { env } from "@{{projectName}}/env/native";
+import { ENV } from "../../src/env";
 {{/if}}
 import { Container } from "@/components/container";
 import { useColorScheme } from "@/lib/use-color-scheme";
 import { NAV_THEME } from "@/lib/constants";
-import { authClient{{#if (eq payments "polar")}}, polarNativeClient{{/if}} } from "@/lib/auth-client";
+import { authClient } from "@/lib/auth-client";
 import { SignIn } from "@/components/sign-in";
 import { SignUp } from "@/components/sign-up";
 {{#if (eq api "orpc")}}
@@ -5974,7 +6187,7 @@ const openPolarLink = async (url: string, returnUrl: string) => {
 };
 
 const getPolarReturnUrl = (returnUrl: string) => {
-	const url = new URL("/polar/success", env.EXPO_PUBLIC_SERVER_URL);
+	const url = new URL("{{apiPrefix webDeploy serverDeploy}}/polar/success", ENV.EXPO_PUBLIC_SERVER_URL);
 	url.searchParams.set("returnUrl", returnUrl);
 	return url.toString();
 };
@@ -5982,7 +6195,7 @@ const getPolarReturnUrl = (returnUrl: string) => {
 const handlePolarCheckout = async () => {
 	const returnUrl = Linking.createURL("/");
 	const polarReturnUrl = getPolarReturnUrl(returnUrl);
-	const { data, error } = await polarNativeClient.checkout({
+	const { data, error } = await authClient.checkout({
 		slug: "pro",
 		redirect: false,
 		successUrl: polarReturnUrl,
@@ -5999,7 +6212,7 @@ const handlePolarCheckout = async () => {
 
 const handlePolarPortal = async () => {
 	const returnUrl = Linking.createURL("/");
-	const { data, error } = await polarNativeClient.customer.portal({ redirect: false });
+	const { data, error } = await authClient.customer.portal({ redirect: false });
 
 	if (error || !data?.url) {
 		Alert.alert("Portal unavailable", error?.message ?? "Unable to open the customer portal.");
@@ -6694,13 +6907,24 @@ export { SignUp };
 `],
   ["auth/better-auth/native/base/lib/auth-client.ts.hbs", `import { expoClient } from "@better-auth/expo/client";
 import { createAuthClient } from "better-auth/react";
+{{#if (eq payments "polar")}}
+import type { BetterAuthClientPlugin } from "better-auth/client";
+import type { polar } from "@polar-sh/better-auth";
+{{/if}}
 import * as SecureStore from "expo-secure-store";
 import Constants from "expo-constants";
-import { env } from "@{{projectName}}/env/native";
+import { ENV } from "../src/env";
 
 export const authClient = createAuthClient({
-	baseURL: env.EXPO_PUBLIC_SERVER_URL,
+	baseURL: ENV.EXPO_PUBLIC_SERVER_URL,
 	plugins: [
+{{#if (eq payments "polar")}}
+        // Infer Polar endpoints without importing its browser checkout embed.
+        {
+            id: "polar-client",
+            $InferServerPlugin: {} as ReturnType<typeof polar>,
+        } satisfies BetterAuthClientPlugin,
+{{/if}}
 		expoClient({
 			scheme: Constants.expoConfig?.scheme as string,
 			storagePrefix: Constants.expoConfig?.scheme as string,
@@ -6708,40 +6932,13 @@ export const authClient = createAuthClient({
 		}),
 	],
 });
-{{#if (eq payments "polar")}}
-
-type PolarLinkResponse = {
-	url: string;
-	redirect: boolean;
-};
-
-type PolarClientResponse<T> = Promise<{
-	data: T | null;
-	error: { message?: string } | null;
-}>;
-
-type PolarNativeClient = typeof authClient & {
-	checkout: (data: {
-		slug?: string;
-		products?: string[] | string;
-		redirect?: boolean;
-		successUrl?: string;
-		returnUrl?: string;
-	}) => PolarClientResponse<PolarLinkResponse>;
-	customer: {
-		portal: (data?: { redirect?: boolean }) => PolarClientResponse<PolarLinkResponse>;
-	};
-};
-
-export const polarNativeClient = authClient as PolarNativeClient;
-{{/if}}
 `],
-  ["auth/better-auth/native/unistyles/app/(drawer)/index.tsx.hbs", `import { authClient{{#if (eq payments "polar")}}, polarNativeClient{{/if}} } from "@/lib/auth-client";
+  ["auth/better-auth/native/unistyles/app/(drawer)/index.tsx.hbs", `import { authClient } from "@/lib/auth-client";
 import { ScrollView, Text, TouchableOpacity, View{{#if (eq payments "polar")}}, Alert{{/if}} } from "react-native";
 {{#if (eq payments "polar")}}
 import * as Linking from "expo-linking";
 import * as WebBrowser from "expo-web-browser";
-import { env } from "@{{projectName}}/env/native";
+import { ENV } from "../../src/env";
 {{/if}}
 import { StyleSheet } from "react-native-unistyles";
 
@@ -6774,7 +6971,7 @@ export default function Home() {
   };
 
   const getPolarReturnUrl = (returnUrl: string) => {
-    const url = new URL("/polar/success", env.EXPO_PUBLIC_SERVER_URL);
+    const url = new URL("{{apiPrefix webDeploy serverDeploy}}/polar/success", ENV.EXPO_PUBLIC_SERVER_URL);
     url.searchParams.set("returnUrl", returnUrl);
     return url.toString();
   };
@@ -6782,7 +6979,7 @@ export default function Home() {
   const handlePolarCheckout = async () => {
     const returnUrl = Linking.createURL("/");
     const polarReturnUrl = getPolarReturnUrl(returnUrl);
-    const { data, error } = await polarNativeClient.checkout({
+    const { data, error } = await authClient.checkout({
       slug: "pro",
       redirect: false,
       successUrl: polarReturnUrl,
@@ -6799,7 +6996,7 @@ export default function Home() {
 
   const handlePolarPortal = async () => {
     const returnUrl = Linking.createURL("/");
-    const { data, error } = await polarNativeClient.customer.portal({ redirect: false });
+    const { data, error } = await authClient.customer.portal({ redirect: false });
 
     if (error || !data?.url) {
       Alert.alert("Portal unavailable", error?.message ?? "Unable to open the customer portal.");
@@ -7481,10 +7678,10 @@ const styles = StyleSheet.create((theme) => ({
 {{#if (eq payments "polar")}}
 import * as Linking from "expo-linking";
 import * as WebBrowser from "expo-web-browser";
-import { env } from "@{{projectName}}/env/native";
+import { ENV } from "../../src/env";
 {{/if}}
 import { Container } from "@/components/container";
-import { authClient{{#if (eq payments "polar")}}, polarNativeClient{{/if}} } from "@/lib/auth-client";
+import { authClient } from "@/lib/auth-client";
 import { Ionicons } from "@expo/vector-icons";
 import { Card, Chip, useThemeColor } from "heroui-native";
 import { SignIn } from "@/components/sign-in";
@@ -7519,7 +7716,7 @@ const openPolarLink = async (url: string, returnUrl: string) => {
 };
 
 const getPolarReturnUrl = (returnUrl: string) => {
-  const url = new URL("/polar/success", env.EXPO_PUBLIC_SERVER_URL);
+  const url = new URL("{{apiPrefix webDeploy serverDeploy}}/polar/success", ENV.EXPO_PUBLIC_SERVER_URL);
   url.searchParams.set("returnUrl", returnUrl);
   return url.toString();
 };
@@ -7527,7 +7724,7 @@ const getPolarReturnUrl = (returnUrl: string) => {
 const handlePolarCheckout = async () => {
   const returnUrl = Linking.createURL("/");
   const polarReturnUrl = getPolarReturnUrl(returnUrl);
-  const { data, error } = await polarNativeClient.checkout({
+  const { data, error } = await authClient.checkout({
     slug: "pro",
     redirect: false,
     successUrl: polarReturnUrl,
@@ -7544,7 +7741,7 @@ const handlePolarCheckout = async () => {
 
 const handlePolarPortal = async () => {
   const returnUrl = Linking.createURL("/");
-  const { data, error } = await polarNativeClient.customer.portal({ redirect: false });
+  const { data, error } = await authClient.customer.portal({ redirect: false });
 
   if (error || !data?.url) {
     Alert.alert("Portal unavailable", error?.message ?? "Unable to open the customer portal.");
@@ -8078,419 +8275,125 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
   ["auth/better-auth/server/base/package.json.hbs", `{
   "name": "@{{projectName}}/auth",
   "exports": {
-    ".": {
-      "default": "./src/index.ts"
-    },
-    "./*": {
-      "default": "./src/*.ts"
-    }
+    ".": "./src/index.ts",
+    "./*": "./src/*.ts"
   },
   "type": "module",
-  "scripts": {},
+  "scripts": {
+    {{#if (eq api "orpc")}}
+    "build": "tsc -b",
+    "check-types": "tsc -b"
+    {{else}}
+    "check-types": "tsc --noEmit"
+    {{/if}}
+  },
   "devDependencies": {}
 }`],
-  ["auth/better-auth/server/base/src/index.ts.hbs", `{{#if (eq orm "prisma")}}
-import { betterAuth } from "better-auth";
+  ["auth/better-auth/server/base/src/index.ts.hbs", `import { betterAuth } from "better-auth";
+{{#if (eq orm "prisma")}}
 import { prismaAdapter } from "better-auth/adapters/prisma";
-{{#if (usesRequestScopedCloudflareEnv backend webDeploy frontend)}}
-import type { CloudflareEnv } from "@{{projectName}}/env/server";
-{{else}}
-import { env } from "@{{projectName}}/env/server";
-{{/if}}
-{{#if (eq payments "polar")}}
-import { polar, checkout, portal } from "@polar-sh/better-auth";
-{{#if (usesRequestScopedCloudflareEnv backend webDeploy frontend)}}
-import { createPolarClient } from "./lib/payments";
-{{else}}
-import { polarClient } from "./lib/payments";
-{{/if}}
-{{/if}}
-import { createPrismaClient } from "@{{projectName}}/db";
-
-export function createAuth({{#if (usesRequestScopedCloudflareEnv backend webDeploy frontend)}}env: CloudflareEnv{{/if}}) {
-	const prisma = createPrismaClient({{#if (usesRequestScopedCloudflareEnv backend webDeploy frontend)}}env{{/if}});
-
-	return betterAuth({
-		database: prismaAdapter(prisma, {
-{{#if (eq database "postgres")}}provider: "postgresql",{{/if}}
-{{#if (eq database "sqlite")}}provider: "sqlite",{{/if}}
-{{#if (eq database "mysql")}}provider: "mysql",{{/if}}
-{{#if (eq database "mongodb")}}provider: "mongodb",{{/if}}
-		}),
-
-		trustedOrigins: [
-			{{#if (eq backend "self")}}env.BETTER_AUTH_URL{{else}}env.CORS_ORIGIN{{/if}},
-{{#if (or (includes frontend "native-bare") (includes frontend "native-uniwind") (includes frontend "native-unistyles"))}}
-			"{{projectName}}://",
-			"exp://",
-			"http://localhost:8081",
-{{/if}}
-		],
-		emailAndPassword: {
-			enabled: true,
-		},
-		secret: env.BETTER_AUTH_SECRET,
-		baseURL: env.BETTER_AUTH_URL,
-{{#if (ne backend "self")}}
-		advanced: {
-			defaultCookieAttributes: {
-				sameSite: "none",
-				secure: true,
-				httpOnly: true,
-			},
-		},
-{{/if}}
-		plugins: [
-{{#if (eq payments "polar")}}
-			polar({
-				client: {{#if (usesRequestScopedCloudflareEnv backend webDeploy frontend)}}createPolarClient(env){{else}}polarClient{{/if}},
-				createCustomerOnSignUp: true,
-				enableCustomerPortal: true,
-				use: [
-					checkout({
-						products: [
-							{
-								productId: "your-product-id",
-								slug: "pro",
-							},
-						],
-						successUrl: env.POLAR_SUCCESS_URL,
-						authenticatedUsersOnly: true,
-					}),
-					portal(),
-				],
-			}),
-{{/if}}
-		],
-	});
-}
-
-{{#if (and (ne runtime "workers") (ne serverDeploy "cloudflare") (or (ne backend "self") (ne webDeploy "cloudflare")))}}
-export const auth = createAuth();
-{{/if}}
-{{/if}}
-
-{{#if (eq orm "drizzle")}}
-{{#if (or (eq runtime "bun") (eq runtime "node") (eq runtime "none"))}}
-import { betterAuth } from "better-auth";
-import { drizzleAdapter } from "better-auth/adapters/drizzle";
-{{#if (usesRequestScopedCloudflareEnv backend webDeploy frontend)}}
-import type { CloudflareEnv } from "@{{projectName}}/env/server";
-{{else}}
-import { env } from "@{{projectName}}/env/server";
-{{/if}}
-{{#if (eq payments "polar")}}
-import { polar, checkout, portal } from "@polar-sh/better-auth";
-{{#if (usesRequestScopedCloudflareEnv backend webDeploy frontend)}}
-import { createPolarClient } from "./lib/payments";
-{{else}}
-import { polarClient } from "./lib/payments";
-{{/if}}
-{{/if}}
-import { createDb } from "@{{projectName}}/db";
+{{else if (eq orm "drizzle")}}
+import { drizzleAdapter } from "@better-auth/drizzle-adapter/relations-v2";
 import * as schema from "@{{projectName}}/db/schema/auth";
-
-
-export function createAuth({{#if (usesRequestScopedCloudflareEnv backend webDeploy frontend)}}env: CloudflareEnv{{/if}}) {
-	const db = createDb({{#if (usesRequestScopedCloudflareEnv backend webDeploy frontend)}}env{{/if}});
-
-	return betterAuth({
-		database: drizzleAdapter(db, {
-{{#if (eq database "postgres")}}provider: "pg",{{/if}}
-{{#if (eq database "sqlite")}}provider: "sqlite",{{/if}}
-{{#if (eq database "mysql")}}provider: "mysql",{{/if}}
-			schema: schema,
-		}),
-		trustedOrigins: [
-			{{#if (eq backend "self")}}env.BETTER_AUTH_URL{{else}}env.CORS_ORIGIN{{/if}},
-{{#if (or (includes frontend "native-bare") (includes frontend "native-uniwind") (includes frontend "native-unistyles"))}}
-			"{{projectName}}://",
-			"exp://",
-			"http://localhost:8081",
-{{/if}}
-		],
-		emailAndPassword: {
-			enabled: true,
-		},
-		secret: env.BETTER_AUTH_SECRET,
-		baseURL: env.BETTER_AUTH_URL,
-{{#if (ne backend "self")}}
-		advanced: {
-			defaultCookieAttributes: {
-				sameSite: "none",
-				secure: true,
-				httpOnly: true,
-			},
-		},
-{{/if}}
-		plugins: [
-{{#if (eq payments "polar")}}
-			polar({
-				client: {{#if (usesRequestScopedCloudflareEnv backend webDeploy frontend)}}createPolarClient(env){{else}}polarClient{{/if}},
-				createCustomerOnSignUp: true,
-				enableCustomerPortal: true,
-				use: [
-					checkout({
-						products: [
-							{
-								productId: "your-product-id",
-								slug: "pro",
-							},
-						],
-						successUrl: env.POLAR_SUCCESS_URL,
-						authenticatedUsersOnly: true,
-					}),
-					portal(),
-				],
-			}),
-{{/if}}
-		],
-	});
-}
-
-{{#if (and (ne runtime "workers") (ne serverDeploy "cloudflare") (or (ne backend "self") (ne webDeploy "cloudflare")))}}
-export const auth = createAuth();
-{{/if}}
-{{/if}}
-
-{{#if (eq runtime "workers")}}
-import { betterAuth } from "better-auth";
-import { drizzleAdapter } from "better-auth/adapters/drizzle";
-import { env } from "@{{projectName}}/env/server";
-{{#if (eq payments "polar")}}
-import { polar, checkout, portal } from "@polar-sh/better-auth";
-import { polarClient } from "./lib/payments";
-{{/if}}
-import { createDb } from "@{{projectName}}/db";
-import * as schema from "@{{projectName}}/db/schema/auth";
-
-
-export function createAuth() {
-	const db = createDb();
-
-	return betterAuth({
-		database: drizzleAdapter(db, {
-{{#if (eq database "postgres")}}provider: "pg",{{/if}}
-{{#if (eq database "sqlite")}}provider: "sqlite",{{/if}}
-{{#if (eq database "mysql")}}provider: "mysql",{{/if}}
-			schema: schema,
-		}),
-		trustedOrigins: [
-			{{#if (eq backend "self")}}env.BETTER_AUTH_URL{{else}}env.CORS_ORIGIN{{/if}},
-{{#if (or (includes frontend "native-bare") (includes frontend "native-uniwind") (includes frontend "native-unistyles"))}}
-			"{{projectName}}://",
-			"exp://",
-			"http://localhost:8081",
-{{/if}}
-		],
-		emailAndPassword: {
-			enabled: true,
-		},
-		// uncomment cookieCache setting when ready to deploy to Cloudflare using *.workers.dev domains
-		// session: {
-		//   cookieCache: {
-		//     enabled: true,
-		//     maxAge: 60,
-		//   },
-		// },
-		secret: env.BETTER_AUTH_SECRET,
-		baseURL: env.BETTER_AUTH_URL,
-		advanced: {
-			defaultCookieAttributes: {
-				sameSite: "none",
-				secure: true,
-				httpOnly: true,
-			},
-			// uncomment crossSubDomainCookies setting when ready to deploy and replace <your-workers-subdomain> with your actual workers subdomain
-			// https://developers.cloudflare.com/workers/wrangler/configuration/#workersdev
-			// crossSubDomainCookies: {
-			//   enabled: true,
-			//   domain: "<your-workers-subdomain>",
-			// },
-		},
-{{#if (eq payments "polar")}}
-		plugins: [
-			polar({
-				client: polarClient,
-				createCustomerOnSignUp: true,
-				enableCustomerPortal: true,
-				use: [
-					checkout({
-						products: [
-							{
-								productId: "your-product-id",
-								slug: "pro",
-							},
-						],
-						successUrl: env.POLAR_SUCCESS_URL,
-						authenticatedUsersOnly: true,
-					}),
-					portal(),
-				],
-			}),
-		],
-{{/if}}
-	});
-}
-{{/if}}
-{{/if}}
-
-{{#if (eq orm "mongoose")}}
-import { betterAuth } from "better-auth";
+{{else if (eq orm "mongoose")}}
 import { mongodbAdapter } from "better-auth/adapters/mongodb";
-{{#if (usesRequestScopedCloudflareEnv backend webDeploy frontend)}}
-import type { CloudflareEnv } from "@{{projectName}}/env/server";
-{{else}}
-import { env } from "@{{projectName}}/env/server";
+{{/if}}
+{{#if (ne database "none")}}
+import type { Database } from "@{{projectName}}/db";
 {{/if}}
 {{#if (eq payments "polar")}}
 import { polar, checkout, portal } from "@polar-sh/better-auth";
-{{#if (usesRequestScopedCloudflareEnv backend webDeploy frontend)}}
 import { createPolarClient } from "./lib/payments";
-{{else}}
-import { polarClient } from "./lib/payments";
 {{/if}}
-{{/if}}
-import { client } from "@{{projectName}}/db";
 
-export function createAuth({{#if (usesRequestScopedCloudflareEnv backend webDeploy frontend)}}env: CloudflareEnv{{/if}}) {
-	return betterAuth({
-		database: mongodbAdapter(client),
-		trustedOrigins: [
-			{{#if (eq backend "self")}}env.BETTER_AUTH_URL{{else}}env.CORS_ORIGIN{{/if}},
-{{#if (or (includes frontend "native-bare") (includes frontend "native-uniwind") (includes frontend "native-unistyles"))}}
-			"{{projectName}}://",
-			"exp://",
-			"http://localhost:8081",
-{{/if}}
-		],
-		emailAndPassword: {
-			enabled: true,
-		},
-		secret: env.BETTER_AUTH_SECRET,
-		baseURL: env.BETTER_AUTH_URL,
+export type AuthConfig = {
+  BETTER_AUTH_URL: string;
+  BETTER_AUTH_SECRET: string;
 {{#if (ne backend "self")}}
-		advanced: {
-			defaultCookieAttributes: {
-				sameSite: "none",
-				secure: true,
-				httpOnly: true,
-			},
-		},
+  CORS_ORIGIN: string;
 {{/if}}
 {{#if (eq payments "polar")}}
-		plugins: [
-			polar({
-				client: {{#if (usesRequestScopedCloudflareEnv backend webDeploy frontend)}}createPolarClient(env){{else}}polarClient{{/if}},
-				createCustomerOnSignUp: true,
-				enableCustomerPortal: true,
-				use: [
-					checkout({
-						products: [
-							{
-								productId: "your-product-id",
-								slug: "pro",
-							},
-						],
-						successUrl: env.POLAR_SUCCESS_URL,
-						authenticatedUsersOnly: true,
-					}),
-					portal(),
-				],
-			}),
-		],
+  POLAR_ACCESS_TOKEN: string;
+  POLAR_SUCCESS_URL: string;
 {{/if}}
-	});
+};
+
+export function createAuth(env: AuthConfig{{#if (ne database "none")}}, database: Database{{/if}}{{#if (ne backend "self")}}, desktopOrigins: readonly string[] = []{{/if}}) {
+  return betterAuth({
+{{#if (eq orm "prisma")}}
+    database: prismaAdapter(database, {
+      provider: "{{#if (eq database "postgres")}}postgresql{{else}}{{database}}{{/if}}",
+    }),
+{{else if (eq orm "drizzle")}}
+    database: drizzleAdapter(database, {
+      provider: "{{#if (eq database "postgres")}}pg{{else}}{{database}}{{/if}}",
+      schema,
+    }),
+{{else if (eq orm "mongoose")}}
+    database: mongodbAdapter(database),
+{{/if}}
+    trustedOrigins: [
+      {{#if (eq backend "self")}}env.BETTER_AUTH_URL{{else}}env.CORS_ORIGIN,
+      ...desktopOrigins{{/if}},
+{{#if (or (includes frontend "native-bare") (includes frontend "native-uniwind") (includes frontend "native-unistyles"))}}
+      "{{projectName}}://",
+      "exp://",
+      "http://localhost:8081",
+{{/if}}
+    ],
+    emailAndPassword: { enabled: true },
+    secret: env.BETTER_AUTH_SECRET,
+    baseURL: env.BETTER_AUTH_URL,
+{{#if (ne backend "self")}}
+    advanced: {
+      defaultCookieAttributes: {
+        sameSite: "none",
+        secure: true,
+        httpOnly: true,
+      },
+    },
+{{/if}}
+    plugins: [
+{{#if (eq payments "polar")}}
+      polar({
+        client: createPolarClient(env),
+        createCustomerOnSignUp: true,
+        use: [
+          checkout({
+            products: [{ productId: "your-product-id", slug: "pro" }],
+            successUrl: env.POLAR_SUCCESS_URL,
+            authenticatedUsersOnly: true,
+          }),
+          portal(),
+        ],
+      }),
+{{/if}}
+    ],
+  });
 }
 
-{{#if (and (ne runtime "workers") (ne serverDeploy "cloudflare") (or (ne backend "self") (ne webDeploy "cloudflare")))}}
-export const auth = createAuth();
-{{/if}}
-{{/if}}
-
-{{#if (eq orm "none")}}
-import { betterAuth } from "better-auth";
-{{#if (usesRequestScopedCloudflareEnv backend webDeploy frontend)}}
-import type { CloudflareEnv } from "@{{projectName}}/env/server";
-{{else}}
-import { env } from "@{{projectName}}/env/server";
-{{/if}}
-{{#if (eq payments "polar")}}
-import { polar, checkout, portal } from "@polar-sh/better-auth";
-{{#if (usesRequestScopedCloudflareEnv backend webDeploy frontend)}}
-import { createPolarClient } from "./lib/payments";
-{{else}}
-import { polarClient } from "./lib/payments";
-{{/if}}
-{{/if}}
-
-
-export function createAuth({{#if (usesRequestScopedCloudflareEnv backend webDeploy frontend)}}env: CloudflareEnv{{/if}}) {
-	return betterAuth({
-		database: "", // Invalid configuration
-		trustedOrigins: [
-			{{#if (eq backend "self")}}env.BETTER_AUTH_URL{{else}}env.CORS_ORIGIN{{/if}},
-{{#if (or (includes frontend "native-bare") (includes frontend "native-uniwind") (includes frontend "native-unistyles"))}}
-			"{{projectName}}://",
-			"exp://",
-			"http://localhost:8081",
-{{/if}}
-		],
-		emailAndPassword: {
-			enabled: true,
-		},
-		secret: env.BETTER_AUTH_SECRET,
-		baseURL: env.BETTER_AUTH_URL,
-{{#if (ne backend "self")}}
-		advanced: {
-			defaultCookieAttributes: {
-				sameSite: "none",
-				secure: true,
-				httpOnly: true,
-			},
-		},
-{{/if}}
-{{#if (eq payments "polar")}}
-		plugins: [
-			polar({
-				client: {{#if (usesRequestScopedCloudflareEnv backend webDeploy frontend)}}createPolarClient(env){{else}}polarClient{{/if}},
-				createCustomerOnSignUp: true,
-				enableCustomerPortal: true,
-				use: [
-					checkout({
-						products: [
-							{
-								productId: "your-product-id",
-								slug: "pro",
-							},
-						],
-						successUrl: env.POLAR_SUCCESS_URL,
-						authenticatedUsersOnly: true,
-					}),
-					portal(),
-				],
-			}),
-		],
-{{/if}}
-	});
-}
-
-{{#if (and (ne runtime "workers") (ne serverDeploy "cloudflare") (or (ne backend "self") (ne webDeploy "cloudflare")))}}
-export const auth = createAuth();
-{{/if}}
-{{/if}}
+export type Session = ReturnType<typeof createAuth>["$Infer"]["Session"];
 `],
   ["auth/better-auth/server/base/tsconfig.json.hbs", `{
   "extends": "@{{projectName}}/config/tsconfig.base.json",
+  {{#if (eq api "orpc")}}
   "compilerOptions": {
+    "composite": true,
     "declaration": true,
     "declarationMap": true,
-    "sourceMap": true,
-    "outDir": "dist",
-    "composite": true
+    "emitDeclarationOnly": true,
+    "outDir": "dist"
+  },
+  "include": ["src/**/*.ts"],
+  "references": [{{#if (ne database "none")}}{ "path": "../db" }{{/if}}]
+  {{else}}
+  "compilerOptions": {
+    "noEmit": true
   }
-}`],
-  ["auth/better-auth/server/db/drizzle/mysql/src/schema/auth.ts.hbs", `import { relations } from "drizzle-orm";
+  {{/if}}
+}
+`],
+  ["auth/better-auth/server/db/drizzle/mysql/src/schema/auth.ts.hbs", `import { defineRelationsPart } from "drizzle-orm";
 import {
   mysqlTable,
   varchar,
@@ -8572,26 +8475,35 @@ export const verification = mysqlTable(
   (table) => [index("verification_identifier_idx").on(table.identifier)],
 );
 
-export const userRelations = relations(user, ({ many }) => ({
-  sessions: many(session),
-  accounts: many(account),
-}));
-
-export const sessionRelations = relations(session, ({ one }) => ({
-  user: one(user, {
-    fields: [session.userId],
-    references: [user.id],
+export const authRelations = defineRelationsPart(
+  { user, session, account, verification },
+  (r) => ({
+    user: {
+      sessions: r.many.session({
+        from: r.user.id,
+        to: r.session.userId,
+      }),
+      accounts: r.many.account({
+        from: r.user.id,
+        to: r.account.userId,
+      }),
+    },
+    session: {
+      user: r.one.user({
+        from: r.session.userId,
+        to: r.user.id,
+      }),
+    },
+    account: {
+      user: r.one.user({
+        from: r.account.userId,
+        to: r.user.id,
+      }),
+    },
   }),
-}));
-
-export const accountRelations = relations(account, ({ one }) => ({
-  user: one(user, {
-    fields: [account.userId],
-    references: [user.id],
-  }),
-}));
+);
 `],
-  ["auth/better-auth/server/db/drizzle/postgres/src/schema/auth.ts.hbs", `import { relations } from "drizzle-orm";
+  ["auth/better-auth/server/db/drizzle/postgres/src/schema/auth.ts.hbs", `import { defineRelationsPart } from "drizzle-orm";
 import { pgTable, text, timestamp, boolean, index } from "drizzle-orm/pg-core";
 
 export const user = pgTable("user", {
@@ -8666,26 +8578,35 @@ export const verification = pgTable(
   (table) => [index("verification_identifier_idx").on(table.identifier)],
 );
 
-export const userRelations = relations(user, ({ many }) => ({
-  sessions: many(session),
-  accounts: many(account),
-}));
-
-export const sessionRelations = relations(session, ({ one }) => ({
-  user: one(user, {
-    fields: [session.userId],
-    references: [user.id],
+export const authRelations = defineRelationsPart(
+  { user, session, account, verification },
+  (r) => ({
+    user: {
+      sessions: r.many.session({
+        from: r.user.id,
+        to: r.session.userId,
+      }),
+      accounts: r.many.account({
+        from: r.user.id,
+        to: r.account.userId,
+      }),
+    },
+    session: {
+      user: r.one.user({
+        from: r.session.userId,
+        to: r.user.id,
+      }),
+    },
+    account: {
+      user: r.one.user({
+        from: r.account.userId,
+        to: r.user.id,
+      }),
+    },
   }),
-}));
-
-export const accountRelations = relations(account, ({ one }) => ({
-  user: one(user, {
-    fields: [account.userId],
-    references: [user.id],
-  }),
-}));
+);
 `],
-  ["auth/better-auth/server/db/drizzle/sqlite/src/schema/auth.ts.hbs", `import { relations, sql } from "drizzle-orm";
+  ["auth/better-auth/server/db/drizzle/sqlite/src/schema/auth.ts.hbs", `import { defineRelationsPart, sql } from "drizzle-orm";
 import { sqliteTable, text, integer, index } from "drizzle-orm/sqlite-core";
 
 export const user = sqliteTable("user", {
@@ -8774,24 +8695,33 @@ export const verification = sqliteTable(
   (table) => [index("verification_identifier_idx").on(table.identifier)],
 );
 
-export const userRelations = relations(user, ({ many }) => ({
-  sessions: many(session),
-  accounts: many(account),
-}));
-
-export const sessionRelations = relations(session, ({ one }) => ({
-  user: one(user, {
-    fields: [session.userId],
-    references: [user.id],
+export const authRelations = defineRelationsPart(
+  { user, session, account, verification },
+  (r) => ({
+    user: {
+      sessions: r.many.session({
+        from: r.user.id,
+        to: r.session.userId,
+      }),
+      accounts: r.many.account({
+        from: r.user.id,
+        to: r.account.userId,
+      }),
+    },
+    session: {
+      user: r.one.user({
+        from: r.session.userId,
+        to: r.user.id,
+      }),
+    },
+    account: {
+      user: r.one.user({
+        from: r.account.userId,
+        to: r.user.id,
+      }),
+    },
   }),
-}));
-
-export const accountRelations = relations(account, ({ one }) => ({
-  user: one(user, {
-    fields: [account.userId],
-    references: [user.id],
-  }),
-}));
+);
 `],
   ["auth/better-auth/server/db/mongoose/mongodb/src/models/auth.model.ts.hbs", `import mongoose from 'mongoose';
 
@@ -8844,6 +8774,7 @@ const accountSchema = new Schema(
     },
     { collection: 'account' }
 );
+accountSchema.index({ providerId: 1, accountId: 1 }, { unique: true });
 accountSchema.index({ userId: 1 });
 
 const verificationSchema = new Schema(
@@ -9323,18 +9254,22 @@ import { authClient } from "../lib/auth-client";
 import { polarClient } from "@polar-sh/better-auth/client";
 {{/if}}
 {{#if (ne backend "self")}}
-import { PUBLIC_SERVER_URL } from "astro:env/client";
+import { ENV } from "../env{{#if (eq webDeploy "cloudflare")}}.public{{/if}}";
 {{/if}}
 
 {{#if (ne backend "self")}}
+{{#if (and (eq webDeploy serverDeploy) (or (eq webDeploy "vercel") (eq webDeploy "docker")))}}
 {{> getServerUrlSpaces}}
+{{/if}}
 
 {{/if}}
 export const authClient = createAuthClient({
 {{#if (ne backend "self")}}
-  // better-auth derives its route-matching base from this URL's path, so the
-	// public auth path must equal the server-side mount (/api/auth everywhere)
-	  baseURL: new URL("/api/auth", getServerUrl(PUBLIC_SERVER_URL)).toString(),
+{{#if (and (eq webDeploy serverDeploy) (or (eq webDeploy "vercel") (eq webDeploy "docker")))}}
+  baseURL: {{#if (eq webDeploy "vercel")}}\`\${getServerUrl(ENV.PUBLIC_SERVER_URL)}/auth\`{{else}}new URL("/api/auth", getServerUrl(ENV.PUBLIC_SERVER_URL)).toString(){{/if}},
+{{else}}
+  baseURL: ENV.PUBLIC_SERVER_URL,
+{{/if}}
 {{/if}}
 {{#if (eq payments "polar")}}
   plugins: [polarClient()],
@@ -9433,7 +9368,7 @@ import Layout from "../layouts/Layout.astro";
       try {
         const { data: customerState } = await authClient.customer.state();
         const subscriptionInfo = document.getElementById("subscription-info")!;
-        if (customerState?.activeSubscriptions?.length > 0) {
+        if ((customerState?.activeSubscriptions?.length ?? 0) > 0) {
           subscriptionInfo.innerHTML = \`
             <p class="text-white">Plan: <span class="text-green-400">Pro</span></p>
             <button
@@ -9513,6 +9448,7 @@ const loading = ref(false)
 const fields: AuthFormField[] = [
   {
     name: 'email',
+    id: 'sign-in-email',
     type: 'email',
     label: 'Email',
     placeholder: 'Enter your email',
@@ -9520,6 +9456,7 @@ const fields: AuthFormField[] = [
   },
   {
     name: 'password',
+    id: 'sign-in-password',
     type: 'password',
     label: 'Password',
     placeholder: 'Enter your password',
@@ -9552,8 +9489,8 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
         },
       },
     )
-  } catch (error: any) {
-    toast.add({ title: 'An unexpected error occurred', description: error.message || 'Please try again.' })
+  } catch (error) {
+    toast.add({ title: 'An unexpected error occurred', description: error instanceof Error ? error.message : 'Please try again.' })
   } finally {
     loading.value = false
   }
@@ -9596,6 +9533,7 @@ const loading = ref(false)
 const fields: AuthFormField[] = [
   {
     name: 'name',
+    id: 'sign-up-name',
     type: 'text',
     label: 'Name',
     placeholder: 'Enter your name',
@@ -9603,6 +9541,7 @@ const fields: AuthFormField[] = [
   },
   {
     name: 'email',
+    id: 'sign-up-email',
     type: 'email',
     label: 'Email',
     placeholder: 'Enter your email',
@@ -9610,6 +9549,7 @@ const fields: AuthFormField[] = [
   },
   {
     name: 'password',
+    id: 'sign-up-password',
     type: 'password',
     label: 'Password',
     placeholder: 'Enter your password',
@@ -9644,8 +9584,8 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
         },
       },
     )
-  } catch (error: any) {
-    toast.add({ title: 'An unexpected error occurred', description: error.message || 'Please try again.' })
+  } catch (error) {
+    toast.add({ title: 'An unexpected error occurred', description: error instanceof Error ? error.message : 'Please try again.' })
   } finally {
     loading.value = false
   }
@@ -9693,8 +9633,8 @@ const handleSignOut = async () => {
         }
       },
     })
-  } catch (error: any) {
-     toast.add({ title: 'An unexpected error occurred during sign out', description: error.message || 'Please try again.'})
+  } catch (error) {
+     toast.add({ title: 'An unexpected error occurred during sign out', description: error instanceof Error ? error.message : 'Please try again.'})
   }
 }
 </script>
@@ -9717,22 +9657,23 @@ const handleSignOut = async () => {
   </div>
 </template>
 `],
-  ["auth/better-auth/web/nuxt/app/middleware/auth.ts.hbs", `export default defineNuxtRouteMiddleware(async (to, from) => {
-  if (import.meta.server) return;
-
+  ["auth/better-auth/web/nuxt/app/composables/useAuthFetch.ts.hbs", `export const useAuthFetch = createUseFetch({ credentials: "include" });
+`],
+  ["auth/better-auth/web/nuxt/app/composables/useAuthSession.ts.hbs", `export function useAuthSession() {
   const { $authClient } = useNuxtApp();
-  const session = $authClient.useSession();
-
-  if (session.value.isPending) {
-    return;
-  }
-
-  if (!session.value.data) {
-    return navigateTo("/login");
-  }
+  return $authClient.useSession(useAuthFetch);
+}
+`],
+  ["auth/better-auth/web/nuxt/app/middleware/auth.ts.hbs", `export default defineNuxtRouteMiddleware(async () => {
+  const { data: session } = await useAuthSession();
+  if (!session.value) return navigateTo("/login");
 });
 `],
   ["auth/better-auth/web/nuxt/app/pages/dashboard.vue.hbs", `<script setup lang="ts">
+{{#if (eq payments "polar")}}
+import type { CustomerState } from "@polar-sh/sdk/models/components/customerstate";
+{{/if}}
+
 {{#if (eq api "orpc")}}
 import { useQuery } from '@tanstack/vue-query'
 {{/if}}
@@ -9743,24 +9684,28 @@ definePageMeta({
   middleware: ['auth']
 })
 
-const session = $authClient.useSession()
+const { data: session } = await useAuthSession()
 
 {{#if (eq payments "polar")}}
-const customerState = ref<any>(null)
+const customerState = ref<CustomerState | null>(null)
 {{/if}}
 
 {{#if (eq api "orpc")}}
 const privateData = useQuery({
   ...$orpc.privateData.queryOptions(),
-  enabled: computed(() => !!session.value?.data?.user)
+  enabled: computed(() => !!session.value?.user)
+})
+
+onServerPrefetch(async () => {
+  if (session.value?.user) await privateData.suspense()
 })
 {{/if}}
 
 {{#if (eq payments "polar")}}
 onMounted(async () => {
-  if (session.value?.data) {
+  if (session.value) {
     const { data } = await $authClient.customer.state()
-    customerState.value = data
+    customerState.value = data ?? null
   }
 })
 
@@ -9774,7 +9719,7 @@ const hasProSubscription = computed(() =>
   <UContainer class="py-8">
     <UPageHeader
       title="Dashboard"
-      :description="session?.data?.user ? \`Welcome back, \${session.data.user.name}!\` : 'Loading...'"
+      :description="session?.user ? \`Welcome back, \${session.user.name}!\` : 'Loading...'"
     />
 
     <div class="mt-6 space-y-4">
@@ -9833,15 +9778,16 @@ const hasProSubscription = computed(() =>
 </template>
 `],
   ["auth/better-auth/web/nuxt/app/pages/login.vue.hbs", `<script setup lang="ts">
-const { $authClient } = useNuxtApp();
 import SignInForm from "~/components/SignInForm.vue";
 import SignUpForm from "~/components/SignUpForm.vue";
 
-const session = $authClient.useSession();
+const { data: session } = await useAuthSession();
 const showSignIn = ref(true);
+const hydrated = ref(false);
+onMounted(() => { hydrated.value = true; });
 
 watchEffect(() => {
-  if (!session?.value.isPending && session?.value.data) {
+  if (session.value) {
     navigateTo("/dashboard", { replace: true });
   }
 });
@@ -9849,14 +9795,10 @@ watchEffect(() => {
 
 <template>
   <UContainer class="py-8">
-    <div v-if="session.isPending" class="flex flex-col items-center justify-center gap-4 py-12">
-      <UIcon name="i-lucide-loader-2" class="animate-spin text-4xl text-primary" />
-      <span class="text-muted">Loading...</span>
-    </div>
-    <div v-else-if="!session.data">
+    <fieldset v-if="!session" :disabled="!hydrated">
       <SignInForm v-if="showSignIn" @switch-to-sign-up="showSignIn = false" />
       <SignUpForm v-else @switch-to-sign-in="showSignIn = true" />
-    </div>
+    </fieldset>
   </UContainer>
 </template>
 `],
@@ -9865,20 +9807,27 @@ watchEffect(() => {
 import { polarClient } from "@polar-sh/better-auth/client";
 {{/if}}
 
+{{> getServerUrlSpaces}}
+
 export default defineNuxtPlugin(() => {
   {{#if (ne backend "self")}}
   const config = useRuntimeConfig();
   const rawServerUrl = (import.meta.server && config.serverUrl) || config.public.serverUrl;
   // Same-origin paths like /api need an absolute base, and better-auth derives
   // its route matching from this URL's path, so it must be exactly /api/auth
-  const serverOrigin = rawServerUrl.startsWith("/")
+  const serverOrigin = {{#if (and (eq webDeploy serverDeploy) (or (eq webDeploy "vercel") (eq webDeploy "docker")))}}getServerUrl(rawServerUrl);{{else}}rawServerUrl.startsWith("/")
     ? (import.meta.server ? useRequestURL() : window.location).origin + rawServerUrl
-    : rawServerUrl;
+    : rawServerUrl;{{/if}}
   {{/if}}
 
   const authClient = createAuthClient({
+    fetchOptions: {
+      headers: import.meta.server ? useRequestHeaders(["cookie"]) : undefined,
+    },
     {{#if (ne backend "self")}}
-    baseURL: new URL("/api/auth", serverOrigin).toString(),
+    baseURL: {{#if (and (eq webDeploy "vercel") (eq serverDeploy "vercel"))}}\`\${serverOrigin}/auth\`{{else}}new URL("/api/auth", serverOrigin).toString(){{/if}},
+    {{else}}
+    baseURL: useRequestURL().origin,
     {{/if}}
     {{#if (eq payments "polar")}}
     plugins: [polarClient()],
@@ -9897,16 +9846,20 @@ export default defineNuxtPlugin(() => {
 import { polarClient } from "@polar-sh/better-auth/client";
 {{/if}}
 {{#unless (eq backend "self")}}
-import { env } from "@{{projectName}}/env/web";
+{{#unless (includes frontend "next")}}
+import { ENV } from "../env{{#if (eq webDeploy "cloudflare")}}.public{{/if}}";
+{{/unless}}
 
 {{> getServerUrl}}
 {{/unless}}
 
 export const authClient = createAuthClient({
 {{#unless (eq backend "self")}}
-	// better-auth derives its route-matching base from this URL's path, so the
-	// public auth path must equal the server-side mount (/api/auth everywhere)
-		baseURL: new URL("/api/auth", getServerUrl(env.{{#if (includes frontend "next")}}NEXT_PUBLIC_SERVER_URL{{else}}VITE_SERVER_URL{{/if}})).toString(),
+{{#if (and (eq webDeploy serverDeploy) (or (eq webDeploy "vercel") (eq webDeploy "docker")))}}
+  baseURL: {{#if (eq webDeploy "vercel")}}\`\${getServerUrl({{#if (includes frontend "next")}}process.env.NEXT_PUBLIC_SERVER_URL!{{else}}ENV.VITE_SERVER_URL{{/if}})}/auth\`{{else}}new URL("/api/auth", getServerUrl({{#if (includes frontend "next")}}process.env.NEXT_PUBLIC_SERVER_URL!{{else}}ENV.VITE_SERVER_URL{{/if}})).toString(){{/if}},
+{{else}}
+  baseURL: {{#if (includes frontend "next")}}process.env.NEXT_PUBLIC_SERVER_URL!{{else}}ENV.VITE_SERVER_URL{{/if}},
+{{/if}}
 {{/unless}}
 {{#if (eq payments "polar")}}
 	plugins: [polarClient()]
@@ -9914,6 +9867,10 @@ export const authClient = createAuthClient({
 });
 `],
   ["auth/better-auth/web/react/next/src/app/dashboard/dashboard.tsx.hbs", `"use client";
+{{#if (eq payments "polar")}}
+import type { CustomerState } from "@polar-sh/sdk/models/components/customerstate";
+{{/if}}
+
 {{#if (eq payments "polar")}}
 import { Button } from "@{{projectName}}/ui/components/button";
 {{/if}}
@@ -9934,7 +9891,7 @@ export default function Dashboard({
 	session
 }: {
 	{{#if (eq payments "polar")}}
-	customerState: ReturnType<typeof authClient.customer.state>;
+	customerState: CustomerState | null | undefined;
 	{{/if}}
 	session: typeof authClient.$Infer.Session;
 }) {
@@ -9973,7 +9930,49 @@ export default function Dashboard({
 	);
 }
 `],
-  ["auth/better-auth/web/react/next/src/app/dashboard/page.tsx.hbs", `import { redirect } from "next/navigation";
+  ["auth/better-auth/web/react/next/src/app/dashboard/page.tsx.hbs", `{{#if (or (includes addons "tauri") (and (includes addons "electrobun") (or (ne backend "convex") (ne auth "better-auth"))))}}
+"use client";
+
+import { useRouter } from "next/navigation";
+import { useEffect } from "react";
+import { authClient } from "@/lib/auth-client";
+import Dashboard from "./dashboard";
+{{#if (eq payments "polar")}}
+import { useQuery } from "@tanstack/react-query";
+{{/if}}
+
+// Desktop builds are statically exported, so the session is resolved in the browser.
+export default function DashboardPage() {
+	const router = useRouter();
+	const { data: session, isPending } = authClient.useSession();
+{{#if (eq payments "polar")}}
+	const { data: customerState } = useQuery({
+		queryKey: ["polar", "customer-state"],
+		queryFn: async () => (await authClient.customer.state()).data,
+		enabled: Boolean(session?.user),
+	});
+{{/if}}
+
+	useEffect(() => {
+		if (!isPending && !session?.user) {
+			router.replace("/login");
+		}
+	}, [isPending, router, session]);
+
+	if (isPending || !session?.user) {
+		return null;
+	}
+
+	return (
+		<div>
+			<h1>Dashboard</h1>
+			<p>Welcome {session.user.name}</p>
+			<Dashboard session={session} {{#if (eq payments "polar")}}customerState={customerState}{{/if}} />
+		</div>
+	);
+}
+{{else}}
+import { redirect } from "next/navigation";
 import Dashboard from "./dashboard";
 import { headers } from "next/headers";
 {{#if (eq backend "self")}}
@@ -9989,7 +9988,7 @@ import { authClient } from "@/lib/auth-client";
 
 export default async function DashboardPage() {
 	{{#if (eq backend "self")}}
-	const session = await {{#if (or (eq runtime "workers") (eq serverDeploy "cloudflare") (and (eq backend "self") (eq webDeploy "cloudflare")))}}createAuth(){{else}}auth{{/if}}.api.getSession({
+	const session = await {{#if (or (eq runtime "workers") (eq serverDeploy "cloudflare") (and (eq backend "self") (eq webDeploy "cloudflare")))}}(await createAuth()){{else}}auth{{/if}}.api.getSession({
 		headers: await headers(),
 	});
 	{{else}}
@@ -10021,6 +10020,7 @@ export default async function DashboardPage() {
 		</div>
 	);
 }
+{{/if}}
 `],
   ["auth/better-auth/web/react/next/src/app/login/page.tsx.hbs", `"use client"
 
@@ -10415,7 +10415,7 @@ export default function SignInForm({
   onSwitchToSignUp: () => void;
 }) {
   const navigate = useNavigate();
-  const { isPending } = authClient.useSession();
+  const { isPending, refetch } = authClient.useSession();
 
   const form = useForm({
     defaultValues: {
@@ -10429,7 +10429,8 @@ export default function SignInForm({
           password: value.password,
         },
         {
-          onSuccess: () => {
+          onSuccess: async () => {
+            await refetch();
             navigate("/dashboard");
             toast.success("Sign in successful");
           },
@@ -10551,7 +10552,7 @@ export default function SignUpForm({
   onSwitchToSignIn: () => void;
 }) {
   const navigate = useNavigate();
-  const { isPending } = authClient.useSession();
+  const { isPending, refetch } = authClient.useSession();
 
   const form = useForm({
     defaultValues: {
@@ -10567,7 +10568,8 @@ export default function SignUpForm({
           name: value.name,
         },
         {
-          onSuccess: () => {
+          onSuccess: async () => {
+            await refetch();
             navigate("/dashboard");
             toast.success("Sign up successful");
           },
@@ -10771,45 +10773,44 @@ import { trpc } from "@/utils/trpc";
 {{#if (or (eq api "orpc") (eq api "trpc"))}}
 import { useQuery } from "@tanstack/react-query";
 {{/if}}
-import { useEffect, useState } from "react";
-import { useNavigate } from "react-router";
+import type { BetterFetchOption } from "better-auth/client";
+import { redirect } from "react-router";
+import type { Route } from "./+types/dashboard";
 
-export default function Dashboard() {
-  const { data: session, isPending } = authClient.useSession();
-  const navigate = useNavigate();
-  {{#if (eq payments "polar")}}
-  const [customerState, setCustomerState] = useState<any>(null);
-  {{/if}}
+{{#if (and (eq webDeploy serverDeploy) (or (eq webDeploy "vercel") (eq webDeploy "docker")))}}
+export async function loader({ request }: Route.LoaderArgs) {
+{{else}}
+export async function clientLoader({ request }: Route.ClientLoaderArgs) {
+{{/if}}
+  const fetchOptions = {
+    signal: request.signal,
+{{#if (and (eq webDeploy serverDeploy) (or (eq webDeploy "vercel") (eq webDeploy "docker")))}}
+    headers: { cookie: request.headers.get("cookie") ?? "" },
+{{/if}}
+    throw: true,
+  } satisfies BetterFetchOption;
+  const session = await authClient.getSession({ fetchOptions });
+  if (!session) throw redirect("/login");
+{{#if (eq payments "polar")}}
+  const customerState = await authClient.customer.state({ fetchOptions });
+{{/if}}
+  return { user: session.user{{#if (eq payments "polar")}}, customerState{{/if}} };
+}
 
-  {{#if (eq api "orpc")}}
+{{#unless (and (eq webDeploy serverDeploy) (or (eq webDeploy "vercel") (eq webDeploy "docker")))}}
+export function HydrateFallback() {
+  return <div>Loading...</div>;
+}
+
+{{/unless}}
+export default function Dashboard({ loaderData }: Route.ComponentProps) {
+  const { user{{#if (eq payments "polar")}}, customerState{{/if}} } = loaderData;
+{{#if (eq api "orpc")}}
   const privateData = useQuery(orpc.privateData.queryOptions());
-  {{/if}}
-  {{#if (eq api "trpc")}}
+{{/if}}
+{{#if (eq api "trpc")}}
   const privateData = useQuery(trpc.privateData.queryOptions());
-  {{/if}}
-
-  useEffect(() => {
-    if (!session && !isPending) {
-      navigate("/login");
-    }
-  }, [session, isPending, navigate]);
-
-  {{#if (eq payments "polar")}}
-  useEffect(() => {
-    async function fetchCustomerState() {
-      if (session) {
-        const { data } = await authClient.customer.state();
-        setCustomerState(data);
-      }
-    }
-
-    fetchCustomerState();
-  }, [session]);
-  {{/if}}
-
-  if (isPending) {
-    return <div>Loading...</div>;
-  }
+{{/if}}
 
   {{#if (eq payments "polar")}}
   const hasProSubscription = (customerState?.activeSubscriptions?.length ?? 0) > 0;
@@ -10818,7 +10819,7 @@ export default function Dashboard() {
   return (
     <div>
       <h1>Dashboard</h1>
-      <p>Welcome {session?.user.name}</p>
+      <p>Welcome {user.name}</p>
       {{#if (or (eq api "orpc") (eq api "trpc"))}}
       <p>API: {privateData.data?.message}</p>
       {{/if}}
@@ -11690,7 +11691,7 @@ import { createMiddleware } from "@tanstack/react-start";
 
 
 export const authMiddleware = createMiddleware().server(async ({ next, request }) => {
-    const session = await {{#if (or (eq runtime "workers") (eq serverDeploy "cloudflare") (and (eq backend "self") (eq webDeploy "cloudflare")))}}createAuth(){{else}}auth{{/if}}.api.getSession({
+    const session = await {{#if (or (eq runtime "workers") (eq serverDeploy "cloudflare") (and (eq backend "self") (eq webDeploy "cloudflare")))}}(await createAuth()){{else}}auth{{/if}}.api.getSession({
         headers: request.headers,
     })
     return next({
@@ -11865,7 +11866,7 @@ function RouteComponent() {
 }
 `],
   ["auth/better-auth/web/solid/src/components/sign-in-form.tsx.hbs", `import { useNavigate } from "@solidjs/router";
-import { createSignal, Show } from "solid-js";
+import { createSignal, onSettled, Show } from "solid-js";
 import { authClient } from "~/lib/auth-client";
 import z from "zod";
 
@@ -11878,6 +11879,10 @@ export default function SignInForm({ onSwitchToSignUp }: { onSwitchToSignUp: () 
   const navigate = useNavigate();
   const [error, setError] = createSignal<string>();
   const [isSubmitting, setIsSubmitting] = createSignal(false);
+  const [hydrated, setHydrated] = createSignal(false);
+  onSettled(() => {
+    setHydrated(true);
+  });
 
   const submit = async (event: SubmitEvent & { currentTarget: HTMLFormElement }) => {
     event.preventDefault();
@@ -11891,7 +11896,15 @@ export default function SignInForm({ onSwitchToSignUp }: { onSwitchToSignUp: () 
     setError();
     try {
       await authClient.signIn.email(result.data, {
-        onSuccess: () => navigate("/dashboard"),
+        onSuccess: async () => {
+          await authClient.useSession.get().refetch();
+          const session = authClient.useSession.get();
+          if (!session.data) {
+            setError(session.error?.message || "Unable to load your session. Please sign in again.");
+            return;
+          }
+          navigate("/dashboard");
+        },
         onError: ({ error }) => {
           setError(error.message);
         },
@@ -11904,7 +11917,7 @@ export default function SignInForm({ onSwitchToSignUp }: { onSwitchToSignUp: () 
   return (
     <div class="mx-auto mt-10 w-full max-w-md p-6">
       <h1 class="mb-6 text-center text-3xl font-bold">Welcome Back</h1>
-      <form onSubmit={submit} class="space-y-4">
+      <form method="post" onSubmit={submit} class="space-y-4">
         <div class="space-y-2">
           <label for="email">Email</label>
           <input id="email" name="email" type="email" required class="w-full rounded border p-2" />
@@ -11924,7 +11937,7 @@ export default function SignInForm({ onSwitchToSignUp }: { onSwitchToSignUp: () 
         <button
           type="submit"
           class="w-full rounded bg-indigo-600 p-2 text-white hover:bg-indigo-700 disabled:opacity-50"
-          disabled={isSubmitting()}
+          disabled={!hydrated() || isSubmitting()}
         >
           {isSubmitting() ? "Submitting..." : "Sign In"}
         </button>
@@ -11943,7 +11956,7 @@ export default function SignInForm({ onSwitchToSignUp }: { onSwitchToSignUp: () 
 }
 `],
   ["auth/better-auth/web/solid/src/components/sign-up-form.tsx.hbs", `import { useNavigate } from "@solidjs/router";
-import { createSignal, Show } from "solid-js";
+import { createSignal, onSettled, Show } from "solid-js";
 import { authClient } from "~/lib/auth-client";
 import z from "zod";
 
@@ -11957,6 +11970,10 @@ export default function SignUpForm({ onSwitchToSignIn }: { onSwitchToSignIn: () 
   const navigate = useNavigate();
   const [error, setError] = createSignal<string>();
   const [isSubmitting, setIsSubmitting] = createSignal(false);
+  const [hydrated, setHydrated] = createSignal(false);
+  onSettled(() => {
+    setHydrated(true);
+  });
 
   const submit = async (event: SubmitEvent & { currentTarget: HTMLFormElement }) => {
     event.preventDefault();
@@ -11970,7 +11987,15 @@ export default function SignUpForm({ onSwitchToSignIn }: { onSwitchToSignIn: () 
     setError();
     try {
       await authClient.signUp.email(result.data, {
-        onSuccess: () => navigate("/dashboard"),
+        onSuccess: async () => {
+          await authClient.useSession.get().refetch();
+          const session = authClient.useSession.get();
+          if (!session.data) {
+            setError(session.error?.message || "Unable to load your session. Please sign in again.");
+            return;
+          }
+          navigate("/dashboard");
+        },
         onError: ({ error }) => {
           setError(error.message);
         },
@@ -11983,7 +12008,7 @@ export default function SignUpForm({ onSwitchToSignIn }: { onSwitchToSignIn: () 
   return (
     <div class="mx-auto mt-10 w-full max-w-md p-6">
       <h1 class="mb-6 text-center text-3xl font-bold">Create Account</h1>
-      <form onSubmit={submit} class="space-y-4">
+      <form method="post" onSubmit={submit} class="space-y-4">
         <div class="space-y-2">
           <label for="name">Name</label>
           <input id="name" name="name" minlength="2" required class="w-full rounded border p-2" />
@@ -12007,7 +12032,7 @@ export default function SignUpForm({ onSwitchToSignIn }: { onSwitchToSignIn: () 
         <button
           type="submit"
           class="w-full rounded bg-indigo-600 p-2 text-white hover:bg-indigo-700 disabled:opacity-50"
-          disabled={isSubmitting()}
+          disabled={!hydrated() || isSubmitting()}
         >
           {isSubmitting() ? "Submitting..." : "Sign Up"}
         </button>
@@ -12087,7 +12112,12 @@ import { createSignal, onSettled } from "solid-js";
 export { authClient };
 
 export function useSession() {
-	const [session, setSession] = createSignal(authClient.useSession.get());
+	// Start from the pending state the server rendered so hydration matches, then follow the store
+	const [session, setSession] = createSignal<ReturnType<typeof authClient.useSession.get>>({
+		...authClient.useSession.get(),
+		data: null,
+		isPending: true,
+	});
 	onSettled(() => authClient.useSession.subscribe(setSession));
 	return session;
 }
@@ -12125,13 +12155,6 @@ export default function Dashboard() {
 		},
 	);
 
-	{{#if (eq api "orpc")}}
-	const privateData = useQuery(() => ({
-		...orpc.privateData.queryOptions(),
-		enabled: Boolean(session().data),
-	}));
-	{{/if}}
-
 	{{#if (eq payments "polar")}}
 	const hasProSubscription = () =>
 		(customerState()?.activeSubscriptions?.length ?? 0) > 0;
@@ -12143,7 +12166,7 @@ export default function Dashboard() {
 			<h1>Dashboard</h1>
 			<p>Welcome {session().data?.user.name}</p>
 			{{#if (eq api "orpc")}}
-			<p>API: {privateData.data?.message}</p>
+			<PrivateData />
 			{{/if}}
 			{{#if (eq payments "polar")}}
 			<p>Plan: {hasProSubscription() ? "Pro" : "Free"}</p>
@@ -12163,6 +12186,13 @@ export default function Dashboard() {
 		</Show>
 	);
 }
+
+{{#if (eq api "orpc")}}
+function PrivateData() {
+  const privateData = useQuery(() => orpc.privateData.queryOptions());
+  return <p>API: {privateData.data?.message}</p>;
+}
+{{/if}}
 `],
   ["auth/better-auth/web/solid/src/routes/login.tsx.hbs", `import { createSignal, Match, Switch } from "solid-js";
 import SignInForm from "~/components/sign-in-form";
@@ -12185,9 +12215,16 @@ export default function Login() {
 `],
   ["auth/better-auth/web/svelte/src/components/SignInForm.svelte.hbs", `<script lang="ts">
 	import { createForm } from '@tanstack/svelte-form';
+	import { onMount } from 'svelte';
 	import { z } from 'zod';
-	import { authClient } from '$lib/auth-client';
+	import { authClient } from '#lib/auth-client.ts';
 	import { goto } from '$app/navigation';
+
+	const session = authClient.useSession();
+	let mounted = $state(false);
+	onMount(() => {
+		mounted = true;
+	});
 
 	let { switchToSignUp } = $props<{ switchToSignUp: () => void }>();
 
@@ -12202,7 +12239,10 @@ export default function Login() {
 				await authClient.signIn.email(
 					{ email: value.email, password: value.password },
 					{
-						onSuccess: () => goto('/dashboard'),
+						onSuccess: async () => {
+							await $session.refetch();
+							await goto('/dashboard');
+						},
 						onError: (error) => {
 							console.log(error.error.message || 'Sign in failed. Please try again.');
 						},
@@ -12222,6 +12262,7 @@ export default function Login() {
 	<h1 class="mb-6 text-center font-bold text-3xl">Welcome Back</h1>
 
 	<form
+		method="post"
 		class="space-y-4"
 		onsubmit={(e) => {
 			e.preventDefault();
@@ -12229,67 +12270,63 @@ export default function Login() {
 			form.handleSubmit();
 		}}
 	>
-		<form.Field name="email">
-			{#snippet children(field)}
-				<div class="space-y-1">
-					<label for={field.name}>Email</label>
-					<input
-						id={field.name}
-						name={field.name}
-						type="email"
-						class="w-full border"
-						onblur={field.handleBlur}
-						value={field.state.value}
-						oninput={(e: Event) => {
-							const target = e.target as HTMLInputElement;
-							field.handleChange(target.value);
-						}}
-					/>
-					{#if field.state.meta.isTouched}
-						{#each field.state.meta.errors as error}
-							<p class="text-sm text-red-500" role="alert">{error}</p>
-						{/each}
-					{/if}
-				</div>
-			{/snippet}
-		</form.Field>
+		<fieldset class="space-y-4" disabled={!mounted}>
+			<form.Field name="email">
+				{#snippet children(field)}
+					<div class="space-y-1">
+						<label for={field.name}>Email</label>
+						<input
+							id={field.name}
+							name={field.name}
+							type="email"
+							class="w-full border"
+							onblur={field.handleBlur}
+							value={field.state.value}
+							oninput={(e) => field.handleChange(e.currentTarget.value)}
+						/>
+						{#if field.state.meta.isTouched}
+							{#each field.state.meta.errors as error}
+								<p class="text-sm text-red-500" role="alert">{error?.message}</p>
+							{/each}
+						{/if}
+					</div>
+				{/snippet}
+			</form.Field>
 
-		<form.Field name="password">
-			{#snippet children(field)}
-				<div class="space-y-1">
-					<label for={field.name}>Password</label>
-					<input
-						id={field.name}
-						name={field.name}
-						type="password"
-						class="w-full border"
-						onblur={field.handleBlur}
-						value={field.state.value}
-						oninput={(e: Event) => {
-							const target = e.target as HTMLInputElement;
-							field.handleChange(target.value);
-						}}
-					/>
-					{#if field.state.meta.isTouched}
-						{#each field.state.meta.errors as error}
-							<p class="text-sm text-red-500" role="alert">{error}</p>
-						{/each}
-					{/if}
-				</div>
-			{/snippet}
-		</form.Field>
+			<form.Field name="password">
+				{#snippet children(field)}
+					<div class="space-y-1">
+						<label for={field.name}>Password</label>
+						<input
+							id={field.name}
+							name={field.name}
+							type="password"
+							class="w-full border"
+							onblur={field.handleBlur}
+							value={field.state.value}
+							oninput={(e) => field.handleChange(e.currentTarget.value)}
+						/>
+						{#if field.state.meta.isTouched}
+							{#each field.state.meta.errors as error}
+								<p class="text-sm text-red-500" role="alert">{error?.message}</p>
+							{/each}
+						{/if}
+					</div>
+				{/snippet}
+			</form.Field>
 
-		<form.Subscribe selector={(state: typeof form.state): SubmitState => ({ canSubmit: state.canSubmit, isSubmitting: state.isSubmitting })}>
-			{#snippet children(state: SubmitState)}
-				<button type="submit" class="w-full" disabled={!state.canSubmit || state.isSubmitting}>
-					{state.isSubmitting ? 'Submitting...' : 'Sign In'}
-				</button>
-			{/snippet}
-		</form.Subscribe>
+			<form.Subscribe selector={(state: typeof form.state): SubmitState => ({ canSubmit: state.canSubmit, isSubmitting: state.isSubmitting })}>
+				{#snippet children(state: SubmitState)}
+					<button type="submit" class="w-full" disabled={!state.canSubmit || state.isSubmitting}>
+						{state.isSubmitting ? 'Submitting...' : 'Sign In'}
+					</button>
+				{/snippet}
+			</form.Subscribe>
+		</fieldset>
 	</form>
 
 	<div class="mt-4 text-center">
-		<button type="button" class="text-indigo-600 hover:text-indigo-800" onclick={switchToSignUp}>
+		<button type="button" class="text-indigo-600 hover:text-indigo-800" disabled={!mounted} onclick={switchToSignUp}>
 			Need an account? Sign Up
 		</button>
 	</div>
@@ -12297,9 +12334,16 @@ export default function Login() {
 `],
   ["auth/better-auth/web/svelte/src/components/SignUpForm.svelte.hbs", `<script lang="ts">
 	import { createForm } from '@tanstack/svelte-form';
+	import { onMount } from 'svelte';
 	import { z } from 'zod';
-	import { authClient } from '$lib/auth-client';
+	import { authClient } from '#lib/auth-client.ts';
 	import { goto } from '$app/navigation';
+
+	const session = authClient.useSession();
+	let mounted = $state(false);
+	onMount(() => {
+		mounted = true;
+	});
 
 	let { switchToSignIn } = $props<{ switchToSignIn: () => void }>();
 
@@ -12320,8 +12364,9 @@ export default function Login() {
 						name: value.name,
 					},
 					{
-						onSuccess: () => {
-							goto('/dashboard');
+						onSuccess: async () => {
+							await $session.refetch();
+							await goto('/dashboard');
 						},
 						onError: (error) => {
 							console.log(error.error.message || 'Sign up failed. Please try again.');
@@ -12342,6 +12387,7 @@ export default function Login() {
 	<h1 class="mb-6 text-center font-bold text-3xl">Create Account</h1>
 
 	<form
+		method="post"
 		id="form"
 		class="space-y-4"
 		onsubmit={(e) => {
@@ -12350,98 +12396,91 @@ export default function Login() {
 			form.handleSubmit();
 		}}
 	>
-		<form.Field name="name">
-			{#snippet children(field)}
-				<div class="space-y-1">
-					<label for={field.name}>Name</label>
-					<input
-						id={field.name}
-						name={field.name}
-						class="w-full border"
-						onblur={field.handleBlur}
-						value={field.state.value}
-						oninput={(e: Event) => {
-							const target = e.target as HTMLInputElement;
-							field.handleChange(target.value);
-						}}
-					/>
-					{#if field.state.meta.isTouched}
-						{#each field.state.meta.errors as error}
-							<p class="text-sm text-red-500" role="alert">{error}</p>
-						{/each}
-					{/if}
-				</div>
-			{/snippet}
-		</form.Field>
+		<fieldset class="space-y-4" disabled={!mounted}>
+			<form.Field name="name">
+				{#snippet children(field)}
+					<div class="space-y-1">
+						<label for={field.name}>Name</label>
+						<input
+							id={field.name}
+							name={field.name}
+							class="w-full border"
+							onblur={field.handleBlur}
+							value={field.state.value}
+							oninput={(e) => field.handleChange(e.currentTarget.value)}
+						/>
+						{#if field.state.meta.isTouched}
+							{#each field.state.meta.errors as error}
+								<p class="text-sm text-red-500" role="alert">{error?.message}</p>
+							{/each}
+						{/if}
+					</div>
+				{/snippet}
+			</form.Field>
 
-		<form.Field name="email">
-			{#snippet children(field)}
-				<div class="space-y-1">
-					<label for={field.name}>Email</label>
-					<input
-						id={field.name}
-						name={field.name}
-						type="email"
-						class="w-full border"
-						onblur={field.handleBlur}
-						value={field.state.value}
-						oninput={(e: Event) => {
-							const target = e.target as HTMLInputElement;
-							field.handleChange(target.value);
-						}}
-					/>
-					{#if field.state.meta.isTouched}
-						{#each field.state.meta.errors as error}
-							<p class="text-sm text-red-500" role="alert">{error}</p>
-						{/each}
-					{/if}
-				</div>
-			{/snippet}
-		</form.Field>
+			<form.Field name="email">
+				{#snippet children(field)}
+					<div class="space-y-1">
+						<label for={field.name}>Email</label>
+						<input
+							id={field.name}
+							name={field.name}
+							type="email"
+							class="w-full border"
+							onblur={field.handleBlur}
+							value={field.state.value}
+							oninput={(e) => field.handleChange(e.currentTarget.value)}
+						/>
+						{#if field.state.meta.isTouched}
+							{#each field.state.meta.errors as error}
+								<p class="text-sm text-red-500" role="alert">{error?.message}</p>
+							{/each}
+						{/if}
+					</div>
+				{/snippet}
+			</form.Field>
 
-		<form.Field name="password">
-			{#snippet children(field)}
-				<div class="space-y-1">
-					<label for={field.name}>Password</label>
-					<input
-						id={field.name}
-						name={field.name}
-						type="password"
-						class="w-full border"
-						onblur={field.handleBlur}
-						value={field.state.value}
-						oninput={(e: Event) => {
-							const target = e.target as HTMLInputElement;
-							field.handleChange(target.value);
-						}}
-					/>
-					{#if field.state.meta.isTouched}
-						{#each field.state.meta.errors as error}
-							<p class="text-sm text-red-500" role="alert">{error}</p>
-						{/each}
-					{/if}
-				</div>
-			{/snippet}
-		</form.Field>
+			<form.Field name="password">
+				{#snippet children(field)}
+					<div class="space-y-1">
+						<label for={field.name}>Password</label>
+						<input
+							id={field.name}
+							name={field.name}
+							type="password"
+							class="w-full border"
+							onblur={field.handleBlur}
+							value={field.state.value}
+							oninput={(e) => field.handleChange(e.currentTarget.value)}
+						/>
+						{#if field.state.meta.isTouched}
+							{#each field.state.meta.errors as error}
+								<p class="text-sm text-red-500" role="alert">{error?.message}</p>
+							{/each}
+						{/if}
+					</div>
+				{/snippet}
+			</form.Field>
 
-		<form.Subscribe selector={(state: typeof form.state): SubmitState => ({ canSubmit: state.canSubmit, isSubmitting: state.isSubmitting })}>
-			{#snippet children(state: SubmitState)}
-				<button type="submit" class="w-full" disabled={!state.canSubmit || state.isSubmitting}>
-					{state.isSubmitting ? 'Submitting...' : 'Sign Up'}
-				</button>
-			{/snippet}
-		</form.Subscribe>
+			<form.Subscribe selector={(state: typeof form.state): SubmitState => ({ canSubmit: state.canSubmit, isSubmitting: state.isSubmitting })}>
+				{#snippet children(state: SubmitState)}
+					<button type="submit" class="w-full" disabled={!state.canSubmit || state.isSubmitting}>
+						{state.isSubmitting ? 'Submitting...' : 'Sign Up'}
+					</button>
+				{/snippet}
+			</form.Subscribe>
+		</fieldset>
 	</form>
 
 	<div class="mt-4 text-center">
-		<button type="button" class="text-indigo-600 hover:text-indigo-800" onclick={switchToSignIn}>
+		<button type="button" class="text-indigo-600 hover:text-indigo-800" disabled={!mounted} onclick={switchToSignIn}>
 			Already have an account? Sign In
 		</button>
 	</div>
 </div>
 `],
   ["auth/better-auth/web/svelte/src/components/UserMenu.svelte.hbs", `<script lang="ts">
-	import { authClient } from '$lib/auth-client';
+	import { authClient } from '#lib/auth-client.ts';
 	import { goto } from '$app/navigation';
 
 	const sessionQuery = authClient.useSession();
@@ -12494,7 +12533,7 @@ export default function Login() {
 </div>
 `],
   ["auth/better-auth/web/svelte/src/lib/auth-client.ts.hbs", `{{#unless (eq backend "self")}}
-import { PUBLIC_SERVER_URL } from "$env/static/public";
+import { ENV } from "../env{{#if (eq webDeploy "cloudflare")}}.public{{else}}.generated{{/if}}";
 {{/unless}}
 import { createAuthClient } from "better-auth/svelte";
 {{#if (eq payments "polar")}}
@@ -12507,9 +12546,11 @@ import { polarClient } from "@polar-sh/better-auth/client";
 {{/unless}}
 export const authClient = createAuthClient({
 {{#unless (eq backend "self")}}
-	// better-auth derives its route-matching base from this URL's path, so the
-	// public auth path must equal the server-side mount (/api/auth everywhere)
-		baseURL: new URL("/api/auth", getServerUrl(PUBLIC_SERVER_URL)).toString(),
+{{#if (and (eq webDeploy serverDeploy) (or (eq webDeploy "vercel") (eq webDeploy "docker")))}}
+  baseURL: {{#if (eq webDeploy "vercel")}}\`\${getServerUrl(ENV.PUBLIC_SERVER_URL)}/auth\`{{else}}new URL("/api/auth", getServerUrl(ENV.PUBLIC_SERVER_URL)).toString(){{/if}},
+{{else}}
+  baseURL: ENV.PUBLIC_SERVER_URL,
+{{/if}}
 {{/unless}}
 {{#if (eq payments "polar")}}
 	plugins: [polarClient()]
@@ -12517,53 +12558,30 @@ export const authClient = createAuthClient({
 });
 `],
   ["auth/better-auth/web/svelte/src/routes/dashboard/+page.svelte.hbs", `<script lang="ts">
-	import { goto } from '$app/navigation';
-	import { authClient } from '$lib/auth-client';
+	import type { PageProps } from './$types';
+	{{#if (eq payments "polar")}}
+	import { authClient } from '#lib/auth-client.ts';
+	{{/if}}
 	{{#if (eq api "orpc")}}
-	import { orpc } from '$lib/orpc';
+	import { orpc } from '#lib/orpc.ts';
 	import { createQuery } from '@tanstack/svelte-query';
 	{{/if}}
-	{{#if (eq payments "polar")}}
-	let customerState = $state<{ activeSubscriptions?: unknown[] } | null>(null);
-	{{/if}}
-
-	const sessionQuery = authClient.useSession();
+	let { data }: PageProps = $props();
 
 	{{#if (eq api "orpc")}}
 	const privateDataQuery = createQuery(() => orpc.privateData.queryOptions());
 	{{/if}}
-
-	$effect(() => {
-		if (!$sessionQuery.isPending && !$sessionQuery.data) {
-			goto('/login');
-		}
-	});
-
-	{{#if (eq payments "polar")}}
-	$effect(() => {
-		if ($sessionQuery.data) {
-			authClient.customer.state().then(({ data }) => {
-				customerState = data;
-			});
-		}
-	});
-	{{/if}}
 </script>
 
-{#if $sessionQuery.isPending}
-	<div>Loading...</div>
-{:else if !$sessionQuery.data}
-	<div>Redirecting to login...</div>
-{:else}
 	<div>
 		<h1>Dashboard</h1>
-		<p>Welcome {$sessionQuery.data.user.name}</p>
+		<p>Welcome {data.user.name}</p>
 		{{#if (eq api "orpc")}}
 		<p>API: {privateDataQuery.data?.message}</p>
 		{{/if}}
 		{{#if (eq payments "polar")}}
-		<p>Plan: {customerState?.activeSubscriptions?.length > 0 ? "Pro" : "Free"}</p>
-		{#if customerState?.activeSubscriptions?.length > 0}
+		<p>Plan: {(data.customerState?.activeSubscriptions?.length ?? 0) > 0 ? "Pro" : "Free"}</p>
+		{#if (data.customerState?.activeSubscriptions?.length ?? 0) > 0}
 			<button onclick={async () => await authClient.customer.portal()}>
 				Manage Subscription
 			</button>
@@ -12574,7 +12592,6 @@ export const authClient = createAuthClient({
 		{/if}
 		{{/if}}
 	</div>
-{/if}
 `],
   ["auth/better-auth/web/svelte/src/routes/login/+page.svelte.hbs", `<script lang="ts">
 	import SignInForm from '../../components/SignInForm.svelte';
@@ -12589,18 +12606,19 @@ export const authClient = createAuthClient({
 	<SignUpForm switchToSignIn={() => showSignIn = true} />
 {/if}
 `],
-  ["auth/clerk/convex/backend/convex/auth.config.ts.hbs", `export default {
+  ["auth/clerk/convex/backend/convex/auth.config.ts.hbs", `import type { AuthConfig } from "convex/server";
+
+export default {
 	providers: [
 		{
-			// Replace with your own Clerk Issuer URL from your "convex" JWT template
-			// or with \`process.env.CLERK_JWT_ISSUER_DOMAIN\`
-			// and configure CLERK_JWT_ISSUER_DOMAIN on the Convex Dashboard
+			// Clerk Frontend API URL from the Convex integration in the Clerk Dashboard.
+			// Set CLERK_JWT_ISSUER_DOMAIN on the Convex deployment (npx convex env set).
 			// See https://docs.convex.dev/auth/clerk#configuring-dev-and-prod-instances
-			domain: process.env.CLERK_JWT_ISSUER_DOMAIN,
+			domain: process.env.CLERK_JWT_ISSUER_DOMAIN!,
 			applicationID: "convex",
 		},
 	],
-};
+} satisfies AuthConfig;
 `],
   ["auth/clerk/convex/backend/convex/privateData.ts.hbs", `import { query } from "./_generated/server";
 
@@ -14253,9 +14271,10 @@ See https://docs.convex.dev/functions for more.
 A query function that takes two arguments looks like:
 
 \`\`\`ts
+import { v } from "convex/values";
+
 // convex/myFunctions.ts
 import { query } from "./_generated/server";
-import { v } from "convex/values";
 
 export const myQueryFunction = query({
   // Validators for arguments.
@@ -14292,9 +14311,10 @@ const data = useQuery(api.myFunctions.myQueryFunction, {
 A mutation function looks like:
 
 \`\`\`ts
+import { v } from "convex/values";
+
 // convex/myFunctions.ts
 import { mutation } from "./_generated/server";
-import { v } from "convex/values";
 
 export const myMutationFunction = mutation({
   // Validators for arguments.
@@ -14384,7 +14404,7 @@ export default defineSchema({
   "license": "ISC",
   "description": "",
   "devDependencies": {
-    "@types/node": "^24.13.3"
+    "@types/node": "^26.4.1"
   },
   "dependencies": {}
 }
@@ -14450,9 +14470,9 @@ next-env.d.ts
 	"main": "src/index.ts",
 	"type": "module",
 	"scripts": {
-		"build": "tsdown",
-		"check-types": "tsc -b",
-		"compile": "bun build --compile --minify --sourcemap --bytecode ./src/index.ts --outfile server"
+		"build": "{{#if (and (eq api "orpc") (ne backend "convex") (ne backend "none"))}}tsc -b ../../packages/api && {{/if}}tsdown",
+		"check-types": "{{#if (and (eq api "orpc") (ne backend "convex") (ne backend "none"))}}tsc -b ../../packages/api && {{/if}}tsc --noEmit",
+		"compile": "bun build --compile --no-compile-autoload-dotenv --minify --sourcemap --bytecode ./src/index.ts --outfile server"
 	},
 	"dependencies": {},
 	{{#if (eq dbSetup 'supabase')}}
@@ -14465,9 +14485,11 @@ next-env.d.ts
 `],
   ["backend/server/base/tsconfig.json.hbs", `{
   "extends": "@{{projectName}}/config/tsconfig.base.json",
+  {{#if (eq api "orpc")}}
+  "references": [{ "path": "../../packages/api" }],
+  {{/if}}
   "compilerOptions": {
-    "composite": true,
-		"outDir": "dist",
+    "noEmit": true,
 		"paths": {
       "@/*": ["./src/*"]
     },
@@ -14497,7 +14519,7 @@ export default defineConfig({
   },
 });
 `],
-  ["backend/server/elysia/src/index.ts.hbs", `import { env } from "@{{projectName}}/env/server";
+  ["backend/server/elysia/src/index.ts.hbs", `{{#if (and (ne backend "self") (or (includes addons "electrobun") (includes addons "tauri")))}}import { desktopOrigins, ENV } from "./env.server";{{else}}import { ENV } from "./env.server";{{/if}}
 {{#if (eq runtime "node")}}
 import { node } from "@elysiajs/node";
 {{/if}}
@@ -14551,7 +14573,7 @@ const apiHandler = new OpenAPIHandler(appRouter, {
 {{#if (eq serverDeploy "vercel")}}const app = {{/if}}{{#if (eq runtime "node")}}new Elysia({ adapter: node() }){{else}}new Elysia(){{/if}}
 	.use(
 		cors({
-			origin: env.CORS_ORIGIN,
+			origin: {{#if (and (ne backend "self") (or (includes addons "electrobun") (includes addons "tauri")))}}[ENV.CORS_ORIGIN, ...desktopOrigins]{{else}}ENV.CORS_ORIGIN{{/if}},
 			methods: ["GET", "POST", "OPTIONS"],
 {{#if (or (eq auth "better-auth") (eq auth "clerk"))}}
 			allowedHeaders: ["Content-Type", "Authorization"],
@@ -14562,7 +14584,7 @@ const apiHandler = new OpenAPIHandler(appRouter, {
 		}),
 	)
 {{#if (and (eq auth "better-auth") (eq payments "polar") (or (includes frontend "native-bare") (includes frontend "native-uniwind") (includes frontend "native-unistyles")))}}
-	.get("/polar/success", ({ request, status }) => {
+	.get("{{apiPrefix webDeploy serverDeploy}}/polar/success", ({ request, status }) => {
 		const nativeAppUrl = "{{projectName}}://";
 		const allowedNativeProtocols = new Set(["exp:", new URL(nativeAppUrl).protocol]);
 		const requestUrl = new URL(request.url);
@@ -14598,10 +14620,10 @@ const apiHandler = new OpenAPIHandler(appRouter, {
 {{/if}}
 {{#if (eq api "orpc")}}
 	.all(
-		"/rpc*",
+		"{{apiPrefix webDeploy serverDeploy}}/rpc*",
 		async (context) => {
 			const { response } = await rpcHandler.handle(context.request, {
-				prefix: "/rpc",
+				prefix: "{{apiPrefix webDeploy serverDeploy}}/rpc",
 				context: await createContext({ context }),
 			});
 			return response ?? new Response("Not Found", { status: 404 });
@@ -14611,10 +14633,10 @@ const apiHandler = new OpenAPIHandler(appRouter, {
 		}
 	)
 	.all(
-		"/api-reference*",
+		"{{apiPrefix webDeploy serverDeploy}}/api-reference*",
 		async (context) => {
 			const { response } = await apiHandler.handle(context.request, {
-				prefix: "/api-reference",
+				prefix: "{{apiPrefix webDeploy serverDeploy}}/api-reference",
 				context: await createContext({ context }),
 			});
 			return response ?? new Response("Not Found", { status: 404 });
@@ -14625,9 +14647,9 @@ const apiHandler = new OpenAPIHandler(appRouter, {
 	)
 {{/if}}
 {{#if (eq api "trpc")}}
-	.all("/trpc/*", async (context) => {
+	.all("{{apiPrefix webDeploy serverDeploy}}/trpc/*", async (context) => {
 		const res = await fetchRequestHandler({
-			endpoint: "/trpc",
+			endpoint: "{{apiPrefix webDeploy serverDeploy}}/trpc",
 			router: appRouter,
 			req: context.request,
 			createContext: () => createContext({ context }),
@@ -14636,7 +14658,7 @@ const apiHandler = new OpenAPIHandler(appRouter, {
 	})
 {{/if}}
 {{#if (includes examples "ai")}}
-	.post("/ai", async (context) => {
+	.post("{{apiPrefix webDeploy serverDeploy}}/ai", async (context) => {
 		const body = (await context.request.json()) as { messages?: UIMessage[] };
 		const uiMessages = body.messages || [];
 		const model = wrapLanguageModel({
@@ -14671,7 +14693,7 @@ if (!process.env.VERCEL) {
 	});
 {{/if}}
 `],
-  ["backend/server/express/src/index.ts.hbs", `import { env } from "@{{projectName}}/env/server";
+  ["backend/server/express/src/index.ts.hbs", `{{#if (and (ne backend "self") (or (includes addons "electrobun") (includes addons "tauri")))}}import { desktopOrigins, ENV } from "./env.server";{{else}}import { ENV } from "./env.server";{{/if}}
 {{#if (eq api "trpc")}}
 import { createExpressMiddleware } from "@trpc/server/adapters/express";
 import { createContext } from "@{{projectName}}/api/context";
@@ -14705,7 +14727,7 @@ const app = express();
 
 app.use(
 	cors({
-		origin: env.CORS_ORIGIN,
+		origin: {{#if (and (ne backend "self") (or (includes addons "electrobun") (includes addons "tauri")))}}[ENV.CORS_ORIGIN, ...desktopOrigins]{{else}}ENV.CORS_ORIGIN{{/if}},
 		methods: ["GET", "POST", "OPTIONS"],
 {{#if (or (eq auth "better-auth") (eq auth "clerk"))}}
 		allowedHeaders: ["Content-Type", "Authorization"],
@@ -14728,8 +14750,8 @@ app.all("/api/auth{/*path}", toNodeHandler(auth));
 const nativeAppUrl = "{{projectName}}://";
 const allowedNativeProtocols = new Set(["exp:", new URL(nativeAppUrl).protocol]);
 
-app.get("/polar/success", (req, res) => {
-	const requestUrl = new URL(req.url, env.BETTER_AUTH_URL);
+app.get("{{apiPrefix webDeploy serverDeploy}}/polar/success", (req, res) => {
+	const requestUrl = new URL(req.url, ENV.BETTER_AUTH_URL);
 	const returnUrl = requestUrl.searchParams.get("returnUrl") || nativeAppUrl;
 
 	let redirectUrl: URL;
@@ -14751,7 +14773,7 @@ app.get("/polar/success", (req, res) => {
 {{/if}}
 {{#if (eq api "trpc")}}
 app.use(
-	"/trpc",
+	"{{apiPrefix webDeploy serverDeploy}}/trpc",
 	createExpressMiddleware({
 		router: appRouter,
 		createContext,
@@ -14782,13 +14804,13 @@ const apiHandler = new OpenAPIHandler(appRouter, {
 
 app.use(async (req, res, next) => {
 	const rpcResult = await rpcHandler.handle(req, res, {
-		prefix: "/rpc",
+		prefix: "{{apiPrefix webDeploy serverDeploy}}/rpc",
 		context: await createContext({ req }),
 	});
 	if (rpcResult.matched) return;
 
 	const apiResult = await apiHandler.handle(req, res, {
-		prefix: "/api-reference",
+		prefix: "{{apiPrefix webDeploy serverDeploy}}/api-reference",
 		context: await createContext({ req }),
 	});
 	if (apiResult.matched) return;
@@ -14800,7 +14822,7 @@ app.use(async (req, res, next) => {
 app.use(express.json());
 
 {{#if (includes examples "ai")}}
-app.post("/ai", async (req, res) => {
+app.post("{{apiPrefix webDeploy serverDeploy}}/ai", async (req, res) => {
 	const { messages = [] } = (req.body || {}) as { messages: UIMessage[] };
 	const model = wrapLanguageModel({
 		model: google("gemini-2.5-flash"),
@@ -14825,7 +14847,7 @@ app.listen(3000, () => {
 	console.log("Server is running on http://localhost:3000");
 });
 `],
-  ["backend/server/fastify/src/index.ts.hbs", `import { env } from "@{{projectName}}/env/server";
+  ["backend/server/fastify/src/index.ts.hbs", `{{#if (and (ne backend "self") (or (includes addons "electrobun") (includes addons "tauri")))}}import { desktopOrigins, ENV } from "./env.server";{{else}}import { ENV } from "./env.server";{{/if}}
 import Fastify from "fastify";
 import fastifyCors from "@fastify/cors";
 
@@ -14859,7 +14881,7 @@ import { clerkPlugin } from "@clerk/fastify";
 {{/if}}
 
 const baseCorsConfig = {
-	origin: env.CORS_ORIGIN,
+	origin: {{#if (and (ne backend "self") (or (includes addons "electrobun") (includes addons "tauri")))}}[ENV.CORS_ORIGIN, ...desktopOrigins]{{else}}ENV.CORS_ORIGIN{{/if}},
 	methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
 	allowedHeaders: [
 		"Content-Type",
@@ -14904,8 +14926,8 @@ const fastify = Fastify({
 fastify.register(fastifyCors, baseCorsConfig);
 {{#if (eq auth "clerk")}}
 fastify.register(clerkPlugin, {
-	publishableKey: env.CLERK_PUBLISHABLE_KEY,
-	secretKey: env.CLERK_SECRET_KEY,
+	publishableKey: ENV.CLERK_PUBLISHABLE_KEY,
+	secretKey: ENV.CLERK_SECRET_KEY,
 });
 {{/if}}
 
@@ -14913,8 +14935,8 @@ fastify.register(clerkPlugin, {
 const nativeAppUrl = "{{projectName}}://";
 const allowedNativeProtocols = new Set(["exp:", new URL(nativeAppUrl).protocol]);
 
-fastify.get("/polar/success", async (request, reply) => {
-	const requestUrl = new URL(request.url, env.BETTER_AUTH_URL);
+fastify.get("{{apiPrefix webDeploy serverDeploy}}/polar/success", async (request, reply) => {
+	const requestUrl = new URL(request.url, ENV.BETTER_AUTH_URL);
 	const returnUrl = requestUrl.searchParams.get("returnUrl") || nativeAppUrl;
 
 	let redirectUrl: URL;
@@ -14941,10 +14963,10 @@ fastify.register(async (rpcApp) => {
 		done(null, undefined);
 	});
 
-	rpcApp.all("/rpc/*", async (request, reply) => {
+	rpcApp.all("{{apiPrefix webDeploy serverDeploy}}/rpc/*", async (request, reply) => {
 		const { matched } = await rpcHandler.handle(request, reply, {
 			context: await createContext({{#if (eq auth "clerk")}}request{{else}}request.headers{{/if}}),
-			prefix: "/rpc",
+			prefix: "{{apiPrefix webDeploy serverDeploy}}/rpc",
 		});
 
 		if (!matched) {
@@ -14952,10 +14974,10 @@ fastify.register(async (rpcApp) => {
 		}
 	});
 
-	rpcApp.all("/api-reference/*", async (request, reply) => {
+	rpcApp.all("{{apiPrefix webDeploy serverDeploy}}/api-reference/*", async (request, reply) => {
 		const { matched } = await apiHandler.handle(request, reply, {
 			context: await createContext({{#if (eq auth "clerk")}}request{{else}}request.headers{{/if}}),
-			prefix: "/api-reference",
+			prefix: "{{apiPrefix webDeploy serverDeploy}}/api-reference",
 		});
 
 		if (!matched) {
@@ -14998,7 +15020,7 @@ fastify.route({
 
 {{#if (eq api "trpc")}}
 fastify.register(fastifyTRPCPlugin, {
-	prefix: "/trpc",
+	prefix: "{{apiPrefix webDeploy serverDeploy}}/trpc",
 	trpcOptions: {
 		router: appRouter,
 		createContext,
@@ -15015,7 +15037,7 @@ interface AiRequestBody {
 	messages: UIMessage[];
 }
 
-fastify.post('/ai', async function (request) {
+fastify.post('{{apiPrefix webDeploy serverDeploy}}/ai', async function (request) {
 	const { messages } = request.body as AiRequestBody;
 	const model = wrapLanguageModel({
 		model: google('gemini-2.5-flash'),
@@ -15044,7 +15066,7 @@ fastify.listen({ port: 3000{{#if (or (eq serverDeploy "docker") (eq serverDeploy
 	console.log("Server running on port 3000");
 });
 `],
-  ["backend/server/hono/src/index.ts.hbs", `import { env } from "@{{projectName}}/env/server";
+  ["backend/server/hono/src/index.ts.hbs", `{{#if (and (ne backend "self") (or (includes addons "electrobun") (includes addons "tauri")))}}import { desktopOrigins, ENV } from "./env.server";{{else}}import { ENV } from "./env.server";{{/if}}
 {{#if (eq api "orpc")}}
 import { OpenAPIHandler } from "@orpc/openapi/fetch";
 import { OpenAPIReferencePlugin } from "@orpc/openapi/plugins";
@@ -15086,7 +15108,7 @@ app.use(logger());
 app.use(
 	"/*",
 	cors({
-		origin: env.CORS_ORIGIN,
+		origin: {{#if (and (ne backend "self") (or (includes addons "electrobun") (includes addons "tauri")))}}[ENV.CORS_ORIGIN, ...desktopOrigins]{{else}}ENV.CORS_ORIGIN{{/if}},
 		allowMethods: ["GET", "POST", "OPTIONS"],
 {{#if (or (eq auth "better-auth") (eq auth "clerk"))}}
 		allowHeaders: ["Content-Type", "Authorization"],
@@ -15101,9 +15123,9 @@ app.use(
 app.on(
 	["POST", "GET"],
 	"/api/auth/*",
-	(c) =>
+	async (c) =>
 {{#if (or (eq runtime "workers") (eq serverDeploy "cloudflare") (and (eq backend "self") (eq webDeploy "cloudflare")))}}
-		createAuth().handler(c.req.raw)
+		(await createAuth()).handler(c.req.raw)
 {{else}}
 		auth.handler(c.req.raw)
 {{/if}}
@@ -15114,7 +15136,7 @@ app.on(
 const nativeAppUrl = "{{projectName}}://";
 const allowedNativeProtocols = new Set(["exp:", new URL(nativeAppUrl).protocol]);
 
-app.get("/polar/success", (c) => {
+app.get("{{apiPrefix webDeploy serverDeploy}}/polar/success", (c) => {
 	const requestUrl = new URL(c.req.url);
 	const returnUrl = requestUrl.searchParams.get("returnUrl") || nativeAppUrl;
 
@@ -15159,7 +15181,7 @@ app.use("/*", async (c, next) => {
 	const context = await createContext({ context: c });
 
 	const rpcResult = await rpcHandler.handle(c.req.raw, {
-		prefix: "/rpc",
+		prefix: "{{apiPrefix webDeploy serverDeploy}}/rpc",
 		context: context,
 	});
 
@@ -15168,7 +15190,7 @@ app.use("/*", async (c, next) => {
 	}
 
 	const apiResult = await apiHandler.handle(c.req.raw, {
-		prefix: "/api-reference",
+		prefix: "{{apiPrefix webDeploy serverDeploy}}/api-reference",
 		context: context,
 	});
 
@@ -15182,8 +15204,9 @@ app.use("/*", async (c, next) => {
 
 {{#if (eq api "trpc")}}
 app.use(
-	"/trpc/*",
+	"{{apiPrefix webDeploy serverDeploy}}/trpc/*",
 	trpcServer({
+		endpoint: "{{apiPrefix webDeploy serverDeploy}}/trpc",
 		router: appRouter,
 		createContext: (_opts, context) => {
 			return createContext({ context });
@@ -15193,7 +15216,7 @@ app.use(
 {{/if}}
 
 {{#if (and (includes examples "ai") (or (eq runtime "bun") (eq runtime "node")))}}
-app.post("/ai", async (c) => {
+app.post("{{apiPrefix webDeploy serverDeploy}}/ai", async (c) => {
 	const body = await c.req.json();
 	const uiMessages = body.messages || [];
 	const model = wrapLanguageModel({
@@ -15212,11 +15235,11 @@ app.post("/ai", async (c) => {
 {{/if}}
 
 {{#if (and (includes examples "ai") (eq runtime "workers"))}}
-app.post("/ai", async (c) => {
+app.post("{{apiPrefix webDeploy serverDeploy}}/ai", async (c) => {
 	const body = await c.req.json();
 	const uiMessages = body.messages || [];
 	const google = createGoogleGenerativeAI({
-		apiKey: env.GOOGLE_GENERATIVE_AI_API_KEY,
+		apiKey: ENV.GOOGLE_GENERATIVE_AI_API_KEY,
 	});
 	const model = wrapLanguageModel({
 		model: google("gemini-2.5-flash"),
@@ -15533,6 +15556,14 @@ temp
     "apps/*",
     "packages/*"
   ],
+{{#if (and (includes frontend "solid") (ne packageManager "pnpm"))}}
+  "overrides": {
+    "solid-js": "2.0.0-rc.13",
+    "@solidjs/signals": "2.0.0-rc.13",
+    "@solidjs/compiler": "2.0.0-rc.13",
+    "@solidjs/babel-plugin": "2.0.0-rc.13"
+  },
+{{/if}}
   "scripts": {}
 }
 `],
@@ -15650,26 +15681,66 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
   "name": "@{{projectName}}/db",
   "type": "module",
   "exports": {
-    ".": {
-      "default": "./src/index.ts"
-    },
-    "./*": {
-      "default": "./src/*.ts"
-    }
+    ".": "./src/index.ts",
+    "./*": "./src/*.ts"
   },
-  "scripts": {},
+  "scripts": {
+    {{#if (eq api "orpc")}}
+    "build": "tsc -b",
+    "check-types": "tsc -b"
+    {{else}}
+    "check-types": "tsc --noEmit"
+    {{/if}}
+  },
   "devDependencies": {}
 }`],
+  ["db/base/src/config.ts.hbs", `{{#if (eq dbSetup "d1")}}
+/// <reference types="@cloudflare/workers-types" />
+{{/if}}
+export type DatabaseConfig = {
+{{#if (eq dbSetup "d1")}}
+  DB: D1Database;
+{{else if (and (eq database "mysql") (eq orm "drizzle") (eq dbSetup "planetscale"))}}
+  DATABASE_HOST: string;
+  DATABASE_USERNAME: string;
+  DATABASE_PASSWORD: string;
+{{else}}
+  DATABASE_URL: string;
+{{#if (eq dbSetup "turso")}}
+  DATABASE_AUTH_TOKEN: string;
+{{/if}}
+{{/if}}
+};
+`],
   ["db/base/tsconfig.json.hbs", `{
   "extends": "@{{projectName}}/config/tsconfig.base.json",
+  {{#if (eq api "orpc")}}
   "compilerOptions": {
+    "composite": true,
     "declaration": true,
     "declarationMap": true,
-    "sourceMap": true,
-    "outDir": "dist",
-    "composite": true
+    "emitDeclarationOnly": true,
+    "outDir": "dist"
+  },
+  "include": ["src/**/*.ts"{{#if (eq orm "prisma")}}, "prisma/generated/**/*.ts"{{/if}}],
+  "references": []
+  {{else}}
+  "compilerOptions": {
+    "noEmit": true
   }
-}`],
+  {{/if}}
+}
+`],
+  ["db/drizzle/base/src/relations.ts.hbs", `import { defineRelations } from "drizzle-orm";
+import * as schema from "./schema";
+
+export const relations = {
+  ...defineRelations(schema),
+{{#if (eq auth "better-auth")}}
+  ...schema.authRelations,
+{{/if}}
+};
+`],
   ["db/drizzle/base/src/schema/index.ts.hbs", `{{#if (eq auth "better-auth")}}
 export * from "./auth";
 {{/if}}
@@ -15678,18 +15749,11 @@ export * from "./todo";
 {{/if}}
 export {};`],
   ["db/drizzle/mysql/drizzle.config.ts.hbs", `import { defineConfig } from "drizzle-kit";
-import dotenv from "dotenv";
+import "varlock/auto-load";
 
-dotenv.config({
-    {{#if (eq backend "self")}}
-    path: "../../apps/web/.env",
-    {{else}}
-    path: "../../apps/server/.env",
-    {{/if}}
-});
 
 export default defineConfig({
-  schema: "./src/schema",
+  schema: "./src/schema/index.ts",
   out: "./src/migrations",
   dialect: "mysql",
   dbCredentials: {
@@ -15697,116 +15761,97 @@ export default defineConfig({
   },
 });
 `],
-  ["db/drizzle/mysql/src/index.ts.hbs", `{{#if (or (eq runtime "bun") (eq runtime "node") (eq runtime "none"))}}
-{{#if (usesRequestScopedCloudflareEnv backend webDeploy frontend)}}
-import type { CloudflareEnv } from "@{{projectName}}/env/server";
-{{else}}
-import { env } from "@{{projectName}}/env/server";
-{{/if}}
-import * as schema from "./schema";
+  ["db/drizzle/mysql/src/index.ts.hbs", `import type { DatabaseConfig } from "./config";
+{{#if (or (eq runtime "bun") (eq runtime "node") (eq runtime "none"))}}
+import { relations } from "./relations";
 
 {{#if (eq dbSetup "planetscale")}}
 import { drizzle } from "drizzle-orm/planetscale-serverless";
 
-export function createDb({{#if (usesRequestScopedCloudflareEnv backend webDeploy frontend)}}env: CloudflareEnv{{/if}}) {
+export function createDb(env: DatabaseConfig) {
 	return drizzle({
 		connection: {
 			host: env.DATABASE_HOST,
 			username: env.DATABASE_USERNAME,
 			password: env.DATABASE_PASSWORD,
 		},
-		schema,
+		relations,
 	});
 }
 {{else}}
 import { drizzle } from "drizzle-orm/mysql2";
 
-export function createDb({{#if (usesRequestScopedCloudflareEnv backend webDeploy frontend)}}env: CloudflareEnv{{/if}}) {
+export function createDb(env: DatabaseConfig) {
 	return drizzle({
 		connection: {
 			uri: env.DATABASE_URL,
 		},
-		schema,
-		mode: "default",
+		relations,
 	});
 }
 {{/if}}
 
-{{#if (and (ne serverDeploy "cloudflare") (or (ne backend "self") (ne webDeploy "cloudflare")))}}
-export const db = createDb();
-{{/if}}
 {{/if}}
 
 {{#if (eq runtime "workers")}}
-import * as schema from "./schema";
+import { relations } from "./relations";
 
 {{#if (eq dbSetup "planetscale")}}
 import { drizzle } from "drizzle-orm/planetscale-serverless";
-import { env } from "@{{projectName}}/env/server";
 
-export function createDb() {
+export function createDb(env: DatabaseConfig) {
 	return drizzle({
 		connection: {
 			host: env.DATABASE_HOST,
 			username: env.DATABASE_USERNAME,
 			password: env.DATABASE_PASSWORD,
 		},
-		schema,
+		relations,
 	});
 }
 {{else}}
 import { drizzle } from "drizzle-orm/mysql2";
-import { env } from "@{{projectName}}/env/server";
 
-export function createDb() {
+export function createDb(env: DatabaseConfig) {
 	return drizzle({
 		connection: {
 			uri: env.DATABASE_URL,
 		},
-		schema,
-		mode: "default",
+		relations,
 	});
 }
 {{/if}}
 {{/if}}
+
+export type Database = ReturnType<typeof createDb>;
 `],
   ["db/drizzle/mysql/src/migrations/.gitkeep", `
 `],
   ["db/drizzle/postgres/drizzle.config.ts.hbs", `import { defineConfig } from "drizzle-kit";
-import dotenv from "dotenv";
+import "varlock/auto-load";
 
-dotenv.config({
-    {{#if (eq backend "self")}}
-    path: "../../apps/web/.env",
-    {{else}}
-    path: "../../apps/server/.env",
-    {{/if}}
-});
 
 export default defineConfig({
-  schema: "./src/schema",
+  schema: "./src/schema/index.ts",
   out: "./src/migrations",
   dialect: "postgresql",
+  schemaFilter: ["public"],
   dbCredentials: {
     url: process.env.DATABASE_URL || "",
   },
 });
 `],
-  ["db/drizzle/postgres/src/index.ts.hbs", `{{#if (or (eq runtime "bun") (eq runtime "node") (eq runtime "none"))}}
-{{#if (usesRequestScopedCloudflareEnv backend webDeploy frontend)}}
-import type { CloudflareEnv } from "@{{projectName}}/env/server";
-{{else}}
-import { env } from "@{{projectName}}/env/server";
-{{/if}}
-import * as schema from "./schema";
+  ["db/drizzle/postgres/src/index.ts.hbs", `import type { DatabaseConfig } from "./config";
+{{#if (or (eq runtime "bun") (eq runtime "node") (eq runtime "none"))}}
+import { relations } from "./relations";
 
 {{#if (eq dbSetup "neon")}}
 import { neon } from '@neondatabase/serverless';
 import { drizzle } from 'drizzle-orm/neon-http';
 
-export function createDb({{#if (usesRequestScopedCloudflareEnv backend webDeploy frontend)}}env: CloudflareEnv{{/if}}) {
+export function createDb(env: DatabaseConfig) {
 	const sql = neon(env.DATABASE_URL);
-	return drizzle(sql, { schema });
+	return drizzle({ client: sql, relations });
 }
 {{else}}
 {{#if (and (eq backend "self") (eq webDeploy "cloudflare"))}}
@@ -15816,62 +15861,52 @@ import postgres from "postgres";
 import { drizzle } from "drizzle-orm/node-postgres";
 {{/if}}
 
-export function createDb({{#if (usesRequestScopedCloudflareEnv backend webDeploy frontend)}}env: CloudflareEnv{{/if}}) {
+export function createDb(env: DatabaseConfig) {
 {{#if (and (eq backend "self") (eq webDeploy "cloudflare"))}}
 	const client = postgres(env.DATABASE_URL, { max: 1 });
 
-	return drizzle({ client, schema });
+	return drizzle({ client, relations });
 {{else}}
-	return drizzle(env.DATABASE_URL, { schema });
+	return drizzle(env.DATABASE_URL, { relations });
 {{/if}}
 }
 {{/if}}
 
-{{#if (and (ne serverDeploy "cloudflare") (or (ne backend "self") (ne webDeploy "cloudflare")))}}
-export const db = createDb();
-{{/if}}
 {{/if}}
 
 {{#if (eq runtime "workers")}}
-import * as schema from "./schema";
+import { relations } from "./relations";
 
 {{#if (eq dbSetup "neon")}}
 import { neon } from '@neondatabase/serverless';
 import { drizzle } from 'drizzle-orm/neon-http';
-import { env } from "@{{projectName}}/env/server";
 
-export function createDb() {
+export function createDb(env: DatabaseConfig) {
 	const sql = neon(env.DATABASE_URL || "");
-	return drizzle(sql, { schema });
+	return drizzle({ client: sql, relations });
 }
 {{else}}
 import { drizzle } from "drizzle-orm/postgres-js";
-import { env } from "@{{projectName}}/env/server";
 import postgres from "postgres";
 
-export function createDb() {
+export function createDb(env: DatabaseConfig) {
 	const client = postgres(env.DATABASE_URL || "", { max: 1 });
 
-	return drizzle({ client, schema });
+	return drizzle({ client, relations });
 }
 {{/if}}
 {{/if}}
+
+export type Database = ReturnType<typeof createDb>;
 `],
   ["db/drizzle/postgres/src/migrations/.gitkeep", `
 `],
   ["db/drizzle/sqlite/drizzle.config.ts.hbs", `import { defineConfig } from "drizzle-kit";
-import dotenv from "dotenv";
+import "varlock/auto-load";
 
-dotenv.config({
-    {{#if (eq backend "self")}}
-    path: "../../apps/web/.env",
-    {{else}}
-    path: "../../apps/server/.env",
-    {{/if}}
-});
 
 export default defineConfig({
-  schema: "./src/schema",
+  schema: "./src/schema/index.ts",
   out: "./src/migrations",
   {{#if (eq dbSetup "d1")}}
   // DOCS: https://orm.drizzle.team/docs/guides/d1-http-with-drizzle-kit
@@ -15888,29 +15923,20 @@ export default defineConfig({
   {{/if}}
 });
 `],
-  ["db/drizzle/sqlite/src/index.ts.hbs", `{{#if (eq dbSetup "d1")}}
-import * as schema from "./schema";
+  ["db/drizzle/sqlite/src/index.ts.hbs", `import type { DatabaseConfig } from "./config";
+{{#if (eq dbSetup "d1")}}
+import { relations } from "./relations";
 import { drizzle } from "drizzle-orm/d1";
-{{#if (usesRequestScopedCloudflareEnv backend webDeploy frontend)}}
-import type { CloudflareEnv } from "@{{projectName}}/env/server";
-{{else}}
-import { env } from "@{{projectName}}/env/server";
-{{/if}}
 
-export function createDb({{#if (usesRequestScopedCloudflareEnv backend webDeploy frontend)}}env: CloudflareEnv{{/if}}) {
-	return drizzle(env.DB, { schema });
+export function createDb(env: DatabaseConfig) {
+	return drizzle(env.DB, { relations });
 }
 {{else if (or (eq runtime "bun") (eq runtime "node") (eq runtime "none"))}}
-{{#if (usesRequestScopedCloudflareEnv backend webDeploy frontend)}}
-import type { CloudflareEnv } from "@{{projectName}}/env/server";
-{{else}}
-import { env } from "@{{projectName}}/env/server";
-{{/if}}
-import * as schema from "./schema";
+import { relations } from "./relations";
 import { drizzle } from "drizzle-orm/libsql";
 import { createClient } from "@libsql/client";
 
-export function createDb({{#if (usesRequestScopedCloudflareEnv backend webDeploy frontend)}}env: CloudflareEnv{{/if}}) {
+export function createDb(env: DatabaseConfig) {
 	const client = createClient({
 		url: env.DATABASE_URL,
 {{#if (eq dbSetup "turso")}}
@@ -15918,19 +15944,15 @@ export function createDb({{#if (usesRequestScopedCloudflareEnv backend webDeploy
 {{/if}}
 	});
 
-	return drizzle({ client, schema });
+	return drizzle({ client, relations });
 }
 
-{{#if (and (ne serverDeploy "cloudflare") (or (ne backend "self") (ne webDeploy "cloudflare")))}}
-export const db = createDb();
-{{/if}}
 {{else if (eq runtime "workers")}}
-import * as schema from "./schema";
+import { relations } from "./relations";
 import { drizzle } from "drizzle-orm/libsql";
-import { env } from "@{{projectName}}/env/server";
 import { createClient } from "@libsql/client";
 
-export function createDb() {
+export function createDb(env: DatabaseConfig) {
 	const client = createClient({
 		url: env.DATABASE_URL || "",
 {{#if (eq dbSetup "turso")}}
@@ -15938,31 +15960,27 @@ export function createDb() {
 {{/if}}
 	});
 
-	return drizzle({ client, schema });
+	return drizzle({ client, relations });
 }
 {{/if}}
+
+export type Database = ReturnType<typeof createDb>;
 `],
   ["db/drizzle/sqlite/src/migrations/.gitkeep", ``],
   ["db/mongoose/mongodb/src/index.ts.hbs", `import mongoose from "mongoose";
-import { env } from "@{{projectName}}/env/server";
+import type { DatabaseConfig } from "./config";
 
-await mongoose.connect(env.DATABASE_URL);
+export async function createDb(env: DatabaseConfig) {
+  await mongoose.connect(env.DATABASE_URL);
+  return mongoose.connection.getClient().db();
+}
 
-const client = mongoose.connection.getClient().db();
-
-export { client };
+export type Database = Awaited<ReturnType<typeof createDb>>;
 `],
   ["db/prisma/mongodb/prisma.config.ts.hbs", `import path from "node:path";
 import type { PrismaConfig } from "prisma";
-import dotenv from "dotenv";
+import "varlock/auto-load";
 
-dotenv.config({
-    {{#if (eq backend "self")}}
-    path: "../../apps/web/.env",
-    {{else}}
-    path: "../../apps/server/.env",
-    {{/if}}
-});
 
 export default {
   schema: path.join("prisma", "schema"),
@@ -15991,23 +16009,19 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 `],
-  ["db/prisma/mongodb/src/index.ts.hbs", `import { PrismaClient } from "../prisma/generated/client";
+  ["db/prisma/mongodb/src/index.ts.hbs", `import type { DatabaseConfig } from "./config";
+import { PrismaClient } from "../prisma/generated/client";
 
-const prisma = new PrismaClient();
+export function createPrismaClient(env: DatabaseConfig) {
+  return new PrismaClient({ datasourceUrl: env.DATABASE_URL });
+}
 
-export default prisma;
+export type Database = ReturnType<typeof createPrismaClient>;
 `],
   ["db/prisma/mysql/prisma.config.ts.hbs", `import path from "node:path";
 import { defineConfig, env } from "prisma/config";
-import dotenv from "dotenv";
+import "varlock/auto-load";
 
-dotenv.config({
-  {{#if (eq backend "self")}}
-  path: "../../apps/web/.env",
-  {{else}}
-  path: "../../apps/server/.env",
-  {{/if}}
-});
 
 export default defineConfig({
   schema: path.join("prisma", "schema"),
@@ -16123,21 +16137,21 @@ datasource db {
   {{/if}}
 }
 `],
-  ["db/prisma/mysql/src/index.ts.hbs", `{{#if (eq runtime "workers")}}
+  ["db/prisma/mysql/src/index.ts.hbs", `import type { DatabaseConfig } from "./config";
+{{#if (eq runtime "workers")}}
 import { PrismaClient } from "../prisma/generated/client";
-import { env } from "@{{projectName}}/env/server";
 
 {{#if (eq dbSetup "planetscale")}}
 import { PrismaPlanetScale } from "@prisma/adapter-planetscale";
 
-export function createPrismaClient() {
+export function createPrismaClient(env: DatabaseConfig) {
 	const adapter = new PrismaPlanetScale({ url: env.DATABASE_URL });
 	return new PrismaClient({ adapter });
 }
 {{else}}
 import { PrismaMariaDb } from "@prisma/adapter-mariadb";
 
-export function createPrismaClient() {
+export function createPrismaClient(env: DatabaseConfig) {
 	const databaseUrl: string = env.DATABASE_URL;
 	const url: URL = new URL(databaseUrl);
 	const connectionConfig = {
@@ -16154,23 +16168,18 @@ export function createPrismaClient() {
 {{/if}}
 {{else}}
 import { PrismaClient } from "../prisma/generated/client";
-{{#if (usesRequestScopedCloudflareEnv backend webDeploy frontend)}}
-import type { CloudflareEnv } from "@{{projectName}}/env/server";
-{{else}}
-import { env } from "@{{projectName}}/env/server";
-{{/if}}
 
 {{#if (eq dbSetup "planetscale")}}
 import { PrismaPlanetScale } from "@prisma/adapter-planetscale";
 
-export function createPrismaClient({{#if (usesRequestScopedCloudflareEnv backend webDeploy frontend)}}env: CloudflareEnv{{/if}}) {
+export function createPrismaClient(env: DatabaseConfig) {
 	const adapter = new PrismaPlanetScale({ url: env.DATABASE_URL });
 	return new PrismaClient({ adapter });
 }
 {{else}}
 import { PrismaMariaDb } from "@prisma/adapter-mariadb";
 
-export function createPrismaClient({{#if (usesRequestScopedCloudflareEnv backend webDeploy frontend)}}env: CloudflareEnv{{/if}}) {
+export function createPrismaClient(env: DatabaseConfig) {
 	const databaseUrl: string = env.DATABASE_URL;
 	const url: URL = new URL(databaseUrl);
 	const connectionConfig = {
@@ -16186,23 +16195,14 @@ export function createPrismaClient({{#if (usesRequestScopedCloudflareEnv backend
 }
 {{/if}}
 
-{{#if (and (ne serverDeploy "cloudflare") (or (ne backend "self") (ne webDeploy "cloudflare")))}}
-const prisma = createPrismaClient();
-export default prisma;
 {{/if}}
-{{/if}}
+
+export type Database = ReturnType<typeof createPrismaClient>;
 `],
   ["db/prisma/postgres/prisma.config.ts.hbs", `import path from "node:path";
 import { defineConfig, env } from 'prisma/config'
-import dotenv from 'dotenv'
+import "varlock/auto-load";
 
-dotenv.config({
-    {{#if (eq backend "self")}}
-    path: "../../apps/web/.env",
-    {{else}}
-    path: "../../apps/server/.env",
-    {{/if}}
-})
 
 export default defineConfig({
   schema: path.join("prisma", "schema"),
@@ -16341,16 +16341,16 @@ datasource db {
   {{/if}}
 }
 `],
-  ["db/prisma/postgres/src/index.ts.hbs", `{{#if (eq runtime "workers")}}
+  ["db/prisma/postgres/src/index.ts.hbs", `import type { DatabaseConfig } from "./config";
+{{#if (eq runtime "workers")}}
 import { PrismaClient } from "../prisma/generated/client";
-import { env } from "@{{projectName}}/env/server";
 {{#if (eq dbSetup "neon")}}
 import { PrismaNeon } from "@prisma/adapter-neon";
 import { neonConfig } from "@neondatabase/serverless";
 
 neonConfig.poolQueryViaFetch = true;
 
-export function createPrismaClient() {
+export function createPrismaClient(env: DatabaseConfig) {
 	return new PrismaClient({
 		adapter: new PrismaNeon({
 			connectionString: env.DATABASE_URL,
@@ -16361,7 +16361,7 @@ export function createPrismaClient() {
 {{else if (eq dbSetup "prisma-postgres")}}
 import { PrismaPostgresAdapter } from "@prisma/adapter-ppg";
 
-export function createPrismaClient() {
+export function createPrismaClient(env: DatabaseConfig) {
 	const adapter = new PrismaPostgresAdapter({
 		connectionString: env.DATABASE_URL,
 	});
@@ -16372,7 +16372,7 @@ export function createPrismaClient() {
 {{else}}
 import { PrismaPg } from "@prisma/adapter-pg";
 
-export function createPrismaClient() {
+export function createPrismaClient(env: DatabaseConfig) {
 	const adapter = new PrismaPg({
 		connectionString: env.DATABASE_URL,
 		maxUses: 1,
@@ -16383,15 +16383,10 @@ export function createPrismaClient() {
 {{/if}}
 {{else}}
 import { PrismaClient } from "../prisma/generated/client";
-{{#if (usesRequestScopedCloudflareEnv backend webDeploy frontend)}}
-import type { CloudflareEnv } from "@{{projectName}}/env/server";
-{{else}}
-import { env } from "@{{projectName}}/env/server";
-{{/if}}
 {{#if (eq dbSetup "neon")}}
 import { PrismaNeon } from "@prisma/adapter-neon";
 
-export function createPrismaClient({{#if (usesRequestScopedCloudflareEnv backend webDeploy frontend)}}env: CloudflareEnv{{/if}}) {
+export function createPrismaClient(env: DatabaseConfig) {
 	const adapter = new PrismaNeon({
 		connectionString: env.DATABASE_URL,
 	});
@@ -16402,7 +16397,7 @@ export function createPrismaClient({{#if (usesRequestScopedCloudflareEnv backend
 {{else if (eq dbSetup "prisma-postgres")}}
 import { PrismaPostgresAdapter } from "@prisma/adapter-ppg";
 
-export function createPrismaClient({{#if (usesRequestScopedCloudflareEnv backend webDeploy frontend)}}env: CloudflareEnv{{/if}}) {
+export function createPrismaClient(env: DatabaseConfig) {
 	const adapter = new PrismaPostgresAdapter({
 		connectionString: env.DATABASE_URL,
 	});
@@ -16413,7 +16408,7 @@ export function createPrismaClient({{#if (usesRequestScopedCloudflareEnv backend
 {{else}}
 import { PrismaPg } from "@prisma/adapter-pg";
 
-export function createPrismaClient({{#if (usesRequestScopedCloudflareEnv backend webDeploy frontend)}}env: CloudflareEnv{{/if}}) {
+export function createPrismaClient(env: DatabaseConfig) {
 	const adapter = new PrismaPg({
 		connectionString: env.DATABASE_URL,
 {{#if (and (eq backend "self") (eq webDeploy "cloudflare"))}}
@@ -16424,23 +16419,14 @@ export function createPrismaClient({{#if (usesRequestScopedCloudflareEnv backend
 }
 
 {{/if}}
-{{#if (and (ne serverDeploy "cloudflare") (or (ne backend "self") (ne webDeploy "cloudflare")))}}
-const prisma = createPrismaClient();
-export default prisma;
 {{/if}}
-{{/if}}
+
+export type Database = ReturnType<typeof createPrismaClient>;
 `],
   ["db/prisma/sqlite/prisma.config.ts.hbs", `import path from "node:path";
 import { defineConfig, env } from "prisma/config";
-import dotenv from "dotenv";
+import "varlock/auto-load";
 
-dotenv.config({
-  {{#if (eq backend "self")}}
-  path: "../../apps/web/.env",
-  {{else}}
-  path: "../../apps/server/.env",
-  {{/if}}
-});
 
 export default defineConfig({
   schema: path.join("prisma", "schema"),
@@ -16475,34 +16461,21 @@ datasource db {
   provider = "sqlite"
 }
 `],
-  ["db/prisma/sqlite/src/index.ts.hbs", `import { PrismaClient } from "../prisma/generated/client";
+  ["db/prisma/sqlite/src/index.ts.hbs", `import type { DatabaseConfig } from "./config";
+import { PrismaClient } from "../prisma/generated/client";
 
 {{#if (eq dbSetup "d1")}}
 import { PrismaD1 } from "@prisma/adapter-d1";
-{{#if (usesRequestScopedCloudflareEnv backend webDeploy frontend)}}
-import type { CloudflareEnv } from "@{{projectName}}/env/server";
-{{else}}
-import { env } from "@{{projectName}}/env/server";
-{{/if}}
 
-export function createPrismaClient({{#if (usesRequestScopedCloudflareEnv backend webDeploy frontend)}}env: CloudflareEnv{{/if}}) {
+export function createPrismaClient(env: DatabaseConfig) {
 	const adapter = new PrismaD1(env.DB);
 	return new PrismaClient({ adapter });
 }
 
-{{#if (and (ne runtime "workers") (ne serverDeploy "cloudflare") (or (ne backend "self") (ne webDeploy "cloudflare")))}}
-const prisma = createPrismaClient();
-export default prisma;
-{{/if}}
 {{else}}
 import { PrismaLibSql } from "@prisma/adapter-libsql";
-{{#if (usesRequestScopedCloudflareEnv backend webDeploy frontend)}}
-import type { CloudflareEnv } from "@{{projectName}}/env/server";
-{{else}}
-import { env } from "@{{projectName}}/env/server";
-{{/if}}
 
-export function createPrismaClient({{#if (usesRequestScopedCloudflareEnv backend webDeploy frontend)}}env: CloudflareEnv{{/if}}) {
+export function createPrismaClient(env: DatabaseConfig) {
 	const adapter = new PrismaLibSql({
 		url: env.DATABASE_URL,
 {{#if (eq dbSetup "turso")}}
@@ -16513,11 +16486,9 @@ export function createPrismaClient({{#if (usesRequestScopedCloudflareEnv backend
 	return new PrismaClient({ adapter });
 }
 
-{{#if (and (ne runtime "workers") (ne serverDeploy "cloudflare") (or (ne backend "self") (ne webDeploy "cloudflare")))}}
-const prisma = createPrismaClient();
-export default prisma;
 {{/if}}
-{{/if}}
+
+export type Database = ReturnType<typeof createPrismaClient>;
 `],
   ["deploy/docker/compose/_dockerignore", `**/node_modules
 .git
@@ -16542,11 +16513,12 @@ Dockerfile
 **/Dockerfile
 docker-compose.yml
 
-# Secrets stay out of image layers; runtime env comes from compose env_file,
-# build-time public values come from compose build args
+# Env value files stay out of COPY layers; runtime env comes from compose env_file,
+# build-time configuration uses BuildKit secrets; public values use build args
 **/.env
 **/.env.*
 !**/.env.example
+!**/.env.schema
 
 local.db
 local.db-*
@@ -16560,8 +16532,18 @@ services:
     build:
       context: .
       dockerfile: apps/web/Dockerfile
-{{#if (or (and (ne backend "self") (ne backend "none") (ne backend "convex")) (eq backend "convex") (and (eq auth "clerk") (or (includes frontend "next") (includes frontend "react-router") (includes frontend "tanstack-router") (includes frontend "tanstack-start"))))}}
+      secrets:
+{{#if (or (includes frontend "next") (includes frontend "nuxt") (includes frontend "astro") (includes frontend "svelte") (includes frontend "solid") (includes frontend "tanstack-router") (includes frontend "tanstack-start") (includes frontend "react-router"))}}
+        - web_env
+{{/if}}
+{{#if (and (ne backend "self") (ne backend "none") (ne backend "convex"))}}
+        - server_env
+{{/if}}
+{{#if (or (includes frontend "svelte") (and (ne backend "self") (ne backend "none") (ne backend "convex")) (eq backend "convex") (and (eq auth "clerk") (or (includes frontend "next") (includes frontend "react-router") (includes frontend "tanstack-router") (includes frontend "tanstack-start"))))}}
       args:
+{{#if (includes frontend "svelte")}}
+        ORIGIN: \${ORIGIN:-http://localhost:3001}
+{{/if}}
 {{#if (and (ne backend "self") (ne backend "none") (ne backend "convex"))}}
         {{#if (includes frontend "next")}}NEXT_PUBLIC_SERVER_URL{{else if (includes frontend "nuxt")}}NUXT_PUBLIC_SERVER_URL{{else if (or (includes frontend "svelte") (includes frontend "astro"))}}PUBLIC_SERVER_URL{{else}}VITE_SERVER_URL{{/if}}: http://localhost:3000
 {{/if}}
@@ -16583,11 +16565,21 @@ services:
       - path: apps/web/.env
         required: false
 {{#if (eq backend "self")}}
-{{#if (or (eq dbSetup "docker") (eq auth "better-auth") (and (eq database "sqlite") (eq dbSetup "none")))}}
+{{#if (or (eq dbSetup "docker") (eq auth "better-auth") (and (eq database "sqlite") (eq dbSetup "none")) (includes addons "axiom"))}}
     environment:
+{{#if (includes addons "axiom")}}
+      AXIOM_API_KEY: \${AXIOM_API_KEY:?Set AXIOM_API_KEY}
+      AXIOM_DATASET: \${AXIOM_DATASET:?Set AXIOM_DATASET}
+      AXIOM_EDGE_URL: \${AXIOM_EDGE_URL:?Set AXIOM_EDGE_URL}
+{{/if}}
 {{#if (eq auth "better-auth")}}
+{{#if (includes frontend "svelte")}}
+      BETTER_AUTH_URL: \${ORIGIN:-http://localhost:3001}
+      CORS_ORIGIN: \${ORIGIN:-http://localhost:3001}
+{{else}}
       BETTER_AUTH_URL: http://localhost:3001
       CORS_ORIGIN: http://localhost:3001
+{{/if}}
 {{/if}}
 {{#if (and (eq database "sqlite") (eq dbSetup "none"))}}
       DATABASE_URL: file:/data/local.db
@@ -16615,9 +16607,15 @@ services:
           create_host_path: false
 {{/if}}
 {{else}}
-{{#if (eq serverDeploy "docker")}}
+{{#if (or (eq serverDeploy "docker") (and (includes addons "axiom") (or (includes frontend "next") (includes frontend "tanstack-start") (includes frontend "nuxt") (includes frontend "svelte") (includes frontend "astro"))))}}
 {{#unless (includes frontend "tanstack-router")}}
     environment:
+{{#if (and (includes addons "axiom") (or (includes frontend "next") (includes frontend "tanstack-start") (includes frontend "nuxt") (includes frontend "svelte") (includes frontend "astro")))}}
+      AXIOM_API_KEY: \${AXIOM_API_KEY:?Set AXIOM_API_KEY}
+      AXIOM_DATASET: \${AXIOM_DATASET:?Set AXIOM_DATASET}
+      AXIOM_EDGE_URL: \${AXIOM_EDGE_URL:?Set AXIOM_EDGE_URL}
+{{/if}}
+{{#if (eq serverDeploy "docker")}}
       SERVER_URL: http://server:3000
 {{#if (includes frontend "next")}}
       NEXT_PUBLIC_SERVER_URL: http://server:3000
@@ -16625,10 +16623,13 @@ services:
 {{#if (includes frontend "nuxt")}}
       NUXT_SERVER_URL: http://server:3000
 {{/if}}
+{{/if}}
 {{/unless}}
+{{#if (eq serverDeploy "docker")}}
     depends_on:
       server:
         condition: service_healthy
+{{/if}}
 {{/if}}
 {{/if}}
     healthcheck:
@@ -16659,16 +16660,32 @@ services:
     build:
       context: .
       dockerfile: apps/server/Dockerfile
+      secrets:
+{{#if (or (includes frontend "next") (includes frontend "nuxt") (includes frontend "astro") (includes frontend "svelte") (includes frontend "solid") (includes frontend "tanstack-router") (includes frontend "tanstack-start") (includes frontend "react-router"))}}
+        - web_env
+{{/if}}
+{{#if (and (ne backend "self") (ne backend "none") (ne backend "convex"))}}
+        - server_env
+{{/if}}
     init: true
     ports:
       - "3000:3000"
     env_file:
       - path: apps/server/.env
         required: false
-{{#if (or (eq webDeploy "docker") (eq dbSetup "docker") (and (eq database "sqlite") (eq dbSetup "none")))}}
+{{#if (or (eq webDeploy "docker") (eq dbSetup "docker") (and (eq database "sqlite") (eq dbSetup "none")) (includes addons "axiom"))}}
     environment:
+{{#if (includes addons "axiom")}}
+      AXIOM_API_KEY: \${AXIOM_API_KEY:?Set AXIOM_API_KEY}
+      AXIOM_DATASET: \${AXIOM_DATASET:?Set AXIOM_DATASET}
+      AXIOM_EDGE_URL: \${AXIOM_EDGE_URL:?Set AXIOM_EDGE_URL}
+{{/if}}
 {{#if (eq webDeploy "docker")}}
+{{#if (includes frontend "svelte")}}
+      CORS_ORIGIN: \${ORIGIN:-http://localhost:3001}
+{{else}}
       CORS_ORIGIN: http://localhost:3001
+{{/if}}
 {{/if}}
 {{#if (and (eq database "sqlite") (eq dbSetup "none"))}}
       DATABASE_URL: file:/data/local.db
@@ -16777,6 +16794,17 @@ services:
 volumes:
   {{projectName}}_{{database}}_data:
 {{/if}}
+
+# BuildKit makes these available only while install/build commands run.
+secrets:
+{{#if (or (includes frontend "next") (includes frontend "nuxt") (includes frontend "astro") (includes frontend "svelte") (includes frontend "solid") (includes frontend "tanstack-router") (includes frontend "tanstack-start") (includes frontend "react-router"))}}
+  web_env:
+    file: apps/web/.env
+{{/if}}
+{{#if (and (ne backend "self") (ne backend "none") (ne backend "convex"))}}
+  server_env:
+    file: apps/server/.env
+{{/if}}
 `],
   ["deploy/docker/server/Dockerfile.hbs", `{{#if (eq packageManager "bun")}}
 FROM oven/bun:1 AS builder
@@ -16787,23 +16815,18 @@ FROM node:24-slim AS builder
 RUN npm install -g pnpm@11
 {{/if}}
 WORKDIR /app
-ENV SKIP_ENV_VALIDATION=1
-{{#if (eq orm "prisma")}}
-# prisma generate resolves DATABASE_URL at install time; the real value comes from compose at runtime
-ENV DATABASE_URL={{#if (eq database "mysql")}}mysql://build:build@localhost:3306/build{{else if (eq database "mongodb")}}mongodb://localhost:27017/build{{else if (eq database "sqlite")}}file:./build.db{{else}}postgresql://build:build@localhost:5432/build{{/if}}
-{{/if}}
 
 COPY . .
 {{#if (eq packageManager "bun")}}
-RUN --mount=type=cache,target=/root/.bun/install/cache bun install
+RUN --mount=type=secret,id=web_env,target=/app/apps/web/.env.local --mount=type=secret,id=server_env,target=/app/apps/server/.env.local --mount=type=cache,target=/root/.bun/install/cache bun install
 {{else if (eq packageManager "pnpm")}}
-RUN --mount=type=cache,target=/pnpm-store pnpm install --store-dir /pnpm-store
+RUN --mount=type=secret,id=web_env,target=/app/apps/web/.env.local --mount=type=secret,id=server_env,target=/app/apps/server/.env.local --mount=type=cache,target=/pnpm-store pnpm install --store-dir /pnpm-store
 {{else}}
-RUN --mount=type=cache,target=/root/.npm npm install
+RUN --mount=type=secret,id=web_env,target=/app/apps/web/.env.local --mount=type=secret,id=server_env,target=/app/apps/server/.env.local --mount=type=cache,target=/root/.npm npm install
 {{/if}}
 
 ENV NODE_ENV=production
-RUN cd apps/server && {{packageManager}} run build
+RUN --mount=type=secret,id=web_env,target=/app/apps/web/.env.local --mount=type=secret,id=server_env,target=/app/apps/server/.env.local cd apps/server && {{packageManager}} run build
 
 {{#if (eq runtime "bun")}}
 FROM oven/bun:1 AS runner
@@ -16843,25 +16866,14 @@ COPY --from=oven/bun:1 /usr/local/bin/bun /usr/local/bin/bun
 RUN npm install -g pnpm@11
 {{/if}}
 WORKDIR /app
-{{#if (eq backend "self")}}
-ENV SKIP_ENV_VALIDATION=1
-{{/if}}
-{{#if (and (eq backend "self") (eq auth "better-auth"))}}
-# the build evaluates the auth config; the real secret comes from compose at runtime
-ENV BETTER_AUTH_SECRET=build-time-placeholder-secret-not-used-at-runtime
-{{/if}}
-{{#if (eq orm "prisma")}}
-# prisma generate resolves DATABASE_URL at install time; the real value comes from compose at runtime
-ENV DATABASE_URL={{#if (eq database "mysql")}}mysql://build:build@localhost:3306/build{{else if (eq database "mongodb")}}mongodb://localhost:27017/build{{else if (eq database "sqlite")}}file:./build.db{{else}}postgresql://build:build@localhost:5432/build{{/if}}
-{{/if}}
 
 COPY . .
 {{#if (eq packageManager "bun")}}
-RUN --mount=type=cache,target=/root/.bun/install/cache bun install
+RUN --mount=type=secret,id=web_env,target=/app/apps/web/.env.local --mount=type=secret,id=server_env,target=/app/apps/server/.env.local --mount=type=cache,target=/root/.bun/install/cache bun install
 {{else if (eq packageManager "pnpm")}}
-RUN --mount=type=cache,target=/pnpm-store pnpm install --store-dir /pnpm-store
+RUN --mount=type=secret,id=web_env,target=/app/apps/web/.env.local --mount=type=secret,id=server_env,target=/app/apps/server/.env.local --mount=type=cache,target=/pnpm-store pnpm install --store-dir /pnpm-store
 {{else}}
-RUN --mount=type=cache,target=/root/.npm npm install
+RUN --mount=type=secret,id=web_env,target=/app/apps/web/.env.local --mount=type=secret,id=server_env,target=/app/apps/server/.env.local --mount=type=cache,target=/root/.npm npm install
 {{/if}}
 
 {{#if (and (ne backend "self") (ne backend "none") (ne backend "convex"))}}
@@ -16873,13 +16885,7 @@ ARG PUBLIC_CONVEX_URL
 ENV PUBLIC_CONVEX_URL=\${PUBLIC_CONVEX_URL}
 {{/if}}
 ENV NODE_ENV=production
-RUN cd apps/web && {{packageManager}} run build
-{{#if (eq backend "self")}}
-ENV SKIP_ENV_VALIDATION=
-{{/if}}
-{{#if (and (eq backend "self") (eq auth "better-auth"))}}
-ENV BETTER_AUTH_SECRET=
-{{/if}}
+RUN --mount=type=secret,id=web_env,target=/app/apps/web/.env.local --mount=type=secret,id=server_env,target=/app/apps/server/.env.local cd apps/web && {{packageManager}} run build
 {{#if (eq orm "prisma")}}
 ENV DATABASE_URL=
 {{/if}}
@@ -16899,39 +16905,30 @@ COPY --from=oven/bun:1 /usr/local/bin/bun /usr/local/bin/bun
 RUN npm install -g pnpm@11
 {{/if}}
 WORKDIR /app
-{{#if (eq backend "self")}}
-ENV SKIP_ENV_VALIDATION=1
-{{/if}}
 {{#if (and (ne backend "self") (ne backend "none") (ne backend "convex"))}}
 ARG NUXT_PUBLIC_SERVER_URL
 ENV NUXT_PUBLIC_SERVER_URL=\${NUXT_PUBLIC_SERVER_URL}
 {{/if}}
-{{#if (and (eq backend "self") (eq auth "better-auth"))}}
-# the build evaluates the auth config; the real secret comes from compose at runtime
-ENV BETTER_AUTH_SECRET=build-time-placeholder-secret-not-used-at-runtime
-{{/if}}
-{{#if (eq orm "prisma")}}
-# prisma generate resolves DATABASE_URL at install time; the real value comes from compose at runtime
-ENV DATABASE_URL={{#if (eq database "mysql")}}mysql://build:build@localhost:3306/build{{else if (eq database "mongodb")}}mongodb://localhost:27017/build{{else if (eq database "sqlite")}}file:./build.db{{else}}postgresql://build:build@localhost:5432/build{{/if}}
-{{/if}}
 
 COPY . .
 {{#if (eq packageManager "bun")}}
-RUN --mount=type=cache,target=/root/.bun/install/cache bun install
+RUN --mount=type=secret,id=web_env,target=/app/apps/web/.env.local --mount=type=secret,id=server_env,target=/app/apps/server/.env.local --mount=type=cache,target=/root/.bun/install/cache bun install
 {{else if (eq packageManager "pnpm")}}
-RUN --mount=type=cache,target=/pnpm-store pnpm install --store-dir /pnpm-store
+RUN --mount=type=secret,id=web_env,target=/app/apps/web/.env.local --mount=type=secret,id=server_env,target=/app/apps/server/.env.local --mount=type=cache,target=/pnpm-store pnpm install --store-dir /pnpm-store
 {{else}}
-RUN --mount=type=cache,target=/root/.npm npm install
+RUN --mount=type=secret,id=web_env,target=/app/apps/web/.env.local --mount=type=secret,id=server_env,target=/app/apps/server/.env.local --mount=type=cache,target=/root/.npm npm install
 {{/if}}
 
 ENV NODE_ENV=production
-RUN cd apps/web && {{packageManager}} run build
+RUN --mount=type=secret,id=web_env,target=/app/apps/web/.env.local --mount=type=secret,id=server_env,target=/app/apps/server/.env.local cd apps/web && {{packageManager}} run build
 
 FROM node:24-slim AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 
 COPY --from=builder /app/apps/web/.output ./
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/apps/web/.env.schema ./.env.schema
 
 ENV HOST=0.0.0.0
 ENV PORT=3001
@@ -16947,25 +16944,14 @@ COPY --from=oven/bun:1 /usr/local/bin/bun /usr/local/bin/bun
 RUN npm install -g pnpm@11
 {{/if}}
 WORKDIR /app
-{{#if (eq backend "self")}}
-ENV SKIP_ENV_VALIDATION=1
-{{/if}}
-{{#if (and (eq backend "self") (eq auth "better-auth"))}}
-# the build evaluates the auth config; the real secret comes from compose at runtime
-ENV BETTER_AUTH_SECRET=build-time-placeholder-secret-not-used-at-runtime
-{{/if}}
-{{#if (eq orm "prisma")}}
-# prisma generate resolves DATABASE_URL at install time; the real value comes from compose at runtime
-ENV DATABASE_URL={{#if (eq database "mysql")}}mysql://build:build@localhost:3306/build{{else if (eq database "mongodb")}}mongodb://localhost:27017/build{{else if (eq database "sqlite")}}file:./build.db{{else}}postgresql://build:build@localhost:5432/build{{/if}}
-{{/if}}
 
 COPY . .
 {{#if (eq packageManager "bun")}}
-RUN --mount=type=cache,target=/root/.bun/install/cache bun install
+RUN --mount=type=secret,id=web_env,target=/app/apps/web/.env.local --mount=type=secret,id=server_env,target=/app/apps/server/.env.local --mount=type=cache,target=/root/.bun/install/cache bun install
 {{else if (eq packageManager "pnpm")}}
-RUN --mount=type=cache,target=/pnpm-store pnpm install --store-dir /pnpm-store
+RUN --mount=type=secret,id=web_env,target=/app/apps/web/.env.local --mount=type=secret,id=server_env,target=/app/apps/server/.env.local --mount=type=cache,target=/pnpm-store pnpm install --store-dir /pnpm-store
 {{else}}
-RUN --mount=type=cache,target=/root/.npm npm install
+RUN --mount=type=secret,id=web_env,target=/app/apps/web/.env.local --mount=type=secret,id=server_env,target=/app/apps/server/.env.local --mount=type=cache,target=/root/.npm npm install
 {{/if}}
 
 {{#if (and (ne backend "self") (ne backend "none") (ne backend "convex"))}}
@@ -16981,7 +16967,7 @@ ARG NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
 ENV NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=\${NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY}
 {{/if}}
 ENV NODE_ENV=production
-RUN cd apps/web && {{packageManager}} run build
+RUN --mount=type=secret,id=web_env,target=/app/apps/web/.env.local --mount=type=secret,id=server_env,target=/app/apps/server/.env.local cd apps/web && {{packageManager}} run build && rm -f .next/standalone/.env* .next/standalone/apps/web/.env*
 # standalone output excludes public/; ensure it exists so the runner copy never fails
 RUN mkdir -p apps/web/public
 
@@ -16992,12 +16978,16 @@ ENV NODE_ENV=production
 COPY --from=builder /app/apps/web/.next/standalone ./
 COPY --from=builder /app/apps/web/.next/static ./apps/web/.next/static
 COPY --from=builder /app/apps/web/public ./apps/web/public
+# auto-load needs the Varlock CLI and its installed dependencies.
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/apps/web/.env.schema ./apps/web/.env.schema
 
 ENV HOSTNAME=0.0.0.0
 ENV PORT=3001
 EXPOSE 3001
 
-CMD ["node", "apps/web/server.js"]
+WORKDIR /app/apps/web
+CMD ["node", "--import", "varlock/auto-load", "server.js"]
 `],
   ["deploy/docker/web/react/react-router/Dockerfile.hbs", `FROM node:24{{#unless (includes addons "vite-plus")}}-slim{{/unless}} AS builder
 {{#if (eq packageManager "bun")}}
@@ -17007,22 +16997,14 @@ COPY --from=oven/bun:1 /usr/local/bin/bun /usr/local/bin/bun
 RUN npm install -g pnpm@11
 {{/if}}
 WORKDIR /app
-{{#if (and (eq backend "self") (eq auth "better-auth"))}}
-# the build evaluates the auth config; the real secret comes from compose at runtime
-ENV BETTER_AUTH_SECRET=build-time-placeholder-secret-not-used-at-runtime
-{{/if}}
-{{#if (eq orm "prisma")}}
-# prisma generate resolves DATABASE_URL at install time; the real value comes from compose at runtime
-ENV DATABASE_URL={{#if (eq database "mysql")}}mysql://build:build@localhost:3306/build{{else if (eq database "mongodb")}}mongodb://localhost:27017/build{{else if (eq database "sqlite")}}file:./build.db{{else}}postgresql://build:build@localhost:5432/build{{/if}}
-{{/if}}
 
 COPY . .
 {{#if (eq packageManager "bun")}}
-RUN --mount=type=cache,target=/root/.bun/install/cache bun install
+RUN --mount=type=secret,id=web_env,target=/app/apps/web/.env.local --mount=type=secret,id=server_env,target=/app/apps/server/.env.local --mount=type=cache,target=/root/.bun/install/cache bun install
 {{else if (eq packageManager "pnpm")}}
-RUN --mount=type=cache,target=/pnpm-store pnpm install --store-dir /pnpm-store
+RUN --mount=type=secret,id=web_env,target=/app/apps/web/.env.local --mount=type=secret,id=server_env,target=/app/apps/server/.env.local --mount=type=cache,target=/pnpm-store pnpm install --store-dir /pnpm-store
 {{else}}
-RUN --mount=type=cache,target=/root/.npm npm install
+RUN --mount=type=secret,id=web_env,target=/app/apps/web/.env.local --mount=type=secret,id=server_env,target=/app/apps/server/.env.local --mount=type=cache,target=/root/.npm npm install
 {{/if}}
 
 {{#if (and (ne backend "self") (ne backend "none") (ne backend "convex"))}}
@@ -17038,7 +17020,7 @@ ARG VITE_CLERK_PUBLISHABLE_KEY
 ENV VITE_CLERK_PUBLISHABLE_KEY=\${VITE_CLERK_PUBLISHABLE_KEY}
 {{/if}}
 ENV NODE_ENV=production
-RUN cd apps/web && {{packageManager}} run build
+RUN --mount=type=secret,id=web_env,target=/app/apps/web/.env.local --mount=type=secret,id=server_env,target=/app/apps/server/.env.local cd apps/web && {{packageManager}} run build
 
 FROM node:24-slim AS runner
 WORKDIR /app
@@ -17057,22 +17039,14 @@ COPY --from=oven/bun:1 /usr/local/bin/bun /usr/local/bin/bun
 RUN npm install -g pnpm@11
 {{/if}}
 WORKDIR /app
-{{#if (and (eq backend "self") (eq auth "better-auth"))}}
-# the build evaluates the auth config; the real secret comes from compose at runtime
-ENV BETTER_AUTH_SECRET=build-time-placeholder-secret-not-used-at-runtime
-{{/if}}
-{{#if (eq orm "prisma")}}
-# prisma generate resolves DATABASE_URL at install time; the real value comes from compose at runtime
-ENV DATABASE_URL={{#if (eq database "mysql")}}mysql://build:build@localhost:3306/build{{else if (eq database "mongodb")}}mongodb://localhost:27017/build{{else if (eq database "sqlite")}}file:./build.db{{else}}postgresql://build:build@localhost:5432/build{{/if}}
-{{/if}}
 
 COPY . .
 {{#if (eq packageManager "bun")}}
-RUN --mount=type=cache,target=/root/.bun/install/cache bun install
+RUN --mount=type=secret,id=web_env,target=/app/apps/web/.env.local --mount=type=secret,id=server_env,target=/app/apps/server/.env.local --mount=type=cache,target=/root/.bun/install/cache bun install
 {{else if (eq packageManager "pnpm")}}
-RUN --mount=type=cache,target=/pnpm-store pnpm install --store-dir /pnpm-store
+RUN --mount=type=secret,id=web_env,target=/app/apps/web/.env.local --mount=type=secret,id=server_env,target=/app/apps/server/.env.local --mount=type=cache,target=/pnpm-store pnpm install --store-dir /pnpm-store
 {{else}}
-RUN --mount=type=cache,target=/root/.npm npm install
+RUN --mount=type=secret,id=web_env,target=/app/apps/web/.env.local --mount=type=secret,id=server_env,target=/app/apps/server/.env.local --mount=type=cache,target=/root/.npm npm install
 {{/if}}
 
 {{#if (and (ne backend "self") (ne backend "none") (ne backend "convex"))}}
@@ -17088,7 +17062,7 @@ ARG VITE_CLERK_PUBLISHABLE_KEY
 ENV VITE_CLERK_PUBLISHABLE_KEY=\${VITE_CLERK_PUBLISHABLE_KEY}
 {{/if}}
 ENV NODE_ENV=production
-RUN cd apps/web && {{packageManager}} run build
+RUN --mount=type=secret,id=web_env,target=/app/apps/web/.env.local --mount=type=secret,id=server_env,target=/app/apps/server/.env.local cd apps/web && {{packageManager}} run build
 
 FROM nginx:alpine AS runner
 COPY --from=builder /app/apps/web/dist /usr/share/nginx/html
@@ -17127,25 +17101,14 @@ COPY --from=oven/bun:1 /usr/local/bin/bun /usr/local/bin/bun
 RUN npm install -g pnpm@11
 {{/if}}
 WORKDIR /app
-{{#if (eq backend "self")}}
-ENV SKIP_ENV_VALIDATION=1
-{{/if}}
-{{#if (and (eq backend "self") (eq auth "better-auth"))}}
-# the build evaluates the auth config; the real secret comes from compose at runtime
-ENV BETTER_AUTH_SECRET=build-time-placeholder-secret-not-used-at-runtime
-{{/if}}
-{{#if (eq orm "prisma")}}
-# prisma generate resolves DATABASE_URL at install time; the real value comes from compose at runtime
-ENV DATABASE_URL={{#if (eq database "mysql")}}mysql://build:build@localhost:3306/build{{else if (eq database "mongodb")}}mongodb://localhost:27017/build{{else if (eq database "sqlite")}}file:./build.db{{else}}postgresql://build:build@localhost:5432/build{{/if}}
-{{/if}}
 
 COPY . .
 {{#if (eq packageManager "bun")}}
-RUN --mount=type=cache,target=/root/.bun/install/cache bun install
+RUN --mount=type=secret,id=web_env,target=/app/apps/web/.env.local --mount=type=secret,id=server_env,target=/app/apps/server/.env.local --mount=type=cache,target=/root/.bun/install/cache bun install
 {{else if (eq packageManager "pnpm")}}
-RUN --mount=type=cache,target=/pnpm-store pnpm install --store-dir /pnpm-store
+RUN --mount=type=secret,id=web_env,target=/app/apps/web/.env.local --mount=type=secret,id=server_env,target=/app/apps/server/.env.local --mount=type=cache,target=/pnpm-store pnpm install --store-dir /pnpm-store
 {{else}}
-RUN --mount=type=cache,target=/root/.npm npm install
+RUN --mount=type=secret,id=web_env,target=/app/apps/web/.env.local --mount=type=secret,id=server_env,target=/app/apps/server/.env.local --mount=type=cache,target=/root/.npm npm install
 {{/if}}
 
 {{#if (and (ne backend "self") (ne backend "none") (ne backend "convex"))}}
@@ -17161,13 +17124,7 @@ ARG VITE_CLERK_PUBLISHABLE_KEY
 ENV VITE_CLERK_PUBLISHABLE_KEY=\${VITE_CLERK_PUBLISHABLE_KEY}
 {{/if}}
 ENV NODE_ENV=production
-RUN cd apps/web && {{packageManager}} run build
-{{#if (eq backend "self")}}
-ENV SKIP_ENV_VALIDATION=
-{{/if}}
-{{#if (and (eq backend "self") (eq auth "better-auth"))}}
-ENV BETTER_AUTH_SECRET=
-{{/if}}
+RUN --mount=type=secret,id=web_env,target=/app/apps/web/.env.local --mount=type=secret,id=server_env,target=/app/apps/server/.env.local cd apps/web && {{packageManager}} run build
 {{#if (eq orm "prisma")}}
 ENV DATABASE_URL=
 {{/if}}
@@ -17206,25 +17163,14 @@ COPY --from=oven/bun:1 /usr/local/bin/bun /usr/local/bin/bun
 RUN npm install -g pnpm@11
 {{/if}}
 WORKDIR /app
-{{#if (eq backend "self")}}
-ENV SKIP_ENV_VALIDATION=1
-{{/if}}
-{{#if (and (eq backend "self") (eq auth "better-auth"))}}
-# the build evaluates the auth config; the real secret comes from compose at runtime
-ENV BETTER_AUTH_SECRET=build-time-placeholder-secret-not-used-at-runtime
-{{/if}}
-{{#if (eq orm "prisma")}}
-# prisma generate resolves DATABASE_URL at install time; the real value comes from compose at runtime
-ENV DATABASE_URL={{#if (eq database "mysql")}}mysql://build:build@localhost:3306/build{{else if (eq database "mongodb")}}mongodb://localhost:27017/build{{else if (eq database "sqlite")}}file:./build.db{{else}}postgresql://build:build@localhost:5432/build{{/if}}
-{{/if}}
 
 COPY . .
 {{#if (eq packageManager "bun")}}
-RUN --mount=type=cache,target=/root/.bun/install/cache bun install
+RUN --mount=type=secret,id=web_env,target=/app/apps/web/.env.local --mount=type=secret,id=server_env,target=/app/apps/server/.env.local --mount=type=cache,target=/root/.bun/install/cache bun install
 {{else if (eq packageManager "pnpm")}}
-RUN --mount=type=cache,target=/pnpm-store pnpm install --store-dir /pnpm-store
+RUN --mount=type=secret,id=web_env,target=/app/apps/web/.env.local --mount=type=secret,id=server_env,target=/app/apps/server/.env.local --mount=type=cache,target=/pnpm-store pnpm install --store-dir /pnpm-store
 {{else}}
-RUN --mount=type=cache,target=/root/.npm npm install
+RUN --mount=type=secret,id=web_env,target=/app/apps/web/.env.local --mount=type=secret,id=server_env,target=/app/apps/server/.env.local --mount=type=cache,target=/root/.npm npm install
 {{/if}}
 
 {{#if (and (ne backend "self") (ne backend "none") (ne backend "convex"))}}
@@ -17236,13 +17182,7 @@ ARG VITE_CONVEX_URL
 ENV VITE_CONVEX_URL=\${VITE_CONVEX_URL}
 {{/if}}
 ENV NODE_ENV=production
-RUN cd apps/web && {{packageManager}} run build
-{{#if (eq backend "self")}}
-ENV SKIP_ENV_VALIDATION=
-{{/if}}
-{{#if (and (eq backend "self") (eq auth "better-auth"))}}
-ENV BETTER_AUTH_SECRET=
-{{/if}}
+RUN --mount=type=secret,id=web_env,target=/app/apps/web/.env.local --mount=type=secret,id=server_env,target=/app/apps/server/.env.local cd apps/web && {{packageManager}} run build
 {{#if (eq orm "prisma")}}
 ENV DATABASE_URL=
 {{/if}}
@@ -17257,6 +17197,8 @@ WORKDIR /app/apps/web
 ENV NODE_ENV=production
 
 COPY --from=builder /app/apps/web/.output ./.output
+COPY --from=builder /app/node_modules /app/node_modules
+COPY --from=builder /app/apps/web/.env.schema ./.env.schema
 
 ENV HOST=0.0.0.0
 ENV PORT=3001
@@ -17272,25 +17214,14 @@ COPY --from=oven/bun:1 /usr/local/bin/bun /usr/local/bin/bun
 RUN npm install -g pnpm@11
 {{/if}}
 WORKDIR /app
-{{#if (eq backend "self")}}
-ENV SKIP_ENV_VALIDATION=1
-{{/if}}
-{{#if (and (eq backend "self") (eq auth "better-auth"))}}
-# the build evaluates the auth config; the real secret comes from compose at runtime
-ENV BETTER_AUTH_SECRET=build-time-placeholder-secret-not-used-at-runtime
-{{/if}}
-{{#if (eq orm "prisma")}}
-# prisma generate resolves DATABASE_URL at install time; the real value comes from compose at runtime
-ENV DATABASE_URL={{#if (eq database "mysql")}}mysql://build:build@localhost:3306/build{{else if (eq database "mongodb")}}mongodb://localhost:27017/build{{else if (eq database "sqlite")}}file:./build.db{{else}}postgresql://build:build@localhost:5432/build{{/if}}
-{{/if}}
 
 COPY . .
 {{#if (eq packageManager "bun")}}
-RUN --mount=type=cache,target=/root/.bun/install/cache bun install
+RUN --mount=type=secret,id=web_env,target=/app/apps/web/.env.local --mount=type=secret,id=server_env,target=/app/apps/server/.env.local --mount=type=cache,target=/root/.bun/install/cache bun install
 {{else if (eq packageManager "pnpm")}}
-RUN --mount=type=cache,target=/pnpm-store pnpm install --store-dir /pnpm-store
+RUN --mount=type=secret,id=web_env,target=/app/apps/web/.env.local --mount=type=secret,id=server_env,target=/app/apps/server/.env.local --mount=type=cache,target=/pnpm-store pnpm install --store-dir /pnpm-store
 {{else}}
-RUN --mount=type=cache,target=/root/.npm npm install
+RUN --mount=type=secret,id=web_env,target=/app/apps/web/.env.local --mount=type=secret,id=server_env,target=/app/apps/server/.env.local --mount=type=cache,target=/root/.npm npm install
 {{/if}}
 
 {{#if (and (ne backend "self") (ne backend "none") (ne backend "convex"))}}
@@ -17301,14 +17232,13 @@ ENV PUBLIC_SERVER_URL=\${PUBLIC_SERVER_URL}
 ARG PUBLIC_CONVEX_URL
 ENV PUBLIC_CONVEX_URL=\${PUBLIC_CONVEX_URL}
 {{/if}}
+ARG ORIGIN=http://localhost:3001
+ENV ORIGIN=\${ORIGIN}
 ENV NODE_ENV=production
-RUN cd apps/web && {{packageManager}} run build
-{{#if (eq backend "self")}}
-ENV SKIP_ENV_VALIDATION=
+{{#if (and (eq backend "self") (eq database "sqlite") (eq dbSetup "none"))}}
+RUN mkdir -p /app/.data
 {{/if}}
-{{#if (and (eq backend "self") (eq auth "better-auth"))}}
-ENV BETTER_AUTH_SECRET=
-{{/if}}
+RUN --mount=type=secret,id=web_env,target=/app/apps/web/.env.local --mount=type=secret,id=server_env,target=/app/apps/server/.env.local cd apps/web && {{packageManager}} run build
 {{#if (eq orm "prisma")}}
 ENV DATABASE_URL=
 {{/if}}
@@ -17357,17 +17287,19 @@ app.listen(port, "0.0.0.0", () => {
 **/.env
 **/.env.*
 !**/.env.example
+!**/.env.schema
 local.db
 local.db-*
 .alchemy/
 `],
   ["deploy/vercel/scripts/sync-vercel-env.ts.hbs", `import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
-import dotenv from "dotenv";
+import { dirname, join } from "node:path";
+import { parseEnv } from "node:util";
 
 const DEFAULT_ENVIRONMENT = "preview";
 const VALID_ENVIRONMENTS = new Set(["development", "preview", "production"]);
-const VERCEL_COMMAND = [{{#if (eq packageManager "npm")}}"npx", "vercel"{{else if (eq packageManager "pnpm")}}"pnpm", "exec", "vercel"{{else}}"bunx", "vercel"{{/if}}] as const;
+const VERCEL_COMMAND = [{{#if (eq packageManager "npm")}}"npx", "--yes", "vercel"{{else if (eq packageManager "pnpm")}}"pnpm", "dlx", "vercel"{{else}}"bunx", "vercel"{{/if}}] as const;
 const DEFAULT_FILES = [
 {{#if (eq webDeploy "vercel")}}
 	"apps/web/.env",
@@ -17420,12 +17352,9 @@ for (const arg of remainingArgs) {
 const vercelArgs = [...passthroughArgs, ...forwardedArgs];
 const envFiles = files.length > 0 ? files : DEFAULT_FILES;
 
-if (envFiles.length === 0) {
-	console.log("No env files configured for this Vercel stack.");
-	process.exit(0);
-}
-
 const env = new Map<string, string>();
+const undeclaredKeys: string[] = [];
+const emptyKeys: string[] = [];
 
 for (const file of envFiles) {
 	if (!existsSync(file)) {
@@ -17433,11 +17362,43 @@ for (const file of envFiles) {
 		continue;
 	}
 
-	for (const [key, value] of Object.entries(dotenv.parse(readFileSync(file, "utf8")))) {
+	// Only the keys an app declares in its .env.schema are config; tools such as
+	// database CLIs also write local-only values (claim links, direct URLs) to .env
+	const schemaFile = join(dirname(file), ".env.schema");
+	const declaredKeys = existsSync(schemaFile)
+		? new Set(Object.keys(parseEnv(readFileSync(schemaFile, "utf8"))))
+		: undefined;
+
+	for (const [key, value] of Object.entries(parseEnv(readFileSync(file, "utf8")))) {
 		if (SKIP_KEYS.has(key)) continue;
-		env.set(key, OVERRIDE_KEYS.get(key) ?? value);
+		if (declaredKeys && !declaredKeys.has(key)) {
+			undeclaredKeys.push(key);
+			continue;
+		}
+		const syncedValue = OVERRIDE_KEYS.get(key) ?? value;
+		if (!syncedValue) {
+			emptyKeys.push(key);
+			continue;
+		}
+		env.set(key, syncedValue);
 	}
 }
+
+if (undeclaredKeys.length > 0) {
+	console.log(\`Skipping \${undeclaredKeys.join(", ")}: not declared in .env.schema.\`);
+}
+if (emptyKeys.length > 0) {
+	console.warn(
+		\`Warning: \${emptyKeys.join(", ")} \${emptyKeys.length === 1 ? "is" : "are"} empty in your .env file(s) and won't be synced. Required values must be set before deploying, or the build or server fails env validation.\`,
+	);
+}
+
+{{#if (includes addons "axiom")}}
+for (const key of ["AXIOM_API_KEY", "AXIOM_DATASET", "AXIOM_EDGE_URL"] as const) {
+	const value = process.env[key];
+	if (value) env.set(key, value);
+}
+{{/if}}
 
 if (env.size === 0) {
 	console.log("No Vercel env vars found to sync.");
@@ -17490,6 +17451,156 @@ for (const [key, value] of env.entries()) {
 }
 
 console.log("Vercel env sync complete. Redeploy for changes to take effect.");
+`],
+  ["env/auth-client.ts.hbs", `import { createClient, type AuthClient } from "@{{projectName}}/auth/client";
+{{#unless (eq backend "self")}}
+import { ENV } from "./env{{#if (eq webDeploy "cloudflare")}}.public{{/if}}";
+
+{{> getServerUrl}}
+{{/unless}}
+
+export const authClient: AuthClient = createClient({{#unless (eq backend "self")}}{{#if (and (eq webDeploy serverDeploy) (or (eq webDeploy "vercel") (eq webDeploy "docker")))}}new URL("/api/auth", getServerUrl(ENV.VITE_SERVER_URL)).toString(){{else}}ENV.VITE_SERVER_URL{{/if}}{{/unless}});
+`],
+  ["env/env.server.ts.hbs", `{{#if (and (eq serverDeploy "cloudflare") (or (ne backend "self") (ne webDeploy "cloudflare")))}}
+/// <reference types="@cloudflare/workers-types" />
+/// <reference path="../cloudflare-env.d.ts" />
+// For Cloudflare Workers, env is accessed via cloudflare:workers module
+// Types are defined in env.d.ts based on your alchemy.run.ts bindings
+export { env as ENV } from "cloudflare:workers";
+{{else if (and (eq backend "self") (eq webDeploy "cloudflare") (includes frontend "next"))}}
+/// <reference path="../cloudflare-env.d.ts" />
+import { getCloudflareContext } from "@opennextjs/cloudflare";
+
+function getNodeEnvValue(key: string) {
+	if (key === "DB") {
+		return undefined;
+	}
+
+	return process.env[key];
+}
+
+function getCloudflareEnvSync() {
+	try {
+		return getCloudflareContext().env as Env;
+	} catch {
+		return undefined;
+	}
+}
+
+function createEnvProxy(getValue: (key: keyof Env & string) => unknown) {
+	return new Proxy({} as Env, {
+		get(_target, prop) {
+			if (typeof prop !== "string") {
+				return undefined;
+			}
+
+			return getValue(prop as keyof Env & string);
+		},
+	});
+}
+
+function resolveEnvValue(key: keyof Env & string) {
+	const nodeValue = getNodeEnvValue(key);
+	if (nodeValue !== undefined) {
+		return nodeValue;
+	}
+
+	return getCloudflareEnvSync()?.[key as keyof Env];
+}
+
+// Next.js local dev runs in Node.js, where env vars are exposed on process.env.
+// In the Cloudflare runtime, fall back to OpenNext's Cloudflare context bindings.
+// For static routes (ISR/SSG), use getEnvAsync() so OpenNext can resolve bindings
+// with the async Cloudflare context API.
+export async function getEnvAsync() {
+	const cloudflareEnv = (await getCloudflareContext({ async: true })).env as Env;
+
+	return createEnvProxy((key) => {
+		const nodeValue = getNodeEnvValue(key);
+		if (nodeValue !== undefined) {
+			return nodeValue;
+		}
+
+		return cloudflareEnv[key as keyof Env];
+	});
+}
+
+export const ENV = createEnvProxy(resolveEnvValue);
+{{else if (and (eq backend "self") (eq webDeploy "cloudflare") (includes frontend "svelte"))}}
+/// <reference path="../cloudflare-env.d.ts" />
+export type { CloudflareEnv } from "../cloudflare-env.d.ts";
+export { env as ENV } from "cloudflare:workers";
+{{else if (usesRequestScopedCloudflareEnv backend webDeploy frontend)}}
+import type { CloudflareEnv } from "../cloudflare-env.d.ts";
+export type { CloudflareEnv } from "../cloudflare-env.d.ts";
+
+const runtimeEnv = typeof process === "undefined" ? {} : process.env;
+
+export const ENV = new Proxy({} as CloudflareEnv, {
+	get(_target, prop) {
+		if (typeof prop !== "string") {
+			return undefined;
+		}
+
+		return runtimeEnv[prop];
+	},
+});
+{{else if (and (eq backend "self") (eq webDeploy "cloudflare"))}}
+/// <reference types="@cloudflare/workers-types" />
+/// <reference path="../cloudflare-env.d.ts" />
+// For Cloudflare Workers, env is accessed via cloudflare:workers module
+// Types are defined in env.d.ts based on your alchemy.run.ts bindings
+export { env as ENV } from "cloudflare:workers";
+{{else}}
+{{#if (ne backend "self")}}
+import "varlock/auto-load";
+{{/if}}
+export { ENV } from "./env{{#if (and (eq backend "self") (includes frontend "svelte"))}}.generated{{/if}}";
+{{/if}}
+{{#if (and (ne backend "self") (or (includes addons "electrobun") (includes addons "tauri")))}}
+
+/** Packaged desktop builds serve the frontend from their own origin, not CORS_ORIGIN. */
+export const desktopOrigins = [
+{{#if (includes addons "electrobun")}}
+	"views://mainview",
+{{/if}}
+{{#if (includes addons "tauri")}}
+	"tauri://localhost",
+	"http://tauri.localhost",
+{{/if}}
+];
+{{/if}}
+`],
+  ["env/services.ts.hbs", `import { ENV{{#if (and (ne backend "self") (or (includes addons "electrobun") (includes addons "tauri")))}}, desktopOrigins{{/if}} } from "./env.server";
+{{#if (usesRequestScopedCloudflareEnv backend webDeploy frontend)}}
+import type { CloudflareEnv } from "../cloudflare-env.d.ts";
+{{/if}}
+{{#if (ne database "none")}}
+import { {{#if (or (eq runtime "workers") (eq serverDeploy "cloudflare") (and (eq backend "self") (eq webDeploy "cloudflare")))}}type Database, {{/if}}{{#if (eq orm "prisma")}}createPrismaClient{{else}}createDb{{/if}} } from "@{{projectName}}/db";
+{{/if}}
+{{#if (eq auth "better-auth")}}
+import { createAuth{{#if (or (eq runtime "workers") (eq serverDeploy "cloudflare") (and (eq backend "self") (eq webDeploy "cloudflare")))}} as createConfiguredAuth{{/if}} } from "@{{projectName}}/auth";
+{{/if}}
+
+{{#if (or (eq runtime "workers") (eq serverDeploy "cloudflare") (and (eq backend "self") (eq webDeploy "cloudflare")))}}
+{{#if (ne database "none")}}
+export function getDb({{#if (usesRequestScopedCloudflareEnv backend webDeploy frontend)}}bindings: CloudflareEnv{{/if}}): {{#if (eq orm "mongoose")}}Promise<Database>{{else}}Database{{/if}} {
+  return {{#if (eq orm "prisma")}}createPrismaClient{{else}}createDb{{/if}}({{#if (usesRequestScopedCloudflareEnv backend webDeploy frontend)}}bindings{{else}}ENV{{/if}});
+}
+{{/if}}
+{{#if (eq auth "better-auth")}}
+export async function createAuth({{#if (usesRequestScopedCloudflareEnv backend webDeploy frontend)}}bindings: CloudflareEnv, {{/if}}{{#if (ne database "none")}}database?: Database{{/if}}) {
+  return createConfiguredAuth({{#if (usesRequestScopedCloudflareEnv backend webDeploy frontend)}}bindings{{else}}ENV{{/if}}{{#if (ne database "none")}}, database ?? await getDb({{#if (usesRequestScopedCloudflareEnv backend webDeploy frontend)}}bindings{{/if}}){{/if}}{{#if (and (ne backend "self") (or (includes addons "electrobun") (includes addons "tauri")))}}, desktopOrigins{{/if}});
+}
+{{/if}}
+{{else}}
+{{#if (ne database "none")}}
+export const db = {{#if (eq orm "mongoose")}}await {{/if}}{{#if (eq orm "prisma")}}createPrismaClient{{else}}createDb{{/if}}(ENV);
+{{/if}}
+{{#if (eq auth "better-auth")}}
+export const auth = createAuth(ENV{{#if (ne database "none")}}, db{{/if}}{{#if (and (ne backend "self") (or (includes addons "electrobun") (includes addons "tauri")))}}, desktopOrigins{{/if}});
+{{/if}}
+{{/if}}
 `],
   ["examples/ai/convex/packages/backend/convex/agent.ts.hbs", `import { Agent } from "@convex-dev/agent";
 import { google } from "@ai-sdk/google";
@@ -18209,7 +18320,7 @@ import { DefaultChatTransport } from "ai";
 import { Container } from "@/components/container";
 import { useColorScheme } from "@/lib/use-color-scheme";
 import { NAV_THEME } from "@/lib/constants";
-import { env } from "@{{projectName}}/env/native";
+import { ENV } from "../../src/env";
 
 const starterPrompts = [
   {
@@ -18227,7 +18338,7 @@ const starterPrompts = [
 ];
 
 const generateAPIUrl = (relativePath: string) => {
-  const serverUrl = env.EXPO_PUBLIC_SERVER_URL;
+  const serverUrl = ENV.EXPO_PUBLIC_SERVER_URL;
   if (!serverUrl) {
     throw new Error(
       "EXPO_PUBLIC_SERVER_URL environment variable is not defined"
@@ -18243,7 +18354,7 @@ export default function AIScreen() {
   const [input, setInput] = useState("");
   const { messages, error, sendMessage, status, setMessages } = useChat({
     transport: new DefaultChatTransport({
-      api: generateAPIUrl("/ai"),
+      api: generateAPIUrl("{{apiPrefix webDeploy serverDeploy}}/ai"),
     }),
     onError: (error) => console.error(error, "AI Chat Error"),
   });
@@ -18763,8 +18874,6 @@ if (Platform.OS !== "web") {
 
   setupPolyfills();
 }
-
-export {};
 `],
   ["examples/ai/native/unistyles/app/(drawer)/ai.tsx.hbs", `import "@/unistyles";
 
@@ -19305,7 +19414,7 @@ import { DefaultChatTransport } from "ai";
 import { Ionicons } from "@expo/vector-icons";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 import { Container } from "@/components/container";
-import { env } from "@{{projectName}}/env/native";
+import { ENV } from "../../src/env";
 
 const starterPrompts = [
   {
@@ -19323,7 +19432,7 @@ const starterPrompts = [
 ];
 
 const generateAPIUrl = (relativePath: string) => {
-  const serverUrl = env.EXPO_PUBLIC_SERVER_URL;
+  const serverUrl = ENV.EXPO_PUBLIC_SERVER_URL;
   if (!serverUrl) {
     throw new Error(
       "EXPO_PUBLIC_SERVER_URL environment variable is not defined"
@@ -19338,7 +19447,7 @@ export default function AIScreen() {
   const [input, setInput] = useState("");
   const { messages, error, sendMessage, status, setMessages } = useChat({
     transport: new DefaultChatTransport({
-      api: generateAPIUrl("/ai"),
+      api: generateAPIUrl("{{apiPrefix webDeploy serverDeploy}}/ai"),
     }),
     onError: (error) => console.error(error, "AI Chat Error"),
   });
@@ -19853,8 +19962,6 @@ if (Platform.OS !== "web") {
 
   setupPolyfills();
 }
-
-export {};
 `],
   ["examples/ai/native/uniwind/app/(drawer)/ai.tsx.hbs", `{{#if (eq backend "convex")}}
 import { Ionicons } from "@expo/vector-icons";
@@ -20148,7 +20255,7 @@ import { DefaultChatTransport } from "ai";
 import { Ionicons } from "@expo/vector-icons";
 import { Container } from "@/components/container";
 import { Button, Separator, FieldError, Spinner, Surface, Input, TextField, useThemeColor } from "heroui-native";
-import { env } from "@{{projectName}}/env/native";
+import { ENV } from "../../src/env";
 
 const starterPrompts = [
   {
@@ -20166,7 +20273,7 @@ const starterPrompts = [
 ];
 
 const generateAPIUrl = (relativePath: string) => {
-  const serverUrl = env.EXPO_PUBLIC_SERVER_URL;
+  const serverUrl = ENV.EXPO_PUBLIC_SERVER_URL;
   if (!serverUrl) {
     throw new Error(
       "EXPO_PUBLIC_SERVER_URL environment variable is not defined"
@@ -20180,7 +20287,7 @@ export default function AIScreen() {
   const [input, setInput] = useState("");
   const { messages, error, sendMessage, status, setMessages } = useChat({
     transport: new DefaultChatTransport({
-      api: generateAPIUrl("/ai"),
+      api: generateAPIUrl("{{apiPrefix webDeploy serverDeploy}}/ai"),
     }),
     onError: (error) => console.error(error, "AI Chat Error"),
   });
@@ -20425,8 +20532,6 @@ if (Platform.OS !== "web") {
 
   setupPolyfills();
 }
-
-export {};
 `],
   ["examples/ai/web/nuxt/app/pages/ai.vue.hbs", `<script setup lang="ts">
 import { useChat } from '@ai-sdk/vue'
@@ -20916,13 +21021,13 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@{{projectName}}/ui/components/tooltip";
-import { env } from "@{{projectName}}/env/web";
+import { ENV } from "../../env{{#if (eq webDeploy "cloudflare")}}.public{{/if}}";
 
 export default function AIPage() {
   const [input, setInput] = useState("");
   const { messages, sendMessage, status, setMessages } = useChat({
     transport: new DefaultChatTransport({
-      api: {{#if (eq backend "self")}}"/api/ai"{{else}}\`\${env.NEXT_PUBLIC_SERVER_URL}/ai\`{{/if}},
+      api: {{#if (eq backend "self")}}"/api/ai"{{else}}\`\${ENV.NEXT_PUBLIC_SERVER_URL}/ai\`{{/if}},
     }),
   });
   const isSending = status === "submitted" || status === "streaming";
@@ -21373,7 +21478,7 @@ import {
 } from "lucide-react";
 import { useState, type FormEvent, type KeyboardEvent } from "react";
 import { Streamdown } from "streamdown";
-import { env } from "@{{projectName}}/env/web";
+import { ENV } from "../env{{#if (eq webDeploy "cloudflare")}}.public{{/if}}";
 
 import { Bubble, BubbleContent } from "@{{projectName}}/ui/components/bubble";
 import { Button } from "@{{projectName}}/ui/components/button";
@@ -21413,7 +21518,7 @@ export default function AI() {
   const [input, setInput] = useState("");
   const { messages, sendMessage, status, setMessages } = useChat({
     transport: new DefaultChatTransport({
-      api: \`\${env.VITE_SERVER_URL}/ai\`,
+      api: \`\${ENV.VITE_SERVER_URL}/ai\`,
     }),
   });
   const isSending = status === "submitted" || status === "streaming";
@@ -21871,7 +21976,7 @@ import {
 import { useState, type FormEvent, type KeyboardEvent } from "react";
 import { Streamdown } from "streamdown";
 {{#unless (eq backend "self")}}
-import { env } from "@{{projectName}}/env/web";
+import { ENV } from "../env{{#if (eq webDeploy "cloudflare")}}.public{{/if}}";
 {{/unless}}
 
 import { Bubble, BubbleContent } from "@{{projectName}}/ui/components/bubble";
@@ -21916,7 +22021,7 @@ function RouteComponent() {
   const [input, setInput] = useState("");
   const { messages, sendMessage, status, setMessages } = useChat({
     transport: new DefaultChatTransport({
-      api: {{#if (eq backend "self")}}"/api/ai"{{else}}\`\${env.VITE_SERVER_URL}/ai\`{{/if}},
+      api: {{#if (eq backend "self")}}"/api/ai"{{else}}\`\${ENV.VITE_SERVER_URL}/ai\`{{/if}},
     }),
   });
   const isSending = status === "submitted" || status === "streaming";
@@ -22374,7 +22479,7 @@ import {
 import { useState, type FormEvent, type KeyboardEvent } from "react";
 import { Streamdown } from "streamdown";
 {{#unless (eq backend "self")}}
-import { env } from "@{{projectName}}/env/web";
+import { ENV } from "../env{{#if (eq webDeploy "cloudflare")}}.public{{/if}}";
 {{/unless}}
 
 import { Bubble, BubbleContent } from "@{{projectName}}/ui/components/bubble";
@@ -22419,7 +22524,7 @@ function RouteComponent() {
   const [input, setInput] = useState("");
   const { messages, sendMessage, status, setMessages } = useChat({
     transport: new DefaultChatTransport({
-      api: {{#if (eq backend "self")}}"/api/ai"{{else}}\`\${env.VITE_SERVER_URL}/ai\`{{/if}},
+      api: {{#if (eq backend "self")}}"/api/ai"{{else}}\`\${ENV.VITE_SERVER_URL}/ai\`{{/if}},
     }),
   });
   const isSending = status === "submitted" || status === "streaming";
@@ -22599,7 +22704,7 @@ function RouteComponent() {
 `],
   ["examples/ai/web/svelte/src/routes/ai/+page.svelte.hbs", `<script lang="ts">
 	{{#unless (eq backend "self")}}
-	import { PUBLIC_SERVER_URL } from "$env/static/public";
+	import { ENV } from "../../env{{#if (eq webDeploy "cloudflare")}}.public{{else}}.generated{{/if}}";
 	{{/unless}}
 	import { Chat } from "@ai-sdk/svelte";
 	import { DefaultChatTransport } from "ai";
@@ -22610,7 +22715,7 @@ function RouteComponent() {
 			{{#if (eq backend "self")}}
 			api: "/api/ai",
 			{{else}}
-			api: \`\${PUBLIC_SERVER_URL}/ai\`,
+			api: \`\${ENV.PUBLIC_SERVER_URL}/ai\`,
 			{{/if}}
 		}),
 	});
@@ -23903,29 +24008,18 @@ export default function TodosScreen() {
   ["examples/todo/server/drizzle/base/src/routers/todo.ts.hbs", `{{#if (eq api "orpc")}}
 import { eq } from "drizzle-orm";
 import z from "zod";
-{{#if (or (eq runtime "workers") (eq serverDeploy "cloudflare") (and (eq backend "self") (eq webDeploy "cloudflare")))}}
-import { createDb } from "@{{projectName}}/db";
-{{else}}
-import { db } from "@{{projectName}}/db";
-{{/if}}
 import { todo } from "@{{projectName}}/db/schema/todo";
 import { publicProcedure } from "../index";
 
 export const todoRouter = {
-  getAll: publicProcedure.handler(async ({{#if (usesRequestScopedCloudflareEnv backend webDeploy frontend)}}{ context }{{/if}}) => {
-{{#if (or (eq runtime "workers") (eq serverDeploy "cloudflare") (and (eq backend "self") (eq webDeploy "cloudflare")))}}
-    const db = createDb({{#if (usesRequestScopedCloudflareEnv backend webDeploy frontend)}}context.env{{/if}});
-{{/if}}
-    return await db.select().from(todo);
+  getAll: publicProcedure.handler(async ({ context }) => {
+    return await context.db.select().from(todo);
   }),
 
   create: publicProcedure
     .input(z.object({ text: z.string().min(1) }))
-    .handler(async ({ input{{#if (usesRequestScopedCloudflareEnv backend webDeploy frontend)}}, context{{/if}} }) => {
-{{#if (or (eq runtime "workers") (eq serverDeploy "cloudflare") (and (eq backend "self") (eq webDeploy "cloudflare")))}}
-      const db = createDb({{#if (usesRequestScopedCloudflareEnv backend webDeploy frontend)}}context.env{{/if}});
-{{/if}}
-      return await db
+    .handler(async ({ input, context }) => {
+      return await context.db
         .insert(todo)
         .values({
           text: input.text,
@@ -23934,11 +24028,8 @@ export const todoRouter = {
 
   toggle: publicProcedure
     .input(z.object({ id: z.number(), completed: z.boolean() }))
-    .handler(async ({ input{{#if (usesRequestScopedCloudflareEnv backend webDeploy frontend)}}, context{{/if}} }) => {
-{{#if (or (eq runtime "workers") (eq serverDeploy "cloudflare") (and (eq backend "self") (eq webDeploy "cloudflare")))}}
-      const db = createDb({{#if (usesRequestScopedCloudflareEnv backend webDeploy frontend)}}context.env{{/if}});
-{{/if}}
-      return await db
+    .handler(async ({ input, context }) => {
+      return await context.db
         .update(todo)
         .set({ completed: input.completed })
         .where(eq(todo.id, input.id));
@@ -23946,11 +24037,8 @@ export const todoRouter = {
 
   delete: publicProcedure
     .input(z.object({ id: z.number() }))
-    .handler(async ({ input{{#if (usesRequestScopedCloudflareEnv backend webDeploy frontend)}}, context{{/if}} }) => {
-{{#if (or (eq runtime "workers") (eq serverDeploy "cloudflare") (and (eq backend "self") (eq webDeploy "cloudflare")))}}
-      const db = createDb({{#if (usesRequestScopedCloudflareEnv backend webDeploy frontend)}}context.env{{/if}});
-{{/if}}
-      return await db.delete(todo).where(eq(todo.id, input.id));
+    .handler(async ({ input, context }) => {
+      return await context.db.delete(todo).where(eq(todo.id, input.id));
     }),
 };
 {{/if}}
@@ -23960,38 +24048,24 @@ import z from "zod";
 import { router, publicProcedure } from "../index";
 import { todo } from "@{{projectName}}/db/schema/todo";
 import { eq } from "drizzle-orm";
-{{#if (or (eq runtime "workers") (eq serverDeploy "cloudflare") (and (eq backend "self") (eq webDeploy "cloudflare")))}}
-import { createDb } from "@{{projectName}}/db";
-{{else}}
-import { db } from "@{{projectName}}/db";
-{{/if}}
 
 export const todoRouter = router({
-  getAll: publicProcedure.query(async () => {
-{{#if (or (eq runtime "workers") (eq serverDeploy "cloudflare") (and (eq backend "self") (eq webDeploy "cloudflare")))}}
-    const db = createDb();
-{{/if}}
-    return await db.select().from(todo);
+  getAll: publicProcedure.query(async ({ ctx }) => {
+    return await ctx.db.select().from(todo);
   }),
 
   create: publicProcedure
     .input(z.object({ text: z.string().min(1) }))
-    .mutation(async ({ input }) => {
-{{#if (or (eq runtime "workers") (eq serverDeploy "cloudflare") (and (eq backend "self") (eq webDeploy "cloudflare")))}}
-      const db = createDb();
-{{/if}}
-      return await db.insert(todo).values({
+    .mutation(async ({ input, ctx }) => {
+      return await ctx.db.insert(todo).values({
         text: input.text,
       });
     }),
 
   toggle: publicProcedure
     .input(z.object({ id: z.number(), completed: z.boolean() }))
-    .mutation(async ({ input }) => {
-{{#if (or (eq runtime "workers") (eq serverDeploy "cloudflare") (and (eq backend "self") (eq webDeploy "cloudflare")))}}
-      const db = createDb();
-{{/if}}
-      return await db
+    .mutation(async ({ input, ctx }) => {
+      return await ctx.db
         .update(todo)
         .set({ completed: input.completed })
         .where(eq(todo.id, input.id));
@@ -23999,11 +24073,8 @@ export const todoRouter = router({
 
   delete: publicProcedure
     .input(z.object({ id: z.number() }))
-    .mutation(async ({ input }) => {
-{{#if (or (eq runtime "workers") (eq serverDeploy "cloudflare") (and (eq backend "self") (eq webDeploy "cloudflare")))}}
-      const db = createDb();
-{{/if}}
-      return await db.delete(todo).where(eq(todo.id, input.id));
+    .mutation(async ({ input, ctx }) => {
+      return await ctx.db.delete(todo).where(eq(todo.id, input.id));
     }),
 });
 {{/if}}
@@ -24134,19 +24205,11 @@ export { Todo };
 `],
   ["examples/todo/server/prisma/base/src/routers/todo.ts.hbs", `{{#if (eq api "orpc")}}
 import z from "zod";
-{{#if (or (eq runtime "workers") (eq serverDeploy "cloudflare") (and (eq backend "self") (eq webDeploy "cloudflare")))}}
-import { createPrismaClient } from "@{{projectName}}/db";
-{{else}}
-import prisma from "@{{projectName}}/db";
-{{/if}}
 import { publicProcedure } from "../index";
 
 export const todoRouter = {
-  getAll: publicProcedure.handler(async ({{#if (usesRequestScopedCloudflareEnv backend webDeploy frontend)}}{ context }{{/if}}) => {
-{{#if (or (eq runtime "workers") (eq serverDeploy "cloudflare") (and (eq backend "self") (eq webDeploy "cloudflare")))}}
-    const prisma = createPrismaClient({{#if (usesRequestScopedCloudflareEnv backend webDeploy frontend)}}context.env{{/if}});
-{{/if}}
-    return await prisma.todo.findMany({
+  getAll: publicProcedure.handler(async ({ context }) => {
+    return await context.db.todo.findMany({
       orderBy: {
         id: "asc",
       },
@@ -24155,11 +24218,8 @@ export const todoRouter = {
 
   create: publicProcedure
     .input(z.object({ text: z.string().min(1) }))
-    .handler(async ({ input{{#if (usesRequestScopedCloudflareEnv backend webDeploy frontend)}}, context{{/if}} }) => {
-{{#if (or (eq runtime "workers") (eq serverDeploy "cloudflare") (and (eq backend "self") (eq webDeploy "cloudflare")))}}
-      const prisma = createPrismaClient({{#if (usesRequestScopedCloudflareEnv backend webDeploy frontend)}}context.env{{/if}});
-{{/if}}
-      return await prisma.todo.create({
+    .handler(async ({ input, context }) => {
+      return await context.db.todo.create({
         data: {
           text: input.text,
         },
@@ -24172,11 +24232,8 @@ export const todoRouter = {
     {{else}}
     .input(z.object({ id: z.number(), completed: z.boolean() }))
     {{/if}}
-    .handler(async ({ input{{#if (usesRequestScopedCloudflareEnv backend webDeploy frontend)}}, context{{/if}} }) => {
-{{#if (or (eq runtime "workers") (eq serverDeploy "cloudflare") (and (eq backend "self") (eq webDeploy "cloudflare")))}}
-      const prisma = createPrismaClient({{#if (usesRequestScopedCloudflareEnv backend webDeploy frontend)}}context.env{{/if}});
-{{/if}}
-      return await prisma.todo.update({
+    .handler(async ({ input, context }) => {
+      return await context.db.todo.update({
         where: { id: input.id },
         data: { completed: input.completed },
       });
@@ -24188,11 +24245,8 @@ export const todoRouter = {
     {{else}}
     .input(z.object({ id: z.number() }))
     {{/if}}
-    .handler(async ({ input{{#if (usesRequestScopedCloudflareEnv backend webDeploy frontend)}}, context{{/if}} }) => {
-{{#if (or (eq runtime "workers") (eq serverDeploy "cloudflare") (and (eq backend "self") (eq webDeploy "cloudflare")))}}
-      const prisma = createPrismaClient({{#if (usesRequestScopedCloudflareEnv backend webDeploy frontend)}}context.env{{/if}});
-{{/if}}
-      return await prisma.todo.delete({
+    .handler(async ({ input, context }) => {
+      return await context.db.todo.delete({
         where: { id: input.id },
       });
     }),
@@ -24202,19 +24256,11 @@ export const todoRouter = {
 {{#if (eq api "trpc")}}
 import { TRPCError } from "@trpc/server";
 import z from "zod";
-{{#if (or (eq runtime "workers") (eq serverDeploy "cloudflare") (and (eq backend "self") (eq webDeploy "cloudflare")))}}
-import { createPrismaClient } from "@{{projectName}}/db";
-{{else}}
-import prisma from "@{{projectName}}/db";
-{{/if}}
 import { publicProcedure, router } from "../index";
 
 export const todoRouter = router({
-  getAll: publicProcedure.query(async () => {
-{{#if (or (eq runtime "workers") (eq serverDeploy "cloudflare") (and (eq backend "self") (eq webDeploy "cloudflare")))}}
-    const prisma = createPrismaClient();
-{{/if}}
-    return await prisma.todo.findMany({
+  getAll: publicProcedure.query(async ({ ctx }) => {
+    return await ctx.db.todo.findMany({
       orderBy: {
         id: "asc"
       }
@@ -24223,11 +24269,8 @@ export const todoRouter = router({
 
   create: publicProcedure
     .input(z.object({ text: z.string().min(1) }))
-    .mutation(async ({ input }) => {
-{{#if (or (eq runtime "workers") (eq serverDeploy "cloudflare") (and (eq backend "self") (eq webDeploy "cloudflare")))}}
-      const prisma = createPrismaClient();
-{{/if}}
-      return await prisma.todo.create({
+    .mutation(async ({ input, ctx }) => {
+      return await ctx.db.todo.create({
         data: {
           text: input.text,
         },
@@ -24240,12 +24283,9 @@ export const todoRouter = router({
     {{else}}
     .input(z.object({ id: z.number(), completed: z.boolean() }))
     {{/if}}
-    .mutation(async ({ input }) => {
-{{#if (or (eq runtime "workers") (eq serverDeploy "cloudflare") (and (eq backend "self") (eq webDeploy "cloudflare")))}}
-      const prisma = createPrismaClient();
-{{/if}}
+    .mutation(async ({ input, ctx }) => {
       try {
-        return await prisma.todo.update({
+        return await ctx.db.todo.update({
           where: { id: input.id },
           data: { completed: input.completed },
         });
@@ -24263,12 +24303,9 @@ export const todoRouter = router({
     {{else}}
     .input(z.object({ id: z.number() }))
     {{/if}}
-    .mutation(async ({ input }) => {
-{{#if (or (eq runtime "workers") (eq serverDeploy "cloudflare") (and (eq backend "self") (eq webDeploy "cloudflare")))}}
-      const prisma = createPrismaClient();
-{{/if}}
+    .mutation(async ({ input, ctx }) => {
       try {
-        return await prisma.todo.delete({
+        return await ctx.db.todo.delete({
           where: { id: input.id },
         });
       } catch (error) {
@@ -24478,7 +24515,10 @@ import Layout from "../layouts/Layout.astro";
 </script>
 `],
   ["examples/todo/web/nuxt/app/pages/todos.vue.hbs", `<script setup lang="ts">
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
+
+const hydrated = ref(false)
+onMounted(() => { hydrated.value = true })
 {{#if (eq backend "convex")}}
 import { api } from "@{{ projectName }}/backend/convex/_generated/api";
 import type { Id } from "@{{ projectName }}/backend/convex/_generated/dataModel";
@@ -24573,16 +24613,19 @@ function handleDeleteTodo(id: number) {
           autocomplete="off"
           class="flex-1"
           {{#if (eq backend "convex")}}
-          :disabled="isCreatePending"
+          :disabled="!hydrated || isCreatePending"
+          {{else}}
+          :disabled="!hydrated"
           {{/if}}
         />
         <UButton
           type="submit"
           {{#if (eq backend "convex")}}
           :loading="isCreatePending"
-          :disabled="!newTodoText.trim()"
+          :disabled="!hydrated || !newTodoText.trim()"
           {{else}}
           :loading="createMutation.isPending.value"
+          :disabled="!hydrated || !newTodoText.trim()"
           {{/if}}
         >
           Add
@@ -24621,6 +24664,7 @@ function handleDeleteTodo(id: number) {
         >
           <div class="flex items-center gap-3">
             <UCheckbox
+              :disabled="!hydrated"
               :model-value="todo.completed"
               @update:model-value="() => handleToggleTodo(todo._id, todo.completed)"
               :id="\`todo-\${todo._id}\`"
@@ -24640,6 +24684,7 @@ function handleDeleteTodo(id: number) {
             square
             @click="handleDeleteTodo(todo._id)"
             aria-label="Delete todo"
+            :disabled="!hydrated"
             icon="i-lucide-trash-2"
           />
         </li>
@@ -24676,6 +24721,7 @@ function handleDeleteTodo(id: number) {
         >
           <div class="flex items-center gap-3">
             <UCheckbox
+              :disabled="!hydrated"
               :model-value="todo.completed"
               @update:model-value="() => handleToggleTodo(todo.id, todo.completed)"
               :id="\`todo-\${todo.id}\`"
@@ -24695,6 +24741,7 @@ function handleDeleteTodo(id: number) {
             square
             @click="handleDeleteTodo(todo.id)"
             aria-label="Delete todo"
+            :disabled="!hydrated"
             icon="i-lucide-trash-2"
           />
         </li>
@@ -26028,7 +26075,7 @@ export default function Todos() {
 {{else}}
 <script lang="ts">
 	{{#if (eq api "orpc")}}
-	import { orpc } from '$lib/orpc';
+	import { orpc } from '#lib/orpc.ts';
 	{{/if}}
 	import { createQuery, createMutation } from '@tanstack/svelte-query';
 
@@ -26221,54 +26268,6 @@ declare module "cloudflare:workers" {
 }
 {{/if}}
 `],
-  ["extras/pnpm-workspace.yaml.hbs", `packages:
-  - "apps/*"
-  - "packages/*"
-{{#if (includes frontend "solid")}}
-
-minimumReleaseAgeExclude:
-  - "@solidjs/meta@1.0.0-next.2"
-  - "@solidjs/router@2.0.0-next.16"
-  - "@solidjs/signals@2.0.0-rc.0"
-  - "@solidjs/vite-plugin@3.0.0-next.28"
-  - "@solidjs/web@2.0.0-rc.0"
-  - "@tanstack/solid-query-devtools@6.0.0-rc.0"
-  - "@tanstack/solid-query@6.0.0-rc.0"
-  - "babel-preset-solid@2.0.0-rc.0"
-  - "solid-js@2.0.0-rc.0"
-{{/if}}
-{{#if (or (eq runtime "node") (eq webDeploy "cloudflare") (eq serverDeploy "cloudflare") (eq webDeploy "prisma") (eq serverDeploy "prisma") (eq webDeploy "docker") (eq serverDeploy "docker") (eq webDeploy "vercel") (eq serverDeploy "vercel") (eq orm "prisma") (includes addons "lefthook") (includes addons "nx") (includes addons "pwa") (includes addons "turborepo") (includes addons "vite-plus") (includes frontend "react-router") (includes frontend "next") (includes frontend "nuxt"))}}
-
-# pnpm 11 blocks dependency lifecycle scripts unless they are approved here.
-# Entries are scoped to packages this generated stack can pull in.
-allowBuilds:
-{{#if (or (eq runtime "node") (eq webDeploy "cloudflare") (eq serverDeploy "cloudflare") (eq webDeploy "docker") (eq serverDeploy "docker") (eq webDeploy "vercel") (eq serverDeploy "vercel") (includes addons "turborepo") (includes addons "vite-plus") (includes frontend "react-router") (includes frontend "nuxt"))}}
-  esbuild: true
-{{/if}}
-{{#if (includes frontend "nuxt")}}
-  "@parcel/watcher": true
-  vue-demi: true
-{{/if}}
-{{#if (or (eq webDeploy "cloudflare") (eq serverDeploy "cloudflare") (eq webDeploy "prisma") (eq serverDeploy "prisma") (eq webDeploy "docker") (eq webDeploy "vercel") (includes addons "pwa") (includes frontend "next"))}}
-  sharp: true
-{{/if}}
-{{#if (or (eq webDeploy "cloudflare") (eq serverDeploy "cloudflare") (eq webDeploy "prisma") (eq serverDeploy "prisma"))}}
-  msgpackr-extract: true
-  workerd: true
-{{/if}}
-{{#if (eq orm "prisma")}}
-  "@prisma/client": true
-  "@prisma/engines": true
-  prisma: true
-{{/if}}
-{{#if (includes addons "lefthook")}}
-  lefthook: true
-{{/if}}
-{{#if (includes addons "nx")}}
-  nx: true
-{{/if}}
-{{/if}}
-`],
   ["frontend/astro/_gitignore", `# build output
 dist/
 
@@ -26296,38 +26295,33 @@ pnpm-debug.log*
 `],
   ["frontend/astro/astro.config.mjs.hbs", `// @ts-check
 import tailwindcss from "@tailwindcss/vite";
-import { defineConfig, envField } from "astro/config";
+{{#unless (eq webDeploy "cloudflare")}}
+import varlockAstroIntegration from "@varlock/astro-integration";
+{{/unless}}
+import { defineConfig } from "astro/config";
 {{#if (or (includes addons "electrobun") (includes addons "tauri"))}}
 {{else if (eq webDeploy "vercel")}}
 import vercel from "@astrojs/vercel";
-{{else if (eq webDeploy "cloudflare")}}
+{{else if (or (eq webDeploy "cloudflare") (and (eq webDeploy "prisma") (eq backend "none")))}}
 {{else}}
 import node from "@astrojs/node";
 {{/if}}
 
 // https://astro.build/config
 export default defineConfig({
+{{#unless (eq webDeploy "cloudflare")}}
+  integrations: [varlockAstroIntegration({ ssrInjectMode: "{{#if (or (eq webDeploy "vercel") (eq webDeploy "prisma"))}}resolved-env{{else}}auto-load{{/if}}" })],
+{{/unless}}
 {{#if (or (includes addons "electrobun") (includes addons "tauri"))}}
   output: "static",
 {{else if (eq webDeploy "vercel")}}
   output: "server",
   adapter: vercel(),
-{{else if (eq webDeploy "cloudflare")}}
+{{else if (or (eq webDeploy "cloudflare") (and (eq webDeploy "prisma") (eq backend "none")))}}
   output: "server",
 {{else}}
   output: "server",
   adapter: node({ mode: "standalone" }),
-{{/if}}
-{{#if (ne backend "self")}}
-  env: {
-    schema: {
-      PUBLIC_SERVER_URL: envField.string({
-        access: "public",
-        context: "client",
-        default: "http://localhost:3000",
-      }),
-    },
-  },
 {{/if}}
   vite: {
     plugins: [tailwindcss()],
@@ -26342,17 +26336,17 @@ export default defineConfig({
   "scripts": {
     "dev": "astro dev",
 {{#unless (eq webDeploy "cloudflare")}}
-    "build": "astro build",
+    "build": "{{#if (and (eq api "orpc") (ne backend "convex") (ne backend "none"))}}tsc -b ../../packages/api && {{/if}}astro build",
 
 {{/unless}}
-		"check-types": "astro check",
+		"check-types": "{{#if (and (eq api "orpc") (ne backend "convex") (ne backend "none"))}}tsc -b ../../packages/api && {{/if}}astro check",
 {{#unless (eq webDeploy "cloudflare")}}
     "preview": "astro preview",
 {{/unless}}
     "astro": "astro"
   },
   "dependencies": {
-    "astro": "^7.1.5"
+    "astro": "^7.3.1"
   },
   "devDependencies": {
 		"@astrojs/check": "^0.9.10",
@@ -26548,29 +26542,55 @@ const TITLE_TEXT = \`
 }
 `],
   ["frontend/astro/tsconfig.json.hbs", `{
+  {{#if (and (eq api "orpc") (ne backend "convex") (ne backend "none"))}}
+  "references": [{ "path": "../../packages/api" }],
+  {{/if}}
   "extends": "astro/tsconfigs/strict",
   "include": [".astro/types.d.ts", "**/*"],
   "exclude": ["dist"]
 }
 `],
-  ["frontend/native/bare/_gitignore", `node_modules/
+  ["frontend/native/bare/_gitignore", `# Learn more https://docs.github.com/en/get-started/getting-started-with-git/ignoring-files
+
+# dependencies
+node_modules/
+
+# Expo
 .expo/
 dist/
-npm-debug.*
+web-build/
+expo-env.d.ts
+
+# Native
+.kotlin/
+*.orig.*
 *.jks
 *.p8
 *.p12
 *.key
 *.mobileprovision
-*.orig.*
-web-build/
+
+# Metro
+.metro-health-check*
+
+# debug
+npm-debug.*
+yarn-debug.*
+yarn-error.*
 
 # macOS
 .DS_Store
+*.pem
 
-# Temporary files created by Metro to check the health of the file watcher
-.metro-health-check*
+# local env files
+.env*.local
 
+# typescript
+*.tsbuildinfo
+
+# generated native folders
+/ios
+/android
 `],
   ["frontend/native/bare/app.json.hbs", `{
 	"expo": {
@@ -26582,7 +26602,8 @@ web-build/
 		"scheme": "{{projectName}}",
 		"userInterfaceStyle": "automatic",
 		"ios": {
-			"supportsTablet": true
+			"supportsTablet": true,
+			"bundleIdentifier": "{{appId projectName "ios"}}"
 		},
 		"android": {
 			"adaptiveIcon": {
@@ -26592,7 +26613,7 @@ web-build/
 				"monochromeImage": "./assets/images/android-icon-monochrome.png"
 			},
 			"predictiveBackGestureEnabled": false,
-			"package": "com.anonymous.mybettertapp"
+			"package": "{{appId projectName "android"}}"
 		},
 		"web": {
 			"output": "static",
@@ -26630,7 +26651,7 @@ import { setClerkAuthTokenGetter } from "@/utils/clerk-auth";
 {{#if (and (ne backend "convex") (eq auth "clerk"))}}
 import { ClerkProvider{{#unless (eq api "none")}}, useAuth{{/unless}} } from "@clerk/expo";
 import { tokenCache } from "@clerk/expo/token-cache";
-import { env } from "@{{projectName}}/env/native";
+import { ENV } from "../src/env";
 {{/if}}
 
 {{#if (eq backend "convex")}}
@@ -26638,10 +26659,10 @@ import { env } from "@{{projectName}}/env/native";
     import { ConvexReactClient } from "convex/react";
     import { ConvexBetterAuthProvider } from "@convex-dev/better-auth/react";
     import { authClient } from "@/lib/auth-client";
-    import { env } from "@{{projectName}}/env/native";
+    import { ENV } from "../src/env";
   {{else}}
     import { ConvexProvider, ConvexReactClient } from "convex/react";
-    import { env } from "@{{projectName}}/env/native";
+    import { ENV } from "../src/env";
   {{/if}}
   {{#if (eq auth "clerk")}}
     import { ClerkProvider, useAuth } from "@clerk/expo";
@@ -26682,7 +26703,7 @@ export const unstable_settings = {
 };
 
 {{#if (eq backend "convex")}}
-const convex = new ConvexReactClient(env.EXPO_PUBLIC_CONVEX_URL, {
+const convex = new ConvexReactClient(ENV.EXPO_PUBLIC_CONVEX_URL, {
   unsavedChangesWarning: false,
 });
 {{/if}}
@@ -26716,7 +26737,7 @@ export default function RootLayout() {
     <>
       {{#if (eq backend "convex")}}
         {{#if (eq auth "clerk")}}
-          <ClerkProvider tokenCache={tokenCache} publishableKey={env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY}>
+          <ClerkProvider tokenCache={tokenCache} publishableKey={ENV.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY}>
             <ConvexProviderWithClerk client={convex} useAuth={useAuth}>
               <ThemeProvider value={isDarkColorScheme ? DARK_THEME : LIGHT_THEME}>
                 <StatusBar style={isDarkColorScheme ? "light" : "dark"} />
@@ -26757,7 +26778,7 @@ export default function RootLayout() {
         {{/if}}
       {{else}}
         {{#if (eq auth "clerk")}}
-          <ClerkProvider tokenCache={tokenCache} publishableKey={env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY}>
+          <ClerkProvider tokenCache={tokenCache} publishableKey={ENV.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY}>
             {{#unless (eq api "none")}}
               <ClerkApiAuthBridge />
               <QueryClientProvider client={queryClient}>
@@ -27043,7 +27064,7 @@ import { View, ScrollView, StyleSheet{{#if (and (eq backend "convex") (eq auth "
 {{#if (and (eq backend "convex") (eq auth "better-auth") (eq payments "polar"))}}
 import * as Linking from "expo-linking";
 import * as WebBrowser from "expo-web-browser";
-import { env } from "@{{projectName}}/env/native";
+import { ENV } from "../../src/env";
 {{/if}}
 import { Container } from "@/components/container";
 import { useColorScheme } from "@/lib/use-color-scheme";
@@ -27102,14 +27123,14 @@ const products = useQuery(api.polar.listAllProducts);
 const subscription = useQuery(api.polar.getCurrentSubscription);
 const generateCheckoutLink = useAction(api.polar.generateCheckoutLink);
 const generateCustomerPortalUrl = useAction(api.polar.generateCustomerPortalUrl);
-const recurringProduct = products?.find((product) => product.isRecurring);
+const recurringProduct = products?.find((product: { isRecurring?: boolean }) => product.isRecurring);
 
 const openPolarLink = async (url: string, returnUrl: string) => {
 	await WebBrowser.openAuthSessionAsync(url, returnUrl);
 };
 
 const getPolarReturnUrl = (returnUrl: string) => {
-	const url = new URL("/polar/success", env.EXPO_PUBLIC_CONVEX_SITE_URL);
+	const url = new URL("/polar/success", ENV.EXPO_PUBLIC_CONVEX_SITE_URL);
 	url.searchParams.set("returnUrl", returnUrl);
 	return url.toString();
 };
@@ -27125,7 +27146,7 @@ const handlePolarCheckout = async () => {
 		const polarReturnUrl = getPolarReturnUrl(returnUrl);
 		const { url } = await generateCheckoutLink({
 			productIds: [recurringProduct.id],
-			origin: env.EXPO_PUBLIC_CONVEX_SITE_URL,
+			origin: ENV.EXPO_PUBLIC_CONVEX_SITE_URL,
 			successUrl: polarReturnUrl,
 		});
 
@@ -27551,6 +27572,11 @@ const styles = StyleSheet.create({
   },
 });
 `],
+  ["frontend/native/bare/babel.config.js.hbs", `module.exports = {
+  presets: ["babel-preset-expo"],
+  plugins: [require("@varlock/expo-integration/babel-plugin")],
+};
+`],
   ["frontend/native/bare/components/container.tsx.hbs", `import React from "react";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useColorScheme } from "@/lib/use-color-scheme";
@@ -27679,7 +27705,8 @@ export function useColorScheme() {
 }
 
 `],
-  ["frontend/native/bare/metro.config.js.hbs", `// Learn more https://docs.expo.io/guides/customizing-metro
+  ["frontend/native/bare/metro.config.js.hbs", `const { withVarlockMetroConfig } = require("@varlock/expo-integration/metro-config");
+// Learn more https://docs.expo.io/guides/customizing-metro
 const { getDefaultConfig } = require("expo/metro-config");
 
 const config = getDefaultConfig(__dirname);
@@ -27694,7 +27721,7 @@ config.resolver.blockList = [
 ];
 {{/if}}
 
-module.exports = config;
+module.exports = withVarlockMetroConfig(config);
 `],
   ["frontend/native/bare/package.json.hbs", `{
   "name": "native",
@@ -27705,46 +27732,50 @@ module.exports = config;
     "android": "expo run:android",
     "ios": "expo run:ios",
     "prebuild": "expo prebuild",
-    "web": "expo start --web"
+    "web": "expo start --web",
+    "check-types": "{{#if (and (eq api "orpc") (ne backend "convex") (ne backend "none"))}}tsc -b ../../packages/api && {{/if}}tsc --noEmit"
   },
   "dependencies": {
-    "@expo/ui": "~57.0.7",
-    "@expo/vector-icons": "^15.1.1",
-    "@tanstack/react-query": "^5.101.4",
+    "@expo/ui": "~57.0.16",
+    "@expo/vector-icons": "^15.0.2",
+    "@tanstack/react-query": "^5.102.8",
     {{#if (includes examples "ai")}}
     "@stardazed/streams-text-encoding": "^1.0.2",
-    "@ungap/structured-clone": "^1.3.3",
+    "@ungap/structured-clone": "^1.4.0",
     {{/if}}
-    "expo": "~57.0.8",
-    "expo-constants": "~57.0.7",
-    "expo-crypto": "~57.0.1",
-    "expo-font": "~57.0.1",
-    "expo-linking": "~57.0.4",
+    "expo": "~57.0.20",
+    "expo-constants": "~57.0.17",
+    "expo-crypto": "~57.0.2",
+    "expo-font": "~57.0.3",
+    "expo-linking": "~57.0.9",
     "expo-network": "~57.0.1",
-    "expo-router": "~57.0.8",
-    "expo-secure-store": "~57.0.1",
-    "expo-splash-screen": "~57.0.5",
+    "expo-router": "~57.0.19",
+    "expo-secure-store": "~57.0.3",
+    "expo-splash-screen": "~57.0.8",
     "expo-status-bar": "~57.0.1",
-    "expo-system-ui": "~57.0.1",
+    "expo-system-ui": "~57.0.3",
     "expo-web-browser": "~57.0.2",
     "react": "19.2.3",
     "react-dom": "19.2.3",
-    "react-native": "0.86.0",
+    "react-native": "0.86.3",
     "react-native-gesture-handler": "~2.32.0",
-    "react-native-reanimated": "4.5.0",
+    "react-native-reanimated": "4.5.1",
     "react-native-safe-area-context": "~5.7.0",
     "react-native-screens": "~4.26.0",
     "react-native-web": "~0.21.0",
-    "react-native-worklets": "0.10.0"
+    "react-native-worklets": "0.10.1"
   },
   "devDependencies": {
-    "@types/react": "~19.2.17",
+    "@types/react": "~19.2.18",
     "typescript": "~6.0.3"
   },
   "private": true
 }
 `],
   ["frontend/native/bare/tsconfig.json.hbs", `{
+  {{#if (and (eq api "orpc") (ne backend "convex") (ne backend "none"))}}
+  "references": [{ "path": "../../packages/api" }],
+  {{/if}}
 	"extends": "expo/tsconfig.base",
 	"compilerOptions": {
 		"strict": true,
@@ -27766,30 +27797,48 @@ module.exports = config;
   ["frontend/native/base/assets/images/react-logo@2x.png", `[Binary file]`],
   ["frontend/native/base/assets/images/react-logo@3x.png", `[Binary file]`],
   ["frontend/native/base/assets/images/splash-icon.png", `[Binary file]`],
-  ["frontend/native/unistyles/_gitignore", `node_modules/
+  ["frontend/native/unistyles/_gitignore", `# Learn more https://docs.github.com/en/get-started/getting-started-with-git/ignoring-files
+
+# dependencies
+node_modules/
+
+# Expo
 .expo/
 dist/
-npm-debug.*
+web-build/
+expo-env.d.ts
+
+# Native
+.kotlin/
+*.orig.*
 *.jks
 *.p8
 *.p12
 *.key
 *.mobileprovision
-*.orig.*
-web-build/
-# expo router
-expo-env.d.ts
 
-.env
+# Metro
+.metro-health-check*
 
-ios
-android
+# debug
+npm-debug.*
+yarn-debug.*
+yarn-error.*
 
 # macOS
 .DS_Store
+*.pem
 
-# Temporary files created by Metro to check the health of the file watcher
-.metro-health-check*`],
+# local env files
+.env*.local
+
+# typescript
+*.tsbuildinfo
+
+# generated native folders
+/ios
+/android
+`],
   ["frontend/native/unistyles/app.json.hbs", `{
   "expo": {
     "name": "{{projectName}}",
@@ -27800,7 +27849,8 @@ android
     "scheme": "{{projectName}}",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "{{appId projectName "ios"}}"
     },
     "android": {
       "adaptiveIcon": {
@@ -27810,7 +27860,7 @@ android
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "package": "com.anonymous.mybettertapp"
+      "package": "{{appId projectName "android"}}"
     },
     "web": {
       "output": "static",
@@ -27849,7 +27899,7 @@ import { setClerkAuthTokenGetter } from "@/utils/clerk-auth";
 {{#if (and (ne backend "convex") (eq auth "clerk"))}}
 import { ClerkProvider{{#unless (eq api "none")}}, useAuth{{/unless}} } from "@clerk/expo";
 import { tokenCache } from "@clerk/expo/token-cache";
-import { env } from "@{{projectName}}/env/native";
+import { ENV } from "../src/env";
 {{/if}}
 {{#if (eq api "trpc")}}
 import { queryClient } from "@/utils/trpc";
@@ -27862,10 +27912,10 @@ import { queryClient } from "@/utils/orpc";
 import { ConvexReactClient } from "convex/react";
 import { ConvexBetterAuthProvider } from "@convex-dev/better-auth/react";
 import { authClient } from "@/lib/auth-client";
-import { env } from "@{{projectName}}/env/native";
+import { ENV } from "../src/env";
 {{else}}
 import { ConvexProvider, ConvexReactClient } from "convex/react";
-import { env } from "@{{projectName}}/env/native";
+import { ENV } from "../src/env";
 {{/if}}
 {{#if (eq auth "clerk")}}
 import { ClerkProvider, useAuth } from "@clerk/expo";
@@ -27887,7 +27937,7 @@ export const unstable_settings = {
 };
 
 {{#if (eq backend "convex")}}
-const convex = new ConvexReactClient(env.EXPO_PUBLIC_CONVEX_URL, {
+const convex = new ConvexReactClient(ENV.EXPO_PUBLIC_CONVEX_URL, {
   unsavedChangesWarning: false,
 });
 {{/if}}
@@ -27916,7 +27966,7 @@ export default function RootLayout() {
     {{#if (eq auth "clerk")}}
     <ClerkProvider
       tokenCache={tokenCache}
-      publishableKey={env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY}
+      publishableKey={ENV.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY}
     >
       <ConvexProviderWithClerk client={convex} useAuth={useAuth}>
         <GestureHandlerRootView style=\\{{ flex: 1 }}>
@@ -27990,7 +28040,7 @@ export default function RootLayout() {
       {{#if (eq auth "clerk")}}
       <ClerkProvider
         tokenCache={tokenCache}
-        publishableKey={env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY}
+        publishableKey={ENV.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY}
       >
         {{#unless (eq api "none")}}
         <ClerkApiAuthBridge />
@@ -28306,7 +28356,7 @@ import { ScrollView, Text, View, TouchableOpacity{{#if (and (eq backend "convex"
 {{#if (and (eq backend "convex") (eq auth "better-auth") (eq payments "polar"))}}
 import * as Linking from "expo-linking";
 import * as WebBrowser from "expo-web-browser";
-import { env } from "@{{projectName}}/env/native";
+import { ENV } from "../../src/env";
 {{/if}}
 import { StyleSheet } from "react-native-unistyles";
 import { Container } from "@/components/container";
@@ -28363,14 +28413,14 @@ export default function Home() {
   const subscription = useQuery(api.polar.getCurrentSubscription);
   const generateCheckoutLink = useAction(api.polar.generateCheckoutLink);
   const generateCustomerPortalUrl = useAction(api.polar.generateCustomerPortalUrl);
-  const recurringProduct = products?.find((product) => product.isRecurring);
+  const recurringProduct = products?.find((product: { isRecurring?: boolean }) => product.isRecurring);
 
   const openPolarLink = async (url: string, returnUrl: string) => {
     await WebBrowser.openAuthSessionAsync(url, returnUrl);
   };
 
   const getPolarReturnUrl = (returnUrl: string) => {
-    const url = new URL("/polar/success", env.EXPO_PUBLIC_CONVEX_SITE_URL);
+    const url = new URL("/polar/success", ENV.EXPO_PUBLIC_CONVEX_SITE_URL);
     url.searchParams.set("returnUrl", returnUrl);
     return url.toString();
   };
@@ -28386,7 +28436,7 @@ export default function Home() {
       const polarReturnUrl = getPolarReturnUrl(returnUrl);
       const { url } = await generateCheckoutLink({
         productIds: [recurringProduct.id],
-        origin: env.EXPO_PUBLIC_CONVEX_SITE_URL,
+        origin: ENV.EXPO_PUBLIC_CONVEX_SITE_URL,
         successUrl: polarReturnUrl,
       });
 
@@ -28908,23 +28958,19 @@ const styles = StyleSheet.create((theme) => ({
 `],
   ["frontend/native/unistyles/babel.config.js.hbs", `module.exports = (api) => {
 	api.cache(true);
-	const plugins = [];
-
-	plugins.push([
-		"react-native-unistyles/plugin",
-		{
-			root: "src",
-			autoProcessRoot: "app",
-			autoProcessImports: ["@/components"],
-		},
-	]);
-
-	plugins.push("react-native-worklets/plugin");
 
 	return {
 		presets: ["babel-preset-expo"],
-
-		plugins,
+		plugins: [
+      require("@varlock/expo-integration/babel-plugin"),
+			[
+				"react-native-unistyles/plugin",
+				{
+					root: "app",
+					autoProcessImports: ["@/components"],
+				},
+			],
+		],
 	};
 };
 `],
@@ -29009,7 +29055,8 @@ export const TabBarIcon = (props: {
   ["frontend/native/unistyles/index.js.hbs", `import './unistyles';
 import 'expo-router/entry';
 `],
-  ["frontend/native/unistyles/metro.config.js.hbs", `const { getDefaultConfig } = require("expo/metro-config");
+  ["frontend/native/unistyles/metro.config.js.hbs", `const { withVarlockMetroConfig } = require("@varlock/expo-integration/metro-config");
+const { getDefaultConfig } = require("expo/metro-config");
 
 const config = getDefaultConfig(__dirname);
 {{#if (or (eq webDeploy "cloudflare") (eq serverDeploy "cloudflare"))}}
@@ -29023,7 +29070,7 @@ config.resolver.blockList = [
 ];
 {{/if}}
 
-module.exports = config;
+module.exports = withVarlockMetroConfig(config);
 `],
   ["frontend/native/unistyles/package.json.hbs", `{
   "name": "native",
@@ -29034,44 +29081,45 @@ module.exports = config;
     "dev": "expo start --clear",
     "android": "expo run:android",
     "ios": "expo run:ios",
-    "web": "expo start --web"
+    "web": "expo start --web",
+    "check-types": "{{#if (and (eq api "orpc") (ne backend "convex") (ne backend "none"))}}tsc -b ../../packages/api && {{/if}}tsc --noEmit"
   },
   "dependencies": {
-    "@expo/vector-icons": "^15.1.1",
+    "@expo/vector-icons": "^15.0.2",
     {{#if (includes examples "ai")}}
     "@stardazed/streams-text-encoding": "^1.0.2",
-    "@ungap/structured-clone": "^1.3.3",
+    "@ungap/structured-clone": "^1.4.0",
     {{/if}}
-    "babel-preset-expo": "~57.0.4",
-    "expo": "~57.0.8",
-    "expo-constants": "~57.0.7",
-    "expo-crypto": "~57.0.1",
-    "expo-dev-client": "~57.0.8",
-    "expo-font": "~57.0.1",
-    "expo-linking": "~57.0.4",
+    "babel-preset-expo": "~57.0.10",
+    "expo": "~57.0.20",
+    "expo-constants": "~57.0.17",
+    "expo-crypto": "~57.0.2",
+    "expo-dev-client": "~57.0.18",
+    "expo-font": "~57.0.3",
+    "expo-linking": "~57.0.9",
     "expo-network": "~57.0.1",
-    "expo-router": "~57.0.8",
-    "expo-secure-store": "~57.0.1",
-    "expo-splash-screen": "~57.0.5",
+    "expo-router": "~57.0.19",
+    "expo-secure-store": "~57.0.3",
+    "expo-splash-screen": "~57.0.8",
     "expo-status-bar": "~57.0.1",
-    "expo-system-ui": "~57.0.1",
+    "expo-system-ui": "~57.0.3",
     "expo-web-browser": "~57.0.2",
     "react": "19.2.3",
     "react-dom": "19.2.3",
-    "react-native": "0.86.0",
+    "react-native": "0.86.3",
     "react-native-gesture-handler": "~2.32.0",
-    "react-native-nitro-modules": "0.36.3",
-    "react-native-reanimated": "4.5.0",
+    "react-native-nitro-modules": "0.37.1",
+    "react-native-reanimated": "4.5.1",
     "react-native-safe-area-context": "~5.7.0",
     "react-native-screens": "~4.26.0",
     "react-native-unistyles": "^3.3.0",
     "react-native-web": "~0.21.0",
-    "react-native-worklets": "0.10.0"
+    "react-native-worklets": "0.10.1"
   },
   "devDependencies": {
     "ajv": "^8.20.0",
     "@babel/core": "^7.29.7",
-    "@types/react": "~19.2.17",
+    "@types/react": "~19.2.18",
     "typescript": "~6.0.3"
   }
 }
@@ -29177,6 +29225,9 @@ export const darkTheme = {
 } as const;
 `],
   ["frontend/native/unistyles/tsconfig.json.hbs", `{
+  {{#if (and (eq api "orpc") (ne backend "convex") (ne backend "none"))}}
+  "references": [{ "path": "../../packages/api" }],
+  {{/if}}
   "extends": "expo/tsconfig.base",
   "compilerOptions": {
     "strict": true,
@@ -29216,40 +29267,93 @@ StyleSheet.configure({
   },
 });
 `],
-  ["frontend/native/uniwind/_gitignore", `node_modules/
+  ["frontend/native/uniwind/_gitignore", `# Learn more https://docs.github.com/en/get-started/getting-started-with-git/ignoring-files
+
+# dependencies
+node_modules/
+
+# Expo
 .expo/
 dist/
-npm-debug.*
+web-build/
+expo-env.d.ts
+
+# Native
+.kotlin/
+*.orig.*
 *.jks
 *.p8
 *.p12
 *.key
 *.mobileprovision
-*.orig.*
-web-build/
+
+# Metro
+.metro-health-check*
+
+# debug
+npm-debug.*
+yarn-debug.*
+yarn-error.*
 
 # macOS
 .DS_Store
+*.pem
 
-# Temporary files created by Metro to check the health of the file watcher
-.metro-health-check*
+# local env files
+.env*.local
+
+# typescript
+*.tsbuildinfo
+
+# generated native folders
+/ios
+/android
 
 # UniWind generated types
 uniwind-types.d.ts
-
 `],
   ["frontend/native/uniwind/app.json.hbs", `{
   "expo": {
-    "scheme": "{{projectName}}",
-    "userInterfaceStyle": "automatic",
-    "orientation": "default",
-    "web": {
-      "bundler": "metro"
-    },
     "name": "{{projectName}}",
     "slug": "{{projectName}}",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/icon.png",
+    "scheme": "{{projectName}}",
+    "userInterfaceStyle": "automatic",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "{{appId projectName "ios"}}"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#E6F4FE",
+        "foregroundImage": "./assets/images/android-icon-foreground.png",
+        "backgroundImage": "./assets/images/android-icon-background.png",
+        "monochromeImage": "./assets/images/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false,
+      "package": "{{appId projectName "android"}}"
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "static",
+      "favicon": "./assets/images/favicon.png"
+    },
     "plugins": [
-      "expo-font"
+      "expo-router",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/images/splash-icon.png",
+          "imageWidth": 200,
+          "resizeMode": "contain",
+          "backgroundColor": "#ffffff",
+          "dark": {
+            "backgroundColor": "#000000"
+          }
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,
@@ -29270,7 +29374,7 @@ import "@/global.css";
 {{#if (and (ne backend "convex") (eq auth "clerk"))}}
 import { ClerkProvider{{#unless (eq api "none")}}, useAuth{{/unless}} } from "@clerk/expo";
 import { tokenCache } from "@clerk/expo/token-cache";
-import { env } from "@{{projectName}}/env/native";
+import { ENV } from "../src/env";
 {{/if}}
 
 {{#if (eq backend "convex")}}
@@ -29278,10 +29382,10 @@ import { env } from "@{{projectName}}/env/native";
     import { ConvexReactClient } from "convex/react";
     import { ConvexBetterAuthProvider } from "@convex-dev/better-auth/react";
     import { authClient } from "@/lib/auth-client";
-    import { env } from "@{{projectName}}/env/native";
+    import { ENV } from "../src/env";
   {{else}}
     import { ConvexProvider, ConvexReactClient } from "convex/react";
-    import { env } from "@{{projectName}}/env/native";
+    import { ENV } from "../src/env";
   {{/if}}
 
   {{#if (eq auth "clerk")}}
@@ -29313,7 +29417,7 @@ export const unstable_settings = {
 };
 
 {{#if (eq backend "convex")}}
-  const convex = new ConvexReactClient(env.EXPO_PUBLIC_CONVEX_URL, {
+  const convex = new ConvexReactClient(ENV.EXPO_PUBLIC_CONVEX_URL, {
     unsavedChangesWarning: false,
   });
 {{/if}}
@@ -29350,7 +29454,7 @@ export default function Layout() {
   return (
     {{#if (eq backend "convex")}}
       {{#if (eq auth "clerk")}}
-        <ClerkProvider tokenCache={tokenCache} publishableKey={env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY}>
+        <ClerkProvider tokenCache={tokenCache} publishableKey={ENV.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY}>
           <ConvexProviderWithClerk client={convex} useAuth={useAuth}>
             <GestureHandlerRootView style=\\{{ flex: 1 }}>
               <KeyboardProvider>
@@ -29390,7 +29494,7 @@ export default function Layout() {
       {{/if}}
     {{else}}
       {{#if (eq auth "clerk")}}
-        <ClerkProvider tokenCache={tokenCache} publishableKey={env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY}>
+        <ClerkProvider tokenCache={tokenCache} publishableKey={ENV.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY}>
           {{#unless (eq api "none")}}
             <ClerkApiAuthBridge />
             <QueryClientProvider client={queryClient}>
@@ -29619,7 +29723,7 @@ export default function TabTwo() {
 {{#if (and (eq backend "convex") (eq auth "better-auth") (eq payments "polar"))}}
 import * as Linking from "expo-linking";
 import * as WebBrowser from "expo-web-browser";
-import { env } from "@{{projectName}}/env/native";
+import { ENV } from "../../src/env";
 {{/if}}
 import { Container } from "@/components/container";
 {{#if (eq api "orpc")}}
@@ -29678,14 +29782,14 @@ const products = useQuery(api.polar.listAllProducts);
 const subscription = useQuery(api.polar.getCurrentSubscription);
 const generateCheckoutLink = useAction(api.polar.generateCheckoutLink);
 const generateCustomerPortalUrl = useAction(api.polar.generateCustomerPortalUrl);
-const recurringProduct = products?.find((product) => product.isRecurring);
+const recurringProduct = products?.find((product: { isRecurring?: boolean }) => product.isRecurring);
 
 const openPolarLink = async (url: string, returnUrl: string) => {
   await WebBrowser.openAuthSessionAsync(url, returnUrl);
 };
 
 const getPolarReturnUrl = (returnUrl: string) => {
-  const url = new URL("/polar/success", env.EXPO_PUBLIC_CONVEX_SITE_URL);
+  const url = new URL("/polar/success", ENV.EXPO_PUBLIC_CONVEX_SITE_URL);
   url.searchParams.set("returnUrl", returnUrl);
   return url.toString();
 };
@@ -29701,7 +29805,7 @@ const handlePolarCheckout = async () => {
     const polarReturnUrl = getPolarReturnUrl(returnUrl);
     const { url } = await generateCheckoutLink({
       productIds: [recurringProduct.id],
-      origin: env.EXPO_PUBLIC_CONVEX_SITE_URL,
+      origin: ENV.EXPO_PUBLIC_CONVEX_SITE_URL,
       successUrl: polarReturnUrl,
     });
 
@@ -29980,6 +30084,11 @@ function Modal() {
 
 export default Modal;
 `],
+  ["frontend/native/uniwind/babel.config.js.hbs", `module.exports = {
+  presets: ["babel-preset-expo"],
+  plugins: [require("@varlock/expo-integration/babel-plugin")],
+};
+`],
   ["frontend/native/uniwind/components/container.tsx.hbs", `import { cn } from "heroui-native";
 import { type PropsWithChildren } from "react";
 import { ScrollView, View, type ScrollViewProps, type ViewProps } from "react-native";
@@ -30129,10 +30238,9 @@ export function useAppTheme() {
   ["frontend/native/uniwind/global.css", `@import "tailwindcss";
 @import "uniwind";
 @import "heroui-native/styles";
-
-@source './node_modules/heroui-native/lib';
 `],
-  ["frontend/native/uniwind/metro.config.js.hbs", `const { getDefaultConfig } = require("expo/metro-config");
+  ["frontend/native/uniwind/metro.config.js.hbs", `const { withVarlockMetroConfig } = require("@varlock/expo-integration/metro-config");
+const { getDefaultConfig } = require("expo/metro-config");
 const { withUniwindConfig } = require("uniwind/metro");
 const { wrapWithReanimatedMetroConfig } = require("react-native-reanimated/metro-config");
 
@@ -30154,7 +30262,7 @@ const uniwindConfig = withUniwindConfig(wrapWithReanimatedMetroConfig(config), {
   dtsFile: "./uniwind-types.d.ts",
 });
 
-module.exports = uniwindConfig;
+module.exports = withVarlockMetroConfig(uniwindConfig);
 `],
   ["frontend/native/uniwind/package.json.hbs", `{
   "name": "native",
@@ -30167,51 +30275,57 @@ module.exports = uniwindConfig;
     "android": "expo run:android",
     "ios": "expo run:ios",
     "prebuild": "expo prebuild",
-    "web": "expo start --web"
+    "web": "expo start --web",
+    "check-types": "{{#if (and (eq api "orpc") (ne backend "convex") (ne backend "none"))}}tsc -b ../../packages/api && {{/if}}tsc --noEmit"
   },
   "dependencies": {
-    "@expo/metro-runtime": "~57.0.7",
-    "@expo/vector-icons": "^15.1.1",
+    "@expo/metro-runtime": "~57.0.15",
+    "@expo/vector-icons": "^15.0.2",
     "@gorhom/bottom-sheet": "^5.2.14",
     {{#if (includes examples "ai")}}
     "@stardazed/streams-text-encoding": "^1.0.2",
-    "@ungap/structured-clone": "^1.3.3",
+    "@ungap/structured-clone": "^1.4.0",
     {{/if}}
-    "expo": "~57.0.8",
-    "expo-constants": "~57.0.7",
-    "expo-font": "~57.0.1",
-    "expo-haptics": "~57.0.1",
-    "expo-linking": "~57.0.4",
+    "expo": "~57.0.20",
+    "expo-constants": "~57.0.17",
+    "expo-font": "~57.0.3",
+    "expo-haptics": "~57.0.2",
+    "expo-linking": "~57.0.9",
     "expo-network": "~57.0.1",
-    "expo-router": "~57.0.8",
-    "expo-secure-store": "~57.0.1",
+    "expo-router": "~57.0.19",
+    "expo-secure-store": "~57.0.3",
+    "expo-splash-screen": "~57.0.8",
     "expo-status-bar": "~57.0.1",
+    "expo-system-ui": "~57.0.3",
     "expo-web-browser": "~57.0.2",
-    "heroui-native": "^1.0.7",
+    "heroui-native": "^1.0.9",
     "react": "19.2.3",
     "react-dom": "19.2.3",
-    "react-native": "0.86.0",
+    "react-native": "0.86.3",
     "react-native-gesture-handler": "~2.32.0",
     "react-native-keyboard-controller": "1.21.9",
-    "react-native-reanimated": "4.5.0",
+    "react-native-reanimated": "4.5.1",
     "react-native-safe-area-context": "~5.7.0",
     "react-native-screens": "~4.26.0",
     "react-native-svg": "15.15.4",
     "react-native-web": "~0.21.0",
-    "react-native-worklets": "0.10.0",
+    "react-native-worklets": "0.10.1",
     "tailwind-merge": "^3.6.0",
-    "tailwind-variants": "^3.3.0",
+    "tailwind-variants": "^3.3.1",
     "tailwindcss": "^4.3.3",
-    "uniwind": "^1.10.0"
+    "uniwind": "^1.12.0"
   },
   "devDependencies": {
-    "@types/node": "^26.1.2",
-    "@types/react": "~19.2.17",
+    "@types/node": "^26.4.1",
+    "@types/react": "~19.2.18",
     "typescript": "~6.0.3"
   }
 }
 `],
   ["frontend/native/uniwind/tsconfig.json.hbs", `{
+  {{#if (and (eq api "orpc") (ne backend "convex") (ne backend "none"))}}
+  "references": [{ "path": "../../packages/api" }],
+  {{/if}}
   "extends": "expo/tsconfig.base",
   "compilerOptions": {
     "strict": true,
@@ -30321,7 +30435,12 @@ const items = computed<NavigationMenuItem[]>(() => [
     <template #right>
       <UColorModeButton />
       {{#if (eq auth "better-auth")}}
-      <UserMenu />
+      <ClientOnly>
+        <UserMenu />
+        <template #fallback>
+          <USkeleton class="h-9 w-24" />
+        </template>
+      </ClientOnly>
       {{/if}}
     </template>
 
@@ -30446,7 +30565,31 @@ onServerPrefetch(async () => {
   </UContainer>
 </template>
 `],
-  ["frontend/nuxt/nuxt.config.ts.hbs", `import "@{{projectName}}/env/web";
+  ["frontend/nuxt/nuxt.config.ts.hbs", `{{#if (and (eq backend "self") (eq database "sqlite") (ne dbSetup "d1") (ne webDeploy "cloudflare") (or (eq orm "drizzle") (eq orm "prisma")))}}
+import { createRequire } from "node:module";
+import { z } from "zod";
+
+// libsql loads its platform binding by a computed name, which file tracing can't follow
+const libsqlRequire = createRequire(import.meta.resolve("libsql"));
+const libsqlPackage = z.object({
+  optionalDependencies: z.record(z.string(), z.string()),
+}).parse(libsqlRequire("./package.json"));
+const libsqlBindings = Object.keys(libsqlPackage.optionalDependencies).flatMap(
+  (name) => {
+    try {
+      return [libsqlRequire.resolve(name)];
+    } catch (error) {
+      if (error instanceof Error && "code" in error && error.code === "MODULE_NOT_FOUND") return [];
+      throw error;
+    }
+  },
+);
+{{/if}}
+{{#if (and (eq api "orpc") (ne backend "convex") (ne backend "none"))}}
+import { fileURLToPath } from "node:url";
+
+const apiReference = { path: fileURLToPath(new URL("../../packages/api", import.meta.url)) };
+{{/if}}
 {{#if (and (eq webDeploy "cloudflare") (eq backend "self") (eq orm "prisma"))}}
 import { defineNuxtModule } from "nuxt/kit";
 import { unwasm } from "unwasm/plugin";
@@ -30462,12 +30605,22 @@ const prismaWasm = defineNuxtModule({
 
 // https://nuxt.com/docs/api/configuration/nuxt-config
 export default defineNuxtConfig({
+  {{#if (and (eq api "orpc") (ne backend "convex") (ne backend "none"))}}
+  typescript: {
+    tsConfig: { references: [apiReference] },
+    nodeTsConfig: { references: [apiReference] },
+    sharedTsConfig: { references: [apiReference] },
+  },
+  {{/if}}
   compatibilityDate: 'latest',
   devtools: { enabled: true },
   experimental: {
     payloadExtraction: 'client',
   },
   modules: [
+    {{#unless (eq webDeploy "cloudflare")}}
+    "@varlock/nuxt-integration",
+    {{/unless}}
     {{#if (and (eq webDeploy "cloudflare") (eq backend "self") (eq orm "prisma"))}}
     prismaWasm,
     {{/if}}
@@ -30476,12 +30629,50 @@ export default defineNuxtConfig({
     'convex-nuxt'
     {{/if}}
   ],
+  {{#unless (eq webDeploy "cloudflare")}}
+  varlock: {
+    ssrInjectMode: "{{#if (or (eq webDeploy "vercel") (eq webDeploy "prisma"))}}resolved-env{{else}}auto-load{{/if}}",
+  },
+  {{/unless}}
   css: ['~/assets/css/main.css'],
+  {{#if (and (eq webDeploy "vercel") (eq serverDeploy "vercel"))}}
+  icon: {
+    localApiEndpoint: "/_nuxt_icon",
+  },
+  {{/if}}
+{{#if (or (and (eq auth "better-auth") (ne backend "convex")) (and (eq api "orpc") (ne backend "convex") (ne backend "none")))}}
+  vite: {
+    optimizeDeps: {
+      include: [
+{{#if (and (eq auth "better-auth") (ne backend "convex"))}}
+        "better-auth/vue",
+        "zod",
+{{/if}}
+{{#if (and (eq api "orpc") (ne backend "convex") (ne backend "none"))}}
+        "@orpc/client",
+        "@orpc/client/fetch",
+        "@orpc/tanstack-query",
+        "@tanstack/vue-query",
+        "@tanstack/vue-query-devtools",
+{{/if}}
+      ],
+    },
+  },
+{{/if}}
   devServer: {
     port: 3001
   },
-  {{#if (and (eq webDeploy "cloudflare") (eq backend "self") (eq orm "prisma"))}}
+  {{#if (or (and (eq api "orpc") (ne backend "convex") (ne backend "none")) (and (eq webDeploy "cloudflare") (eq backend "self") (eq orm "prisma")) (and (eq backend "self") (eq database "sqlite") (ne dbSetup "d1") (ne webDeploy "cloudflare") (or (eq orm "drizzle") (eq orm "prisma"))))}}
   nitro: {
+    {{#if (and (eq backend "self") (eq database "sqlite") (ne dbSetup "d1") (ne webDeploy "cloudflare") (or (eq orm "drizzle") (eq orm "prisma")))}}
+    externals: { traceInclude: libsqlBindings },
+    {{/if}}
+    {{#if (and (eq api "orpc") (ne backend "convex") (ne backend "none"))}}
+    typescript: {
+      tsConfig: { references: [apiReference] },
+    },
+    {{/if}}
+    {{#if (and (eq webDeploy "cloudflare") (eq backend "self") (eq orm "prisma"))}}
     {{#if (eq database "postgres")}}
     alias: {
       // pg-native is optional and unavailable in Workers; pg uses its JavaScript driver.
@@ -30494,6 +30685,7 @@ export default defineNuxtConfig({
     wasm: {
       esmImport: true
     }
+    {{/if}}
   },
   {{/if}}
   {{#if (eq backend "convex")}}
@@ -30516,23 +30708,26 @@ export default defineNuxtConfig({
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "nuxt build",
-    "check-types": "nuxt typecheck",
+    "build": "{{#if (and (eq api "orpc") (ne backend "convex") (ne backend "none"))}}tsc -b ../../packages/api && {{/if}}nuxt build",
+    "check-types": "{{#if (and (eq api "orpc") (ne backend "convex") (ne backend "none"))}}tsc -b ../../packages/api && {{/if}}{{#if (and (eq api "orpc") (ne backend "convex") (ne backend "none"))}}nuxt prepare && vue-tsc -b{{else}}nuxt typecheck{{/if}}",
     "dev": "nuxt dev",
     "generate": "nuxt generate",
-    "preview": "nuxt preview",
+    "preview": "{{#if (or (eq webDeploy "none") (eq webDeploy "docker"))}}node .output/server/index.mjs{{else}}nuxt preview{{/if}}",
     "postinstall": "nuxt prepare"
   },
   "dependencies": {
-    "@nuxt/ui": "^4.10.0",
-    "nuxt": "^4.5.1",
-    "vue": "^3.5.40",
-    "vue-router": "^5.2.0"
+    "@nuxt/ui": "^4.11.0",
+    "nuxt": "^4.6.0",
+    "vue": "^3.5.43",
+    "vue-router": "^5.3.1"
   },
   "devDependencies": {
     "tailwindcss": "^4.3.3",
-    "@iconify-json/lucide": "^1.2.120",
-    "vue-tsc": "^3.3.8"
+    "@iconify-json/lucide": "^1.2.129",
+    "vue-tsc": "^3.3.11"
+  },
+  "engines": {
+    "node": "^22.22.3 || ^24.15.0 || >=26.0.0"
   }
 }
 `],
@@ -30579,7 +30774,11 @@ This block is written and re-added by \`next dev\` — verify at \`node_modules/
 // NOTE: This file should not be edited
 // see https://nextjs.org/docs/app/api-reference/config/typescript for more information.
 `],
-  ["frontend/react/next/next.config.ts.hbs", `import "@{{projectName}}/env/web";
+  ["frontend/react/next/next.config.ts.hbs", `{{#unless (eq webDeploy "cloudflare")}}
+import { varlockNextConfigPlugin } from "@varlock/nextjs-integration/plugin";
+
+const withVarlock = varlockNextConfigPlugin();
+{{/unless}}
 {{#if (eq webDeploy "cloudflare")}}
 import { initOpenNextCloudflareForDev } from "@opennextjs/cloudflare";
 {{/if}}
@@ -30601,7 +30800,7 @@ const nextConfig: NextConfig = {
 	{{/if}}
 };
 
-export default nextConfig;
+export default {{#if (eq webDeploy "cloudflare")}}nextConfig{{else}}withVarlock(nextConfig){{/if}};
 
 {{#if (eq webDeploy "cloudflare")}}
 initOpenNextCloudflareForDev();
@@ -30613,26 +30812,26 @@ initOpenNextCloudflareForDev();
   "private": true,
   "scripts": {
     "dev": "next dev --port 3001",
-    "build": "next build",
-    "check-types": "tsc --noEmit",
+    "build": "{{#if (and (eq api "orpc") (ne backend "convex") (ne backend "none"))}}tsc -b ../../packages/api && {{/if}}next build",
+    "check-types": "{{#if (and (eq api "orpc") (ne backend "convex") (ne backend "none"))}}tsc -b ../../packages/api && {{/if}}tsc --noEmit",
     "start": "next start"
   },
   "dependencies": {
     "@{{projectName}}/ui": "{{#if (eq packageManager "npm")}}*{{else}}workspace:*{{/if}}",
     "@swc/helpers": "^0.5.23",
-    "lucide-react": "^1.27.0",
-    "next": "^16.3.0",
+    "lucide-react": "^1.41.0",
+    "next": "^16.3.4",
     "next-themes": "^0.4.6",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
-    "sonner": "^2.0.7",
+    "sonner": "^2.0.8",
     "babel-plugin-react-compiler": "^1.0.0"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.3.3",
-    "@types/node": "^20.19.43",
-    "@types/react": "^19.2.17",
-    "@types/react-dom": "^19.2.3",
+    "@types/node": "^26.4.1",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.7",
     "tailwindcss": "^4.3.3"
   }
 }
@@ -30852,15 +31051,15 @@ import { useAuth } from "@clerk/nextjs";
 {{#if (eq auth "clerk")}}
 import { ConvexReactClient } from "convex/react";
 import { ConvexProviderWithClerk } from "convex/react-clerk";
-import { env } from "@{{projectName}}/env/web";
+import { ENV } from "../env{{#if (eq webDeploy "cloudflare")}}.public{{/if}}";
 {{else if (eq auth "better-auth")}}
 import { ConvexReactClient } from "convex/react";
 import { ConvexBetterAuthProvider } from "@convex-dev/better-auth/react";
 import { authClient } from "@/lib/auth-client";
-import { env } from "@{{projectName}}/env/web";
+import { ENV } from "../env{{#if (eq webDeploy "cloudflare")}}.public{{/if}}";
 {{else}}
 import { ConvexProvider, ConvexReactClient } from "convex/react";
-import { env } from "@{{projectName}}/env/web";
+import { ENV } from "../env{{#if (eq webDeploy "cloudflare")}}.public{{/if}}";
 {{/if}}
 {{else}}
 {{#unless (eq api "none")}}
@@ -30878,7 +31077,7 @@ import { ThemeProvider } from "./theme-provider";
 import { Toaster } from "@{{projectName}}/ui/components/sonner";
 
 {{#if (eq backend "convex")}}
-const convex = new ConvexReactClient(env.NEXT_PUBLIC_CONVEX_URL);
+const convex = new ConvexReactClient(ENV.NEXT_PUBLIC_CONVEX_URL);
 {{/if}}
 
 {{#if (and (eq auth "clerk") (ne backend "convex") (ne api "none"))}}
@@ -30967,6 +31166,9 @@ export function ThemeProvider({
 }
 `],
   ["frontend/react/next/tsconfig.json.hbs", `{
+  {{#if (and (eq api "orpc") (ne backend "convex") (ne backend "none"))}}
+  "references": [{ "path": "../../packages/api" }],
+  {{/if}}
   "compilerOptions": {
     "target": "ES2017",
     "lib": ["dom", "dom.iterable", "esnext"],
@@ -31015,32 +31217,32 @@ export function ThemeProvider({
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "react-router build",
+    "build": "{{#if (and (eq api "orpc") (ne backend "convex") (ne backend "none"))}}tsc -b ../../packages/api && {{/if}}react-router build",
     "dev": "react-router dev",
     "start": "react-router-serve ./build/server/index.js",
-    "typecheck": "react-router typegen && tsc"
+    "check-types": "{{#if (and (eq api "orpc") (ne backend "convex") (ne backend "none"))}}tsc -b ../../packages/api && {{/if}}react-router typegen && tsc --noEmit"
   },
   "dependencies": {
     "@{{projectName}}/ui": "{{#if (eq packageManager "npm")}}*{{else}}workspace:*{{/if}}",
-    "@react-router/fs-routes": "^8.3.0",
-    "@react-router/node": "^8.3.0",
-    "@react-router/serve": "^8.3.0",
-    "isbot": "^5.2.1",
-    "lucide-react": "^1.27.0",
+    "@react-router/fs-routes": "^8.3.1",
+    "@react-router/node": "^8.3.1",
+    "@react-router/serve": "^8.3.1",
+    "isbot": "^5.2.2",
+    "lucide-react": "^1.41.0",
     "next-themes": "^0.4.6",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
-    "react-router": "^8.3.0",
-    "sonner": "^2.0.7"
+    "react-router": "^8.3.1",
+    "sonner": "^2.0.8"
   },
   "devDependencies": {
-    "@react-router/dev": "^8.3.0",
+    "@react-router/dev": "^8.3.1",
     "@tailwindcss/vite": "^4.3.3",
-    "@types/node": "^22.20.1",
-    "@types/react": "^19.2.17",
-    "@types/react-dom": "^19.2.3",
+    "@types/node": "^26.4.1",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.7",
     "tailwindcss": "^4.3.3",
-    "vite": "^8.1.5"
+    "vite": "^8.2.2"
   }
 }
 `],
@@ -31124,7 +31326,7 @@ import { setClerkAuthTokenGetter } from "@/utils/clerk-auth";
 
 {{#if (eq backend "convex")}}
 import { ConvexReactClient } from "convex/react";
-import { env } from "@{{projectName}}/env/web";
+import { ENV } from "./env{{#if (eq webDeploy "cloudflare")}}.public{{/if}}";
   {{#if (eq auth "clerk")}}
 import { ConvexProviderWithClerk } from "convex/react-clerk";
   {{else if (eq auth "better-auth")}}
@@ -31180,7 +31382,7 @@ export const links: Route.LinksFunction = () => [
 
 export function Layout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <head>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -31204,7 +31406,7 @@ export default function App() {
 {{else}}
 export default function App() {
 {{/if}}
-  const convex = new ConvexReactClient(env.VITE_CONVEX_URL);
+  const convex = new ConvexReactClient(ENV.VITE_CONVEX_URL);
   {{#if (eq auth "clerk")}}
   return (
     <ClerkProvider loaderData={loaderData}>
@@ -31494,6 +31696,9 @@ export default function Home() {
 }
 `],
   ["frontend/react/react-router/tsconfig.json.hbs", `{
+  {{#if (and (eq api "orpc") (ne backend "convex") (ne backend "none"))}}
+  "references": [{ "path": "../../packages/api" }],
+  {{/if}}
   "include": [
     "**/*",
     "**/.server/**/*",
@@ -31521,25 +31726,34 @@ export default function Home() {
   }
 }
 `],
-  ["frontend/react/react-router/vite.config.ts.hbs", `{{#if (and (eq webDeploy "cloudflare") (not (or (includes addons "tauri") (includes addons "electrobun"))))}}
+  ["frontend/react/react-router/vite.config.ts.hbs", `{{#unless (eq webDeploy "cloudflare")}}
+import { varlockVitePlugin } from "@varlock/vite-integration";
+{{/unless}}
+{{#if (and (eq webDeploy "cloudflare") (not (or (includes addons "tauri") (includes addons "electrobun"))))}}
 import { fileURLToPath } from "node:url";
 {{/if}}
 import { reactRouter } from "@react-router/dev/vite";
 import tailwindcss from "@tailwindcss/vite";
 import { defineConfig } from "{{#if (includes addons "vite-plus")}}vite-plus{{else}}vite{{/if}}";
 
-export default defineConfig({
+export default defineConfig({{#if (and (or (eq webDeploy "vercel") (eq webDeploy "prisma")) (not (or (includes addons "tauri") (includes addons "electrobun"))))}}({ command }) => ({{/if}}{
   resolve: {
     tsconfigPaths: true,
   },
+  optimizeDeps: {
+    entries: ["src/**/*.{ts,tsx}"],
+  },
   plugins: [
+{{#unless (eq webDeploy "cloudflare")}}
+    varlockVitePlugin({ ssrInjectMode: "{{#if (or (eq webDeploy "vercel") (eq webDeploy "prisma"))}}resolved-env{{else}}auto-load{{/if}}" }),
+{{/unless}}
     tailwindcss(),
     reactRouter(),
   ],
 {{#if (and (or (eq webDeploy "vercel") (eq webDeploy "prisma")) (not (or (includes addons "tauri") (includes addons "electrobun"))))}}
   ssr: {
     // The deployment artifact has no node_modules; bundle all server dependencies.
-    noExternal: true,
+    noExternal: command === "build" ? true : undefined,
   },
 {{/if}}
 {{#if (and (eq webDeploy "prisma") (not (or (includes addons "tauri") (includes addons "electrobun"))))}}
@@ -31565,7 +31779,7 @@ export default defineConfig({
     },
   },
 {{/if}}
-});
+}{{#if (and (or (eq webDeploy "vercel") (eq webDeploy "prisma")) (not (or (includes addons "tauri") (includes addons "electrobun"))))}}){{/if}});
 `],
   ["frontend/react/tanstack-router/index.html.hbs", `<!DOCTYPE html>
 <html lang="en">
@@ -31588,31 +31802,31 @@ export default defineConfig({
 	"type": "module",
 	"scripts": {
 		"dev": "vite dev",
-		"build": "vite build",
+		"build": "{{#if (and (eq api "orpc") (ne backend "convex") (ne backend "none"))}}tsc -b ../../packages/api && {{/if}}vite build",
 		"serve": "vite preview",
 		"start": "vite",
-		"check-types": "vite build && tsc --noEmit"
+		"check-types": "{{#if (and (eq api "orpc") (ne backend "convex") (ne backend "none"))}}tsc -b ../../packages/api && {{/if}}vite build && tsc --noEmit"
 	},
 	"dependencies": {
         "@{{projectName}}/ui": "{{#if (eq packageManager "npm")}}*{{else}}workspace:*{{/if}}",
 		"@tailwindcss/vite": "^4.3.3",
-		"@tanstack/react-router": "^1.170.18",
-		"lucide-react": "^1.27.0",
+		"@tanstack/react-router": "^1.170.32",
+		"lucide-react": "^1.41.0",
         "next-themes": "^0.4.6",
 		"react": "^19.2.8",
 		"react-dom": "^19.2.8",
-        "sonner": "^2.0.7"
+        "sonner": "^2.0.8"
 	},
 	"devDependencies": {
-		"@tanstack/react-router-devtools": "^1.167.0",
-		"@tanstack/router-plugin": "^1.168.23",
-		"@types/node": "^22.20.1",
-		"@types/react": "^19.2.17",
-		"@types/react-dom": "^19.2.3",
-		"@vitejs/plugin-react": "^6.0.4",
-		"postcss": "^8.5.24",
+		"@tanstack/react-router-devtools": "^1.167.1",
+		"@tanstack/router-plugin": "^1.168.35",
+		"@types/node": "^26.4.1",
+		"@types/react": "^19.2.18",
+		"@types/react-dom": "^19.2.7",
+		"@vitejs/plugin-react": "^6.1.1",
+		"postcss": "^8.5.28",
 		"tailwindcss": "^4.3.3",
-		"vite": "^8.1.5"
+		"vite": "^8.2.2"
 	}
 }
 `],
@@ -31676,7 +31890,7 @@ import { routeTree } from "./routeTree.gen";
   import { queryClient, trpc } from "./utils/trpc";
 {{/if}}
 {{#if (or (eq backend "convex") (eq auth "clerk"))}}
-  import { env } from "@{{projectName}}/env/web";
+  import { ENV } from "./env{{#if (eq webDeploy "cloudflare")}}.public{{/if}}";
 {{/if}}
 {{#if (eq auth "clerk")}}
   import { ClerkProvider{{#if (or (eq backend "convex") (ne api "none"))}}, useAuth{{/if}} } from "@clerk/react";
@@ -31691,7 +31905,7 @@ import { routeTree } from "./routeTree.gen";
   {{else}}
   import { ConvexProvider } from "convex/react";
   {{/if}}
-  const convex = new ConvexReactClient(env.VITE_CONVEX_URL);
+  const convex = new ConvexReactClient(ENV.VITE_CONVEX_URL);
 {{/if}}
 
 {{#if (and (eq auth "clerk") (ne backend "convex") (ne api "none"))}}
@@ -31720,7 +31934,7 @@ const router = createRouter({
   Wrap: function WrapComponent({ children }: { children: React.ReactNode }) {
     return (
       {{#if (eq auth "clerk")}}
-      <ClerkProvider publishableKey={env.VITE_CLERK_PUBLISHABLE_KEY}>
+      <ClerkProvider publishableKey={ENV.VITE_CLERK_PUBLISHABLE_KEY}>
         <ClerkApiAuthBridge />
         <QueryClientProvider client={queryClient}>
           {children}
@@ -31738,7 +31952,7 @@ const router = createRouter({
   Wrap: function WrapComponent({ children }: { children: React.ReactNode }) {
     return (
       {{#if (eq auth "clerk")}}
-      <ClerkProvider publishableKey={env.VITE_CLERK_PUBLISHABLE_KEY}>
+      <ClerkProvider publishableKey={ENV.VITE_CLERK_PUBLISHABLE_KEY}>
         <ClerkApiAuthBridge />
         <QueryClientProvider client={queryClient}>
           {children}
@@ -31757,7 +31971,7 @@ const router = createRouter({
     {{#if (eq auth "clerk")}}
     return (
       <ClerkProvider
-        publishableKey={env.VITE_CLERK_PUBLISHABLE_KEY}
+        publishableKey={ENV.VITE_CLERK_PUBLISHABLE_KEY}
       >
         <ConvexProviderWithClerk client={convex} useAuth={useAuth}>
           {children}
@@ -31773,7 +31987,7 @@ const router = createRouter({
   {{else if (eq auth "clerk")}}
   context: {},
   Wrap: function WrapComponent({ children }: { children: React.ReactNode }) {
-    return <ClerkProvider publishableKey={env.VITE_CLERK_PUBLISHABLE_KEY}>{children}</ClerkProvider>;
+    return <ClerkProvider publishableKey={ENV.VITE_CLERK_PUBLISHABLE_KEY}>{children}</ClerkProvider>;
   },
   {{else}}
   context: {},
@@ -31988,6 +32202,9 @@ function HomeComponent() {
 }
 `],
   ["frontend/react/tanstack-router/tsconfig.json.hbs", `{
+  {{#if (and (eq api "orpc") (ne backend "convex") (ne backend "none"))}}
+  "references": [{ "path": "../../packages/api" }],
+  {{/if}}
   "compilerOptions": {
     "strict": true,
     "esModuleInterop": true,
@@ -32005,7 +32222,10 @@ function HomeComponent() {
   }
 }
 `],
-  ["frontend/react/tanstack-router/vite.config.ts.hbs", `import tailwindcss from "@tailwindcss/vite";
+  ["frontend/react/tanstack-router/vite.config.ts.hbs", `{{#unless (eq webDeploy "cloudflare")}}
+import { varlockVitePlugin } from "@varlock/vite-integration";
+{{/unless}}
+import tailwindcss from "@tailwindcss/vite";
 import { tanstackRouter } from "@tanstack/router-plugin/vite";
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "{{#if (includes addons "vite-plus")}}vite-plus{{else}}vite{{/if}}";
@@ -32018,6 +32238,9 @@ export default defineConfig({
     tsconfigPaths: true,
   },
   plugins: [
+{{#unless (eq webDeploy "cloudflare")}}
+    varlockVitePlugin({ ssrInjectMode: "auto-load" }),
+{{/unless}}
     tailwindcss(),
     tanstackRouter({
       target: "react",
@@ -32032,33 +32255,34 @@ export default defineConfig({
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "vite build",
+    "build": "{{#if (and (eq api "orpc") (ne backend "convex") (ne backend "none"))}}tsc -b ../../packages/api && {{/if}}vite build",
     "serve": "vite preview",
-    "dev": "vite dev"
+    "dev": "vite dev",
+    "check-types": "{{#if (and (eq api "orpc") (ne backend "convex") (ne backend "none"))}}tsc -b ../../packages/api && {{/if}}vite build && tsc --noEmit"
   },
   "dependencies": {
     "@{{projectName}}/ui": "{{#if (eq packageManager "npm")}}*{{else}}workspace:*{{/if}}",
     "@tailwindcss/vite": "^4.3.3",
-    "@tanstack/react-query": "^5.101.4",
-    "@tanstack/react-router": "^1.170.18",
-    "@tanstack/react-start": "^1.168.32",
-    "lucide-react": "^1.27.0",
+    "@tanstack/react-query": "^5.102.8",
+    "@tanstack/react-router": "^1.170.32",
+    "@tanstack/react-start": "^1.168.49",
+    "lucide-react": "^1.41.0",
     "next-themes": "^0.4.6",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
-    "sonner": "^2.0.7",
+    "sonner": "^2.0.8",
     "tailwindcss": "^4.3.3"
   },
   "devDependencies": {
-    "@tanstack/react-router-devtools": "^1.167.0",
+    "@tanstack/react-router-devtools": "^1.167.1",
     "@testing-library/dom": "^10.4.1",
-    "@testing-library/react": "^16.3.2",
-    "@types/react": "^19.2.17",
-    "@types/react-dom": "^19.2.3",
-    "@vitejs/plugin-react": "^6.0.4",
-    "jsdom": "^30.0.0",
-    "vite": "^8.1.5",
-    "web-vitals": "^6.0.1"
+    "@testing-library/react": "^16.3.3",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.7",
+    "@vitejs/plugin-react": "^6.1.1",
+    "jsdom": "^30.0.1",
+    "vite": "^8.2.2",
+    "web-vitals": "^6.2.1"
   }
 }
 `],
@@ -32073,7 +32297,7 @@ import { setupRouterSsrQueryIntegration } from "@tanstack/react-router-ssr-query
 import { ConvexQueryClient } from "@convex-dev/react-query";
 import { routeTree } from "./routeTree.gen";
 import Loader from "./components/loader";
-import { env } from "@{{projectName}}/env/web";
+import { ENV } from "./env{{#if (eq webDeploy "cloudflare")}}.public{{/if}}";
 {{else}}
 import { createRouter as createTanStackRouter } from "@tanstack/react-router";
 import Loader from "./components/loader";
@@ -32087,7 +32311,7 @@ import { toast } from "sonner";
 import type { AppRouter } from "@{{projectName}}/api/routers/index";
 import { TRPCProvider } from "./utils/trpc";
 {{#unless (eq backend "self")}}
-import { env } from "@{{projectName}}/env/web";
+import { ENV } from "./env{{#if (eq webDeploy "cloudflare")}}.public{{/if}}";
 {{/unless}}
 {{#if (eq auth "clerk")}}
 import { getClerkAuthToken } from "@/utils/clerk-auth";
@@ -32100,7 +32324,7 @@ import { createQueryClient, orpc } from "./utils/orpc";
 
 {{#if (eq backend "convex")}}
 export function getRouter() {
-	const convexUrl = env.VITE_CONVEX_URL;
+	const convexUrl = ENV.VITE_CONVEX_URL;
 	if (!convexUrl) {
 		throw new Error("VITE_CONVEX_URL is not set");
 	}
@@ -32159,7 +32383,13 @@ function createQueryClient() {
 const trpcClient = createTRPCClient<AppRouter>({
 	links: [
 		httpBatchLink({
-			url: {{#if (eq backend "self")}}"/api/trpc"{{else}}\`\${getServerUrl(env.VITE_SERVER_URL)}/trpc\`{{/if}},
+{{#if (eq backend "self")}}
+			url: "/api/trpc",
+{{else if (and (eq webDeploy serverDeploy) (or (eq webDeploy "vercel") (eq webDeploy "docker")))}}
+			url: \`\${getServerUrl(ENV.VITE_SERVER_URL)}/trpc\`,
+{{else}}
+			url: \`\${ENV.VITE_SERVER_URL.replace(/\\/$/, "")}/trpc\`,
+{{/if}}
 {{#if (eq auth "clerk")}}
 			headers: async () => {
 				const token = await getClerkAuthToken();
@@ -32268,9 +32498,9 @@ import { createServerFn } from "@tanstack/react-start";
 import { ConvexProviderWithClerk } from "convex/react-clerk";
 
 const fetchClerkAuth = createServerFn({ method: "GET" }).handler(async () => {
-  const clerkAuth = await auth();
-  const token = await clerkAuth.getToken({ template: "convex" });
-  return { userId: clerkAuth.userId, token };
+  const { userId, getToken } = await auth();
+  const token = await getToken();
+  return { userId, token };
 });
 {{else if (and (eq backend "convex") (eq auth "better-auth"))}}
 import { createServerFn } from "@tanstack/react-start";
@@ -32573,6 +32803,9 @@ function HomeComponent() {
 }
 `],
   ["frontend/react/tanstack-start/tsconfig.json.hbs", `{
+  {{#if (and (eq api "orpc") (ne backend "convex") (ne backend "none"))}}
+  "references": [{ "path": "../../packages/api" }],
+  {{/if}}
   "include": ["**/*.ts", "**/*.tsx"],
   "compilerOptions": {
     "target": "ES2022",
@@ -32600,9 +32833,12 @@ function HomeComponent() {
   }
 }
 `],
-  ["frontend/react/tanstack-start/vite.config.ts.hbs", `import { defineConfig } from "{{#if (includes addons "vite-plus")}}vite-plus{{else}}vite{{/if}}";
+  ["frontend/react/tanstack-start/vite.config.ts.hbs", `{{#unless (eq webDeploy "cloudflare")}}
+import { varlockVitePlugin } from "@varlock/vite-integration";
+{{/unless}}
+import { defineConfig } from "{{#if (includes addons "vite-plus")}}vite-plus{{else}}vite{{/if}}";
 import { tanstackStart } from "@tanstack/react-start/plugin/vite";
-{{#if (or (eq webDeploy "docker") (eq webDeploy "vercel") (eq webDeploy "prisma"))}}
+{{#if (or (eq webDeploy "docker") (eq webDeploy "vercel") (and (eq webDeploy "prisma") (ne backend "none")) (and (ne webDeploy "cloudflare") (not (and (eq webDeploy "prisma") (eq backend "none"))) (includes addons "axiom")))}}
 import { nitro } from "nitro/vite";
 {{/if}}
 import tailwindcss from "@tailwindcss/vite";
@@ -32632,6 +32868,9 @@ export default defineConfig({
     tsconfigPaths: true,
   },
   plugins: [
+{{#unless (eq webDeploy "cloudflare")}}
+    varlockVitePlugin({ ssrInjectMode: "{{#if (or (eq webDeploy "vercel") (eq webDeploy "prisma"))}}resolved-env{{else}}auto-load{{/if}}" }),
+{{/unless}}
 {{#if (and (eq webDeploy "cloudflare") (eq backend "self") (eq orm "prisma"))}}
     prismaWasm,
 {{/if}}
@@ -32643,7 +32882,7 @@ export default defineConfig({
         },
       },
 {{/if}}),
-{{#if (or (eq webDeploy "docker") (eq webDeploy "vercel") (eq webDeploy "prisma"))}}
+{{#if (or (eq webDeploy "docker") (eq webDeploy "vercel") (and (eq webDeploy "prisma") (ne backend "none")) (and (ne webDeploy "cloudflare") (not (and (eq webDeploy "prisma") (eq backend "none"))) (includes addons "axiom")))}}
     nitro({{#if (eq webDeploy "docker")}}{ preset: "{{#if (eq runtime "bun")}}bun{{else}}node-server{{/if}}" }{{/if}}),
 {{/if}}
     viteReact(),
@@ -32860,24 +33099,24 @@ dist
   "type": "module",
   "scripts": {
     "dev": "vite dev",
-    "build": "vite build",
-    "check-types": "tsc --noEmit",
+    "build": "{{#if (and (eq api "orpc") (ne backend "convex") (ne backend "none"))}}tsc -b ../../packages/api && {{/if}}vite build",
+    "check-types": "{{#if (and (eq api "orpc") (ne backend "convex") (ne backend "none"))}}tsc -b ../../packages/api && {{/if}}tsc --noEmit",
     "start": "{{#if (eq webDeploy "cloudflare")}}vite preview{{else}}node .output/server/index.mjs{{/if}}",
     "preview": "vite preview"
   },
   "dependencies": {
-    "@solidjs/meta": "^1.0.0-next.2",
-    "@solidjs/router": "^2.0.0-next.16",
-    "@solidjs/web": "^2.0.0-rc.0",
-    "solid-js": "^2.0.0-rc.0"
+    "@solidjs/meta": "1.0.0-next.2",
+    "@solidjs/router": "2.0.0-next.34",
+    "@solidjs/web": "2.0.0-rc.13",
+    "solid-js": "2.0.0-rc.13"
   },
   "devDependencies": {
-    "@solidjs/vite-plugin": "^3.0.0-next.28",
+    "@solidjs/vite-plugin": "3.0.0-next.47",
     "@tailwindcss/vite": "^4.3.3",
-    "filesystem-routing": "0.2.1",
+    "filesystem-routing": "0.4.0",
     "tailwindcss": "^4.3.3",
-    "vite": "^8.1.5"{{#unless (eq webDeploy "cloudflare")}},
-    "nitro": "^3.0.260610-beta"{{/unless}}
+    "vite": "^8.2.2"{{#unless (eq webDeploy "cloudflare")}},
+    "nitro": "3.0.260903-beta"{{/unless}}
   },
   "engines": {
     "node": ">=24"
@@ -32895,7 +33134,6 @@ import Loader from "~/components/loader";
 import { Router } from "~/router";
 {{#if (eq api "orpc")}}
 import { QueryClientProvider } from "@tanstack/solid-query";
-import { SolidQueryDevtools } from "@tanstack/solid-query-devtools";
 import { createQueryClient } from "~/utils/orpc";
 {{/if}}
 import "./styles.css";
@@ -32921,7 +33159,6 @@ export default function App() {
         )}
       </Router>
 {{#if (eq api "orpc")}}
-      <SolidQueryDevtools />
     </QueryClientProvider>
 {{/if}}
   );
@@ -33084,6 +33321,9 @@ body {
 /// <reference types="filesystem-routing/types" />
 `],
   ["frontend/solid/tsconfig.json.hbs", `{
+  {{#if (and (eq api "orpc") (ne backend "convex") (ne backend "none"))}}
+  "references": [{ "path": "../../packages/api" }],
+  {{/if}}
   "compilerOptions": {
     "target": "ESNext",
     "module": "ESNext",
@@ -33105,7 +33345,10 @@ body {
   "exclude": ["dist", ".output"]
 }
 `],
-  ["frontend/solid/vite.config.ts.hbs", `import tailwindcss from "@tailwindcss/vite";
+  ["frontend/solid/vite.config.ts.hbs", `{{#unless (eq webDeploy "cloudflare")}}
+import { varlockVitePlugin } from "@varlock/vite-integration";
+{{/unless}}
+import tailwindcss from "@tailwindcss/vite";
 import solid from "@solidjs/vite-plugin";
 import { fileRoutes } from "filesystem-routing/vite";
 {{#if (and (eq webDeploy "cloudflare") (eq backend "self") (eq orm "prisma"))}}
@@ -33141,7 +33384,13 @@ export default defineConfig(({ command }) => {
 {{else}}
 export default defineConfig({
 {{/if}}
+  optimizeDeps: {
+    entries: ["src/**/*.tsx"],
+  },
   plugins: [
+{{#unless (eq webDeploy "cloudflare")}}
+    varlockVitePlugin({ ssrInjectMode: "{{#if (or (eq webDeploy "vercel") (eq webDeploy "prisma"))}}resolved-env{{else}}auto-load{{/if}}" }),
+{{/unless}}
 {{#if (and (eq webDeploy "cloudflare") (eq backend "self") (eq orm "prisma"))}}
     prismaWasm,
 {{/if}}
@@ -33166,6 +33415,9 @@ export default defineConfig({
     },
   },
 {{/if}}
+  ssr: {
+    noExternal: ["solid-js", /^@solidjs\\//, "@tanstack/solid-query"],
+  },
   resolve: {
     tsconfigPaths: true,
 {{#if (eq webDeploy "cloudflare")}}
@@ -33213,30 +33465,35 @@ vite.config.ts.timestamp-*
 	"private": true,
 	"version": "0.0.1",
 	"type": "module",
+	"engines": { "node": ">=22.17.0" },
+	"imports": {
+		"#lib": "./src/lib/index.ts",
+		"#lib/*": "./src/lib/*"
+	},
 	"scripts": {
 		"dev": "vite dev",
-		"build": "vite build",
+		"build": "{{#if (and (eq api "orpc") (ne backend "convex") (ne backend "none"))}}tsc -b ../../packages/api && {{/if}}vite build",
 		"preview": "vite preview",
 		"prepare": "svelte-kit sync || echo ''",
-		"check-types": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
+		"check-types": "{{#if (and (eq api "orpc") (ne backend "convex") (ne backend "none"))}}tsc -b ../../packages/api && {{/if}}svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
 		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
 		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch"
 	},
 	"devDependencies": {
 		{{#if (or (includes addons "electrobun") (includes addons "tauri"))}}
-		"@sveltejs/adapter-static": "^3.0.10",
+		"@sveltejs/adapter-static": "^4.0.0",
 		{{else if (eq webDeploy "prisma")}}
-		"@sveltejs/adapter-node": "^5.5.7",
+		"@sveltejs/adapter-node": "^6.0.0",
 		{{else}}
-		"@sveltejs/adapter-auto": "^7.0.1",
+		"@sveltejs/adapter-auto": "^8.0.0",
 		{{/if}}
-		"@sveltejs/kit": "^2.70.1",
-		"@sveltejs/vite-plugin-svelte": "^7.2.0",
+		"@sveltejs/kit": "^3.0.0",
+		"@sveltejs/vite-plugin-svelte": "^7.3.1",
 		"@tailwindcss/vite": "^4.3.3",
-		"svelte": "^5.56.8",
-		"svelte-check": "^4.7.4",
+		"svelte": "^5.57.1",
+		"svelte-check": "^4.7.6",
 		"tailwindcss": "^4.3.3",
-		"vite": "^8.1.5"
+		"vite": "^8.2.2"
 	},
 	"dependencies": {}
 }
@@ -33247,10 +33504,7 @@ body {
   @apply bg-neutral-950 text-neutral-100;
 }
 `],
-  ["frontend/svelte/src/app.d.ts.hbs", `{{#if (eq webDeploy "cloudflare")}}
-/// <reference path="../../../packages/env/env.d.ts" />
-{{/if}}
-{{#if (and (eq backend "self") (eq api "orpc"))}}
+  ["frontend/svelte/src/app.d.ts.hbs", `{{#if (and (eq backend "self") (eq api "orpc"))}}
 import type { AppRouterClient } from "@{{projectName}}/api/routers/index";
 
 {{/if}}
@@ -33266,16 +33520,7 @@ declare global {
 		// interface Locals {}
 		// interface PageData {}
 		// interface PageState {}
-{{#if (eq webDeploy "cloudflare")}}
-		interface Platform {
-			env: Env;
-			ctx: ExecutionContext;
-			caches: CacheStorage;
-			cf: IncomingRequestCfProperties;
-		}
-{{else}}
 		// interface Platform {}
-{{/if}}
 	}
 }
 
@@ -33325,14 +33570,14 @@ export {};
 	<hr class="border-neutral-800" />
 </div>
 `],
-  ["frontend/svelte/src/lib/index.ts", `// place files you want to import through the \`$lib\` alias in this folder.
+  ["frontend/svelte/src/lib/index.ts", `// place files you want to import through the \`#lib\` alias in this folder.
 export {};
 `],
   ["frontend/svelte/src/routes/+layout.svelte.hbs", `{{#if (eq backend "convex")}}
 <script lang="ts">
 	import '../app.css';
     import Header from '../components/Header.svelte';
-    import { PUBLIC_CONVEX_URL } from '$env/static/public';
+    import { PUBLIC_CONVEX_URL } from '$app/env/public';
 	import { setupConvex } from 'convex-svelte';
 
 	const { children } = $props();
@@ -33351,7 +33596,7 @@ export {};
     import { QueryClientProvider } from '@tanstack/svelte-query';
     import { SvelteQueryDevtools } from '@tanstack/svelte-query-devtools'
 	import '../app.css';
-    import { queryClient } from '$lib/orpc';
+    import { queryClient } from '#lib/orpc.ts';
     import Header from '../components/Header.svelte';
 
 	const { children } = $props();
@@ -33430,7 +33675,7 @@ const TITLE_TEXT = \`
 {{else}}
 <script lang="ts">
 {{#if (eq api "orpc")}}
-import { orpc } from "$lib/orpc";
+import { orpc } from "#lib/orpc.ts";
 import { createQuery } from "@tanstack/svelte-query";
 const healthCheck = createQuery(() => orpc.healthCheck.queryOptions());
 {{/if}}
@@ -33477,54 +33722,17 @@ const TITLE_TEXT = \`
 {{/if}}
 `],
   ["frontend/svelte/static/favicon.png", `[Binary file]`],
-  ["frontend/svelte/svelte.config.js.hbs", `{{#if (or (includes addons "electrobun") (includes addons "tauri"))}}
-import adapter from '@sveltejs/adapter-static';
-{{else if (eq webDeploy "cloudflare")}}
-import adapter from '@sveltejs/adapter-cloudflare';
-{{else if (or (eq webDeploy "docker") (eq webDeploy "prisma"))}}
-import adapter from '@sveltejs/adapter-node';
-{{else if (eq webDeploy "vercel")}}
-import adapter from '@sveltejs/adapter-vercel';
-{{else}}
-import adapter from '@sveltejs/adapter-auto';
-{{/if}}
-import { vitePreprocess } from '@sveltejs/vite-plugin-svelte';
-
-/** @type {import('@sveltejs/kit').Config} */
-const config = {
-	// Consult https://svelte.dev/docs/kit/integrations
-	// for more information about preprocessors
-	preprocess: vitePreprocess(),
-
-	kit: {
-{{#if (or (includes addons "electrobun") (includes addons "tauri"))}}
-		// adapter-static emits files Electrobun and Tauri can bundle directly.
-		adapter: adapter({
-			pages: 'build',
-			assets: 'build',
-			fallback: 'index.html'
-		})
-{{else if (eq webDeploy "cloudflare")}}
-		adapter: adapter()
-{{else if (or (eq webDeploy "docker") (eq webDeploy "prisma"))}}
-		// adapter-node builds a standalone Node server (run with \`node build/index.js\`).
-		adapter: adapter()
-{{else if (eq webDeploy "vercel")}}
-		adapter: adapter()
-{{else}}
-		// adapter-auto only supports some environments, see https://svelte.dev/docs/kit/adapter-auto for a list.
-		// If your environment is not supported, or you settled on a specific environment, switch out the adapter.
-		// See https://svelte.dev/docs/kit/adapters for more information about adapters.
-		adapter: adapter()
-{{/if}}
-	}
-};
-
-export default config;
-`],
   ["frontend/svelte/tsconfig.json.hbs", `{
-	"extends": "./.svelte-kit/tsconfig.json",
+  {{#if (and (eq api "orpc") (ne backend "convex") (ne backend "none"))}}
+  "references": [{ "path": "../../packages/api" }],
+  {{/if}}
+	"extends": "$app/tsconfig",
+	"include": ["src", "test", "*"],
+	"exclude": ["src/service-worker"],
 	"compilerOptions": {
+    {{#if (and (eq api "orpc") (ne backend "convex") (ne backend "none"))}}
+    "disableSourceOfProjectReferenceRedirect": true,
+    {{/if}}
 		"allowJs": true,
 		"checkJs": true,
 		"esModuleInterop": true,
@@ -33534,17 +33742,27 @@ export default config;
 		"sourceMap": true,
 		"strict": true,
 		"moduleResolution": "bundler"{{#if (eq webDeploy "cloudflare")}},
-			"types": ["@cloudflare/workers-types"]{{/if}}
+			"types": ["$app/types", "@cloudflare/workers-types"]{{/if}}
 	}
-	// Path aliases are handled by https://svelte.dev/docs/kit/configuration#alias
-	// except $lib which is handled by https://svelte.dev/docs/kit/configuration#files
-	//
-	// If you want to overwrite includes/excludes, make sure to copy over the relevant includes/excludes
-	// from the referenced tsconfig.json - TypeScript does not merge them in
 }
 `],
-  ["frontend/svelte/vite.config.ts.hbs", `import tailwindcss from "@tailwindcss/vite";
+  ["frontend/svelte/vite.config.ts.hbs", `{{#unless (eq webDeploy "cloudflare")}}
+import { varlockVitePlugin } from "@varlock/vite-integration";
+{{/unless}}
+import tailwindcss from "@tailwindcss/vite";
 import { sveltekit } from "@sveltejs/kit/vite";
+import { vitePreprocess } from "@sveltejs/vite-plugin-svelte";
+{{#if (or (includes addons "electrobun") (includes addons "tauri"))}}
+import adapter from "@sveltejs/adapter-static";
+{{else if (eq webDeploy "cloudflare")}}
+import adapter from "@sveltejs/adapter-cloudflare";
+{{else if (or (eq webDeploy "docker") (eq webDeploy "prisma"))}}
+import adapter from "@sveltejs/adapter-node";
+{{else if (eq webDeploy "vercel")}}
+import adapter from "@sveltejs/adapter-vercel";
+{{else}}
+import adapter from "@sveltejs/adapter-auto";
+{{/if}}
 import { defineConfig } from "{{#if (includes addons "vite-plus")}}vite-plus{{else}}vite{{/if}}";
 {{#if (and (eq webDeploy "cloudflare") (eq backend "self") (eq orm "prisma"))}}
 import { unwasm } from "unwasm/plugin";
@@ -33552,17 +33770,33 @@ import { unwasm } from "unwasm/plugin";
 
 export default defineConfig({
   plugins: [
+{{#unless (eq webDeploy "cloudflare")}}
+    varlockVitePlugin({ ssrInjectMode: "{{#if (or (eq webDeploy "vercel") (eq webDeploy "prisma"))}}resolved-env{{else}}auto-load{{/if}}" }),
+{{/unless}}
 {{#if (and (eq webDeploy "cloudflare") (eq backend "self") (eq orm "prisma"))}}
     unwasm({ esmImport: true }),
 {{/if}}
     tailwindcss(),
-    sveltekit(),
+    sveltekit({
+      preprocess: vitePreprocess(),
+{{#if (eq webDeploy "docker")}}
+      paths: { origin: process.env.ORIGIN },
+{{/if}}
+{{#if (or (includes addons "electrobun") (includes addons "tauri"))}}
+      adapter: adapter({ pages: "build", assets: "build", fallback: "index.html" }),
+{{else if (eq webDeploy "vercel")}}
+      adapter: adapter({ runtime: "nodejs24.x" }),
+{{else}}
+      adapter: adapter(),
+{{/if}}
+    }),
   ],
 {{#if (eq webDeploy "prisma")}}
   // Prisma Compute uploads only the build artifact, so keep the official
-  // adapter-node output self-contained instead of requiring node_modules.
+  // adapter-node output self-contained. The adapter respects noExternal rules
+  // when deciding which production dependencies to externalize.
   ssr: {
-    noExternal: true,
+    noExternal: [/.*/],
   },
 {{/if}}
 });
@@ -33606,364 +33840,6 @@ export default defineConfig({
     ]
   }
 }`],
-  ["packages/env/package.json.hbs", `{
-	"name": "@{{projectName}}/env",
-	"version": "0.0.0",
-	"private": true,
-	"type": "module",
-	"exports": {}
-}`],
-  ["packages/env/src/native.ts.hbs", `import { createEnv } from "@t3-oss/env-core";
-import { z } from "zod";
-
-{{#if (eq backend "convex")}}
-const convexUrlSchema = (exampleHost: string) =>
-	z.url().refine((url) => new URL(url).hostname !== exampleHost, {
-		message: \`Replace the \${exampleHost} placeholder before running the app\`,
-	});
-
-{{/if}}
-export const env = createEnv({
-	clientPrefix: "EXPO_PUBLIC_",
-	client: {
-{{#if (eq backend "convex")}}
-		EXPO_PUBLIC_CONVEX_URL: convexUrlSchema("example.convex.cloud"),
-{{#if (eq auth "better-auth")}}
-		EXPO_PUBLIC_CONVEX_SITE_URL: convexUrlSchema("example.convex.site"),
-{{/if}}
-{{else}}
-		EXPO_PUBLIC_SERVER_URL: z.url(),
-{{/if}}
-{{#if (eq auth "clerk")}}
-		EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY: z.string().min(1),
-{{/if}}
-	},
-	runtimeEnv: process.env,
-	emptyStringAsUndefined: true,
-});
-`],
-  ["packages/env/src/server.ts.hbs", `{{#if (and (eq serverDeploy "cloudflare") (or (ne backend "self") (ne webDeploy "cloudflare")))}}
-{{#if (eq backend "nitro")}}
-/// <reference path="../env.d.ts" />
-import type { ServerEnv } from "@{{projectName}}/infra/alchemy.run";
-
-export type CloudflareEnv = ServerEnv;
-export { env } from "cloudflare:workers";
-{{else}}
-/// <reference types="@cloudflare/workers-types" />
-/// <reference path="../env.d.ts" />
-// For Cloudflare Workers, env is accessed via cloudflare:workers module
-// Types are defined in env.d.ts based on your alchemy.run.ts bindings
-export { env } from "cloudflare:workers";
-{{/if}}
-{{else if (and (eq backend "self") (eq webDeploy "cloudflare") (includes frontend "next"))}}
-/// <reference path="../env.d.ts" />
-import { getCloudflareContext } from "@opennextjs/cloudflare";
-
-function getNodeEnvValue(key: string) {
-	if (key === "DB") {
-		return undefined;
-	}
-
-	return process.env[key];
-}
-
-function getCloudflareEnvSync() {
-	try {
-		return getCloudflareContext().env as Env;
-	} catch {
-		return undefined;
-	}
-}
-
-type EnvValue = Env[keyof Env];
-
-function createEnvProxy(getValue: (key: keyof Env & string) => EnvValue | undefined) {
-	return new Proxy({} as Env, {
-		get(_target, prop) {
-			if (typeof prop !== "string") {
-				return undefined;
-			}
-
-			return getValue(prop as keyof Env & string);
-		},
-	});
-}
-
-function resolveEnvValue(key: keyof Env & string): EnvValue | undefined {
-	const nodeValue = getNodeEnvValue(key);
-	if (nodeValue !== undefined) {
-		return nodeValue as EnvValue;
-	}
-
-	return getCloudflareEnvSync()?.[key as keyof Env];
-}
-
-// Next.js local dev runs in Node.js, where env vars are exposed on process.env.
-// In the Cloudflare runtime, fall back to OpenNext's Cloudflare context bindings.
-// For static routes (ISR/SSG), use getEnvAsync() so OpenNext can resolve bindings
-// with the async Cloudflare context API.
-export async function getEnvAsync() {
-	const cloudflareEnv = (await getCloudflareContext({ async: true })).env as Env;
-
-	return createEnvProxy((key) => {
-		const nodeValue = getNodeEnvValue(key);
-		if (nodeValue !== undefined) {
-			return nodeValue;
-		}
-
-		return cloudflareEnv[key as keyof Env];
-	});
-}
-
-export const env = createEnvProxy(resolveEnvValue);
-{{else if (usesRequestScopedCloudflareEnv backend webDeploy frontend)}}
-import { config } from "dotenv";
-import { fileURLToPath } from "node:url";
-import type { CloudflareEnv } from "../env.d.ts";
-
-export type { CloudflareEnv } from "../env.d.ts";
-
-// dotenv only applies in Node dev/build; workerd throws on file URLs and has no fs
-try {
-	config({ path: fileURLToPath(new URL("../../../.env", import.meta.url)) });
-	config();
-} catch {
-	// running in workerd: env comes from worker bindings via process.env
-}
-
-const runtimeEnv = typeof process === "undefined" ? {} : process.env;
-
-export const env = new Proxy({} as CloudflareEnv, {
-	get(_target, prop) {
-		if (typeof prop !== "string") {
-			return undefined;
-		}
-
-		return runtimeEnv[prop];
-	},
-});
-{{else if (and (eq backend "self") (eq webDeploy "cloudflare"))}}
-/// <reference types="@cloudflare/workers-types" />
-/// <reference path="../env.d.ts" />
-// For Cloudflare Workers, env is accessed via cloudflare:workers module
-// Types are defined in env.d.ts based on your alchemy.run.ts bindings
-export { env } from "cloudflare:workers";
-{{else}}
-import "dotenv/config";
-import { createEnv } from "@t3-oss/env-core";
-import { z } from "zod";
-
-{{#if (or (eq webDeploy "vercel") (eq serverDeploy "vercel"))}}
-function getVercelOrigin() {
-	const vercelUrl =
-		process.env.VERCEL_ENV === "production"
-			? (process.env.VERCEL_PROJECT_PRODUCTION_URL ?? process.env.VERCEL_URL)
-			: (process.env.VERCEL_URL ?? process.env.VERCEL_PROJECT_PRODUCTION_URL);
-	if (!vercelUrl) return undefined;
-	return vercelUrl.startsWith("http") ? vercelUrl : \`https://\${vercelUrl}\`;
-}
-
-const vercelOrigin = getVercelOrigin();
-
-const runtimeEnv = {
-	...process.env,
-{{#if (eq auth "better-auth")}}
-{{#if (and (eq webDeploy "vercel") (eq serverDeploy "vercel") (ne backend "self"))}}
-		// Public auth base: /api/auth bypasses the rewrite's path strip, so the
-	// same URL works for incoming matching and generated callbacks
-	BETTER_AUTH_URL: process.env.BETTER_AUTH_URL ?? (vercelOrigin ? \`\${vercelOrigin}/api/auth\` : undefined),
-{{else}}
-	BETTER_AUTH_URL: process.env.BETTER_AUTH_URL ?? vercelOrigin,
-{{/if}}
-{{/if}}
-{{#if (ne backend "self")}}
-	CORS_ORIGIN: process.env.CORS_ORIGIN ?? vercelOrigin,
-{{/if}}
-};
-
-{{/if}}
-export const env = createEnv({
-	server: {
-{{#if (ne database "none")}}
-{{#if (and (eq database "mysql") (eq orm "drizzle") (eq dbSetup "planetscale"))}}
-		DATABASE_HOST: z.string().min(1),
-		DATABASE_USERNAME: z.string().min(1),
-		DATABASE_PASSWORD: z.string().min(1),
-{{else}}
-		DATABASE_URL: z.string().min(1),
-{{#if (eq dbSetup "turso")}}
-		DATABASE_AUTH_TOKEN: z.string().min(1),
-{{/if}}
-{{/if}}
-{{/if}}
-{{#if (eq auth "better-auth")}}
-		BETTER_AUTH_SECRET: z.string().min(32),
-		BETTER_AUTH_URL: z.url(),
-{{/if}}
-{{#if (eq auth "clerk")}}
-		CLERK_SECRET_KEY: z.string().min(1),
-{{#if (or (eq backend "express") (eq backend "fastify") (and (ne api "none") (or (eq backend "self") (eq backend "hono") (eq backend "elysia") (eq backend "nitro"))))}}
-		CLERK_PUBLISHABLE_KEY: z.string().min(1),
-{{/if}}
-{{/if}}
-{{#if (eq payments "polar")}}
-		POLAR_ACCESS_TOKEN: z.string().min(1),
-		POLAR_SUCCESS_URL: z.url(),
-{{/if}}
-{{#if (ne backend "self")}}
-		CORS_ORIGIN: z.url(),
-{{/if}}
-		NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
-	},
-	runtimeEnv: {{#if (or (eq webDeploy "vercel") (eq serverDeploy "vercel"))}}runtimeEnv{{else}}process.env{{/if}},
-	skipValidation: !!process.env.SKIP_ENV_VALIDATION,
-	emptyStringAsUndefined: true,
-});
-{{/if}}
-`],
-  ["packages/env/src/web.ts.hbs", `{{#if (includes frontend "next")}}
-import { createEnv } from "@t3-oss/env-nextjs";
-{{else if (includes frontend "nuxt")}}
-import { createEnv } from "@t3-oss/env-nuxt";
-{{else if (or (includes frontend "svelte") (includes frontend "astro"))}}
-import { createEnv } from "@t3-oss/env-core";
-{{else}}
-import { createEnv } from "@t3-oss/env-core";
-{{/if}}
-import { z } from "zod";
-
-{{#if (and (eq webDeploy "vercel") (eq serverDeploy "vercel") (ne backend "self") (ne backend "none") (ne backend "convex"))}}
-const serverUrlSchema = z.union([
-	z.url(),
-	z.string().regex(/^\\/(?!\\/)/, "Use an absolute URL or a same-origin path like /api"),
-]);
-
-{{/if}}
-{{#if (eq backend "convex")}}
-const convexUrlSchema = (exampleHost: string) =>
-	z.url().refine((url) => new URL(url).hostname !== exampleHost, {
-		message: \`Replace the \${exampleHost} placeholder before running the app\`,
-	});
-
-{{/if}}
-{{#if (includes frontend "nuxt")}}
-/**
- * Nuxt env validation - validates at build time when imported in nuxt.config.ts
- * For runtime access in components/plugins, use useRuntimeConfig() instead:
- *   const config = useRuntimeConfig()
- *   config.public.serverUrl (NUXT_PUBLIC_SERVER_URL maps to serverUrl)
- */
-{{/if}}
-export const env = createEnv({
-{{#if (eq backend "convex")}}
-{{#if (includes frontend "next")}}
-	client: {
-		NEXT_PUBLIC_CONVEX_URL: convexUrlSchema("example.convex.cloud"),
-{{#if (eq auth "better-auth")}}
-		NEXT_PUBLIC_CONVEX_SITE_URL: convexUrlSchema("example.convex.site"),
-{{/if}}
-{{#if (eq auth "clerk")}}
-		NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: z.string().min(1),
-{{/if}}
-	},
-	runtimeEnv: {
-		NEXT_PUBLIC_CONVEX_URL: process.env.NEXT_PUBLIC_CONVEX_URL,
-{{#if (eq auth "better-auth")}}
-		NEXT_PUBLIC_CONVEX_SITE_URL: process.env.NEXT_PUBLIC_CONVEX_SITE_URL,
-{{/if}}
-{{#if (eq auth "clerk")}}
-		NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY,
-{{/if}}
-	},
-{{else if (includes frontend "nuxt")}}
-	client: {
-		NUXT_PUBLIC_CONVEX_URL: convexUrlSchema("example.convex.cloud"),
-	},
-{{else if (or (includes frontend "svelte") (includes frontend "astro"))}}
-	clientPrefix: "PUBLIC_",
-	client: {
-		PUBLIC_CONVEX_URL: convexUrlSchema("example.convex.cloud"),
-	},
-	runtimeEnv: (import.meta as any).env,
-{{else}}
-	clientPrefix: "VITE_",
-	client: {
-		VITE_CONVEX_URL: convexUrlSchema("example.convex.cloud"),
-{{#if (eq auth "better-auth")}}
-		VITE_CONVEX_SITE_URL: convexUrlSchema("example.convex.site"),
-{{/if}}
-{{#if (eq auth "clerk")}}
-		VITE_CLERK_PUBLISHABLE_KEY: z.string().min(1),
-{{/if}}
-	},
-	runtimeEnv: (import.meta as any).env,
-{{/if}}
-{{else if (eq backend "self")}}
-{{#if (includes frontend "next")}}
-	client: {
-{{#if (eq auth "clerk")}}
-		NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: z.string().min(1),
-{{/if}}
-	},
-	runtimeEnv: {
-{{#if (eq auth "clerk")}}
-		NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY,
-{{/if}}
-	},
-{{else if (includes frontend "nuxt")}}
-	client: {},
-{{else}}
-	clientPrefix: "VITE_",
-	client: {
-{{#if (eq auth "clerk")}}
-		VITE_CLERK_PUBLISHABLE_KEY: z.string().min(1),
-{{/if}}
-	},
-	runtimeEnv: (import.meta as any).env,
-{{/if}}
-{{else if (ne backend "none")}}
-{{#if (includes frontend "next")}}
-	client: {
-		NEXT_PUBLIC_SERVER_URL: {{#if (and (eq webDeploy "vercel") (eq serverDeploy "vercel"))}}serverUrlSchema{{else}}z.url(){{/if}},
-{{#if (eq auth "clerk")}}
-		NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: z.string().min(1),
-{{/if}}
-	},
-	runtimeEnv: {
-		NEXT_PUBLIC_SERVER_URL: process.env.NEXT_PUBLIC_SERVER_URL,
-{{#if (eq auth "clerk")}}
-		NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY,
-{{/if}}
-	},
-{{else if (includes frontend "nuxt")}}
-	client: {
-		NUXT_PUBLIC_SERVER_URL: {{#if (and (eq webDeploy "vercel") (eq serverDeploy "vercel"))}}serverUrlSchema{{else}}z.url(){{/if}},
-	},
-{{else if (or (includes frontend "svelte") (includes frontend "astro"))}}
-	clientPrefix: "PUBLIC_",
-	client: {
-		PUBLIC_SERVER_URL: {{#if (and (eq webDeploy "vercel") (eq serverDeploy "vercel"))}}serverUrlSchema{{else}}z.url(){{/if}},
-	},
-	runtimeEnv: (import.meta as any).env,
-{{else}}
-	clientPrefix: "VITE_",
-	client: {
-		VITE_SERVER_URL: {{#if (and (eq webDeploy "vercel") (eq serverDeploy "vercel"))}}serverUrlSchema{{else}}z.url(){{/if}},
-{{#if (eq auth "clerk")}}
-		VITE_CLERK_PUBLISHABLE_KEY: z.string().min(1),
-{{/if}}
-	},
-	runtimeEnv: (import.meta as any).env,
-{{/if}}
-{{/if}}
-	emptyStringAsUndefined: true,
-});
-`],
-  ["packages/env/tsconfig.json.hbs", `{
-  "extends": "@{{projectName}}/config/tsconfig.base.json",
-}
-`],
   ["packages/infra/package.json.hbs", `{
   "name": "@{{projectName}}/infra",
   "private": true,
@@ -34019,23 +33895,22 @@ export const env = createEnv({
     "./postcss.config": "./postcss.config.mjs"
   },
   "dependencies": {
-    "@base-ui/react": "^1.6.0",
-    "@shadcn/react": "^0.2.1",
-    "shadcn": "^4.16.0",
+    "@base-ui/react": "^1.8.0",
+    "@shadcn/react": "^0.3.1",
+    "shadcn": "^4.21.0",
     "class-variance-authority": "^0.7.1",
-    "clsx": "^2.1.1",
-    "lucide-react": "^1.27.0",
+    "cn": "^0.2.5",
+    "lucide-react": "^1.41.0",
     "next-themes": "^0.4.6",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
-    "sonner": "^2.0.7",
-    "tailwind-merge": "^3.6.0",
+    "sonner": "^2.0.8",
     "tw-animate-css": "^1.4.0"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.3.3",
-    "@types/react": "^19.2.17",
-    "@types/react-dom": "^19.2.3",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.7",
     "tailwindcss": "^4.3.3"
   },
   "scripts": {
@@ -35613,12 +35488,7 @@ function TooltipContent({
 export { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider }
 `],
   ["packages/ui/src/hooks/.gitkeep", ``],
-  ["packages/ui/src/lib/utils.ts.hbs", `import { clsx, type ClassValue } from "clsx";
-import { twMerge } from "tailwind-merge";
-
-export function cn(...inputs: ClassValue[]) {
-  return twMerge(clsx(inputs));
-}
+  ["packages/ui/src/lib/utils.ts.hbs", `export { cn } from "cn";
 `],
   ["packages/ui/src/styles/globals.css.hbs", `@import 'tailwindcss';
 @import 'tw-animate-css';
@@ -35831,25 +35701,10 @@ export const syncProducts = action({
 });
 `],
   ["payments/polar/server/base/src/lib/payments.ts.hbs", `import { Polar } from "@polar-sh/sdk";
-{{#if (usesRequestScopedCloudflareEnv backend webDeploy frontend)}}
-import type { CloudflareEnv } from "@{{projectName}}/env/server";
-{{else}}
-import { env } from "@{{projectName}}/env/server";
-{{/if}}
 
-{{#if (usesRequestScopedCloudflareEnv backend webDeploy frontend)}}
-export function createPolarClient(env: CloudflareEnv) {
-	return new Polar({
-		accessToken: env.POLAR_ACCESS_TOKEN,
-		server: "sandbox",
-	});
+export function createPolarClient(config: { POLAR_ACCESS_TOKEN: string }) {
+  return new Polar({ accessToken: config.POLAR_ACCESS_TOKEN, server: "sandbox" });
 }
-{{else}}
-export const polarClient = new Polar({
-	accessToken: env.POLAR_ACCESS_TOKEN,
-	server: "sandbox",
-});
-{{/if}}
 `],
   ["payments/polar/web/nuxt/app/pages/success.vue.hbs", `<script setup lang="ts">
 const route = useRoute()
@@ -35981,4 +35836,4 @@ export default function Success() {
 `]
 ]);
 
-export const TEMPLATE_COUNT = 534;
+export const TEMPLATE_COUNT = 543;
