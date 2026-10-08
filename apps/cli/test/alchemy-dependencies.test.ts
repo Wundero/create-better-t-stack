@@ -42,8 +42,13 @@ for (const packageManager of ["bun", "npm", "pnpm"] as const) {
           ? yaml.parse(files.get("pnpm-workspace.yaml")!)
           : JSON.parse(files.get("package.json")!),
       );
-      // Stable Effect peers resolve normally; generation must not inject an override.
-      expect(workspace.overrides?.["@effect/platform-node-shared"]).toBeUndefined();
+      // Alchemy targets pin the floated @effect peers via root overrides so the transitive
+      // prerelease ranges cannot resolve to a mixed rc set (see effect-dependency-overrides.test.ts).
+      if (deployment !== "none") {
+        expect(workspace.overrides?.["@effect/platform-node-shared"]).toBeDefined();
+      } else {
+        expect(workspace.overrides?.["@effect/platform-node-shared"]).toBeUndefined();
+      }
       if (deployment !== "none") {
         const infra = infraSchema.parse(JSON.parse(files.get("packages/infra/package.json")!));
         const catalog =

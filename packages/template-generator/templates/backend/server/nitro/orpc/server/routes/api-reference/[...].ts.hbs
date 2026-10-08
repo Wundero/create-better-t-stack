@@ -20,9 +20,9 @@ const handler = new OpenAPIHandler(appRouter, {
 });
 
 export default defineHandler(async (event) => {
-  const result = await handler.handle(event.req, {
+  const result = await handler.handle(event.req as Request, {
     prefix: "/api-reference",
-    context: await createContext({ request: event.req }),
+    context: await createContext({ request: event.req as Request }),
   });
 
   return result.response ?? new Response("Not Found", { status: 404 });

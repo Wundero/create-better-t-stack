@@ -430,7 +430,7 @@ function toClerkContextAuth(auth: ClerkContextAuth): ClerkContextAuth {
 }
 {{/if}}
 
-{{#if (and (eq auth "clerk") (or (eq backend 'self') (eq backend 'hono') (eq backend 'elysia')))}}
+{{#if (and (eq auth "clerk") (or (eq backend 'self') (eq backend 'hono') (eq backend 'elysia') (eq backend 'nitro')))}}
 {{#if (usesRequestScopedCloudflareEnv backend webDeploy frontend)}}
 {{else}}
 import { createClerkClient } from "@clerk/backend";
@@ -844,6 +844,48 @@ export async function createContext(req: {{#if (eq auth "clerk")}}Parameters<typ
 	};
 {{else}}
 	void req;
+	return {
+{{#if (ne database "none")}}
+    db,
+{{/if}}
+	};
+{{/if}}
+}
+
+{{else if (eq backend 'nitro')}}
+{{#if (eq auth "better-auth")}}
+{{#if (or (eq runtime "workers") (eq serverDeploy "cloudflare"))}}
+import { createAuth } from "@{{projectName}}/auth";
+{{else}}
+import { auth } from "@{{projectName}}/auth";
+{{/if}}
+{{/if}}
+
+export type CreateContextOptions = {
+	request: Request;
+};
+
+export async function createContext({{#if (eq auth "none")}}_options{{else}}{ request }{{/if}}: CreateContextOptions): Promise<ApiContext> {
+{{#if (and (ne database "none") (or (eq runtime "workers") (eq serverDeploy "cloudflare")))}}
+  const db = await getDb({{#if (usesRequestScopedCloudflareEnv backend webDeploy frontend)}}env{{/if}});
+{{/if}}
+{{#if (eq auth "better-auth")}}
+	const session = await {{#if (or (eq runtime "workers") (eq serverDeploy "cloudflare"))}}(await createAuth({{#if (ne database "none")}}db{{/if}})){{else}}auth{{/if}}.api.getSession({ headers: request.headers });
+	return {
+{{#if (ne database "none")}}
+    db,
+{{/if}}
+		session,
+	};
+{{else if (eq auth "clerk")}}
+	const clerkAuth = await authenticateClerkRequest(request);
+	return {
+{{#if (ne database "none")}}
+    db,
+{{/if}}
+		auth: clerkAuth,
+	};
+{{else}}
 	return {
 {{#if (ne database "none")}}
     db,
@@ -2003,7 +2045,7 @@ function toClerkContextAuth(auth: ClerkContextAuth): ClerkContextAuth {
 }
 {{/if}}
 
-{{#if (and (eq auth "clerk") (or (eq backend 'self') (eq backend 'hono') (eq backend 'elysia')))}}
+{{#if (and (eq auth "clerk") (or (eq backend 'self') (eq backend 'hono') (eq backend 'elysia') (eq backend 'nitro')))}}
 import { createClerkClient } from "@clerk/backend";
 import { ENV } from "./env.server";
 
@@ -2260,6 +2302,48 @@ export async function createContext({ req }: CreateFastifyContextOptions): Promi
 	};
 {{else}}
 	void req;
+	return {
+{{#if (ne database "none")}}
+    db,
+{{/if}}
+	};
+{{/if}}
+}
+
+{{else if (eq backend 'nitro')}}
+{{#if (eq auth "better-auth")}}
+{{#if (or (eq runtime "workers") (eq serverDeploy "cloudflare"))}}
+import { createAuth } from "@{{projectName}}/auth";
+{{else}}
+import { auth } from "@{{projectName}}/auth";
+{{/if}}
+{{/if}}
+
+export type CreateContextOptions = {
+	request: Request;
+};
+
+export async function createContext({{#if (eq auth "none")}}_options{{else}}{ request }{{/if}}: CreateContextOptions): Promise<ApiContext> {
+{{#if (and (ne database "none") (or (eq runtime "workers") (eq serverDeploy "cloudflare")))}}
+  const db = await getDb({{#if (usesRequestScopedCloudflareEnv backend webDeploy frontend)}}env{{/if}});
+{{/if}}
+{{#if (eq auth "better-auth")}}
+	const session = await {{#if (or (eq runtime "workers") (eq serverDeploy "cloudflare"))}}(await createAuth({{#if (ne database "none")}}db{{/if}})){{else}}auth{{/if}}.api.getSession({ headers: request.headers });
+	return {
+{{#if (ne database "none")}}
+    db,
+{{/if}}
+		session,
+	};
+{{else if (eq auth "clerk")}}
+	const clerkAuth = await authenticateClerkRequest(request);
+	return {
+{{#if (ne database "none")}}
+    db,
+{{/if}}
+		auth: clerkAuth,
+	};
+{{else}}
 	return {
 {{#if (ne database "none")}}
     db,
@@ -15355,13 +15439,13 @@ export default defineConfig({
   "devDependencies": {}
 }
 `],
-  ["backend/server/nitro/base/server/middleware/cors.ts.hbs", `import { env } from "@{{projectName}}/env/server";
+  ["backend/server/nitro/base/server/middleware/cors.ts.hbs", `import { ENV } from "../../src/env.server";
 import { defineHandler } from "nitro";
 import { handleCors } from "nitro/h3";
 
 export default defineHandler((event) => {
   const response = handleCors(event, {
-    origin: [env.CORS_ORIGIN],
+    origin: [ENV.CORS_ORIGIN],
     methods: ["GET", "POST", "OPTIONS"],
 {{#if (or (eq auth "better-auth") (eq auth "clerk"))}}
     allowHeaders: ["Content-Type", "Authorization"],
@@ -15382,7 +15466,7 @@ export default defineHandler(() => "OK");
   ["backend/server/nitro/base/tsconfig.json.hbs", `{
   "extends": ["@{{projectName}}/config/tsconfig.base.json", "nitro/tsconfig"],
   "compilerOptions": {
-    "composite": true,
+    "composite": false,
     "noEmit": true{{#if (or (eq runtime "workers") (eq serverDeploy "cloudflare"))}},
     "types": ["node"]{{/if}}
   }
@@ -15395,8 +15479,8 @@ import { auth } from "@{{projectName}}/auth";
 {{/if}}
 import { defineHandler } from "nitro";
 
-export default defineHandler((event) =>
-  {{#if (or (eq runtime "workers") (eq serverDeploy "cloudflare"))}}createAuth(){{else}}auth{{/if}}.handler(event.req),
+export default defineHandler(
+  {{#if (or (eq runtime "workers") (eq serverDeploy "cloudflare"))}}async (event) => (await createAuth()).handler(event.req as Request){{else}}(event) => auth.handler(event.req){{/if}},
 );
 `],
   ["backend/server/nitro/native-polar/server/routes/polar/success.get.ts.hbs", `import { defineHandler } from "nitro";
@@ -15444,9 +15528,9 @@ const handler = new OpenAPIHandler(appRouter, {
 });
 
 export default defineHandler(async (event) => {
-  const result = await handler.handle(event.req, {
+  const result = await handler.handle(event.req as Request, {
     prefix: "/api-reference",
-    context: await createContext({ request: event.req }),
+    context: await createContext({ request: event.req as Request }),
   });
 
   return result.response ?? new Response("Not Found", { status: 404 });
@@ -15467,9 +15551,9 @@ const handler = new RPCHandler(appRouter, {
 });
 
 export default defineHandler(async (event) => {
-  const result = await handler.handle(event.req, {
+  const result = await handler.handle(event.req as Request, {
     prefix: "/rpc",
-    context: await createContext({ request: event.req }),
+    context: await createContext({ request: event.req as Request }),
   });
 
   return result.response ?? new Response("Not Found", { status: 404 });
@@ -15483,9 +15567,9 @@ import { defineHandler } from "nitro";
 export default defineHandler((event) =>
   fetchRequestHandler({
     endpoint: "/trpc",
-    req: event.req,
+    req: event.req as Request,
     router: appRouter,
-    createContext: () => createContext({ request: event.req }),
+    createContext: () => createContext({ request: event.req as Request }),
   }),
 );
 `],

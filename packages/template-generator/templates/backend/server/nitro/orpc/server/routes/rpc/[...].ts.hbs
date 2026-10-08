@@ -13,9 +13,9 @@ const handler = new RPCHandler(appRouter, {
 });
 
 export default defineHandler(async (event) => {
-  const result = await handler.handle(event.req, {
+  const result = await handler.handle(event.req as Request, {
     prefix: "/rpc",
-    context: await createContext({ request: event.req }),
+    context: await createContext({ request: event.req as Request }),
   });
 
   return result.response ?? new Response("Not Found", { status: 404 });

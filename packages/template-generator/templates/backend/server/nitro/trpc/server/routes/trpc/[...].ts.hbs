@@ -6,8 +6,8 @@ import { defineHandler } from "nitro";
 export default defineHandler((event) =>
   fetchRequestHandler({
     endpoint: "/trpc",
-    req: event.req,
+    req: event.req as Request,
     router: appRouter,
-    createContext: () => createContext({ request: event.req }),
+    createContext: () => createContext({ request: event.req as Request }),
   }),
 );

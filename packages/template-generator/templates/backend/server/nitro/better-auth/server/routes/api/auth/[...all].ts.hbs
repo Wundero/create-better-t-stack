@@ -5,6 +5,6 @@ import { auth } from "@{{projectName}}/auth";
 {{/if}}
 import { defineHandler } from "nitro";
 
-export default defineHandler((event) =>
-  {{#if (or (eq runtime "workers") (eq serverDeploy "cloudflare"))}}createAuth(){{else}}auth{{/if}}.handler(event.req),
+export default defineHandler(
+  {{#if (or (eq runtime "workers") (eq serverDeploy "cloudflare"))}}async (event) => (await createAuth()).handler(event.req as Request){{else}}(event) => auth.handler(event.req){{/if}},
 );

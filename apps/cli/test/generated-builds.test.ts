@@ -1791,6 +1791,8 @@ export const checkedHandleError: HandleServerError = handleError;
 
 async function bootAndValidateNitroRuntime(sample: SelectedBuildSample, projectDir: string) {
   if (sample.config.backend !== "nitro" || sample.config.runtime === "workers") return;
+  // The mongoose sample connects to MongoDB at module load; this harness does not provision one.
+  if (sample.config.orm === "mongoose") return;
 
   const serverDir = path.join(projectDir, "apps/server");
   const port = await getAvailablePort();

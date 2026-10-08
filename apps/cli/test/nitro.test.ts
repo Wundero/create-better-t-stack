@@ -56,7 +56,7 @@ describe("Nitro backend", () => {
     expect(packageJson).toContain('"build": "nitro build"');
     expect(packageJson).toContain('"dev": "nitro dev --port 3000"');
     expect(packageJson).toContain('"start": "node .output/server/index.mjs"');
-    expect(packageJson).toContain('"nitro": "^3.0.260610-beta"');
+    expect(packageJson).toContain('"nitro": "3.0.260903-beta"');
     expect(packageJson).not.toContain("tsdown");
     expect(packageJson).not.toContain("hono");
   });
@@ -73,8 +73,8 @@ describe("Nitro backend", () => {
     expect(files.get("apps/server/server/routes/api/auth/[...all].ts")).toContain(
       "auth.handler(event.req)",
     );
-    expect(files.get("packages/api/src/context.ts")).toContain("request: Request;");
-    expect(files.get("packages/api/src/context.ts")).toContain(
+    expect(files.get("apps/server/src/context.ts")).toContain("request: Request;");
+    expect(files.get("apps/server/src/context.ts")).toContain(
       "auth.api.getSession({ headers: request.headers })",
     );
   });
@@ -90,12 +90,11 @@ describe("Nitro backend", () => {
 
     expect(files.get("apps/server/nitro.config.ts")).toContain('defaultPreset: "bun"');
     expect(files.get("apps/server/server/routes/trpc/[...].ts")).toContain("fetchRequestHandler({");
-    expect(files.get("packages/api/src/context.ts")).toContain(
+    expect(files.get("apps/server/src/context.ts")).toContain(
       "clerkClient.authenticateRequest(request",
     );
-    expect(files.get("packages/env/src/server.ts")).toContain(
-      "CLERK_PUBLISHABLE_KEY: z.string().min(1)",
-    );
+    const serverSchema = files.get("apps/server/.env.schema") ?? "";
+    expect(serverSchema).toContain("@type=string(minLength=1)\nCLERK_PUBLISHABLE_KEY=");
 
     const serverPackage = files.get("apps/server/package.json") ?? "";
     const apiPackage = files.get("packages/api/package.json") ?? "";
@@ -175,11 +174,10 @@ describe("Nitro backend", () => {
     expect(cloudflareInfra).toContain("port: 3000");
     expect(cloudflareInfra).not.toContain('main: "../../apps/server/src/index.ts"');
     expect(cloudflareFiles.get("apps/server/server/routes/api/auth/[...all].ts")).toContain(
-      "createAuth().handler(event.req)",
+      "(await createAuth()).handler(event.req as Request)",
     );
-    expect(cloudflareFiles.get("packages/api/src/context.ts")).toContain(
-      "createAuth().api.getSession",
-    );
+    expect(cloudflareFiles.get("apps/server/src/context.ts")).toContain("createAuth");
+    expect(cloudflareFiles.get("apps/server/src/context.ts")).toContain(".api.getSession");
   });
 
   it("rejects evlog before generation", async () => {
@@ -189,7 +187,7 @@ describe("Nitro backend", () => {
       addons: ["evlog"],
     });
     expect(evlog.isErr()).toBe(true);
-    expect(evlog.isErr() && evlog.error.message).toContain("evlog addon supports");
+    expect(evlog.isErr() && evlog.error.message).toContain("observability addons support");
   });
 
   it("tracks Nitro output in task-runner configuration", async () => {

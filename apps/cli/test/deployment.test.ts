@@ -361,10 +361,12 @@ describe("Deployment Configurations", () => {
       // The /api/auth suffix is required: better-auth uses a baseURL with a
       // path as-is, so the origin-only shortcut breaks same-origin deploys
       expect(authClient).toContain(
-        'baseURL: new URL("/api/auth", getServerUrl(ENV.NEXT_PUBLIC_SERVER_URL)).toString()',
+        "baseURL: `${getServerUrl(process.env.NEXT_PUBLIC_SERVER_URL!)}/auth`",
       );
       const trpcClient = files.get("apps/web/src/utils/trpc.ts") ?? "";
-      expect(trpcClient).toContain("url: `${getServerUrl(ENV.NEXT_PUBLIC_SERVER_URL)}/trpc`");
+      expect(trpcClient).toContain(
+        "url: `${getServerUrl(process.env.NEXT_PUBLIC_SERVER_URL!)}/trpc`",
+      );
       expect(files.get("README.md")).toContain("### Vercel Services");
       expect(files.get("README.md")).toContain("Sync preview env");
       expect(files.get("README.md")).toContain("Config: `vercel.json`");
@@ -378,7 +380,7 @@ describe("Deployment Configurations", () => {
         webDeploy: "vercel",
         serverDeploy: "vercel",
         backend: "hono",
-        runtime: "bun",
+        runtime: "node",
         database: "postgres",
         orm: "drizzle",
         auth: "better-auth",
@@ -409,7 +411,7 @@ describe("Deployment Configurations", () => {
       const evaluateRpcUrl = new Function(
         "ENV",
         "window",
-        "globalThis",
+        "process",
         `${executable}\nreturn ${rpcExpression};`,
       );
       const processEnv = {
@@ -421,10 +423,10 @@ describe("Deployment Configurations", () => {
         evaluateRpcUrl(
           {},
           { location: { origin: "https://browser.example.test" } },
-          { process: { env: processEnv } },
+          { env: processEnv },
         ),
       ).toBe("https://browser.example.test/api/trpc");
-      expect(evaluateRpcUrl({}, undefined, { process: { env: processEnv } })).toBe(
+      expect(evaluateRpcUrl({}, undefined, { env: processEnv })).toBe(
         "https://preview.example.test/api/trpc",
       );
     });
