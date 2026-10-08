@@ -240,6 +240,12 @@ describe("shadcn theme generation across bases", () => {
       expect(deps["@fontsource-variable/raleway"]).toBeDefined();
       expect(deps["@shadcn/react"]).toBeDefined();
       expect(deps["shadcn"]).toBeDefined();
+      expect(deps["next-themes"]).toBeUndefined();
+
+      const sonner = readTreeFile(tree, "packages/ui/src/components/sonner.tsx");
+      expect(sonner).not.toContain("next-themes");
+      expect(sonner).toContain('from "@wrksz/themes/client"');
+      expect(sonner).not.toContain("useTheme(");
 
       const registryBase = parseJson<{ dependencies: string[] }>(
         await readFile(`${fixturesDir}init/${baseCase.styleSlug}.json`, "utf8"),

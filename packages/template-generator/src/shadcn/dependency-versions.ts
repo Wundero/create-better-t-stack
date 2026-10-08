@@ -3,6 +3,14 @@ import type { ShadcnBase } from "./types";
 /** The registry CLI package is invoked by the generator, never pinned as a dependency. */
 const REGISTRY_CLI_PACKAGE = "shadcn@latest";
 
+/**
+ * Registry npm dependencies the generated project satisfies with a different
+ * package. The registry's `sonner` still declares `next-themes`, but the
+ * generator replaces that import with `@wrksz/themes` (see
+ * `transformComponentSource`), so it must never be pinned or emitted.
+ */
+export const REPLACED_SHADCN_DEPENDENCIES: ReadonlySet<string> = new Set(["next-themes"]);
+
 /** Pinned versions keyed by dependency name; consumers look up arbitrary names. */
 export interface ShadcnDependencyVersionMap {
   readonly [packageName: string]: string;
