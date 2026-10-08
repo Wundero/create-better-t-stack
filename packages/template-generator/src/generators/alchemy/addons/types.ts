@@ -12,5 +12,6 @@ export interface AddonRenderer {
   bindings?: (plan: AlchemyDeploymentPlan) => string[];
   env?: (plan: AlchemyDeploymentPlan) => string[];
   infraDeps?: (plan: AlchemyDeploymentPlan) => string[];
+  appDeps?: (plan: AlchemyDeploymentPlan) => string[];
   exampleTemplatePrefix?: string;
 }
