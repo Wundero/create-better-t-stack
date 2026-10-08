@@ -1,6 +1,15 @@
 import pc from "picocolors";
 
-import type { ProjectConfig } from "../types";
+import { PROVIDER_ADDONS, PROVIDER_ADDON_META, type Addons, type ProjectConfig } from "../types";
+
+const PROVIDER_ADDON_LABELS: Record<Addons, string> = Object.assign(
+  {},
+  ...PROVIDER_ADDONS.map((id) => ({ [id]: PROVIDER_ADDON_META[id].label })),
+);
+
+function isProviderAddonLabel(value: string): value is Addons {
+  return Object.hasOwn(PROVIDER_ADDON_LABELS, value);
+}
 
 export type ConfigDisplayRow = {
   label: string;
@@ -88,6 +97,9 @@ const VALUE_LABELS = {
   cloudflare: "Cloudflare",
   aws: "AWS",
   vercel: "Vercel",
+  hetzner: "Hetzner",
+  fly: "Fly.io",
+  railway: "Railway",
   alchemy: "Alchemy",
   auto: "Automatic",
   manual: "Manual",
@@ -108,6 +120,7 @@ export function formatConfigValue(value: ConfigDisplayValue): string {
 
   const text = String(value);
   if (isKnownValueLabel(text)) return VALUE_LABELS[text];
+  if (isProviderAddonLabel(text)) return PROVIDER_ADDON_LABELS[text];
   return text
     .split("-")
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))

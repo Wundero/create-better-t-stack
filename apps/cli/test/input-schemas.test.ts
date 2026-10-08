@@ -144,6 +144,53 @@ describe("Input schemas", () => {
     expect(result.success).toBe(true);
   });
 
+  it("accepts the Hetzner web target and the new server targets", () => {
+    expect(CreateInputSchema.safeParse({ projectName: "app", webDeploy: "hetzner" }).success).toBe(
+      true,
+    );
+
+    for (const serverDeploy of ["hetzner", "fly", "railway", "neon"]) {
+      expect(CreateInputSchema.safeParse({ projectName: "app", serverDeploy }).success).toBe(true);
+      expect(AddInputSchema.safeParse({ serverDeploy }).success).toBe(true);
+    }
+
+    expect(
+      CreateInputSchema.safeParse({ projectName: "app", serverDeploy: "render" }).success,
+    ).toBe(false);
+    expect(CreateInputSchema.safeParse({ projectName: "app", webDeploy: "fly" }).success).toBe(
+      false,
+    );
+  });
+
+  it("accepts the new Fly and Railway database setups", () => {
+    for (const dbSetup of ["fly", "railway"]) {
+      expect(CreateInputSchema.safeParse({ projectName: "app", dbSetup }).success).toBe(true);
+    }
+  });
+
+  it("accepts the AWS server compute runtime", () => {
+    for (const serverCompute of ["fargate", "lambda", "ec2", "eks"]) {
+      expect(CreateInputSchema.safeParse({ projectName: "app", serverCompute }).success).toBe(true);
+      expect(AddInputSchema.safeParse({ serverCompute }).success).toBe(true);
+    }
+
+    expect(
+      CLIInputSchema.safeParse({ projectDirectory: ".", projectName: "app", serverCompute: "eks" })
+        .success,
+    ).toBe(true);
+    expect(CreateInputSchema.safeParse({ projectName: "app", serverCompute: "node" }).success).toBe(
+      false,
+    );
+  });
+
+  it("accepts provider addon ids", () => {
+    for (const addon of ["cloudflare-r2", "aws-sqs", "fly-redis", "prisma-buckets"]) {
+      expect(AddInputSchema.safeParse({ addons: [addon] }).success).toBe(true);
+    }
+
+    expect(AddInputSchema.safeParse({ addons: ["cloudflare-postgres"] }).success).toBe(false);
+  });
+
   it("imports the MCP module without schema-construction crashes", async () => {
     const module = await import("../src/mcp");
 
