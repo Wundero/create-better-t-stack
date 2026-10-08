@@ -135,10 +135,11 @@ export function validateWorkersCompatibility(
     providedFlags.has("runtime") &&
     options.runtime === "workers" &&
     config.backend &&
-    !supportsRuntimeBackend("workers", config.backend)
+    !supportsRuntimeBackend("workers", config.backend) &&
+    config.backend !== "nitro"
   ) {
     return validationErr(
-      `Cloudflare Workers runtime (--runtime workers) is only supported with Hono backend (--backend hono). Current backend: ${config.backend}. Please use '--backend hono' or choose a different runtime.`,
+      `Cloudflare Workers runtime (--runtime workers) is only supported with Hono or Nitro backend. Current backend: ${config.backend}. Please use '--backend hono', '--backend nitro', or choose a different runtime.`,
     );
   }
 
@@ -146,10 +147,11 @@ export function validateWorkersCompatibility(
     providedFlags.has("backend") &&
     config.backend &&
     !supportsRuntimeBackend("workers", config.backend) &&
+    config.backend !== "nitro" &&
     config.runtime === "workers"
   ) {
     return validationErr(
-      `Backend '${config.backend}' is not compatible with Cloudflare Workers runtime. Cloudflare Workers runtime is only supported with Hono backend. Please use '--backend hono' or choose a different runtime.`,
+      `Backend '${config.backend}' is not compatible with Cloudflare Workers runtime. Cloudflare Workers runtime is only supported with Hono or Nitro backend. Please use '--backend hono', '--backend nitro', or choose a different runtime.`,
     );
   }
 
@@ -214,9 +216,9 @@ export function validateDockerServerDeploy(
 ): ValidationResult {
   if (serverDeploy !== "docker") return Result.ok(undefined);
 
-  if (backend && backend !== "none" && !SERVER_BACKENDS.includes(backend)) {
+  if (backend && backend !== "none" && backend !== "nitro" && !SERVER_BACKENDS.includes(backend)) {
     return validationErr(
-      "'--server-deploy docker' requires a separate server backend (hono, express, fastify, elysia). For a fullstack 'self' backend, use '--web-deploy docker' instead.",
+      "'--server-deploy docker' requires a separate server backend (hono, express, fastify, elysia, nitro). For a fullstack 'self' backend, use '--web-deploy docker' instead.",
     );
   }
 
@@ -236,9 +238,9 @@ export function validateVercelServerDeploy(
 ): ValidationResult {
   if (serverDeploy !== "vercel") return Result.ok(undefined);
 
-  if (backend && backend !== "none" && !SERVER_BACKENDS.includes(backend)) {
+  if (backend && backend !== "none" && backend !== "nitro" && !SERVER_BACKENDS.includes(backend)) {
     return validationErr(
-      "'--server-deploy vercel' requires a separate server backend (hono, express, fastify, elysia). For a fullstack 'self' backend, use '--web-deploy vercel' instead.",
+      "'--server-deploy vercel' requires a separate server backend (hono, express, fastify, elysia, nitro). For a fullstack 'self' backend, use '--web-deploy vercel' instead.",
     );
   }
 
@@ -258,9 +260,9 @@ export function validatePrismaServerDeploy(
 ): ValidationResult {
   if (serverDeploy !== "prisma") return Result.ok(undefined);
 
-  if (backend && backend !== "none" && !SERVER_BACKENDS.includes(backend)) {
+  if (backend && backend !== "none" && backend !== "nitro" && !SERVER_BACKENDS.includes(backend)) {
     return validationErr(
-      "'--server-deploy prisma' requires a separate server backend (hono, express, fastify, elysia). For a fullstack 'self' backend, use '--web-deploy prisma' instead.",
+      "'--server-deploy prisma' requires a separate server backend (hono, express, fastify, elysia, nitro). For a fullstack 'self' backend, use '--web-deploy prisma' instead.",
     );
   }
 
