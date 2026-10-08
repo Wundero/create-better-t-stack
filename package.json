@@ -62,6 +62,9 @@
     "turbo": "^2.10.12",
     "typescript": "catalog:"
   },
+  "overrides": {
+    "mdast-util-to-markdown": "2.1.2"
+  },
   "lint-staged": {
     "*": [
       "bun check"
