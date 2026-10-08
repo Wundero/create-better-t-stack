@@ -51,7 +51,7 @@ export function processInfraDeps(vfs: VirtualFileSystem, config: ProjectConfig):
     addPackageDependency({
       vfs,
       packagePath: infraPath,
-      devDependencies: ["@vercel/nft"],
+      devDependencies: ["@alchemy.run/frontend-frameworks", "@vercel/nft"],
     });
   }
   if (config.emailDeploy === "ses") {

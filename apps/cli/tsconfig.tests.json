@@ -8,6 +8,7 @@
   "include": [
     "src/**/*.ts",
     "test/**/*.ts",
+    "live-tests/**/*.ts",
     "../../packages/template-generator/src/handlebars-runtime.d.ts"
   ],
   "exclude": ["node_modules", "dist", ".smoke"]

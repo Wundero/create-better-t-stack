@@ -108,6 +108,10 @@ const providerLabels = {
   aurora: "AWS Aurora",
 } as const satisfies Partial<Record<DatabaseSetup, string>>;
 
+function hasProviderLabel(dbSetup: DatabaseSetup): dbSetup is keyof typeof providerLabels {
+  return Object.hasOwn(providerLabels, dbSetup);
+}
+
 export async function getDbProvisioningChoice(
   mode: DbSetupMode | undefined,
   dbSetup: DatabaseSetup | undefined,
@@ -131,14 +135,7 @@ export async function getDbProvisioningChoice(
 
   if (mode !== undefined) return mode;
 
-  if (
-    dbSetup !== "neon" &&
-    dbSetup !== "planetscale" &&
-    dbSetup !== "prisma-postgres" &&
-    dbSetup !== "aurora"
-  ) {
-    return undefined;
-  }
+  if (!hasProviderLabel(dbSetup)) return undefined;
   const provider = providerLabels[dbSetup];
 
   const options: Array<{ value: DbSetupMode; label: string; hint: string }> = [

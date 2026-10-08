@@ -1,60 +1,35 @@
 <script lang="ts">
+	import type { PageProps } from './$types';
 {{#if (eq payments "polar")}}
-import type { CustomerState } from "@polar-sh/sdk/models/components/customerstate";
+	import { authClient } from '#lib/auth-client.ts';
 {{else if (and (ne payments "none") (ne payments "polar"))}}
-import PaymentActions from '$lib/components/PaymentActions.svelte';
-import { usePayment } from '$lib/payments';
+	import PaymentActions from '#lib/components/PaymentActions.svelte';
+	import { usePayment } from '#lib/payments.ts';
 {{/if}}
-
-	import { goto } from '$app/navigation';
-	import { authClient } from '$lib/auth-client';
 	{{#if (eq api "orpc")}}
-	import { orpc } from '$lib/orpc';
+	import { orpc } from '#lib/orpc.ts';
 	import { createQuery } from '@tanstack/svelte-query';
 	{{/if}}
-	{{#if (eq payments "polar")}}
-	let customerState = $state<CustomerState | null>(null);
-	{{else if (and (ne payments "none") (ne payments "polar"))}}
-	const { state: paymentState, isLoading: paymentLoading, checkout, portal } = usePayment();
-	{{/if}}
+	let { data }: PageProps = $props();
 
-	const sessionQuery = authClient.useSession();
+{{#if (and (ne payments "none") (ne payments "polar"))}}
+	const { state: paymentState, isLoading: paymentLoading, checkout, portal } = usePayment();
+{{/if}}
 
 	{{#if (eq api "orpc")}}
 	const privateDataQuery = createQuery(() => orpc.privateData.queryOptions());
 	{{/if}}
-
-	$effect(() => {
-		if (!$sessionQuery.isPending && !$sessionQuery.data) {
-			goto('/login');
-		}
-	});
-
-	{{#if (eq payments "polar")}}
-	$effect(() => {
-		if ($sessionQuery.data) {
-			authClient.customer.state().then(({ data }) => {
-				customerState = data ?? null;
-			});
-		}
-	});
-	{{/if}}
 </script>
 
-{#if $sessionQuery.isPending}
-	<div>Loading...</div>
-{:else if !$sessionQuery.data}
-	<div>Redirecting to login...</div>
-{:else}
 	<div>
 		<h1>Dashboard</h1>
-		<p>Welcome {$sessionQuery.data.user.name}</p>
+		<p>Welcome {data.user.name}</p>
 		{{#if (eq api "orpc")}}
 		<p>API: {privateDataQuery.data?.message}</p>
 		{{/if}}
 		{{#if (eq payments "polar")}}
-		<p>Plan: {(customerState?.activeSubscriptions?.length ?? 0) > 0 ? "Pro" : "Free"}</p>
-		{#if (customerState?.activeSubscriptions?.length ?? 0) > 0}
+		<p>Plan: {(data.customerState?.activeSubscriptions?.length ?? 0) > 0 ? "Pro" : "Free"}</p>
+		{#if (data.customerState?.activeSubscriptions?.length ?? 0) > 0}
 			<button onclick={async () => await authClient.customer.portal()}>
 				Manage Subscription
 			</button>
@@ -73,4 +48,3 @@ import { usePayment } from '$lib/payments';
 		/>
 		{{/if}}
 	</div>
-{/if}

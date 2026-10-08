@@ -342,7 +342,11 @@ export function supportsClerkBackend(
       frontends.length === 0 ||
       frontends.some((frontend) => frontend === "next" || frontend === "tanstack-start")
     );
-  return backend === "convex" || SERVER_BACKENDS.some((value) => value === backend);
+  return (
+    backend === "convex" ||
+    backend === "nitro" ||
+    SERVER_BACKENDS.some((value) => value === backend)
+  );
 }
 
 export function isTauriBlockedByConvexBetterAuth(

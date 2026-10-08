@@ -84,7 +84,7 @@ function getNodeToolingRequirements(config: RequirementConfig): VersionRequireme
         addNodeRequirement(requirements, ">=22.12.0", "Astro 7");
         break;
       case "nuxt":
-        addNodeRequirement(requirements, "^22.19.0 || ^24.11.0 || >=26.0.0", "Nuxt 4");
+        addNodeRequirement(requirements, "^22.22.3 || ^24.15.0 || >=26.0.0", "Nuxt 4.6");
         break;
       case "solid":
         addNodeRequirement(requirements, ">=24.0.0", "Solid");
@@ -93,6 +93,8 @@ function getNodeToolingRequirements(config: RequirementConfig): VersionRequireme
         addNodeRequirement(requirements, ">=22.22.0", "React Router 8");
         break;
       case "svelte":
+        addNodeRequirement(requirements, ">=22.17.0", "SvelteKit 3");
+        break;
       case "tanstack-router":
       case "tanstack-start":
         addNodeRequirement(requirements, "^20.19.0 || >=22.12.0", "Vite 8");
@@ -108,7 +110,9 @@ function getNodeToolingRequirements(config: RequirementConfig): VersionRequireme
     }
   }
 
-  if (!["none", "self", "convex"].includes(config.backend)) {
+  if (config.backend === "nitro") {
+    addNodeRequirement(requirements, "^20.19.0 || >=22.12.0", "Nitro 3");
+  } else if (!["none", "self", "convex"].includes(config.backend)) {
     addNodeRequirement(
       requirements,
       "^22.18.0 || >=24.11.0",
@@ -193,9 +197,9 @@ export function getLocalVersionRequirements(
 ): VersionRequirement[] {
   const requirements = getBaselineRequirements(config.packageManager, hostRuntime);
 
-  if (config.packageManager !== "bun") {
-    requirements.push(...getNodeToolingRequirements(config));
-  } else if (config.runtime === "node") {
+  // Generated tooling commands retain their Node shebangs, including under bun run.
+  requirements.push(...getNodeToolingRequirements(config));
+  if (config.runtime === "node") {
     addNodeRequirement(requirements, ">=22.0.0", "the selected Node.js server runtime");
   }
 

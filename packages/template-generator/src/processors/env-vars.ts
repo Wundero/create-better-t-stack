@@ -35,7 +35,12 @@ function generateAuthSecret() {
   return generateRandomString(32, "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789");
 }
 
-function getClientServerVar(frontend: string[], backend: ProjectConfig["backend"]) {
+function getClientServerVar(
+  frontend: string[],
+  backend: ProjectConfig["backend"],
+  webDeploy: ProjectConfig["webDeploy"],
+  serverDeploy: ProjectConfig["serverDeploy"],
+) {
   const hasNextJs = frontend.includes("next");
   const hasNuxt = frontend.includes("nuxt");
   const hasSvelte = frontend.includes("svelte");
@@ -52,7 +57,10 @@ function getClientServerVar(frontend: string[], backend: ProjectConfig["backend"
   else if (hasSvelte || hasAstro) key = "PUBLIC_SERVER_URL";
   else if (hasTanstackStart) key = "VITE_SERVER_URL";
 
-  return { key, value: "http://localhost:3000", write: true } as const;
+  const value =
+    webDeploy === "vercel" && serverDeploy === "vercel" ? "/api" : "http://localhost:3000";
+
+  return { key, value, write: true } as const;
 }
 
 function getConvexVar(frontend: string[]) {
@@ -128,7 +136,8 @@ function buildClientVars(
   frontend: string[],
   backend: ProjectConfig["backend"],
   auth: ProjectConfig["auth"],
-  apiPrefix: string,
+  webDeploy: ProjectConfig["webDeploy"],
+  serverDeploy: ProjectConfig["serverDeploy"],
   addons: ProjectConfig["addons"],
 ): EnvVariable[] {
   const hasNextJs = frontend.includes("next");
@@ -136,9 +145,9 @@ function buildClientVars(
   const hasTanStackRouter = frontend.includes("tanstack-router");
   const hasTanStackStart = frontend.includes("tanstack-start");
 
-  const baseVar = getClientServerVar(frontend, backend);
+  const baseVar = getClientServerVar(frontend, backend, webDeploy, serverDeploy);
   const envVarName = backend === "convex" ? getConvexVar(frontend) : baseVar.key;
-  const serverUrl = backend === "convex" ? CONVEX_URL_PLACEHOLDER : `${baseVar.value}${apiPrefix}`;
+  const serverUrl = backend === "convex" ? CONVEX_URL_PLACEHOLDER : baseVar.value;
 
   const vars: EnvVariable[] = [
     {
@@ -523,7 +532,7 @@ function buildServerVars(
   const needsClerkPublishableKey =
     hasClerk &&
     (["express", "fastify"].includes(backend) ||
-      (api !== "none" && ["self", "hono", "elysia"].includes(backend)));
+      (api !== "none" && ["self", "hono", "elysia", "nitro"].includes(backend)));
 
   return [
     {
@@ -651,9 +660,7 @@ export function processEnvVariables(vfs: VirtualFileSystem, config: ProjectConfi
     const clientDir = "apps/web";
     if (vfs.directoryExists(clientDir)) {
       const envPath = `${clientDir}/.env`;
-      // Matches the /api base the Vercel build uses when web and server deploy together
-      const apiPrefix = webDeploy === "vercel" && serverDeploy === "vercel" ? "/api" : "";
-      const clientVars = buildClientVars(frontend, backend, auth, apiPrefix, addons);
+      const clientVars = buildClientVars(frontend, backend, auth, webDeploy, serverDeploy, addons);
       writeEnvFile(vfs, envPath, clientVars);
     }
   }
