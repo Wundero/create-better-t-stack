@@ -1,6 +1,7 @@
 import type { ProjectConfig } from "@better-t-stack/types";
 
 import type { VirtualFileSystem } from "../../core/virtual-fs";
+import { hasAddonRenderers, writeAddonImports, writeAddonResources } from "./addons";
 import { writeAwsNetworkResources } from "./aws";
 import { writeDatabaseResources } from "./database";
 import { writeObservabilityResources } from "./observability";
@@ -101,6 +102,7 @@ function writeImports(writer: AlchemyWriter, plan: AlchemyDeploymentPlan): void 
   writer.writeLine('import * as Effect from "effect/Effect";');
   if (usesLayer(plan)) writer.writeLine('import * as Layer from "effect/Layer";');
   if (usesRedacted(plan)) writer.writeLine('import * as Redacted from "effect/Redacted";');
+  writeAddonImports(writer, plan);
   writer.writeLine('import "varlock/auto-load";');
 }
 
@@ -233,6 +235,8 @@ export function generateAlchemyRun(config: ProjectConfig): string {
   }
   writeObservabilityResources(writer, plan);
   if (plan.hasAxiom) writer.blankLine();
+  writeAddonResources(writer, plan);
+  if (hasAddonRenderers(plan)) writer.blankLine();
   writeServerResource(writer, plan);
   if (plan.server.target !== "none") writer.blankLine();
   writeExportedWebResource(writer, plan);
