@@ -1,0 +1,75 @@
+import { SendEmailCommand, SESv2Client } from "@aws-sdk/client-sesv2";
+
+export type EmailAddress = string | string[];
+
+export type SesEmailMessage = {
+  from?: string;
+  to: EmailAddress;
+  subject: string;
+  html?: string;
+  text?: string;
+  cc?: EmailAddress;
+  bcc?: EmailAddress;
+  replyTo?: string;
+};
+
+export type SesEmailSenderConfig = {
+  region?: string;
+  from?: string;
+  client?: SESv2Client;
+};
+
+export type SesEmailSender = {
+  send(message: SesEmailMessage): Promise<void>;
+};
+
+function readEnv(key: string): string | undefined {
+  const runtime = globalThis as { process?: { env?: Record<string, string | undefined> } };
+  return runtime.process?.env?.[key];
+}
+
+function toAddressList(value: EmailAddress | undefined): string[] | undefined {
+  if (!value) return undefined;
+  return Array.isArray(value) ? value : [value];
+}
+
+export function createSesEmailSender(config: SesEmailSenderConfig = {}): SesEmailSender {
+  const region = config.region ?? readEnv("AWS_REGION");
+  const defaultFrom = config.from ?? readEnv("EMAIL_FROM");
+  const client = config.client ?? new SESv2Client({ region });
+
+  return {
+    async send(message: SesEmailMessage): Promise<void> {
+      const from = message.from ?? defaultFrom;
+      if (!from) {
+        throw new Error("EMAIL_FROM is required to send email through SES");
+      }
+
+      const to = toAddressList(message.to);
+      if (!to || to.length === 0) {
+        throw new Error("At least one recipient is required to send email through SES");
+      }
+
+      await client.send(
+        new SendEmailCommand({
+          FromEmailAddress: from,
+          Destination: {
+            ToAddresses: to,
+            CcAddresses: toAddressList(message.cc),
+            BccAddresses: toAddressList(message.bcc),
+          },
+          ReplyToAddresses: message.replyTo ? [message.replyTo] : undefined,
+          Content: {
+            Simple: {
+              Subject: { Data: message.subject },
+              Body: {
+                Html: message.html ? { Data: message.html } : undefined,
+                Text: message.text ? { Data: message.text } : undefined,
+              },
+            },
+          },
+        }),
+      );
+    },
+  };
+}

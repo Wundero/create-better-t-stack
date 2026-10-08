@@ -5,6 +5,7 @@ export { processBackendTemplates } from "./backend";
 export { processDbTemplates } from "./database";
 export { processApiTemplates } from "./api";
 export { processConfigPackage, processUiPackage } from "./packages";
+export { processEmailPackage } from "./email";
 export { processAuthTemplates } from "./auth";
 export { processPaymentsTemplates } from "./payments";
 export { processAddonTemplates } from "./addons";

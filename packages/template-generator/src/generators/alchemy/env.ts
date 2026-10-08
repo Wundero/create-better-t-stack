@@ -62,6 +62,10 @@ export function cloudflareServerEnvEntries(plan: AlchemyDeploymentPlan): string[
   const { api, auth, backend } = plan.config;
   const entries = commonRuntimeEntries(plan);
 
+  if (plan.emailCloudflare && backend !== "self") {
+    entries.push("EMAIL: emailBinding,");
+  }
+
   if (auth === "clerk") {
     const insertAt = entries.findIndex(
       (entry) => entry.startsWith("GOOGLE_") || entry.startsWith("POLAR_"),
@@ -130,6 +134,9 @@ export function selfCloudflareWebEnvEntries(
   }
 
   entries.push(...commonRuntimeEntries(plan, false));
+  if (plan.emailCloudflare) {
+    entries.push("EMAIL: emailBinding,");
+  }
   if (plan.hasAxiomWebRuntime) {
     entries.push("...observabilityBindings,");
   }

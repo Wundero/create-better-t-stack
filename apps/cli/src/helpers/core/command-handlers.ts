@@ -102,6 +102,8 @@ function createEmptyResult(
       examples: [],
       auth: "none",
       payments: "none",
+      emailRenderer: "none",
+      emailDeploy: "none",
       git: false,
       packageManager: "npm",
       install: false,

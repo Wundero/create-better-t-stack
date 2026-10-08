@@ -16,6 +16,8 @@ const validEvent = {
   examples: ["todo"],
   auth: "better-auth",
   payments: "polar",
+  emailRenderer: "react-email",
+  emailDeploy: "ses",
   git: true,
   packageManager: "bun",
   install: true,

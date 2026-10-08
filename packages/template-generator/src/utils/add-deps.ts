@@ -161,6 +161,7 @@ export const dependencyVersionMap = {
   "@sveltejs/adapter-vercel": "^7.0.0",
   "@cloudflare/workers-types": "^5.20260906.1",
   "@alchemy.run/frontend-frameworks": "2.0.0-beta.81",
+  "@aws-sdk/client-sesv2": "^3.910.0",
   "@astrojs/node": "^11.1.5",
   "@astrojs/vercel": "^11.0.10",
 
