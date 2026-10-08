@@ -73,7 +73,7 @@ export function processVercelConfig(vfs: VirtualFileSystem, config: ProjectConfi
     services.server = {
       root: "apps/server",
       framework: backend,
-      entrypoint: "src/index.ts",
+      entrypoint: backend === "nitro" ? undefined : "src/index.ts",
       installCommand,
       // Vercel compiles the entrypoint itself; a dist bundle would be deployed apart
       // from apps/server/node_modules, which bun and pnpm installs rely on

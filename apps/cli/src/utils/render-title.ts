@@ -175,13 +175,13 @@ function renderInk(lines: string[], width: number, frame: number): string {
 function shouldAnimate(output: TitleOutput): boolean {
   return Boolean(
     output.isTTY &&
-      pc.isColorSupported &&
-      !process.env.CI &&
-      process.env.NO_COLOR === undefined &&
-      process.env.FORCE_COLOR !== "0" &&
-      process.env.TERM !== "dumb" &&
-      process.env.BTS_TEST_MODE !== "1" &&
-      process.env.BTS_NO_ANIMATION !== "1",
+    pc.isColorSupported &&
+    !process.env.CI &&
+    process.env.NO_COLOR === undefined &&
+    process.env.FORCE_COLOR !== "0" &&
+    process.env.TERM !== "dumb" &&
+    process.env.BTS_TEST_MODE !== "1" &&
+    process.env.BTS_NO_ANIMATION !== "1",
   );
 }
 
