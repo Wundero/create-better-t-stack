@@ -18,6 +18,12 @@ import type {
 export const TASK_RUNNER_ADDONS: readonly Addons[] = ["turborepo", "nx", "vite-plus"];
 export const OBSERVABILITY_ADDONS: readonly Addons[] = ["evlog", "axiom"];
 export const STATIC_DESKTOP_ADDONS: readonly Addons[] = ["tauri", "electrobun"];
+export const TURNSTILE_BACKENDS: readonly Backend[] = ["self", "hono"];
+const TURNSTILE_NATIVE_FRONTENDS: readonly Frontend[] = [
+  "native-bare",
+  "native-uniwind",
+  "native-unistyles",
+];
 const TAURI_STATIC_EXPORT_FRONTENDS: readonly Frontend[] = ["next", "tanstack-start"];
 
 export const CONVEX_BETTER_AUTH_INCOMPATIBLE_FRONTENDS = [
@@ -93,6 +99,7 @@ export const ADDON_COMPATIBILITY = {
   skills: [],
   evlog: [],
   axiom: [],
+  turnstile: [],
   none: [],
 } as const;
 
@@ -231,6 +238,33 @@ export function validateAddonCompatibility(
     };
   }
 
+  if (addon === "turnstile") {
+    if (auth !== "better-auth") {
+      return { isCompatible: false, reason: "The turnstile addon requires Better Auth." };
+    }
+    if (backend !== undefined && !TURNSTILE_BACKENDS.some((value) => value === backend)) {
+      return {
+        isCompatible: false,
+        reason:
+          "The turnstile addon requires a fullstack 'self' backend, or a Hono backend deployed to Cloudflare Workers.",
+      };
+    }
+    if (backend === "hono" && runtime !== undefined && runtime !== "workers") {
+      return {
+        isCompatible: false,
+        reason:
+          "The turnstile addon requires the 'workers' runtime for a Hono backend so Alchemy can provision the Turnstile secret on Cloudflare.",
+      };
+    }
+    if (frontend.some((value) => TURNSTILE_NATIVE_FRONTENDS.some((native) => native === value))) {
+      return {
+        isCompatible: false,
+        reason:
+          "The turnstile addon supports web frontends only; native frontends cannot render Turnstile.",
+      };
+    }
+  }
+
   if (!Object.hasOwn(ADDON_COMPATIBILITY, addon))
     return { isCompatible: false, reason: `Unknown addon: ${addon}` };
   const compatibleFrontends = ADDON_COMPATIBILITY[addon];
@@ -249,6 +283,28 @@ export function validateAddonCompatibility(
     }
   }
 
+  return { isCompatible: true };
+}
+
+export function validateTurnstileCompatibility(config: {
+  webDeploy?: WebDeploy;
+  serverDeploy?: ServerDeploy;
+  backend?: Backend;
+}): AddonCompatibility {
+  if (config.webDeploy !== "cloudflare") {
+    return {
+      isCompatible: false,
+      reason:
+        "The turnstile addon requires '--web-deploy cloudflare' so the widget sitekey can be provisioned and delivered by Alchemy.",
+    };
+  }
+  if (config.backend !== "self" && config.serverDeploy !== "cloudflare") {
+    return {
+      isCompatible: false,
+      reason:
+        "The turnstile addon requires a fullstack 'self' backend or '--server-deploy cloudflare' so the Turnstile secret can be provisioned by Alchemy.",
+    };
+  }
   return { isCompatible: true };
 }
 

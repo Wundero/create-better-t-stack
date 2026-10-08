@@ -1,4 +1,7 @@
 import { betterAuth } from "better-auth";
+{{#if (includes addons "turnstile")}}
+import { captcha } from "better-auth/plugins";
+{{/if}}
 {{#if (eq orm "prisma")}}
 import { prismaAdapter } from "better-auth/adapters/prisma";
 {{else if (eq orm "drizzle")}}
@@ -24,6 +27,9 @@ export type AuthConfig = {
 {{#if (eq payments "polar")}}
   POLAR_ACCESS_TOKEN: string;
   POLAR_SUCCESS_URL: string;
+{{/if}}
+{{#if (includes addons "turnstile")}}
+  TURNSTILE_SECRET_KEY: string;
 {{/if}}
 };
 
@@ -63,6 +69,13 @@ export function createAuth(env: AuthConfig{{#if (ne database "none")}}, database
     },
 {{/if}}
     plugins: [
+{{#if (includes addons "turnstile")}}
+      captcha({
+        provider: "cloudflare-turnstile",
+        secretKey: env.TURNSTILE_SECRET_KEY,
+        endpoints: ["/sign-in/email", "/sign-up/email"],
+      }),
+{{/if}}
 {{#if (eq payments "polar")}}
       polar({
         client: createPolarClient(env),

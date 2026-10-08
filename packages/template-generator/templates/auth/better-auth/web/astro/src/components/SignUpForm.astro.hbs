@@ -1,5 +1,8 @@
 ---
 import { authClient } from "../lib/auth-client";
+{{#if (includes addons "turnstile")}}
+import Turnstile from "./Turnstile.astro";
+{{/if}}
 ---
 
 <div class="mx-auto mt-10 w-full max-w-md p-6">
@@ -43,6 +46,9 @@ import { authClient } from "../lib/auth-client";
       />
       <p class="text-xs text-neutral-500">Must be at least 8 characters</p>
     </div>
+    {{#if (includes addons "turnstile")}}
+    <Turnstile action="sign-up" />
+    {{/if}}
 
     <p id="form-error" class="text-sm text-red-500 hidden"></p>
 
@@ -70,6 +76,14 @@ import { authClient } from "../lib/auth-client";
   const passwordInput = document.getElementById("password") as HTMLInputElement;
   const formError = document.getElementById("form-error") as HTMLParagraphElement;
   const submitButton = form.querySelector('button[type="submit"]') as HTMLButtonElement;
+{{#if (includes addons "turnstile")}}
+  const getTurnstileToken = () => window.turnstile?.getResponse?.() ?? null;
+  submitButton.disabled = !getTurnstileToken();
+  document.addEventListener("turnstile-token", (event) => {
+    const token = (event as CustomEvent<{ token: string | null }>).detail?.token ?? null;
+    submitButton.disabled = !token;
+  });
+{{/if}}
 
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
@@ -79,11 +93,17 @@ import { authClient } from "../lib/auth-client";
     submitButton.textContent = "Creating account...";
 
     try {
+{{#if (includes addons "turnstile")}}
+      const token = getTurnstileToken();
+{{/if}}
       await authClient.signUp.email(
         {
           name: nameInput.value,
           email: emailInput.value,
           password: passwordInput.value,
+{{#if (includes addons "turnstile")}}
+          fetchOptions: { headers: token ? { "x-captcha-response": token } : undefined },
+{{/if}}
         },
         {
           onSuccess: () => {
@@ -92,6 +112,9 @@ import { authClient } from "../lib/auth-client";
           onError: (ctx) => {
             formError.textContent = ctx.error.message || "Sign up failed. Please try again.";
             formError.classList.remove("hidden");
+{{#if (includes addons "turnstile")}}
+            window.__resetTurnstile?.();
+{{/if}}
           },
         }
       );
@@ -99,7 +122,11 @@ import { authClient } from "../lib/auth-client";
       formError.textContent = "An unexpected error occurred.";
       formError.classList.remove("hidden");
     } finally {
+{{#if (includes addons "turnstile")}}
+      submitButton.disabled = !getTurnstileToken();
+{{else}}
       submitButton.disabled = false;
+{{/if}}
       submitButton.textContent = "Sign Up";
     }
   });
