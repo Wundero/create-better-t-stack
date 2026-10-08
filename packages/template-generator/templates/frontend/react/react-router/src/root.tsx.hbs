@@ -11,6 +11,9 @@ import "./index.css";
 import Header from "./components/header";
 import { ThemeProvider } from "./components/theme-provider";
 import { Toaster } from "@{{projectName}}/ui/components/sonner";
+{{#if (eq payments "autumn")}}
+import { AutumnProvider } from "autumn-js/react";
+{{/if}}
 {{#if (eq auth "clerk")}}
 import { ClerkProvider{{#if (or (eq backend "convex") (ne api "none"))}}, useAuth{{/if}} } from "@clerk/react-router";
 import { clerkMiddleware, rootAuthLoader } from "@clerk/react-router/server";
@@ -86,9 +89,15 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <Links />
       </head>
       <body>
+{{#if (eq payments "autumn")}}
+        <AutumnProvider useBetterAuth={true}>
+{{/if}}
         {children}
         <ScrollRestoration />
         <Scripts />
+{{#if (eq payments "autumn")}}
+        </AutumnProvider>
+{{/if}}
       </body>
     </html>
   );

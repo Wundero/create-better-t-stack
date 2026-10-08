@@ -1,0 +1,63 @@
+import { useEffect, useState } from "react";
+import { authClient } from "@/lib/auth-client";
+
+const PRO_ITEM_PRICE_ID = "pro-USD-Monthly";
+const ACTIVE_STATUSES = ["active", "in_trial", "non_renewing"];
+
+export interface PaymentState {
+  isActive: boolean;
+  planLabel: string;
+}
+
+export function usePayment(): {
+  state: PaymentState;
+  isLoading: boolean;
+  checkout: () => Promise<void>;
+  portal: () => Promise<void>;
+} {
+  const [isActive, setIsActive] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function load() {
+      const { data, error } = await authClient.subscription.list();
+      if (cancelled) return;
+      setIsActive(
+        !error &&
+          (data ?? []).some((subscription) => ACTIVE_STATUSES.includes(subscription.status)),
+      );
+      setIsLoading(false);
+    }
+
+    void load();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const checkout = async () => {
+    const { data, error } = await authClient.subscription.create({
+      itemPriceId: PRO_ITEM_PRICE_ID,
+      successUrl: "/success",
+      cancelUrl: "/dashboard",
+    });
+    if (error || !data?.url) return;
+    window.location.href = data.url;
+  };
+
+  const portal = async () => {
+    const { data, error } = await authClient.subscription.portal({ returnUrl: "/dashboard" });
+    if (error || !data?.url) return;
+    window.location.href = data.url;
+  };
+
+  return {
+    state: { isActive, planLabel: isActive ? "Pro" : "Free" },
+    isLoading,
+    checkout,
+    portal,
+  };
+}

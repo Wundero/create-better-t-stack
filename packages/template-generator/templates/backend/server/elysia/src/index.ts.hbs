@@ -26,6 +26,9 @@ import { createContext } from "@{{projectName}}/api/context";
 {{#if (eq auth "better-auth")}}
 import { auth } from "@{{projectName}}/auth";
 {{/if}}
+{{#if (eq payments "commet")}}
+import { createCommetCheckoutUrl } from "@{{projectName}}/auth/lib/payments";
+{{/if}}
 
 {{#if (eq api "orpc")}}
 const rpcHandler = new RPCHandler(appRouter, {
@@ -95,6 +98,27 @@ const apiHandler = new OpenAPIHandler(appRouter, {
 			return auth.handler(request);
 		}
 		return status(405)
+	})
+{{/if}}
+{{#if (eq payments "commet")}}
+	.post("/api/payments/commet/checkout", async (context) => {
+		const session = await auth.api.getSession({ headers: context.request.headers });
+		if (!session?.user) {
+			return context.status(401, { error: "Unauthorized" });
+		}
+
+		const body = (await context.request.json().catch(() => ({}))) as { planCode?: string };
+		const planCode = body.planCode ?? "pro";
+		const successUrl = `${ENV.CORS_ORIGIN}/success`;
+		const url = await createCommetCheckoutUrl({
+			userId: session.user.id,
+			planCode,
+			successUrl,
+		});
+		if (!url) {
+			return context.status(204);
+		}
+		return { url };
 	})
 {{/if}}
 {{#if (eq api "orpc")}}

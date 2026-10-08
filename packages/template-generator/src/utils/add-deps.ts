@@ -189,6 +189,17 @@ export const dependencyVersionMap = {
   "@stripe/react-stripe-js": "^6.9.0",
   "@stripe/stripe-js": "^9.15.0",
 
+  "@better-auth/stripe": "^1.7.6",
+  stripe: "^22.6.2",
+  "@dodopayments/better-auth": "^1.6.6",
+  dodopayments: "^2.51.0",
+  "@creem_io/better-auth": "^2.0.4",
+  "@chargebee/better-auth": "^1.2.0",
+  chargebee: "^3.34.0",
+  "@commet/better-auth": "^8.1.0",
+  "@commet/node": "^9.3.0",
+  "autumn-js": "^1.3.19",
+
   evlog: "^2.28.1",
 } as const;
 
