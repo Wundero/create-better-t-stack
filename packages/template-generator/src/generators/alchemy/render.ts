@@ -1,7 +1,7 @@
 import type { ProjectConfig } from "@better-t-stack/types";
 
 import type { VirtualFileSystem } from "../../core/virtual-fs";
-import { hasAddonRenderers, writeAddonImports, writeAddonResources } from "./addons";
+import { writeAddonImports, writeAddonResources } from "./addons";
 import { writeAwsNetworkResources } from "./aws";
 import { writeDatabaseResources } from "./database";
 import { writeObservabilityResources } from "./observability";
@@ -235,8 +235,7 @@ export function generateAlchemyRun(config: ProjectConfig): string {
   }
   writeObservabilityResources(writer, plan);
   if (plan.hasAxiom) writer.blankLine();
-  writeAddonResources(writer, plan);
-  if (hasAddonRenderers(plan)) writer.blankLine();
+  if (writeAddonResources(writer, plan)) writer.blankLine();
   writeServerResource(writer, plan);
   if (plan.server.target !== "none") writer.blankLine();
   writeExportedWebResource(writer, plan);

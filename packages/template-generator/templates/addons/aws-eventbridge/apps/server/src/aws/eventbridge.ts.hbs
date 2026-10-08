@@ -1,0 +1,20 @@
+import { EventBridgeClient, PutEventsCommand } from "@aws-sdk/client-eventbridge";
+
+type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
+
+const client = new EventBridgeClient({});
+
+export function emitEvent(detailType: string, detail: JsonValue) {
+  return client.send(
+    new PutEventsCommand({
+      Entries: [
+        {
+          EventBusName: process.env.EVENT_BUS_NAME!,
+          Source: "{{projectName}}.app",
+          DetailType: detailType,
+          Detail: JSON.stringify(detail),
+        },
+      ],
+    }),
+  );
+}
