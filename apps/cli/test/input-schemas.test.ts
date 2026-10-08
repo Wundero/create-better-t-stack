@@ -2,9 +2,15 @@ import { describe, expect, it } from "bun:test";
 
 import {
   AddInputSchema,
+  AppKindSchema,
+  AppNameSchema,
   BetterTStackConfigFileSchema,
   CLIInputSchema,
   CreateInputSchema,
+  GenerateInputSchema,
+  ScaffoldAppInputSchema,
+  ScaffoldAppInputPartialSchema,
+  ScaffoldPackageInputSchema,
 } from "../../../packages/types/src/schemas";
 import { getSchemaResult, SchemaNameSchema } from "../src/index";
 
@@ -165,5 +171,112 @@ describe("Input schemas", () => {
         },
       },
     });
+  });
+});
+
+describe("Scaffold and generate input schemas", () => {
+  it("accepts env var validation in add input and still rejects unknown keys", () => {
+    expect(AddInputSchema.safeParse({ envValidation: true }).success).toBe(true);
+    expect(AddInputSchema.safeParse({ envValidation: true, unexpected: true }).success).toBe(false);
+  });
+
+  it("accepts safe scaffold package names and rejects invalid ones", () => {
+    expect(ScaffoldPackageInputSchema.safeParse({ name: "shared" }).success).toBe(true);
+
+    for (const name of ["@acme/shared", "Shared", "../x", "node_modules"]) {
+      expect(ScaffoldPackageInputSchema.safeParse({ name }).success).toBe(false);
+    }
+  });
+
+  it("validates app names", () => {
+    for (const name of ["admin", "admin-app"]) {
+      expect(AppNameSchema.safeParse(name).success).toBe(true);
+    }
+
+    for (const name of ["Admin", "../x", "node_modules", "a".repeat(65)]) {
+      expect(AppNameSchema.safeParse(name).success).toBe(false);
+    }
+  });
+
+  it("exposes the supported app kinds", () => {
+    expect([...AppKindSchema.options]).toEqual(["frontend", "backend", "mobile"]);
+  });
+
+  it("accepts valid scaffold app inputs", () => {
+    const validInputs = [
+      { kind: "frontend", name: "admin", frontend: "next" },
+      { kind: "backend", name: "worker", backend: "hono" },
+      { kind: "mobile", name: "mobile", frontend: "native-bare" },
+    ];
+
+    for (const input of validInputs) {
+      expect(ScaffoldAppInputSchema.safeParse(input).success).toBe(true);
+    }
+  });
+
+  it("rejects scaffold app inputs with missing, forbidden, or kind-incompatible fields", () => {
+    const invalidInputs = [
+      { kind: "frontend", name: "x" },
+      { kind: "frontend", name: "x", frontend: "native-bare" },
+      { kind: "backend", name: "x" },
+      { kind: "backend", name: "x", backend: "convex" },
+      { kind: "backend", name: "x", backend: "self" },
+      { kind: "mobile", name: "x", frontend: "next" },
+    ];
+
+    for (const input of invalidInputs) {
+      expect(ScaffoldAppInputSchema.safeParse(input).success).toBe(false);
+    }
+  });
+
+  it("rejects unknown keys in scaffold app inputs", () => {
+    const result = ScaffoldAppInputSchema.safeParse({
+      kind: "frontend",
+      name: "admin",
+      frontend: "next",
+      unexpected: true,
+    });
+
+    expect(result.success).toBe(false);
+  });
+
+  it("exposes a refinement-free partial app input for incremental collection", () => {
+    expect(ScaffoldAppInputPartialSchema.safeParse({}).success).toBe(true);
+    expect(ScaffoldAppInputPartialSchema.safeParse({ kind: "frontend" }).success).toBe(true);
+    expect(ScaffoldAppInputPartialSchema.safeParse({ name: "admin" }).success).toBe(true);
+    expect(ScaffoldAppInputPartialSchema.safeParse({ unexpected: true }).success).toBe(false);
+  });
+
+  it("validates generate inputs by target", () => {
+    expect(GenerateInputSchema.safeParse({ target: "package", name: "shared" }).success).toBe(true);
+    expect(
+      GenerateInputSchema.safeParse({
+        target: "app",
+        kind: "frontend",
+        frontend: "next",
+        name: "admin",
+      }).success,
+    ).toBe(true);
+
+    expect(GenerateInputSchema.safeParse({ target: "nope" }).success).toBe(false);
+    expect(
+      GenerateInputSchema.safeParse({ target: "app", kind: "frontend", name: "admin" }).success,
+    ).toBe(false);
+  });
+
+  it("keeps strictness per generate input branch", () => {
+    expect(
+      GenerateInputSchema.safeParse({ target: "package", name: "shared", unexpected: true })
+        .success,
+    ).toBe(false);
+    expect(
+      GenerateInputSchema.safeParse({
+        target: "app",
+        kind: "backend",
+        name: "worker",
+        backend: "hono",
+        unexpected: true,
+      }).success,
+    ).toBe(false);
   });
 });

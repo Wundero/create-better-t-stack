@@ -545,6 +545,7 @@ export const AddInputSchema = z
   .object({
     addons: AddonsListSchema.optional(),
     package: WorkspacePackageNameSchema.optional(),
+    envValidation: z.boolean().optional(),
     addonOptions: AddonOptionsSchema.optional(),
     webDeploy: WebDeploySchema.optional(),
     serverDeploy: ServerDeploySchema.optional(),
@@ -555,6 +556,128 @@ export const AddInputSchema = z
     disableAnalytics: z.boolean().optional(),
   })
   .strict();
+
+export const AppKindSchema = z
+  .enum(["frontend", "backend", "mobile"])
+  .describe("Kind of app to generate");
+
+export const AppNameSchema = z
+  .string()
+  .min(1, "App name cannot be empty")
+  .max(64, "App name must not exceed 64 characters")
+  .regex(/^[a-z0-9](?:[a-z0-9._-]*[a-z0-9])?$/, "App name must be an unscoped lowercase npm name")
+  .refine((name) => name !== "node_modules", "App name is reserved")
+  .describe("Name of an app to scaffold");
+
+export const ScaffoldPackageInputSchema = z
+  .strictObject({
+    name: WorkspacePackageNameSchema,
+    envValidation: z.boolean().optional().describe("Set up env var validation with varlock"),
+    projectDir: z.string().optional(),
+    install: z.boolean().optional(),
+    dryRun: z.boolean().optional(),
+    packageManager: PackageManagerSchema.optional(),
+    disableAnalytics: z.boolean().optional(),
+  })
+  .describe("Input for scaffolding a workspace package");
+
+const NATIVE_FRONTENDS: ReadonlySet<z.infer<typeof FrontendSchema>> = new Set([
+  "native-bare",
+  "native-uniwind",
+  "native-unistyles",
+]);
+
+const UNGENERATABLE_BACKENDS: ReadonlySet<z.infer<typeof BackendSchema>> = new Set([
+  "none",
+  "self",
+  "convex",
+]);
+
+const ScaffoldAppInputBaseSchema = z.strictObject({
+  kind: AppKindSchema,
+  name: AppNameSchema,
+  frontend: FrontendSchema.optional().describe("Frontend framework for the app"),
+  backend: BackendSchema.optional().describe("Backend framework for the app"),
+  projectDir: z.string().optional(),
+  install: z.boolean().optional(),
+  dryRun: z.boolean().optional(),
+  packageManager: PackageManagerSchema.optional(),
+  disableAnalytics: z.boolean().optional(),
+});
+
+export const ScaffoldAppInputSchema = ScaffoldAppInputBaseSchema.superRefine((input, ctx) => {
+  const hasNativeFrontend = input.frontend !== undefined && NATIVE_FRONTENDS.has(input.frontend);
+  const hasWebFrontend =
+    input.frontend !== undefined && input.frontend !== "none" && !hasNativeFrontend;
+
+  if (input.backend !== undefined && input.kind !== "backend") {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["backend"],
+      message: `\`backend\` is not allowed when \`kind\` is "${input.kind}"`,
+    });
+  }
+
+  if (input.kind === "frontend") {
+    if (input.frontend === undefined) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["frontend"],
+        message: '`frontend` is required when `kind` is "frontend"',
+      });
+    } else if (!hasWebFrontend) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["frontend"],
+        message: '`frontend` must be a web frontend when `kind` is "frontend"',
+      });
+    }
+    return;
+  }
+
+  if (input.kind === "backend") {
+    if (input.backend === undefined) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["backend"],
+        message: '`backend` is required when `kind` is "backend"',
+      });
+    } else if (UNGENERATABLE_BACKENDS.has(input.backend)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["backend"],
+        message:
+          '`backend` must be "hono", "express", "fastify", or "elysia" when `kind` is "backend"',
+      });
+    }
+    return;
+  }
+
+  if (input.frontend === undefined) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["frontend"],
+      message: '`frontend` is required when `kind` is "mobile"',
+    });
+  } else if (!hasNativeFrontend) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["frontend"],
+      message: '`frontend` must be a native frontend when `kind` is "mobile"',
+    });
+  }
+});
+
+/**
+ * Refinement-free partial of `ScaffoldAppInputSchema` for surfaces that collect
+ * fields incrementally (CLI flags, interactive filling) and validate later.
+ */
+export const ScaffoldAppInputPartialSchema = ScaffoldAppInputBaseSchema.partial();
+
+export const GenerateInputSchema = z.discriminatedUnion("target", [
+  ScaffoldPackageInputSchema.extend({ target: z.literal("package") }),
+  ScaffoldAppInputSchema.extend({ target: z.literal("app") }),
+]);
 
 export const CLIInputSchema = CreateInputSchema.safeExtend({
   projectDirectory: z.string().optional(),

@@ -1,6 +1,7 @@
 import path from "node:path";
 
 import {
+  ALL_WORKSPACE_PACKAGE_JSON_PATHS,
   EMBEDDED_TEMPLATES,
   processAddonTemplates,
   processAddonsDeps,
@@ -19,7 +20,6 @@ import { intro, log, outro } from "@clack/prompts";
 import { Result } from "better-result";
 import fs from "fs-extra";
 import pc from "picocolors";
-import z from "zod";
 
 import { getAddonsToAdd } from "../../prompts/addons";
 import type { AddInput, Addons, AddonOptions, AnalyticsMode, ProjectConfig } from "../../types";
@@ -36,6 +36,7 @@ import { checkLocalRequirements } from "../../utils/requirements";
 import { setupAddons } from "../addons/addons-setup";
 import { detectProjectConfig } from "./detect-project-config";
 import { installDependencies } from "./install-dependencies";
+import { addWorkspacePackage, reserveWorkspacePackage } from "./workspace-package";
 
 export interface AddHandlerOptions {
   silent?: boolean;
@@ -52,24 +53,6 @@ export interface AddResult {
   error?: string;
 }
 
-const ADD_PACKAGE_JSON_PATHS = [
-  "package.json",
-  "apps/server/package.json",
-  "apps/web/package.json",
-  "apps/native/package.json",
-  "apps/desktop/package.json",
-  "apps/fumadocs/package.json",
-  "apps/docs/package.json",
-  "packages/api/package.json",
-  "packages/db/package.json",
-  "packages/auth/package.json",
-  "packages/backend/package.json",
-  "packages/config/package.json",
-  "packages/env/package.json",
-  "packages/infra/package.json",
-  "packages/ui/package.json",
-];
-
 const ADD_TEXT_FILE_PATHS = [
   "pnpm-workspace.yaml",
   "apps/web/vite.config.ts",
@@ -82,131 +65,6 @@ const ADD_TEXT_FILE_PATHS = [
 
 const HOOK_ADDONS = ["husky", "lefthook"] as const satisfies readonly Addons[];
 const HOOK_LINTER_ADDONS = ["biome", "oxlint", "vite-plus"] as const satisfies readonly Addons[];
-const fileExistsErrorSchema = z.object({ code: z.literal("EEXIST") });
-const configPackageScopeSchema = z
-  .object({
-    name: z.string().regex(/^@[a-z0-9](?:[a-z0-9._-]*[a-z0-9])?\/config$/),
-  })
-  .transform(({ name }) => name.slice(0, -"/config".length));
-const rootTypescriptVersionSchema = z
-  .object({
-    devDependencies: z.object({ typescript: z.string().min(1) }),
-  })
-  .transform(({ devDependencies }) => devDependencies.typescript);
-
-function isFileExistsError(cause: unknown): boolean {
-  return fileExistsErrorSchema.safeParse(cause).success;
-}
-
-async function reserveWorkspacePackage(
-  projectDir: string,
-  packageName: string,
-): Promise<Result<string, CLIError>> {
-  const packageDir = path.join(projectDir, "packages", packageName);
-
-  return Result.tryPromise({
-    try: async () => {
-      await fs.mkdir(packageDir);
-      return packageDir;
-    },
-    catch: (cause: unknown) =>
-      new CLIError({
-        message: isFileExistsError(cause)
-          ? `Workspace package already exists: packages/${packageName}`
-          : `Failed to reserve workspace package: packages/${packageName}`,
-        cause,
-      }),
-  });
-}
-
-async function addWorkspacePackage(
-  vfs: VirtualFileSystem,
-  projectDir: string,
-  packageName: string,
-  packageManager: ProjectConfig["packageManager"],
-): Promise<Result<void, CLIError>> {
-  const packageDir = path.join(projectDir, "packages", packageName);
-  if (await fs.pathExists(packageDir)) {
-    return Result.err(
-      new CLIError({
-        message: `Workspace package already exists: packages/${packageName}`,
-      }),
-    );
-  }
-
-  const configPackagePath = path.join(projectDir, "packages", "config", "package.json");
-  const packageScopeResult = await Result.tryPromise({
-    try: async () => configPackageScopeSchema.parse(await fs.readJson(configPackagePath)),
-    catch: (cause: unknown) =>
-      new CLIError({
-        message:
-          "Cannot determine the workspace package scope. Expected packages/config/package.json to have a name like @my-app/config.",
-        cause,
-      }),
-  });
-  if (packageScopeResult.isErr()) {
-    return Result.err(packageScopeResult.error);
-  }
-
-  const typescriptVersionResult = await Result.tryPromise({
-    try: async () =>
-      rootTypescriptVersionSchema.parse(await fs.readJson(path.join(projectDir, "package.json"))),
-    catch: (cause: unknown) =>
-      new CLIError({
-        message:
-          "Cannot determine the TypeScript version. Expected package.json to declare devDependencies.typescript.",
-        cause,
-      }),
-  });
-  if (typescriptVersionResult.isErr()) {
-    return Result.err(typescriptVersionResult.error);
-  }
-
-  const packageScope = packageScopeResult.value;
-  const fullPackageName = `${packageScope}/${packageName}`;
-  if (fullPackageName.length > 214) {
-    return Result.err(
-      new CLIError({
-        message: "Workspace package name must not exceed 214 characters including its scope.",
-      }),
-    );
-  }
-
-  const packagePath = `packages/${packageName}`;
-  vfs.writeFile(
-    `${packagePath}/package.json`,
-    `${JSON.stringify(
-      {
-        name: fullPackageName,
-        version: "0.0.0",
-        private: true,
-        type: "module",
-        exports: { ".": "./src/index.ts" },
-        scripts: { "check-types": "tsc --noEmit" },
-        devDependencies: {
-          [`${packageScope}/config`]: packageManager === "npm" ? "*" : "workspace:*",
-          typescript: typescriptVersionResult.value,
-        },
-      },
-      null,
-      2,
-    )}\n`,
-  );
-  vfs.writeFile(
-    `${packagePath}/tsconfig.json`,
-    `${JSON.stringify(
-      {
-        extends: `${packageScope}/config/tsconfig.base.json`,
-        include: ["src/**/*.ts"],
-      },
-      null,
-      2,
-    )}\n`,
-  );
-  vfs.writeFile(`${packagePath}/src/index.ts`, "export {};\n");
-
-  return Result.ok(undefined);
-}
 
 function mergeAddonOptions(
   existingAddonOptions?: AddonOptions,
@@ -524,21 +382,12 @@ async function addHandlerInternal(
 
   const vfs = new VirtualFileSystem();
 
-  if (input.package) {
-    const packageResult = await addWorkspacePackage(
-      vfs,
-      projectDir,
-      input.package,
-      existingConfig.packageManager,
-    );
-    if (packageResult.isErr()) {
-      return Result.err(packageResult.error);
-    }
-  }
-
   if (addonsToAdd.length > 0) {
     // Pre-load existing files into VFS so addon processors can modify them.
-    for (const pkgPath of ADD_PACKAGE_JSON_PATHS) {
+    // This must run before addWorkspacePackage: the package planner writes a mutated root
+    // package.json (env validation) into the VFS, and pre-loading afterwards would replace
+    // it with the stale on-disk copy and silently drop that mutation.
+    for (const pkgPath of ALL_WORKSPACE_PACKAGE_JSON_PATHS) {
       const fullPath = path.join(projectDir, pkgPath);
       if (await fs.pathExists(fullPath)) {
         const content = await fs.readFile(fullPath, "utf-8");
@@ -552,7 +401,22 @@ async function addHandlerInternal(
         vfs.writeFile(filePath, content);
       }
     }
+  }
 
+  if (input.package) {
+    const packageResult = await addWorkspacePackage(
+      vfs,
+      projectDir,
+      input.package,
+      existingConfig.packageManager,
+      input.envValidation,
+    );
+    if (packageResult.isErr()) {
+      return Result.err(packageResult.error);
+    }
+  }
+
+  if (addonsToAdd.length > 0) {
     // Process addon templates and dependencies using template-generator's logic.
     await processAddonTemplates(vfs, EMBEDDED_TEMPLATES, config);
     processAddonsDeps(vfs, config);
@@ -578,7 +442,7 @@ async function addHandlerInternal(
 
     if (hasTaskRunner || addonsToAdd.includes("electrobun")) {
       const existingNames = new Map(
-        ADD_PACKAGE_JSON_PATHS.map((filePath) => [
+        ALL_WORKSPACE_PACKAGE_JSON_PATHS.map((filePath) => [
           filePath,
           vfs.readJson<{ name?: string }>(filePath)?.name,
         ]),
@@ -715,6 +579,12 @@ async function addHandlerInternal(
       input.package ? `package ${input.package}` : undefined,
     ].filter(Boolean);
     log.success(pc.green(`Added ${additions.join(" and ")}`));
+
+    if (input.package && input.envValidation) {
+      log.info(
+        `Env types wired into root scripts · run "${config.packageManager} run env:generate"`,
+      );
+    }
 
     if (!input.install) {
       const installCommand =
