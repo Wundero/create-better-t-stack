@@ -18,12 +18,11 @@ export default function SignUpForm({
   onSwitchToSignIn: () => void;
 }) {
   const navigate = useNavigate();
-  const { isPending } = authClient.useSession();
+  const { isPending, refetch } = authClient.useSession();
 {{#if (includes addons "turnstile")}}
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
   const [turnstileResetKey, setTurnstileResetKey] = useState(0);
 {{/if}}
-  const { isPending, refetch } = authClient.useSession();
 
   const form = useForm({
     defaultValues: {
