@@ -20,7 +20,7 @@ export default function Dashboard({
 	{{#if (eq payments "polar")}}
 	customerState,
 	{{/if}}
-	session
+	session: _session
 }: {
 	{{#if (eq payments "polar")}}
 	customerState: CustomerState | null | undefined;
