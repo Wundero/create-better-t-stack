@@ -53,7 +53,7 @@ describe("stack builder D1 compatibility", () => {
       ),
     ).toBeNull();
     expect(getDisabledReason(stack, "addons", "evlog")).toBe(
-      "evlog requires Hono, Express, Fastify, Elysia, or a fullstack backend",
+      "The observability addons support Hono, Express, Fastify, Elysia, or backend self with Next.js, TanStack Start, Nuxt, SvelteKit, or Astro. Convex and backend none are not supported yet.",
     );
     expect(generateStackCommand(stack)).toContain("--backend nitro");
   });

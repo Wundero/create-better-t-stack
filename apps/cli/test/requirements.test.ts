@@ -5,6 +5,7 @@ import {
   PACKAGE_MANAGER_VERSION_RANGES,
   getBaselineRequirements,
   getLocalToolRecommendations,
+  getLocalVersionRequirements,
   validateLocalToolVersions,
   validateRequirements,
 } from "../src/utils/requirements";

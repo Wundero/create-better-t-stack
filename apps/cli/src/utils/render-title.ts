@@ -36,7 +36,7 @@ const hideCursor = "\u001B[?25l";
 const showCursor = "\u001B[?25h";
 const reset = "\u001B[39m";
 
-const frameCount = 40;
+const frameCount: number = 40;
 const frameDelayMs = 22;
 /** Quiet grey for the wireframe — catppuccin overlay0. */
 const neutral: RGB = [108, 112, 134];
