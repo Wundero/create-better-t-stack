@@ -1,0 +1,180 @@
+---
+title: Deploying to AWS with Alchemy
+description: Deploy Better-T-Stack projects to AWS with Alchemy, including ECS Fargate, Lambda, Aurora Serverless V2, and S3-backed state
+---
+
+## Overview
+
+[Alchemy](https://alchemy.run) is the infrastructure-as-code layer generated when you choose **AWS** as a deployment target. The CLI writes a `packages/infra` workspace containing:
+
+- one `alchemy.run.ts` for applications, AWS resources, and managed databases
+- root `dev`, `deploy`, and `destroy` commands
+
+AWS resources are declared through `AWS.providers()`, and deployment state is kept in an S3 bucket through `AWS.state()`. The same `alchemy.run.ts` can deploy a web app, a separate server, a database, or any combination of the three.
+
+## Supported deployment shapes
+
+AWS supports a separate server on **ECS Fargate** (Bun or Node) or **AWS Lambda** (Hono only), plus supported web frameworks through `AWS.Website.*`. Full-stack `backend: self` projects deploy as one web application.
+
+- web: Next.js, Nuxt, Astro, SvelteKit, Solid, TanStack Start, React Router, and TanStack Router
+- server: Hono, Express, Fastify, and Elysia on Bun or Node (ECS Fargate), or Hono on Lambda
+- mixed stacks, such as AWS web with a Cloudflare or Prisma server, or the reverse
+
+The CLI rejects unsupported framework and runtime combinations before writing files. Solid deploys through nitro's `aws-lambda` output on a Lambda Function URL behind CloudFront.
+
+```bash
+# Hono on Lambda with Aurora Serverless V2 PostgreSQL
+bunx create-better-t-stack@latest my-app \
+  --frontend none \
+  --backend hono \
+  --runtime lambda \
+  --database postgres \
+  --orm drizzle \
+  --db-setup aurora \
+  --server-deploy aws
+
+# Next.js web and a Hono/Bun server on ECS Fargate
+bunx create-better-t-stack@latest my-app \
+  --frontend next \
+  --backend hono \
+  --runtime bun \
+  --database postgres \
+  --orm prisma \
+  --db-setup aurora \
+  --web-deploy aws \
+  --server-deploy aws
+```
+
+## Prerequisites
+
+Install dependencies, then let Alchemy configure the AWS provider:
+
+```bash
+bun install
+cd packages/infra
+bunx alchemy profile edit --add AWS
+```
+
+The profile stores the credentials Alchemy uses under `~/.alchemy`. For CI, provide the standard AWS environment variables instead of an interactive profile. Set `AWS_REGION` (and the credential variables your runner expects) so the deploy resolves the same region as the rest of the stack.
+
+## What gets provisioned
+
+| Selection             | AWS resources                                                                                           |
+| --------------------- | ------------------------------------------------------------------------------------------------------- |
+| Provider and state    | `AWS.providers()` and `AWS.state()` (stack state stored in S3)                                          |
+| Any Aurora database   | `AWS.EC2.Network` (VPC across two availability zones, single NAT gateway) and a database security group |
+| Server on Bun or Node | `AWS.ECS.Cluster` and `AWS.ECS.Service`                                                                 |
+| Server on Lambda      | `AWS.Lambda.Function` with a function URL                                                               |
+| `--db-setup aurora`   | `AWS.RDS.DBSubnetGroup`, `AWS.RDS.DBCluster`, and `AWS.RDS.DBInstance`                                  |
+| Web frontend          | `AWS.Website.StaticSite` or `AWS.Website.<Framework>`                                                   |
+
+When the database runs on Aurora, the generated stack also creates a VPC with private subnets and a security group that allows the database port (5432 for PostgreSQL, 3306 for MySQL) from inside the VPC. The ECS service and Lambda function reach the database through those private subnets.
+
+## Runtime matrix
+
+| Runtime   | Compute     | Notes                                                             |
+| --------- | ----------- | ----------------------------------------------------------------- |
+| `bun`     | ECS Fargate | Builds the server Dockerfile from the monorepo root               |
+| `node`    | ECS Fargate | Builds the server Dockerfile from the monorepo root               |
+| `lambda`  | AWS Lambda  | Hono only; uses the generated `apps/server/src/lambda.ts` handler |
+| `workers` | n/a         | Use `--server-deploy cloudflare` instead                          |
+
+The ECS service exposes port 3000 behind a load balancer. The Lambda function uses the `nodejs24.x` runtime with a function URL, 1024 MB of memory, and a 30 second timeout.
+
+## Managed databases
+
+Alchemy can create an **Aurora Serverless V2** database when the backend deploys to AWS:
+
+- `backend: self`: the web deployment owns the database
+- separate backend: the server deployment owns the database
+
+Aurora supports PostgreSQL and MySQL. The generated cluster uses `provisioned` engine mode with Serverless V2 scaling, `MinCapacity: 0.5` and `MaxCapacity: 4`. It lives in private subnets, is not publicly accessible, and its master password is generated at deploy time. Alchemy composes the `DATABASE_URL` for your application and injects it into the server and web environments.
+
+Alchemy only manages Aurora when the database-owning application deploys through AWS. If the backend deploys elsewhere, configure its database separately.
+
+<Callout type="warn">
+  Aurora Serverless V2 bills for the ACU range above. With the default `MaxCapacity: 4`, a busy
+  stage can scale well past the `MinCapacity: 0.5` floor. Review `serverlessV2ScalingConfiguration`
+  in `packages/infra/alchemy.run.ts` before deploying.
+</Callout>
+
+## Migration workflow
+
+After changing your database schema, generate a migration:
+
+```bash
+# Drizzle: generate SQL from the current schema
+bun run db:generate
+
+# Prisma: create a migration, then regenerate the client
+bun run db:migrate
+bun run db:generate
+```
+
+Review and commit the generated migration files.
+
+Alchemy applies Aurora migrations automatically during `alchemy deploy`. The generated stack enables the Aurora Data API, creates a Secrets Manager secret for the database credentials, and runs a `database-migrations` command that applies only the migrations not yet recorded. The runner writes to the ORM's own ledger (`drizzle.__drizzle_migrations` for Drizzle, `_prisma_migrations` for Prisma), so `db:migrate`, `db:generate`, and `db:studio` stay in sync from your local machine.
+
+Because the Data API is a public HTTPS endpoint, this works even though the cluster sits in private subnets the deploy host cannot reach over the database protocol. The deploy host still needs AWS credentials with `rds-data:ExecuteStatement` and permission to read the database secret.
+
+```bash
+# Applied automatically by `bun run deploy`. To run the same runner yourself:
+bun run db:migrate:aurora
+```
+
+If you prefer the ORM CLI, keep the `db:migrate:deploy` package script and run it from inside the VPC (a one-off ECS task, an EC2 bastion, or a Lambda attached to the private subnets) with the connection string Alchemy produced: `postgresql://app:<password>@<endpoint>:5432/app` for PostgreSQL or `mysql://app:<password>@<endpoint>:3306/app?sslaccept=strict` for MySQL.
+
+## Develop and deploy
+
+Run these commands from the project root:
+
+```bash
+bun run dev
+bun run deploy
+bun run destroy
+```
+
+- `dev` starts local development.
+- `deploy` builds and deploys your applications and managed resources.
+- `destroy` removes the resources in the selected stage, including the Aurora cluster and VPC.
+
+Deployments are staged. For an explicit production stage:
+
+```bash
+cd packages/infra
+bunx alchemy deploy --stage production
+```
+
+Use the same stage when destroying it:
+
+```bash
+bunx alchemy destroy --stage production
+```
+
+## Environment variables and secrets
+
+Set infrastructure configuration in `packages/infra/.env` and application configuration in the relevant app's `.env` file. The generated AWS environment reads application values from `process.env` at deploy time through `varlock/auto-load`, so validate each app's `.env.schema` before deploying. Alchemy supplies the Aurora connection string and the deployed application URLs to the server and web resources automatically.
+
+The Aurora master password is generated during deployment. Keep it out of version control, and treat the deploy-time environment as a secret store: for CI, inject `BETTER_AUTH_SECRET`, `CORS_ORIGIN`, and any provider keys through your runner's secret mechanism. Run `bun run deploy` after changing deployment configuration.
+
+## Cost warnings
+
+AWS resources bill continuously while they exist:
+
+- **Aurora Serverless V2** charges ACU-hours between the configured minimum and maximum. The default floor of 0.5 ACU bills even when idle.
+- **NAT gateway** charges an hourly rate plus data processing for traffic leaving the VPC. The generated network uses a single NAT gateway to keep this cost down.
+- **Application Load Balancer** is created for the ECS service because `loadBalancer: true` is set. It charges hourly plus LCU usage.
+- **ECS Fargate** charges for the running task's CPU and memory, and **Lambda** charges per request and per GB-second.
+
+Run `bun run destroy` for a stage when you no longer need it.
+
+## Limitations
+
+- **Solid builds through nitro's `aws-lambda` preset.** The generated stack runs the web build, then deploys the self-contained `.output/server` on a Lambda Function URL with `.output/public` served from S3 behind CloudFront.
+- **Aurora works with every runtime.** `bun`, `node`, and `lambda` connect with the standard `pg`/`mysql2` drivers over the private VPC; Cloudflare Workers connect through the RDS Data API. Workers + Aurora supports PostgreSQL with Drizzle only (Prisma has no Data API adapter), and Workers must be given AWS credentials (`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`) as secrets.
+- **`--runtime lambda` requires Hono** (`--backend hono`) and a server deployment of `--server-deploy aws`. Other function-runtime rules mirror Cloudflare Workers.
+- **`--server-deploy aws` requires the `bun`, `node`, or `lambda` runtime.**
+
+## Customize your infrastructure
+
+Edit `packages/infra/alchemy.run.ts` to change the region, network size, database capacity, or add resources. See the [Alchemy documentation](https://alchemy.run) for the available AWS resources and options.
