@@ -15,9 +15,51 @@ import type {
   ProjectConfig,
   Runtime,
   ServerDeploy,
+  ShadcnBase,
+  ShadcnConfig,
   WebDeploy,
 } from "../types";
 import { ValidationError } from "./errors";
+
+export type ShadcnFlagFields = {
+  shadcnPreset?: string;
+  shadcnBase?: ShadcnBase;
+  shadcnRtl?: boolean;
+  shadcnPointer?: boolean;
+};
+
+export type ShadcnFlaggedInput = CLIInput & ShadcnFlagFields;
+
+function resolveShadcnConfig(options: ShadcnFlaggedInput): ShadcnConfig | undefined {
+  if (options.shadcn !== undefined) {
+    return options.shadcn;
+  }
+
+  const { shadcnPreset, shadcnBase, shadcnRtl, shadcnPointer } = options;
+  if (
+    shadcnPreset === undefined &&
+    shadcnBase === undefined &&
+    shadcnRtl === undefined &&
+    shadcnPointer === undefined
+  ) {
+    return undefined;
+  }
+
+  const config: ShadcnConfig = {};
+  if (shadcnPreset !== undefined) {
+    config.preset = shadcnPreset;
+  }
+  if (shadcnBase !== undefined) {
+    config.base = shadcnBase;
+  }
+  if (shadcnRtl !== undefined) {
+    config.rtl = shadcnRtl;
+  }
+  if (shadcnPointer !== undefined) {
+    config.pointer = shadcnPointer;
+  }
+  return config;
+}
 
 export function processArrayOption<T>(options: (T | "none")[] | undefined) {
   if (!options || options.length === 0) return [];
@@ -35,8 +77,13 @@ export function deriveProjectName(projectName?: string, projectDirectory?: strin
   return "";
 }
 
-export function processFlags(options: CLIInput, projectName?: string) {
+export function processFlags(options: ShadcnFlaggedInput, projectName?: string) {
   const config: Partial<ProjectConfig> = {};
+
+  const shadcn = resolveShadcnConfig(options);
+  if (shadcn) {
+    config.shadcn = shadcn;
+  }
 
   if (options.api) {
     config.api = options.api as API;
