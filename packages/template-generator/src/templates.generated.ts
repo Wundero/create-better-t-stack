@@ -1054,7 +1054,7 @@ function toClerkContextAuth(auth: ClerkContextAuth): ClerkContextAuth {
 }
 {{/if}}
 
-{{#if (and (eq auth "clerk") (or (eq backend 'self') (eq backend 'hono') (eq backend 'elysia')))}}
+{{#if (and (eq auth "clerk") (or (eq backend 'self') (eq backend 'hono') (eq backend 'elysia') (eq backend 'nitro')))}}
 {{#if (usesRequestScopedCloudflareEnv backend webDeploy frontend)}}
 {{else}}
 import { createClerkClient } from "@clerk/backend";
@@ -1476,6 +1476,48 @@ export async function createContext(req: {{#if (eq auth "clerk")}}Parameters<typ
 {{/if}}
 }
 
+{{else if (eq backend 'nitro')}}
+{{#if (eq auth "better-auth")}}
+{{#if (or (eq runtime "workers") (eq serverDeploy "cloudflare"))}}
+import { createAuth } from "@{{projectName}}/auth";
+{{else}}
+import { auth } from "@{{projectName}}/auth";
+{{/if}}
+{{/if}}
+
+export type CreateContextOptions = {
+	request: Request;
+};
+
+export async function createContext({{#if (eq auth "none")}}_options{{else}}{ request }{{/if}}: CreateContextOptions): Promise<ApiContext> {
+{{#if (and (ne database "none") (or (eq runtime "workers") (eq serverDeploy "cloudflare")))}}
+  const db = await getDb({{#if (usesRequestScopedCloudflareEnv backend webDeploy frontend)}}env{{/if}});
+{{/if}}
+{{#if (eq auth "better-auth")}}
+	const session = await {{#if (or (eq runtime "workers") (eq serverDeploy "cloudflare"))}}(await createAuth({{#if (ne database "none")}}db{{/if}})){{else}}auth{{/if}}.api.getSession({ headers: request.headers });
+	return {
+{{#if (ne database "none")}}
+    db,
+{{/if}}
+		session,
+	};
+{{else if (eq auth "clerk")}}
+	const clerkAuth = await authenticateClerkRequest(request);
+	return {
+{{#if (ne database "none")}}
+    db,
+{{/if}}
+		auth: clerkAuth,
+	};
+{{else}}
+	return {
+{{#if (ne database "none")}}
+    db,
+{{/if}}
+	};
+{{/if}}
+}
+
 {{else}}
 export async function createContext(): Promise<ApiContext> {
 {{#if (and (ne database "none") (or (eq runtime "workers") (eq serverDeploy "cloudflare") (and (eq backend "self") (eq webDeploy "cloudflare"))))}}
@@ -1619,21 +1661,11 @@ export default defineNuxtPlugin(() => {
   };
 });
 `],
-  ["api/orpc/fullstack/nuxt/app/plugins/orpc.server.ts.hbs", `{{#if (and (eq webDeploy "cloudflare") (eq orm "prisma"))}}
-import type { AppRouterClient } from "@{{projectName}}/api/routers/index";
+  ["api/orpc/fullstack/nuxt/app/plugins/orpc.server.ts.hbs", `import type { AppRouterClient } from "@{{projectName}}/api/routers/index";
 import { createORPCClient } from "@orpc/client";
 import { RPCLink } from "@orpc/client/fetch";
-{{else}}
-import { createRouterClient } from "@orpc/server";
-import { appRouter } from "@{{projectName}}/api/routers/index";
-import { createContext } from "@{{projectName}}/api/context";
-{{/if}}
-{{#if (eq webDeploy "cloudflare")}}
-import type { CloudflareEnv } from "../../src/env.server";
-{{/if}}
 import { createTanstackQueryUtils } from "@orpc/tanstack-query";
 
-{{#if (and (eq webDeploy "cloudflare") (eq orm "prisma"))}}
 export default defineNuxtPlugin(() => {
   const event = useRequestEvent();
 
@@ -1642,29 +1674,13 @@ export default defineNuxtPlugin(() => {
   }
 
   const rpcLink = new RPCLink({
-    url: "/rpc",
+    url: new URL("/rpc", useRequestURL()).href,
     fetch(request, init) {
       return event.fetch(request, init);
     },
   });
 
   const client: AppRouterClient = createORPCClient(rpcLink);
-{{else}}
-export default defineNuxtPlugin(async () => {
-  const event = useRequestEvent();
-
-  const context = await createContext({
-    headers: event?.headers ?? new Headers(),
-    {{#if (eq webDeploy "cloudflare")}}
-    env: (event?.context.cloudflare as { env: CloudflareEnv }).env,
-    {{/if}}
-  });
-
-  const client = createRouterClient(appRouter, {
-    context,
-  });
-{{/if}}
-
   const orpc = createTanstackQueryUtils(client);
 
   return {
@@ -1830,20 +1846,16 @@ if (typeof window !== "undefined") {
 const serverClient: AppRouterClient = createRouterClient(appRouter, {
 	context: async () => {
 		const event = getRequestEvent();
-{{#if (eq webDeploy "cloudflare")}}
-		const env = event.platform?.env ?? ENV;
-
-{{/if}}
 		return createContext({
 			headers: event.request.headers,
 {{#if (eq webDeploy "cloudflare")}}
-			env,
+			env: ENV,
 {{/if}}
 		});
 	},
 });
 
-// oRPC's SvelteKit SSR setup loads this from hooks.server.ts so $lib/orpc can
+// oRPC's SvelteKit SSR setup loads this from hooks.server.ts so #lib/orpc.ts can
 // reuse the in-process server client during SSR and fall back to HTTP in the browser.
 globalThis.$client = serverClient;
 `],
@@ -1880,15 +1892,11 @@ const apiHandler = new OpenAPIHandler(appRouter, {
 	],
 });
 
-const handle: RequestHandler = async ({ request{{#if (eq webDeploy "cloudflare")}}, platform{{/if}} }) => {
-{{#if (eq webDeploy "cloudflare")}}
-	const env = platform?.env ?? ENV;
-
-{{/if}}
+const handle: RequestHandler = async ({ request }) => {
 	const context = await createContext({
 		headers: request.headers,
 {{#if (eq webDeploy "cloudflare")}}
-		env,
+		env: ENV,
 {{/if}}
 	});
 
@@ -2266,17 +2274,19 @@ import { createORPCClient } from '@orpc/client'
 import { RPCLink } from '@orpc/client/fetch'
 import { createTanstackQueryUtils } from "@orpc/tanstack-query";
 
+{{> getServerUrlSpaces}}
+
 export default defineNuxtPlugin(() => {
-  const event = useRequestEvent();
   const requestURL = useRequestURL();
   const config = useRuntimeConfig();
   const serverUrl =
     (import.meta.server && config.serverUrl) || config.public.serverUrl;
-  const rpcUrl = new URL(\`\${serverUrl.replace(/\\/$/, "")}/rpc\`, requestURL.origin).href;
+  const resolvedServerUrl = {{#if (and (eq webDeploy serverDeploy) (or (eq webDeploy "vercel") (eq webDeploy "docker")))}}getServerUrl(serverUrl){{else}}serverUrl.replace(/\\/$/, ""){{/if}};
+  const rpcUrl = new URL(\`\${resolvedServerUrl}/rpc\`, requestURL.origin).href;
 
   const rpcLink = new RPCLink({
     url: rpcUrl,
-    headers: () => event?.headers ?? {},
+    headers: import.meta.server ? useRequestHeaders(["cookie"]) : {},
     {{#if (eq auth "better-auth")}}
     fetch(url, options) {
         return fetch(url, {
@@ -2659,7 +2669,7 @@ function toClerkContextAuth(auth: ClerkContextAuth): ClerkContextAuth {
 }
 {{/if}}
 
-{{#if (and (eq auth "clerk") (or (eq backend 'self') (eq backend 'hono') (eq backend 'elysia')))}}
+{{#if (and (eq auth "clerk") (or (eq backend 'self') (eq backend 'hono') (eq backend 'elysia') (eq backend 'nitro')))}}
 import { createClerkClient } from "@clerk/backend";
 import { ENV } from "./env.server";
 
@@ -2916,6 +2926,48 @@ export async function createContext({ req }: CreateFastifyContextOptions): Promi
 	};
 {{else}}
 	void req;
+	return {
+{{#if (ne database "none")}}
+    db,
+{{/if}}
+	};
+{{/if}}
+}
+
+{{else if (eq backend 'nitro')}}
+{{#if (eq auth "better-auth")}}
+{{#if (or (eq runtime "workers") (eq serverDeploy "cloudflare"))}}
+import { createAuth } from "@{{projectName}}/auth";
+{{else}}
+import { auth } from "@{{projectName}}/auth";
+{{/if}}
+{{/if}}
+
+export type CreateContextOptions = {
+	request: Request;
+};
+
+export async function createContext({{#if (eq auth "none")}}_options{{else}}{ request }{{/if}}: CreateContextOptions): Promise<ApiContext> {
+{{#if (and (ne database "none") (or (eq runtime "workers") (eq serverDeploy "cloudflare")))}}
+  const db = await getDb({{#if (usesRequestScopedCloudflareEnv backend webDeploy frontend)}}env{{/if}});
+{{/if}}
+{{#if (eq auth "better-auth")}}
+	const session = await {{#if (or (eq runtime "workers") (eq serverDeploy "cloudflare"))}}(await createAuth({{#if (ne database "none")}}db{{/if}})){{else}}auth{{/if}}.api.getSession({ headers: request.headers });
+	return {
+{{#if (ne database "none")}}
+    db,
+{{/if}}
+		session,
+	};
+{{else if (eq auth "clerk")}}
+	const clerkAuth = await authenticateClerkRequest(request);
+	return {
+{{#if (ne database "none")}}
+    db,
+{{/if}}
+		auth: clerkAuth,
+	};
+{{else}}
 	return {
 {{#if (ne database "none")}}
     db,
@@ -6703,7 +6755,7 @@ export const POST = handle;
   ["auth/better-auth/fullstack/svelte/src/hooks.server.ts.hbs", `{{#if (eq api "orpc")}}
 import "./lib/orpc.server";
 {{/if}}
-import { building } from "$app/environment";
+import { building } from "$app/env";
 {{#if (or (eq runtime "workers") (eq serverDeploy "cloudflare") (and (eq backend "self") (eq webDeploy "cloudflare")))}}
 import { createAuth } from "@{{projectName}}/auth";
 {{#if (and (eq backend "self") (eq webDeploy "cloudflare"))}}
@@ -6713,7 +6765,7 @@ import { ENV } from "./env.server";
 import { auth } from "@{{projectName}}/auth";
 {{/if}}
 import { svelteKitHandler } from "better-auth/svelte-kit";
-import type { Handle } from "@sveltejs/kit";
+import type { Handle } from "@sveltejs/kit/hooks";
 
 export const handle: Handle = async ({ event, resolve }) => {
 {{#if (or (eq runtime "workers") (eq serverDeploy "cloudflare") (and (eq backend "self") (eq webDeploy "cloudflare")))}}
@@ -6722,8 +6774,7 @@ export const handle: Handle = async ({ event, resolve }) => {
 		return resolve(event);
 	}
 
-	const authEnv = event.platform?.env ?? ENV;
-	const authInstance = await createAuth(authEnv);
+	const authInstance = await createAuth(ENV);
 {{else}}
 	const authInstance = await createAuth();
 {{/if}}
@@ -6764,6 +6815,40 @@ export const Route = createFileRoute('/api/auth/$')({
     },
   },
 })
+`],
+  ["auth/better-auth/loaders/svelte/dashboard.ts.hbs", `import { authClient } from '#lib/auth-client.ts';
+import type { BetterFetchOption } from 'better-auth/client';
+import { redirect } from '@sveltejs/kit';
+{{#if (or (eq backend "self") (and (eq webDeploy serverDeploy) (or (eq webDeploy "vercel") (eq webDeploy "docker"))))}}
+import type { PageServerLoad } from './$types';
+
+export const load = (async ({ fetch, request{{#if (eq backend "self")}}, url{{/if}} }) => {
+{{else}}
+import type { PageLoad } from './$types';
+
+// The session cookie belongs to the separate API origin and is available in the browser.
+export const ssr = false;
+
+export const load = (async ({ fetch }) => {
+{{/if}}
+  const fetchOptions = {
+    customFetchImpl: fetch,
+{{#if (eq backend "self")}}
+    baseURL: new URL('/api/auth', url).toString(),
+{{/if}}
+{{#if (or (eq backend "self") (and (eq webDeploy serverDeploy) (or (eq webDeploy "vercel") (eq webDeploy "docker"))))}}
+    headers: { cookie: request.headers.get('cookie') ?? '' },
+    signal: request.signal,
+{{/if}}
+    throw: true,
+  } satisfies BetterFetchOption;
+  const session = await authClient.getSession({ fetchOptions });
+  if (!session) redirect(307, '/login');
+{{#if (eq payments "polar")}}
+  const customerState = await authClient.customer.state({ fetchOptions });
+{{/if}}
+  return { user: session.user{{#if (eq payments "polar")}}, customerState{{/if}} };
+}) satisfies {{#if (or (eq backend "self") (and (eq webDeploy serverDeploy) (or (eq webDeploy "vercel") (eq webDeploy "docker"))))}}PageServerLoad{{else}}PageLoad{{/if}};
 `],
   ["auth/better-auth/native/bare/app/(drawer)/index.tsx.hbs", `import { Button, Column, Host, Text as ExpoUIText } from "@expo/ui";
 import { View, ScrollView, StyleSheet{{#if (eq payments "polar")}}, Alert{{/if}} } from "react-native";
@@ -9956,7 +10041,7 @@ import { ENV } from "../env{{#if (eq webDeploy "cloudflare")}}.public{{/if}}";
 export const authClient = createAuthClient({
 {{#if (ne backend "self")}}
 {{#if (and (eq webDeploy serverDeploy) (or (eq webDeploy "vercel") (eq webDeploy "docker")))}}
-  baseURL: new URL("/api/auth", getServerUrl(ENV.PUBLIC_SERVER_URL)).toString(),
+  baseURL: {{#if (eq webDeploy "vercel")}}\`\${getServerUrl(ENV.PUBLIC_SERVER_URL)}/auth\`{{else}}new URL("/api/auth", getServerUrl(ENV.PUBLIC_SERVER_URL)).toString(){{/if}},
 {{else}}
   baseURL: ENV.PUBLIC_SERVER_URL,
 {{/if}}
@@ -10143,6 +10228,7 @@ const turnstileSiteKey = useRuntimeConfig().public.turnstileSiteKey
 const fields: AuthFormField[] = [
   {
     name: 'email',
+    id: 'sign-in-email',
     type: 'email',
     label: 'Email',
     placeholder: 'Enter your email',
@@ -10150,6 +10236,7 @@ const fields: AuthFormField[] = [
   },
   {
     name: 'password',
+    id: 'sign-in-password',
     type: 'password',
     label: 'Password',
     placeholder: 'Enter your password',
@@ -10250,6 +10337,7 @@ const turnstileSiteKey = useRuntimeConfig().public.turnstileSiteKey
 const fields: AuthFormField[] = [
   {
     name: 'name',
+    id: 'sign-up-name',
     type: 'text',
     label: 'Name',
     placeholder: 'Enter your name',
@@ -10257,6 +10345,7 @@ const fields: AuthFormField[] = [
   },
   {
     name: 'email',
+    id: 'sign-up-email',
     type: 'email',
     label: 'Email',
     placeholder: 'Enter your email',
@@ -10264,6 +10353,7 @@ const fields: AuthFormField[] = [
   },
   {
     name: 'password',
+    id: 'sign-up-password',
     type: 'password',
     label: 'Password',
     placeholder: 'Enter your password',
@@ -10390,19 +10480,16 @@ const handleSignOut = async () => {
   </div>
 </template>
 `],
-  ["auth/better-auth/web/nuxt/app/middleware/auth.ts.hbs", `export default defineNuxtRouteMiddleware(async (to, from) => {
-  if (import.meta.server) return;
-
+  ["auth/better-auth/web/nuxt/app/composables/useAuthFetch.ts.hbs", `export const useAuthFetch = createUseFetch({ credentials: "include" });
+`],
+  ["auth/better-auth/web/nuxt/app/composables/useAuthSession.ts.hbs", `export function useAuthSession() {
   const { $authClient } = useNuxtApp();
-  const session = $authClient.useSession();
-
-  if (session.value.isPending) {
-    return;
-  }
-
-  if (!session.value.data) {
-    return navigateTo("/login");
-  }
+  return $authClient.useSession(useAuthFetch);
+}
+`],
+  ["auth/better-auth/web/nuxt/app/middleware/auth.ts.hbs", `export default defineNuxtRouteMiddleware(async () => {
+  const { data: session } = await useAuthSession();
+  if (!session.value) return navigateTo("/login");
 });
 `],
   ["auth/better-auth/web/nuxt/app/pages/dashboard.vue.hbs", `<script setup lang="ts">
@@ -10420,7 +10507,7 @@ definePageMeta({
   middleware: ['auth']
 })
 
-const session = $authClient.useSession()
+const { data: session } = await useAuthSession()
 
 {{#if (eq payments "polar")}}
 const customerState = ref<CustomerState | null>(null)
@@ -10429,13 +10516,17 @@ const customerState = ref<CustomerState | null>(null)
 {{#if (eq api "orpc")}}
 const privateData = useQuery({
   ...$orpc.privateData.queryOptions(),
-  enabled: computed(() => !!session.value?.data?.user)
+  enabled: computed(() => !!session.value?.user)
+})
+
+onServerPrefetch(async () => {
+  if (session.value?.user) await privateData.suspense()
 })
 {{/if}}
 
 {{#if (eq payments "polar")}}
 onMounted(async () => {
-  if (session.value?.data) {
+  if (session.value) {
     const { data } = await $authClient.customer.state()
     customerState.value = data ?? null
   }
@@ -10451,7 +10542,7 @@ const hasProSubscription = computed(() =>
   <UContainer class="py-8">
     <UPageHeader
       title="Dashboard"
-      :description="session?.data?.user ? \`Welcome back, \${session.data.user.name}!\` : 'Loading...'"
+      :description="session?.user ? \`Welcome back, \${session.user.name}!\` : 'Loading...'"
     />
 
     <div class="mt-6 space-y-4">
@@ -10510,15 +10601,16 @@ const hasProSubscription = computed(() =>
 </template>
 `],
   ["auth/better-auth/web/nuxt/app/pages/login.vue.hbs", `<script setup lang="ts">
-const { $authClient } = useNuxtApp();
 import SignInForm from "~/components/SignInForm.vue";
 import SignUpForm from "~/components/SignUpForm.vue";
 
-const session = $authClient.useSession();
+const { data: session } = await useAuthSession();
 const showSignIn = ref(true);
+const hydrated = ref(false);
+onMounted(() => { hydrated.value = true; });
 
 watchEffect(() => {
-  if (!session?.value.isPending && session?.value.data) {
+  if (session.value) {
     navigateTo("/dashboard", { replace: true });
   }
 });
@@ -10526,14 +10618,10 @@ watchEffect(() => {
 
 <template>
   <UContainer class="py-8">
-    <div v-if="session.isPending" class="flex flex-col items-center justify-center gap-4 py-12">
-      <UIcon name="i-lucide-loader-2" class="animate-spin text-4xl text-primary" />
-      <span class="text-muted">Loading...</span>
-    </div>
-    <div v-else-if="!session.data">
+    <fieldset v-if="!session" :disabled="!hydrated">
       <SignInForm v-if="showSignIn" @switch-to-sign-up="showSignIn = false" />
       <SignUpForm v-else @switch-to-sign-in="showSignIn = true" />
-    </div>
+    </fieldset>
   </UContainer>
 </template>
 `],
@@ -10542,20 +10630,27 @@ watchEffect(() => {
 import { polarClient } from "@polar-sh/better-auth/client";
 {{/if}}
 
+{{> getServerUrlSpaces}}
+
 export default defineNuxtPlugin(() => {
   {{#if (ne backend "self")}}
   const config = useRuntimeConfig();
   const rawServerUrl = (import.meta.server && config.serverUrl) || config.public.serverUrl;
   // Same-origin paths like /api need an absolute base, and better-auth derives
   // its route matching from this URL's path, so it must be exactly /api/auth
-  const serverOrigin = rawServerUrl.startsWith("/")
+  const serverOrigin = {{#if (and (eq webDeploy serverDeploy) (or (eq webDeploy "vercel") (eq webDeploy "docker")))}}getServerUrl(rawServerUrl);{{else}}rawServerUrl.startsWith("/")
     ? (import.meta.server ? useRequestURL() : window.location).origin + rawServerUrl
-    : rawServerUrl;
+    : rawServerUrl;{{/if}}
   {{/if}}
 
   const authClient = createAuthClient({
+    fetchOptions: {
+      headers: import.meta.server ? useRequestHeaders(["cookie"]) : undefined,
+    },
     {{#if (ne backend "self")}}
-    baseURL: new URL("/api/auth", serverOrigin).toString(),
+    baseURL: {{#if (and (eq webDeploy "vercel") (eq serverDeploy "vercel"))}}\`\${serverOrigin}/auth\`{{else}}new URL("/api/auth", serverOrigin).toString(){{/if}},
+    {{else}}
+    baseURL: useRequestURL().origin,
     {{/if}}
     {{#if (eq payments "polar")}}
     plugins: [polarClient()],
@@ -10584,7 +10679,7 @@ import { ENV } from "../env{{#if (eq webDeploy "cloudflare")}}.public{{/if}}";
 export const authClient = createAuthClient({
 {{#unless (eq backend "self")}}
 {{#if (and (eq webDeploy serverDeploy) (or (eq webDeploy "vercel") (eq webDeploy "docker")))}}
-  baseURL: new URL("/api/auth", getServerUrl({{#if (includes frontend "next")}}process.env.NEXT_PUBLIC_SERVER_URL!{{else}}ENV.VITE_SERVER_URL{{/if}})).toString(),
+  baseURL: {{#if (eq webDeploy "vercel")}}\`\${getServerUrl({{#if (includes frontend "next")}}process.env.NEXT_PUBLIC_SERVER_URL!{{else}}ENV.VITE_SERVER_URL{{/if}})}/auth\`{{else}}new URL("/api/auth", getServerUrl({{#if (includes frontend "next")}}process.env.NEXT_PUBLIC_SERVER_URL!{{else}}ENV.VITE_SERVER_URL{{/if}})).toString(){{/if}},
 {{else}}
   baseURL: {{#if (includes frontend "next")}}process.env.NEXT_PUBLIC_SERVER_URL!{{else}}ENV.VITE_SERVER_URL{{/if}},
 {{/if}}
@@ -11201,7 +11296,7 @@ export default function SignInForm({
   onSwitchToSignUp: () => void;
 }) {
   const navigate = useNavigate();
-  const { isPending } = authClient.useSession();
+  const { isPending, refetch } = authClient.useSession();
 {{#if (includes addons "turnstile")}}
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
   const [turnstileResetKey, setTurnstileResetKey] = useState(0);
@@ -11222,7 +11317,8 @@ export default function SignInForm({
 {{/if}}
         },
         {
-          onSuccess: () => {
+          onSuccess: async () => {
+            await refetch();
             navigate("/dashboard");
             toast.success("Sign in successful");
           },
@@ -11364,7 +11460,7 @@ export default function SignUpForm({
   onSwitchToSignIn: () => void;
 }) {
   const navigate = useNavigate();
-  const { isPending } = authClient.useSession();
+  const { isPending, refetch } = authClient.useSession();
 {{#if (includes addons "turnstile")}}
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
   const [turnstileResetKey, setTurnstileResetKey] = useState(0);
@@ -11387,7 +11483,8 @@ export default function SignUpForm({
 {{/if}}
         },
         {
-          onSuccess: () => {
+          onSuccess: async () => {
+            await refetch();
             navigate("/dashboard");
             toast.success("Sign up successful");
           },
@@ -11595,9 +11692,6 @@ export default function UserMenu() {
 }
 `],
   ["auth/better-auth/web/react/react-router/src/routes/dashboard.tsx.hbs", `{{#if (eq payments "polar")}}
-import type { CustomerState } from "@polar-sh/sdk/models/components/customerstate";
-{{/if}}
-{{#if (eq payments "polar")}}
 import { Button } from "@{{projectName}}/ui/components/button";
 {{/if}}
 import { authClient } from "@/lib/auth-client";
@@ -11610,45 +11704,44 @@ import { trpc } from "@/utils/trpc";
 {{#if (or (eq api "orpc") (eq api "trpc"))}}
 import { useQuery } from "@tanstack/react-query";
 {{/if}}
-import { useEffect, useState } from "react";
-import { useNavigate } from "react-router";
+import type { BetterFetchOption } from "better-auth/client";
+import { redirect } from "react-router";
+import type { Route } from "./+types/dashboard";
 
-export default function Dashboard() {
-  const { data: session, isPending } = authClient.useSession();
-  const navigate = useNavigate();
-  {{#if (eq payments "polar")}}
-  const [customerState, setCustomerState] = useState<CustomerState | null>(null);
-  {{/if}}
+{{#if (and (eq webDeploy serverDeploy) (or (eq webDeploy "vercel") (eq webDeploy "docker")))}}
+export async function loader({ request }: Route.LoaderArgs) {
+{{else}}
+export async function clientLoader({ request }: Route.ClientLoaderArgs) {
+{{/if}}
+  const fetchOptions = {
+    signal: request.signal,
+{{#if (and (eq webDeploy serverDeploy) (or (eq webDeploy "vercel") (eq webDeploy "docker")))}}
+    headers: { cookie: request.headers.get("cookie") ?? "" },
+{{/if}}
+    throw: true,
+  } satisfies BetterFetchOption;
+  const session = await authClient.getSession({ fetchOptions });
+  if (!session) throw redirect("/login");
+{{#if (eq payments "polar")}}
+  const customerState = await authClient.customer.state({ fetchOptions });
+{{/if}}
+  return { user: session.user{{#if (eq payments "polar")}}, customerState{{/if}} };
+}
 
-  {{#if (eq api "orpc")}}
+{{#unless (and (eq webDeploy serverDeploy) (or (eq webDeploy "vercel") (eq webDeploy "docker")))}}
+export function HydrateFallback() {
+  return <div>Loading...</div>;
+}
+
+{{/unless}}
+export default function Dashboard({ loaderData }: Route.ComponentProps) {
+  const { user{{#if (eq payments "polar")}}, customerState{{/if}} } = loaderData;
+{{#if (eq api "orpc")}}
   const privateData = useQuery(orpc.privateData.queryOptions());
-  {{/if}}
-  {{#if (eq api "trpc")}}
+{{/if}}
+{{#if (eq api "trpc")}}
   const privateData = useQuery(trpc.privateData.queryOptions());
-  {{/if}}
-
-  useEffect(() => {
-    if (!session && !isPending) {
-      navigate("/login");
-    }
-  }, [session, isPending, navigate]);
-
-  {{#if (eq payments "polar")}}
-  useEffect(() => {
-    async function fetchCustomerState() {
-      if (session) {
-        const { data } = await authClient.customer.state();
-        setCustomerState(data ?? null);
-      }
-    }
-
-    fetchCustomerState();
-  }, [session]);
-  {{/if}}
-
-  if (isPending) {
-    return <div>Loading...</div>;
-  }
+{{/if}}
 
   {{#if (eq payments "polar")}}
   const hasProSubscription = (customerState?.activeSubscriptions?.length ?? 0) > 0;
@@ -11657,7 +11750,7 @@ export default function Dashboard() {
   return (
     <div>
       <h1>Dashboard</h1>
-      <p>Welcome {session?.user.name}</p>
+      <p>Welcome {user.name}</p>
       {{#if (or (eq api "orpc") (eq api "trpc"))}}
       <p>API: {privateData.data?.message}</p>
       {{/if}}
@@ -12812,7 +12905,7 @@ function RouteComponent() {
 }
 `],
   ["auth/better-auth/web/solid/src/components/sign-in-form.tsx.hbs", `import { useNavigate } from "@solidjs/router";
-import { createSignal, Show } from "solid-js";{{#if (includes addons "turnstile")}}
+import { createSignal, onSettled, Show } from "solid-js";{{#if (includes addons "turnstile")}}
 import Turnstile from "./Turnstile";{{/if}}
 import { authClient } from "~/lib/auth-client";
 import z from "zod";
@@ -12825,7 +12918,11 @@ const signInSchema = z.object({
 export default function SignInForm({ onSwitchToSignUp }: { onSwitchToSignUp: () => void }) {
   const navigate = useNavigate();
   const [error, setError] = createSignal<string>();
-  const [isSubmitting, setIsSubmitting] = createSignal(false);{{#if (includes addons "turnstile")}}
+  const [isSubmitting, setIsSubmitting] = createSignal(false);
+  const [hydrated, setHydrated] = createSignal(false);
+  onSettled(() => {
+    setHydrated(true);
+  });{{#if (includes addons "turnstile")}}
 
   const [turnstileToken, setTurnstileToken] = createSignal<string | null>(null);
   const [turnstileResetKey, setTurnstileResetKey] = createSignal(0);{{/if}}
@@ -12872,7 +12969,7 @@ export default function SignInForm({ onSwitchToSignUp }: { onSwitchToSignUp: () 
   return (
     <div class="mx-auto mt-10 w-full max-w-md p-6">
       <h1 class="mb-6 text-center text-3xl font-bold">Welcome Back</h1>
-      <form onSubmit={submit} class="space-y-4">
+      <form method="post" onSubmit={submit} class="space-y-4">
         <div class="space-y-2">
           <label for="email">Email</label>
           <input id="email" name="email" type="email" required class="w-full rounded border p-2" />
@@ -12898,7 +12995,7 @@ export default function SignInForm({ onSwitchToSignUp }: { onSwitchToSignUp: () 
         <button
           type="submit"
           class="w-full rounded bg-indigo-600 p-2 text-white hover:bg-indigo-700 disabled:opacity-50"
-          disabled={{#if (includes addons "turnstile")}}{isSubmitting() || !turnstileToken()}{{else}}{isSubmitting()}{{/if}}
+          disabled={{#if (includes addons "turnstile")}}{!hydrated() || isSubmitting() || !turnstileToken()}{{else}}{!hydrated() || isSubmitting()}{{/if}}
         >
           {isSubmitting() ? "Submitting..." : "Sign In"}
         </button>
@@ -12917,7 +13014,7 @@ export default function SignInForm({ onSwitchToSignUp }: { onSwitchToSignUp: () 
 }
 `],
   ["auth/better-auth/web/solid/src/components/sign-up-form.tsx.hbs", `import { useNavigate } from "@solidjs/router";
-import { createSignal, Show } from "solid-js";{{#if (includes addons "turnstile")}}
+import { createSignal, onSettled, Show } from "solid-js";{{#if (includes addons "turnstile")}}
 import Turnstile from "./Turnstile";{{/if}}
 import { authClient } from "~/lib/auth-client";
 import z from "zod";
@@ -12931,7 +13028,11 @@ const signUpSchema = z.object({
 export default function SignUpForm({ onSwitchToSignIn }: { onSwitchToSignIn: () => void }) {
   const navigate = useNavigate();
   const [error, setError] = createSignal<string>();
-  const [isSubmitting, setIsSubmitting] = createSignal(false);{{#if (includes addons "turnstile")}}
+  const [isSubmitting, setIsSubmitting] = createSignal(false);
+  const [hydrated, setHydrated] = createSignal(false);
+  onSettled(() => {
+    setHydrated(true);
+  });{{#if (includes addons "turnstile")}}
 
   const [turnstileToken, setTurnstileToken] = createSignal<string | null>(null);
   const [turnstileResetKey, setTurnstileResetKey] = createSignal(0);{{/if}}
@@ -12978,7 +13079,7 @@ export default function SignUpForm({ onSwitchToSignIn }: { onSwitchToSignIn: () 
   return (
     <div class="mx-auto mt-10 w-full max-w-md p-6">
       <h1 class="mb-6 text-center text-3xl font-bold">Create Account</h1>
-      <form onSubmit={submit} class="space-y-4">
+      <form method="post" onSubmit={submit} class="space-y-4">
         <div class="space-y-2">
           <label for="name">Name</label>
           <input id="name" name="name" minlength="2" required class="w-full rounded border p-2" />
@@ -13008,7 +13109,7 @@ export default function SignUpForm({ onSwitchToSignIn }: { onSwitchToSignIn: () 
         <button
           type="submit"
           class="w-full rounded bg-indigo-600 p-2 text-white hover:bg-indigo-700 disabled:opacity-50"
-          disabled={{#if (includes addons "turnstile")}}{isSubmitting() || !turnstileToken()}{{else}}{isSubmitting()}{{/if}}
+          disabled={{#if (includes addons "turnstile")}}{!hydrated() || isSubmitting() || !turnstileToken()}{{else}}{!hydrated() || isSubmitting()}{{/if}}
         >
           {isSubmitting() ? "Submitting..." : "Sign Up"}
         </button>
@@ -13088,7 +13189,12 @@ import { createSignal, onSettled } from "solid-js";
 export { authClient };
 
 export function useSession() {
-	const [session, setSession] = createSignal(authClient.useSession.get());
+	// Start from the pending state the server rendered so hydration matches, then follow the store
+	const [session, setSession] = createSignal<ReturnType<typeof authClient.useSession.get>>({
+		...authClient.useSession.get(),
+		data: null,
+		isPending: true,
+	});
 	onSettled(() => authClient.useSession.subscribe(setSession));
 	return session;
 }
@@ -13186,11 +13292,18 @@ export default function Login() {
 `],
   ["auth/better-auth/web/svelte/src/components/SignInForm.svelte.hbs", `<script lang="ts">
 	import { createForm } from '@tanstack/svelte-form';
+	import { onMount } from 'svelte';
 	import { z } from 'zod';
-	import { authClient } from '$lib/auth-client';
+	import { authClient } from '#lib/auth-client.ts';
 	import { goto } from '$app/navigation';{{#if (includes addons "turnstile")}}
 	import { PUBLIC_TURNSTILE_SITE_KEY } from '$env/static/public';
 	import Turnstile from './Turnstile.svelte';{{/if}}
+
+	const session = authClient.useSession();
+	let mounted = $state(false);
+	onMount(() => {
+		mounted = true;
+	});
 
 	let { switchToSignUp } = $props<{ switchToSignUp: () => void }>();{{#if (includes addons "turnstile")}}
 
@@ -13215,7 +13328,10 @@ export default function Login() {
 					},{{else}}
 					{ email: value.email, password: value.password },{{/if}}
 					{
-						onSuccess: () => goto('/dashboard'),
+						onSuccess: async () => {
+							await $session.refetch();
+							await goto('/dashboard');
+						},
 						onError: (error) => {
 							console.log(error.error.message || 'Sign in failed. Please try again.');{{#if (includes addons "turnstile")}}
 							turnstileToken = null;
@@ -13237,6 +13353,7 @@ export default function Login() {
 	<h1 class="mb-6 text-center font-bold text-3xl">Welcome Back</h1>
 
 	<form
+		method="post"
 		class="space-y-4"
 		onsubmit={(e) => {
 			e.preventDefault();
@@ -13244,74 +13361,70 @@ export default function Login() {
 			form.handleSubmit();
 		}}
 	>
-		<form.Field name="email">
-			{#snippet children(field)}
-				<div class="space-y-1">
-					<label for={field.name}>Email</label>
-					<input
-						id={field.name}
-						name={field.name}
-						type="email"
-						class="w-full border"
-						onblur={field.handleBlur}
-						value={field.state.value}
-						oninput={(e: Event) => {
-							const target = e.target as HTMLInputElement;
-							field.handleChange(target.value);
-						}}
-					/>
-					{#if field.state.meta.isTouched}
-						{#each field.state.meta.errors as error}
-							<p class="text-sm text-red-500" role="alert">{error}</p>
-						{/each}
-					{/if}
-				</div>
-			{/snippet}
-		</form.Field>
+		<fieldset class="space-y-4" disabled={!mounted}>
+			<form.Field name="email">
+				{#snippet children(field)}
+					<div class="space-y-1">
+						<label for={field.name}>Email</label>
+						<input
+							id={field.name}
+							name={field.name}
+							type="email"
+							class="w-full border"
+							onblur={field.handleBlur}
+							value={field.state.value}
+							oninput={(e) => field.handleChange(e.currentTarget.value)}
+						/>
+						{#if field.state.meta.isTouched}
+							{#each field.state.meta.errors as error}
+								<p class="text-sm text-red-500" role="alert">{error?.message}</p>
+							{/each}
+						{/if}
+					</div>
+				{/snippet}
+			</form.Field>
 
-		<form.Field name="password">
-			{#snippet children(field)}
-				<div class="space-y-1">
-					<label for={field.name}>Password</label>
-					<input
-						id={field.name}
-						name={field.name}
-						type="password"
-						class="w-full border"
-						onblur={field.handleBlur}
-						value={field.state.value}
-						oninput={(e: Event) => {
-							const target = e.target as HTMLInputElement;
-							field.handleChange(target.value);
-						}}
-					/>
-					{#if field.state.meta.isTouched}
-						{#each field.state.meta.errors as error}
-							<p class="text-sm text-red-500" role="alert">{error}</p>
-						{/each}
-					{/if}
-				</div>
-			{/snippet}
-		</form.Field>{{#if (includes addons "turnstile")}}
+			<form.Field name="password">
+				{#snippet children(field)}
+					<div class="space-y-1">
+						<label for={field.name}>Password</label>
+						<input
+							id={field.name}
+							name={field.name}
+							type="password"
+							class="w-full border"
+							onblur={field.handleBlur}
+							value={field.state.value}
+							oninput={(e) => field.handleChange(e.currentTarget.value)}
+						/>
+						{#if field.state.meta.isTouched}
+							{#each field.state.meta.errors as error}
+								<p class="text-sm text-red-500" role="alert">{error?.message}</p>
+							{/each}
+						{/if}
+					</div>
+				{/snippet}
+			</form.Field>{{#if (includes addons "turnstile")}}
 
-		<Turnstile
-			siteKey={PUBLIC_TURNSTILE_SITE_KEY}
-			action="sign-in"
-			onToken={(t) => (turnstileToken = t)}
-			resetKey={turnstileResetKey}
-		/>{{/if}}
+			<Turnstile
+				siteKey={PUBLIC_TURNSTILE_SITE_KEY}
+				action="sign-in"
+				onToken={(t) => (turnstileToken = t)}
+				resetKey={turnstileResetKey}
+			/>{{/if}}
 
-		<form.Subscribe selector={(state: typeof form.state): SubmitState => ({ canSubmit: state.canSubmit, isSubmitting: state.isSubmitting })}>
-			{#snippet children(state: SubmitState)}
-				<button type="submit" class="w-full" disabled={{#if (includes addons "turnstile")}}{!state.canSubmit || state.isSubmitting || !turnstileToken}{{else}}{!state.canSubmit || state.isSubmitting}{{/if}}>
-					{state.isSubmitting ? 'Submitting...' : 'Sign In'}
-				</button>
-			{/snippet}
-		</form.Subscribe>
+			<form.Subscribe selector={(state: typeof form.state): SubmitState => ({ canSubmit: state.canSubmit, isSubmitting: state.isSubmitting })}>
+				{#snippet children(state: SubmitState)}
+					<button type="submit" class="w-full" disabled={{#if (includes addons "turnstile")}}{!state.canSubmit || state.isSubmitting || !turnstileToken}{{else}}{!state.canSubmit || state.isSubmitting}{{/if}}>
+						{state.isSubmitting ? 'Submitting...' : 'Sign In'}
+					</button>
+				{/snippet}
+			</form.Subscribe>
+		</fieldset>
 	</form>
 
 	<div class="mt-4 text-center">
-		<button type="button" class="text-indigo-600 hover:text-indigo-800" onclick={switchToSignUp}>
+		<button type="button" class="text-indigo-600 hover:text-indigo-800" disabled={!mounted} onclick={switchToSignUp}>
 			Need an account? Sign Up
 		</button>
 	</div>
@@ -13319,11 +13432,18 @@ export default function Login() {
 `],
   ["auth/better-auth/web/svelte/src/components/SignUpForm.svelte.hbs", `<script lang="ts">
 	import { createForm } from '@tanstack/svelte-form';
+	import { onMount } from 'svelte';
 	import { z } from 'zod';
-	import { authClient } from '$lib/auth-client';
+	import { authClient } from '#lib/auth-client.ts';
 	import { goto } from '$app/navigation';{{#if (includes addons "turnstile")}}
 	import { PUBLIC_TURNSTILE_SITE_KEY } from '$env/static/public';
 	import Turnstile from './Turnstile.svelte';{{/if}}
+
+	const session = authClient.useSession();
+	let mounted = $state(false);
+	onMount(() => {
+		mounted = true;
+	});
 
 	let { switchToSignIn } = $props<{ switchToSignIn: () => void }>();{{#if (includes addons "turnstile")}}
 
@@ -13350,8 +13470,9 @@ export default function Login() {
 							: undefined,{{/if}}
 					},
 					{
-						onSuccess: () => {
-							goto('/dashboard');
+						onSuccess: async () => {
+							await $session.refetch();
+							await goto('/dashboard');
 						},
 						onError: (error) => {
 							console.log(error.error.message || 'Sign up failed. Please try again.');{{#if (includes addons "turnstile")}}
@@ -13374,6 +13495,7 @@ export default function Login() {
 	<h1 class="mb-6 text-center font-bold text-3xl">Create Account</h1>
 
 	<form
+		method="post"
 		id="form"
 		class="space-y-4"
 		onsubmit={(e) => {
@@ -13382,105 +13504,98 @@ export default function Login() {
 			form.handleSubmit();
 		}}
 	>
-		<form.Field name="name">
-			{#snippet children(field)}
-				<div class="space-y-1">
-					<label for={field.name}>Name</label>
-					<input
-						id={field.name}
-						name={field.name}
-						class="w-full border"
-						onblur={field.handleBlur}
-						value={field.state.value}
-						oninput={(e: Event) => {
-							const target = e.target as HTMLInputElement;
-							field.handleChange(target.value);
-						}}
-					/>
-					{#if field.state.meta.isTouched}
-						{#each field.state.meta.errors as error}
-							<p class="text-sm text-red-500" role="alert">{error}</p>
-						{/each}
-					{/if}
-				</div>
-			{/snippet}
-		</form.Field>
+		<fieldset class="space-y-4" disabled={!mounted}>
+			<form.Field name="name">
+				{#snippet children(field)}
+					<div class="space-y-1">
+						<label for={field.name}>Name</label>
+						<input
+							id={field.name}
+							name={field.name}
+							class="w-full border"
+							onblur={field.handleBlur}
+							value={field.state.value}
+							oninput={(e) => field.handleChange(e.currentTarget.value)}
+						/>
+						{#if field.state.meta.isTouched}
+							{#each field.state.meta.errors as error}
+								<p class="text-sm text-red-500" role="alert">{error?.message}</p>
+							{/each}
+						{/if}
+					</div>
+				{/snippet}
+			</form.Field>
 
-		<form.Field name="email">
-			{#snippet children(field)}
-				<div class="space-y-1">
-					<label for={field.name}>Email</label>
-					<input
-						id={field.name}
-						name={field.name}
-						type="email"
-						class="w-full border"
-						onblur={field.handleBlur}
-						value={field.state.value}
-						oninput={(e: Event) => {
-							const target = e.target as HTMLInputElement;
-							field.handleChange(target.value);
-						}}
-					/>
-					{#if field.state.meta.isTouched}
-						{#each field.state.meta.errors as error}
-							<p class="text-sm text-red-500" role="alert">{error}</p>
-						{/each}
-					{/if}
-				</div>
-			{/snippet}
-		</form.Field>
+			<form.Field name="email">
+				{#snippet children(field)}
+					<div class="space-y-1">
+						<label for={field.name}>Email</label>
+						<input
+							id={field.name}
+							name={field.name}
+							type="email"
+							class="w-full border"
+							onblur={field.handleBlur}
+							value={field.state.value}
+							oninput={(e) => field.handleChange(e.currentTarget.value)}
+						/>
+						{#if field.state.meta.isTouched}
+							{#each field.state.meta.errors as error}
+								<p class="text-sm text-red-500" role="alert">{error?.message}</p>
+							{/each}
+						{/if}
+					</div>
+				{/snippet}
+			</form.Field>
 
-		<form.Field name="password">
-			{#snippet children(field)}
-				<div class="space-y-1">
-					<label for={field.name}>Password</label>
-					<input
-						id={field.name}
-						name={field.name}
-						type="password"
-						class="w-full border"
-						onblur={field.handleBlur}
-						value={field.state.value}
-						oninput={(e: Event) => {
-							const target = e.target as HTMLInputElement;
-							field.handleChange(target.value);
-						}}
-					/>
-					{#if field.state.meta.isTouched}
-						{#each field.state.meta.errors as error}
-							<p class="text-sm text-red-500" role="alert">{error}</p>
-						{/each}
-					{/if}
-				</div>
-			{/snippet}
-		</form.Field>{{#if (includes addons "turnstile")}}
+			<form.Field name="password">
+				{#snippet children(field)}
+					<div class="space-y-1">
+						<label for={field.name}>Password</label>
+						<input
+							id={field.name}
+							name={field.name}
+							type="password"
+							class="w-full border"
+							onblur={field.handleBlur}
+							value={field.state.value}
+							oninput={(e) => field.handleChange(e.currentTarget.value)}
+						/>
+						{#if field.state.meta.isTouched}
+							{#each field.state.meta.errors as error}
+								<p class="text-sm text-red-500" role="alert">{error?.message}</p>
+							{/each}
+						{/if}
+					</div>
+				{/snippet}
+			</form.Field>{{#if (includes addons "turnstile")}}
 
-		<Turnstile
-			siteKey={PUBLIC_TURNSTILE_SITE_KEY}
-			action="sign-up"
-			onToken={(t) => (turnstileToken = t)}
-			resetKey={turnstileResetKey}
-		/>{{/if}}
+			<Turnstile
+				siteKey={PUBLIC_TURNSTILE_SITE_KEY}
+				action="sign-up"
+				onToken={(t) => (turnstileToken = t)}
+				resetKey={turnstileResetKey}
+			/>{{/if}}
 
-		<form.Subscribe selector={(state: typeof form.state): SubmitState => ({ canSubmit: state.canSubmit, isSubmitting: state.isSubmitting })}>
-			{#snippet children(state: SubmitState)}
-				<button type="submit" class="w-full" disabled={{#if (includes addons "turnstile")}}{!state.canSubmit || state.isSubmitting || !turnstileToken}{{else}}{!state.canSubmit || state.isSubmitting}{{/if}}>
-					{state.isSubmitting ? 'Submitting...' : 'Sign Up'}
-				</button>
-			{/snippet}
-		</form.Subscribe>
+			<form.Subscribe selector={(state: typeof form.state): SubmitState => ({ canSubmit: state.canSubmit, isSubmitting: state.isSubmitting })}>
+				{#snippet children(state: SubmitState)}
+					<button type="submit" class="w-full" disabled={{#if (includes addons "turnstile")}}{!state.canSubmit || state.isSubmitting || !turnstileToken}{{else}}{!state.canSubmit || state.isSubmitting}{{/if}}>
+						{state.isSubmitting ? 'Submitting...' : 'Sign Up'}
+					</button>
+				{/snippet}
+			</form.Subscribe>
+		</fieldset>
 	</form>
 
 	<div class="mt-4 text-center">
-		<button type="button" class="text-indigo-600 hover:text-indigo-800" onclick={switchToSignIn}>
+		<button type="button" class="text-indigo-600 hover:text-indigo-800" disabled={!mounted} onclick={switchToSignIn}>
 			Already have an account? Sign In
 		</button>
 	</div>
 </div>
 `],
   ["auth/better-auth/web/svelte/src/components/UserMenu.svelte.hbs", `<script lang="ts">
-	import { authClient } from '$lib/auth-client';
+	import { authClient } from '#lib/auth-client.ts';
 	import { goto } from '$app/navigation';
 
 	const sessionQuery = authClient.useSession();
@@ -13547,7 +13662,7 @@ import { polarClient } from "@polar-sh/better-auth/client";
 export const authClient = createAuthClient({
 {{#unless (eq backend "self")}}
 {{#if (and (eq webDeploy serverDeploy) (or (eq webDeploy "vercel") (eq webDeploy "docker")))}}
-  baseURL: new URL("/api/auth", getServerUrl(ENV.PUBLIC_SERVER_URL)).toString(),
+  baseURL: {{#if (eq webDeploy "vercel")}}\`\${getServerUrl(ENV.PUBLIC_SERVER_URL)}/auth\`{{else}}new URL("/api/auth", getServerUrl(ENV.PUBLIC_SERVER_URL)).toString(){{/if}},
 {{else}}
   baseURL: ENV.PUBLIC_SERVER_URL,
 {{/if}}
@@ -13558,57 +13673,30 @@ export const authClient = createAuthClient({
 });
 `],
   ["auth/better-auth/web/svelte/src/routes/dashboard/+page.svelte.hbs", `<script lang="ts">
-{{#if (eq payments "polar")}}
-import type { CustomerState } from "@polar-sh/sdk/models/components/customerstate";
-{{/if}}
-
-	import { goto } from '$app/navigation';
-	import { authClient } from '$lib/auth-client';
+	import type { PageProps } from './$types';
+	{{#if (eq payments "polar")}}
+	import { authClient } from '#lib/auth-client.ts';
+	{{/if}}
 	{{#if (eq api "orpc")}}
-	import { orpc } from '$lib/orpc';
+	import { orpc } from '#lib/orpc.ts';
 	import { createQuery } from '@tanstack/svelte-query';
 	{{/if}}
-	{{#if (eq payments "polar")}}
-	let customerState = $state<CustomerState | null>(null);
-	{{/if}}
-
-	const sessionQuery = authClient.useSession();
+	let { data }: PageProps = $props();
 
 	{{#if (eq api "orpc")}}
 	const privateDataQuery = createQuery(() => orpc.privateData.queryOptions());
 	{{/if}}
-
-	$effect(() => {
-		if (!$sessionQuery.isPending && !$sessionQuery.data) {
-			goto('/login');
-		}
-	});
-
-	{{#if (eq payments "polar")}}
-	$effect(() => {
-		if ($sessionQuery.data) {
-			authClient.customer.state().then(({ data }) => {
-				customerState = data ?? null;
-			});
-		}
-	});
-	{{/if}}
 </script>
 
-{#if $sessionQuery.isPending}
-	<div>Loading...</div>
-{:else if !$sessionQuery.data}
-	<div>Redirecting to login...</div>
-{:else}
 	<div>
 		<h1>Dashboard</h1>
-		<p>Welcome {$sessionQuery.data.user.name}</p>
+		<p>Welcome {data.user.name}</p>
 		{{#if (eq api "orpc")}}
 		<p>API: {privateDataQuery.data?.message}</p>
 		{{/if}}
 		{{#if (eq payments "polar")}}
-		<p>Plan: {(customerState?.activeSubscriptions?.length ?? 0) > 0 ? "Pro" : "Free"}</p>
-		{#if (customerState?.activeSubscriptions?.length ?? 0) > 0}
+		<p>Plan: {(data.customerState?.activeSubscriptions?.length ?? 0) > 0 ? "Pro" : "Free"}</p>
+		{#if (data.customerState?.activeSubscriptions?.length ?? 0) > 0}
 			<button onclick={async () => await authClient.customer.portal()}>
 				Manage Subscription
 			</button>
@@ -13619,7 +13707,6 @@ import type { CustomerState } from "@polar-sh/sdk/models/components/customerstat
 		{/if}
 		{{/if}}
 	</div>
-{/if}
 `],
   ["auth/better-auth/web/svelte/src/routes/login/+page.svelte.hbs", `<script lang="ts">
 	import SignInForm from '../../components/SignInForm.svelte';
@@ -15299,9 +15386,10 @@ See https://docs.convex.dev/functions for more.
 A query function that takes two arguments looks like:
 
 \`\`\`ts
+import { v } from "convex/values";
+
 // convex/myFunctions.ts
 import { query } from "./_generated/server";
-import { v } from "convex/values";
 
 export const myQueryFunction = query({
   // Validators for arguments.
@@ -15338,9 +15426,10 @@ const data = useQuery(api.myFunctions.myQueryFunction, {
 A mutation function looks like:
 
 \`\`\`ts
+import { v } from "convex/values";
+
 // convex/myFunctions.ts
 import { mutation } from "./_generated/server";
-import { v } from "convex/values";
 
 export const myMutationFunction = mutation({
   // Validators for arguments.
@@ -16316,6 +16405,206 @@ export default app;
 {{/if}}
 {{/if}}
 `],
+  ["backend/server/nitro/ai/server/routes/ai.post.ts.hbs", `import { devToolsMiddleware } from "@ai-sdk/devtools";
+import { google } from "@ai-sdk/google";
+import {
+  convertToModelMessages,
+  createUIMessageStreamResponse,
+  streamText,
+  toUIMessageStream,
+  type UIMessage,
+  wrapLanguageModel,
+} from "ai";
+import { defineHandler } from "nitro";
+
+export default defineHandler(async (event) => {
+  const { messages = [] } = (await event.req.json()) as { messages?: UIMessage[] };
+  const model = wrapLanguageModel({
+    model: google("gemini-2.5-flash"),
+    middleware: devToolsMiddleware(),
+  });
+  const result = streamText({
+    model,
+    messages: await convertToModelMessages(messages),
+  });
+
+  return createUIMessageStreamResponse({
+    stream: toUIMessageStream({ stream: result.stream }),
+  });
+});
+`],
+  ["backend/server/nitro/base/_gitignore", `.data
+.nitro
+.cache
+.output
+.wrangler
+`],
+  ["backend/server/nitro/base/nitro.config.ts.hbs", `import { defineConfig } from "nitro";
+
+export default defineConfig({
+{{#if (eq runtime "workers")}}
+  defaultPreset: "cloudflare_module",
+{{else}}
+  defaultPreset: "{{runtime}}",
+{{/if}}
+  serverDir: "./server",
+{{#if (eq runtime "workers")}}
+  cloudflare: {
+    nodeCompat: true,
+  },
+{{/if}}
+});
+`],
+  ["backend/server/nitro/base/package.json.hbs", `{
+  "name": "server",
+  "type": "module",
+  "scripts": {
+    "build": "nitro build",
+    "check-types": "tsc --noEmit"
+  },
+  "dependencies": {},
+  {{#if (eq dbSetup 'supabase')}}
+  "trustedDependencies": [
+    "supabase"
+  ],
+  {{/if}}
+  "devDependencies": {}
+}
+`],
+  ["backend/server/nitro/base/server/middleware/cors.ts.hbs", `import { ENV } from "../../src/env.server";
+import { defineHandler } from "nitro";
+import { handleCors } from "nitro/h3";
+
+export default defineHandler((event) => {
+  const response = handleCors(event, {
+    origin: [ENV.CORS_ORIGIN],
+    methods: ["GET", "POST", "OPTIONS"],
+{{#if (or (eq auth "better-auth") (eq auth "clerk"))}}
+    allowHeaders: ["Content-Type", "Authorization"],
+{{/if}}
+{{#if (eq auth "better-auth")}}
+    credentials: true,
+{{/if}}
+  });
+
+  if (response !== false) return response;
+  return undefined;
+});
+`],
+  ["backend/server/nitro/base/server/routes/index.get.ts.hbs", `import { defineHandler } from "nitro";
+
+export default defineHandler(() => "OK");
+`],
+  ["backend/server/nitro/base/tsconfig.json.hbs", `{
+  "extends": ["@{{projectName}}/config/tsconfig.base.json", "nitro/tsconfig"],
+  "compilerOptions": {
+    "composite": false,
+    "noEmit": true{{#if (or (eq runtime "workers") (eq serverDeploy "cloudflare"))}},
+    "types": ["node"]{{/if}}
+  }
+}
+`],
+  ["backend/server/nitro/better-auth/server/routes/api/auth/[...all].ts.hbs", `{{#if (or (eq runtime "workers") (eq serverDeploy "cloudflare"))}}
+import { createAuth } from "@{{projectName}}/auth";
+{{else}}
+import { auth } from "@{{projectName}}/auth";
+{{/if}}
+import { defineHandler } from "nitro";
+
+export default defineHandler(
+  {{#if (or (eq runtime "workers") (eq serverDeploy "cloudflare"))}}async (event) => (await createAuth()).handler(event.req as Request){{else}}(event) => auth.handler(event.req){{/if}},
+);
+`],
+  ["backend/server/nitro/native-polar/server/routes/polar/success.get.ts.hbs", `import { defineHandler } from "nitro";
+
+const nativeAppUrl = "{{projectName}}://";
+const allowedNativeProtocols = new Set(["exp:", new URL(nativeAppUrl).protocol]);
+
+export default defineHandler((event) => {
+  const requestUrl = new URL(event.req.url);
+  const returnUrl = requestUrl.searchParams.get("returnUrl") || nativeAppUrl;
+
+  let redirectUrl: URL;
+  try {
+    redirectUrl = new URL(returnUrl);
+  } catch {
+    return new Response("Invalid return URL", { status: 400 });
+  }
+
+  if (!allowedNativeProtocols.has(redirectUrl.protocol)) {
+    return new Response("Invalid return URL", { status: 400 });
+  }
+
+  return Response.redirect(redirectUrl, 302);
+});
+`],
+  ["backend/server/nitro/orpc/server/routes/api-reference/[...].ts.hbs", `import { createContext } from "@{{projectName}}/api/context";
+import { appRouter } from "@{{projectName}}/api/routers/index";
+import { OpenAPIHandler } from "@orpc/openapi/fetch";
+import { OpenAPIReferencePlugin } from "@orpc/openapi/plugins";
+import { onError } from "@orpc/server";
+import { ZodToJsonSchemaConverter } from "@orpc/zod/zod4";
+import { defineHandler } from "nitro";
+
+const handler = new OpenAPIHandler(appRouter, {
+  plugins: [
+    new OpenAPIReferencePlugin({
+      schemaConverters: [new ZodToJsonSchemaConverter()],
+    }),
+  ],
+  interceptors: [
+    onError((error) => {
+      console.error(error);
+    }),
+  ],
+});
+
+export default defineHandler(async (event) => {
+  const result = await handler.handle(event.req as Request, {
+    prefix: "/api-reference",
+    context: await createContext({ request: event.req as Request }),
+  });
+
+  return result.response ?? new Response("Not Found", { status: 404 });
+});
+`],
+  ["backend/server/nitro/orpc/server/routes/rpc/[...].ts.hbs", `import { createContext } from "@{{projectName}}/api/context";
+import { appRouter } from "@{{projectName}}/api/routers/index";
+import { onError } from "@orpc/server";
+import { RPCHandler } from "@orpc/server/fetch";
+import { defineHandler } from "nitro";
+
+const handler = new RPCHandler(appRouter, {
+  interceptors: [
+    onError((error) => {
+      console.error(error);
+    }),
+  ],
+});
+
+export default defineHandler(async (event) => {
+  const result = await handler.handle(event.req as Request, {
+    prefix: "/rpc",
+    context: await createContext({ request: event.req as Request }),
+  });
+
+  return result.response ?? new Response("Not Found", { status: 404 });
+});
+`],
+  ["backend/server/nitro/trpc/server/routes/trpc/[...].ts.hbs", `import { createContext } from "@{{projectName}}/api/context";
+import { appRouter } from "@{{projectName}}/api/routers/index";
+import { fetchRequestHandler } from "@trpc/server/adapters/fetch";
+import { defineHandler } from "nitro";
+
+export default defineHandler((event) =>
+  fetchRequestHandler({
+    endpoint: "/trpc",
+    req: event.req as Request,
+    router: appRouter,
+    createContext: () => createContext({ request: event.req as Request }),
+  }),
+);
+`],
   ["base/_gitignore", `# Dependencies
 node_modules
 .pnp
@@ -16385,9 +16674,10 @@ temp
   ],
 {{#if (and (includes frontend "solid") (ne packageManager "pnpm"))}}
   "overrides": {
-    "@solidjs/signals": "2.0.0-rc.7",
-    "@solidjs/compiler": "2.0.0-rc.7",
-    "@solidjs/babel-plugin": "2.0.0-rc.7"
+    "solid-js": "2.0.0-rc.13",
+    "@solidjs/signals": "2.0.0-rc.13",
+    "@solidjs/compiler": "2.0.0-rc.13",
+    "@solidjs/babel-plugin": "2.0.0-rc.13"
   },
 {{/if}}
   "scripts": {}
@@ -17365,8 +17655,11 @@ services:
 {{#if (and (ne backend "self") (ne backend "none") (ne backend "convex"))}}
         - server_env
 {{/if}}
-{{#if (or (and (ne backend "self") (ne backend "none") (ne backend "convex")) (eq backend "convex") (and (eq auth "clerk") (or (includes frontend "next") (includes frontend "react-router") (includes frontend "tanstack-router") (includes frontend "tanstack-start"))))}}
+{{#if (or (includes frontend "svelte") (and (ne backend "self") (ne backend "none") (ne backend "convex")) (eq backend "convex") (and (eq auth "clerk") (or (includes frontend "next") (includes frontend "react-router") (includes frontend "tanstack-router") (includes frontend "tanstack-start"))))}}
       args:
+{{#if (includes frontend "svelte")}}
+        ORIGIN: \${ORIGIN:-http://localhost:3001}
+{{/if}}
 {{#if (and (ne backend "self") (ne backend "none") (ne backend "convex"))}}
         {{#if (includes frontend "next")}}NEXT_PUBLIC_SERVER_URL{{else if (includes frontend "nuxt")}}NUXT_PUBLIC_SERVER_URL{{else if (or (includes frontend "svelte") (includes frontend "astro"))}}PUBLIC_SERVER_URL{{else}}VITE_SERVER_URL{{/if}}: http://localhost:3000
 {{/if}}
@@ -17396,8 +17689,13 @@ services:
       AXIOM_EDGE_URL: \${AXIOM_EDGE_URL:?Set AXIOM_EDGE_URL}
 {{/if}}
 {{#if (eq auth "better-auth")}}
+{{#if (includes frontend "svelte")}}
+      BETTER_AUTH_URL: \${ORIGIN:-http://localhost:3001}
+      CORS_ORIGIN: \${ORIGIN:-http://localhost:3001}
+{{else}}
       BETTER_AUTH_URL: http://localhost:3001
       CORS_ORIGIN: http://localhost:3001
+{{/if}}
 {{/if}}
 {{#if (and (eq database "sqlite") (eq dbSetup "none"))}}
       DATABASE_URL: file:/data/local.db
@@ -17499,7 +17797,11 @@ services:
       AXIOM_EDGE_URL: \${AXIOM_EDGE_URL:?Set AXIOM_EDGE_URL}
 {{/if}}
 {{#if (eq webDeploy "docker")}}
+{{#if (includes frontend "svelte")}}
+      CORS_ORIGIN: \${ORIGIN:-http://localhost:3001}
+{{else}}
       CORS_ORIGIN: http://localhost:3001
+{{/if}}
 {{/if}}
 {{#if (and (eq database "sqlite") (eq dbSetup "none"))}}
       DATABASE_URL: file:/data/local.db
@@ -17649,15 +17951,27 @@ FROM node:24-slim AS runner
 {{/if}}
 WORKDIR /app
 ENV NODE_ENV=production
+{{#if (eq backend "nitro")}}
+COPY --from=builder /app/apps/server/.output ./
+{{else}}
 COPY --from=builder /app /app
+{{/if}}
 
 EXPOSE 3000
 
+{{#if (eq backend "nitro")}}
+{{#if (eq runtime "bun")}}
+CMD ["bun", "server/index.mjs"]
+{{else}}
+CMD ["node", "server/index.mjs"]
+{{/if}}
+{{else}}
 WORKDIR /app/apps/server
 {{#if (eq runtime "bun")}}
 CMD ["bun", "dist/index.mjs"]
 {{else}}
 CMD ["node", "dist/index.mjs"]
+{{/if}}
 {{/if}}
 `],
   ["deploy/docker/web/astro/Dockerfile.hbs", `FROM node:24-slim AS base
@@ -18034,7 +18348,12 @@ ENV PUBLIC_SERVER_URL=\${PUBLIC_SERVER_URL}
 ARG PUBLIC_CONVEX_URL
 ENV PUBLIC_CONVEX_URL=\${PUBLIC_CONVEX_URL}
 {{/if}}
+ARG ORIGIN=http://localhost:3001
+ENV ORIGIN=\${ORIGIN}
 ENV NODE_ENV=production
+{{#if (and (eq backend "self") (eq database "sqlite") (eq dbSetup "none"))}}
+RUN mkdir -p /app/.data
+{{/if}}
 RUN --mount=type=secret,id=web_env,target=/app/apps/web/.env.local --mount=type=secret,id=server_env,target=/app/apps/server/.env.local cd apps/web && {{packageManager}} run build
 {{#if (eq orm "prisma")}}
 ENV DATABASE_URL=
@@ -18323,6 +18642,10 @@ export async function getEnvAsync() {
 }
 
 export const ENV = createEnvProxy(resolveEnvValue);
+{{else if (and (eq backend "self") (eq webDeploy "cloudflare") (includes frontend "svelte"))}}
+/// <reference path="../cloudflare-env.d.ts" />
+export type { CloudflareEnv } from "../cloudflare-env.d.ts";
+export { env as ENV } from "cloudflare:workers";
 {{else if (usesRequestScopedCloudflareEnv backend webDeploy frontend)}}
 import type { CloudflareEnv } from "../cloudflare-env.d.ts";
 export type { CloudflareEnv } from "../cloudflare-env.d.ts";
@@ -25308,7 +25631,10 @@ import Layout from "../layouts/Layout.astro";
 </script>
 `],
   ["examples/todo/web/nuxt/app/pages/todos.vue.hbs", `<script setup lang="ts">
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
+
+const hydrated = ref(false)
+onMounted(() => { hydrated.value = true })
 {{#if (eq backend "convex")}}
 import { api } from "@{{ projectName }}/backend/convex/_generated/api";
 import type { Id } from "@{{ projectName }}/backend/convex/_generated/dataModel";
@@ -25403,16 +25729,19 @@ function handleDeleteTodo(id: number) {
           autocomplete="off"
           class="flex-1"
           {{#if (eq backend "convex")}}
-          :disabled="isCreatePending"
+          :disabled="!hydrated || isCreatePending"
+          {{else}}
+          :disabled="!hydrated"
           {{/if}}
         />
         <UButton
           type="submit"
           {{#if (eq backend "convex")}}
           :loading="isCreatePending"
-          :disabled="!newTodoText.trim()"
+          :disabled="!hydrated || !newTodoText.trim()"
           {{else}}
           :loading="createMutation.isPending.value"
+          :disabled="!hydrated || !newTodoText.trim()"
           {{/if}}
         >
           Add
@@ -25451,6 +25780,7 @@ function handleDeleteTodo(id: number) {
         >
           <div class="flex items-center gap-3">
             <UCheckbox
+              :disabled="!hydrated"
               :model-value="todo.completed"
               @update:model-value="() => handleToggleTodo(todo._id, todo.completed)"
               :id="\`todo-\${todo._id}\`"
@@ -25470,6 +25800,7 @@ function handleDeleteTodo(id: number) {
             square
             @click="handleDeleteTodo(todo._id)"
             aria-label="Delete todo"
+            :disabled="!hydrated"
             icon="i-lucide-trash-2"
           />
         </li>
@@ -25506,6 +25837,7 @@ function handleDeleteTodo(id: number) {
         >
           <div class="flex items-center gap-3">
             <UCheckbox
+              :disabled="!hydrated"
               :model-value="todo.completed"
               @update:model-value="() => handleToggleTodo(todo.id, todo.completed)"
               :id="\`todo-\${todo.id}\`"
@@ -25525,6 +25857,7 @@ function handleDeleteTodo(id: number) {
             square
             @click="handleDeleteTodo(todo.id)"
             aria-label="Delete todo"
+            :disabled="!hydrated"
             icon="i-lucide-trash-2"
           />
         </li>
@@ -26858,7 +27191,7 @@ export default function Todos() {
 {{else}}
 <script lang="ts">
 	{{#if (eq api "orpc")}}
-	import { orpc } from '$lib/orpc';
+	import { orpc } from '#lib/orpc.ts';
 	{{/if}}
 	import { createQuery, createMutation } from '@tanstack/svelte-query';
 
@@ -27017,7 +27350,19 @@ export default function Todos() {
 shamefully-hoist=true
 strict-peer-dependencies=false
 {{/if}}`],
-  ["extras/env.d.ts.hbs", `{{#if (eq serverDeploy "cloudflare")}}
+  ["extras/env.d.ts.hbs", `{{#if (and (eq backend "nitro") (eq serverDeploy "cloudflare"))}}
+type CloudflareEnv = import("@{{projectName}}/infra/alchemy.run").ServerEnv;
+type Env = CloudflareEnv;
+
+declare module "cloudflare:workers" {
+  export const env: CloudflareEnv;
+
+  namespace Cloudflare {
+    export interface Env extends CloudflareEnv {}
+  }
+}
+{{else}}
+{{#if (eq serverDeploy "cloudflare")}}
 import type { ServerEnv } from "@{{projectName}}/infra/alchemy.run";
 {{else}}
 import type { WebEnv as ServerEnv } from "@{{projectName}}/infra/alchemy.run";
@@ -27037,6 +27382,7 @@ declare module "cloudflare:workers" {
     export interface Env extends CloudflareEnv {}
   }
 }
+{{/if}}
 `],
   ["frontend/astro/_gitignore", `# build output
 dist/
@@ -31205,7 +31551,12 @@ const items = computed<NavigationMenuItem[]>(() => [
     <template #right>
       <UColorModeButton />
       {{#if (eq auth "better-auth")}}
-      <UserMenu />
+      <ClientOnly>
+        <UserMenu />
+        <template #fallback>
+          <USkeleton class="h-9 w-24" />
+        </template>
+      </ClientOnly>
       {{/if}}
     </template>
 
@@ -31330,7 +31681,27 @@ onServerPrefetch(async () => {
   </UContainer>
 </template>
 `],
-  ["frontend/nuxt/nuxt.config.ts.hbs", `{{#if (and (eq api "orpc") (ne backend "convex") (ne backend "none"))}}
+  ["frontend/nuxt/nuxt.config.ts.hbs", `{{#if (and (eq backend "self") (eq database "sqlite") (ne dbSetup "d1") (ne webDeploy "cloudflare") (or (eq orm "drizzle") (eq orm "prisma")))}}
+import { createRequire } from "node:module";
+import { z } from "zod";
+
+// libsql loads its platform binding by a computed name, which file tracing can't follow
+const libsqlRequire = createRequire(import.meta.resolve("libsql"));
+const libsqlPackage = z.object({
+  optionalDependencies: z.record(z.string(), z.string()),
+}).parse(libsqlRequire("./package.json"));
+const libsqlBindings = Object.keys(libsqlPackage.optionalDependencies).flatMap(
+  (name) => {
+    try {
+      return [libsqlRequire.resolve(name)];
+    } catch (error) {
+      if (error instanceof Error && "code" in error && error.code === "MODULE_NOT_FOUND") return [];
+      throw error;
+    }
+  },
+);
+{{/if}}
+{{#if (and (eq api "orpc") (ne backend "convex") (ne backend "none"))}}
 import { fileURLToPath } from "node:url";
 
 const apiReference = { path: fileURLToPath(new URL("../../packages/api", import.meta.url)) };
@@ -31385,11 +31756,33 @@ export default defineNuxtConfig({
     localApiEndpoint: "/_nuxt_icon",
   },
   {{/if}}
+{{#if (or (and (eq auth "better-auth") (ne backend "convex")) (and (eq api "orpc") (ne backend "convex") (ne backend "none")))}}
+  vite: {
+    optimizeDeps: {
+      include: [
+{{#if (and (eq auth "better-auth") (ne backend "convex"))}}
+        "better-auth/vue",
+        "zod",
+{{/if}}
+{{#if (and (eq api "orpc") (ne backend "convex") (ne backend "none"))}}
+        "@orpc/client",
+        "@orpc/client/fetch",
+        "@orpc/tanstack-query",
+        "@tanstack/vue-query",
+        "@tanstack/vue-query-devtools",
+{{/if}}
+      ],
+    },
+  },
+{{/if}}
   devServer: {
     port: 3001
   },
-  {{#if (or (and (eq api "orpc") (ne backend "convex") (ne backend "none")) (and (eq webDeploy "cloudflare") (eq backend "self") (eq orm "prisma")))}}
+  {{#if (or (and (eq api "orpc") (ne backend "convex") (ne backend "none")) (and (eq webDeploy "cloudflare") (eq backend "self") (eq orm "prisma")) (and (eq backend "self") (eq database "sqlite") (ne dbSetup "d1") (ne webDeploy "cloudflare") (or (eq orm "drizzle") (eq orm "prisma"))))}}
   nitro: {
+    {{#if (and (eq backend "self") (eq database "sqlite") (ne dbSetup "d1") (ne webDeploy "cloudflare") (or (eq orm "drizzle") (eq orm "prisma")))}}
+    externals: { traceInclude: libsqlBindings },
+    {{/if}}
     {{#if (and (eq api "orpc") (ne backend "convex") (ne backend "none"))}}
     typescript: {
       tsConfig: { references: [apiReference] },
@@ -31445,19 +31838,22 @@ export default defineNuxtConfig({
     "check-types": "{{#if (and (eq api "orpc") (ne backend "convex") (ne backend "none"))}}tsc -b ../../packages/api && {{/if}}{{#if (and (eq api "orpc") (ne backend "convex") (ne backend "none"))}}nuxt prepare && vue-tsc -b{{else}}nuxt typecheck{{/if}}",
     "dev": "nuxt dev",
     "generate": "nuxt generate",
-    "preview": "nuxt preview",
+    "preview": "{{#if (or (eq webDeploy "none") (eq webDeploy "docker"))}}node .output/server/index.mjs{{else}}nuxt preview{{/if}}",
     "postinstall": "nuxt prepare"
   },
   "dependencies": {
     "@nuxt/ui": "^4.11.0",
-    "nuxt": "^4.5.2",
-    "vue": "^3.5.42",
+    "nuxt": "^4.6.0",
+    "vue": "^3.5.43",
     "vue-router": "^5.3.1"
   },
   "devDependencies": {
     "tailwindcss": "^4.3.3",
     "@iconify-json/lucide": "^1.2.129",
     "vue-tsc": "^3.3.11"
+  },
+  "engines": {
+    "node": "^22.22.3 || ^24.15.0 || >=26.0.0"
   }
 }
 `],
@@ -32112,7 +32508,7 @@ export const links: Route.LinksFunction = () => [
 
 export function Layout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <head>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -32469,6 +32865,9 @@ import { defineConfig } from "{{#if (includes addons "vite-plus")}}vite-plus{{el
 export default defineConfig({{#if (and (or (eq webDeploy "vercel") (eq webDeploy "prisma")) (not (or (includes addons "tauri") (includes addons "electrobun"))))}}({ command }) => ({{/if}}{
   resolve: {
     tsconfigPaths: true,
+  },
+  optimizeDeps: {
+    entries: ["src/**/*.{ts,tsx}"],
   },
   plugins: [
 {{#unless (eq webDeploy "cloudflare")}}
@@ -33833,14 +34232,14 @@ dist
   },
   "dependencies": {
     "@solidjs/meta": "1.0.0-next.2",
-    "@solidjs/router": "2.0.0-next.23",
-    "@solidjs/web": "2.0.0-rc.7",
-    "solid-js": "2.0.0-rc.7"
+    "@solidjs/router": "2.0.0-next.34",
+    "@solidjs/web": "2.0.0-rc.13",
+    "solid-js": "2.0.0-rc.13"
   },
   "devDependencies": {
-    "@solidjs/vite-plugin": "3.0.0-next.39",
+    "@solidjs/vite-plugin": "3.0.0-next.47",
     "@tailwindcss/vite": "^4.3.3",
-    "filesystem-routing": "0.3.0",
+    "filesystem-routing": "0.4.0",
     "tailwindcss": "^4.3.3",
     "vite": "^8.2.2"{{#unless (eq webDeploy "cloudflare")}},
     "nitro": "3.0.260903-beta"{{/unless}}
@@ -34111,6 +34510,9 @@ export default defineConfig(({ command }) => {
 {{else}}
 export default defineConfig({
 {{/if}}
+  optimizeDeps: {
+    entries: ["src/**/*.tsx"],
+  },
   plugins: [
 {{#unless (eq webDeploy "cloudflare")}}
     varlockVitePlugin({ ssrInjectMode: "{{#if (or (eq webDeploy "vercel") (eq webDeploy "prisma"))}}resolved-env{{else}}auto-load{{/if}}" }),
@@ -34124,7 +34526,10 @@ export default defineConfig({
       extensions: [".jsx", ".tsx"],
     }),
 {{#unless (eq webDeploy "cloudflare")}}
-    nitro({ serverEntry: false }),
+    // Rolldown's dynamic-entry chunking (Vite 8.2+/rolldown 1.2.x) duplicates the
+    // server-functions namespace during Nitro's SSR re-bundle. Inline the SSR service
+    // until the upstream chunking fix lands. https://github.com/rolldown/rolldown/issues/10734
+    nitro({ serverEntry: false, inlineDynamicImports: true }),
 {{/unless}}
     fileRoutes({ httpMethods: true }),
     tailwindcss(),
@@ -34189,6 +34594,11 @@ vite.config.ts.timestamp-*
 	"private": true,
 	"version": "0.0.1",
 	"type": "module",
+	"engines": { "node": ">=22.17.0" },
+	"imports": {
+		"#lib": "./src/lib/index.ts",
+		"#lib/*": "./src/lib/*"
+	},
 	"scripts": {
 		"dev": "vite dev",
 		"build": "{{#if (and (eq api "orpc") (ne backend "convex") (ne backend "none"))}}tsc -b ../../packages/api && {{/if}}vite build",
@@ -34200,16 +34610,16 @@ vite.config.ts.timestamp-*
 	},
 	"devDependencies": {
 		{{#if (or (includes addons "electrobun") (includes addons "tauri"))}}
-		"@sveltejs/adapter-static": "^3.0.10",
+		"@sveltejs/adapter-static": "^4.0.0",
 		{{else if (eq webDeploy "prisma")}}
-		"@sveltejs/adapter-node": "^5.5.7",
+		"@sveltejs/adapter-node": "^6.0.0",
 		{{else}}
-		"@sveltejs/adapter-auto": "^7.0.1",
+		"@sveltejs/adapter-auto": "^8.0.0",
 		{{/if}}
-		"@sveltejs/kit": "^2.70.3",
-		"@sveltejs/vite-plugin-svelte": "^7.3.0",
+		"@sveltejs/kit": "^3.0.0",
+		"@sveltejs/vite-plugin-svelte": "^7.3.1",
 		"@tailwindcss/vite": "^4.3.3",
-		"svelte": "^5.57.0",
+		"svelte": "^5.57.1",
 		"svelte-check": "^4.7.6",
 		"tailwindcss": "^4.3.3",
 		"vite": "^8.2.2"
@@ -34223,10 +34633,7 @@ body {
   @apply bg-neutral-950 text-neutral-100;
 }
 `],
-  ["frontend/svelte/src/app.d.ts.hbs", `{{#if (eq webDeploy "cloudflare")}}
-/// <reference path="../../../packages/env/env.d.ts" />
-{{/if}}
-{{#if (and (eq backend "self") (eq api "orpc"))}}
+  ["frontend/svelte/src/app.d.ts.hbs", `{{#if (and (eq backend "self") (eq api "orpc"))}}
 import type { AppRouterClient } from "@{{projectName}}/api/routers/index";
 
 {{/if}}
@@ -34242,16 +34649,7 @@ declare global {
 		// interface Locals {}
 		// interface PageData {}
 		// interface PageState {}
-{{#if (eq webDeploy "cloudflare")}}
-		interface Platform {
-			env: Env;
-			ctx: ExecutionContext;
-			caches: CacheStorage;
-			cf: IncomingRequestCfProperties;
-		}
-{{else}}
 		// interface Platform {}
-{{/if}}
 	}
 }
 
@@ -34301,14 +34699,14 @@ export {};
 	<hr class="border-neutral-800" />
 </div>
 `],
-  ["frontend/svelte/src/lib/index.ts", `// place files you want to import through the \`$lib\` alias in this folder.
+  ["frontend/svelte/src/lib/index.ts", `// place files you want to import through the \`#lib\` alias in this folder.
 export {};
 `],
   ["frontend/svelte/src/routes/+layout.svelte.hbs", `{{#if (eq backend "convex")}}
 <script lang="ts">
 	import '../app.css';
     import Header from '../components/Header.svelte';
-    import { PUBLIC_CONVEX_URL } from '$env/static/public';
+    import { PUBLIC_CONVEX_URL } from '$app/env/public';
 	import { setupConvex } from 'convex-svelte';
 
 	const { children } = $props();
@@ -34327,7 +34725,7 @@ export {};
     import { QueryClientProvider } from '@tanstack/svelte-query';
     import { SvelteQueryDevtools } from '@tanstack/svelte-query-devtools'
 	import '../app.css';
-    import { queryClient } from '$lib/orpc';
+    import { queryClient } from '#lib/orpc.ts';
     import Header from '../components/Header.svelte';
 
 	const { children } = $props();
@@ -34406,7 +34804,7 @@ const TITLE_TEXT = \`
 {{else}}
 <script lang="ts">
 {{#if (eq api "orpc")}}
-import { orpc } from "$lib/orpc";
+import { orpc } from "#lib/orpc.ts";
 import { createQuery } from "@tanstack/svelte-query";
 const healthCheck = createQuery(() => orpc.healthCheck.queryOptions());
 {{/if}}
@@ -34453,56 +34851,13 @@ const TITLE_TEXT = \`
 {{/if}}
 `],
   ["frontend/svelte/static/favicon.png", `[Binary file]`],
-  ["frontend/svelte/svelte.config.js.hbs", `{{#if (or (includes addons "electrobun") (includes addons "tauri"))}}
-import adapter from '@sveltejs/adapter-static';
-{{else if (eq webDeploy "cloudflare")}}
-import adapter from '@sveltejs/adapter-cloudflare';
-{{else if (or (eq webDeploy "docker") (eq webDeploy "prisma"))}}
-import adapter from '@sveltejs/adapter-node';
-{{else if (eq webDeploy "vercel")}}
-import adapter from '@sveltejs/adapter-vercel';
-{{else}}
-import adapter from '@sveltejs/adapter-auto';
-{{/if}}
-import { vitePreprocess } from '@sveltejs/vite-plugin-svelte';
-
-/** @type {import('@sveltejs/kit').Config} */
-const config = {
-	// Consult https://svelte.dev/docs/kit/integrations
-	// for more information about preprocessors
-	preprocess: vitePreprocess(),
-
-	kit: {
-{{#if (or (includes addons "electrobun") (includes addons "tauri"))}}
-		// adapter-static emits files Electrobun and Tauri can bundle directly.
-		adapter: adapter({
-			pages: 'build',
-			assets: 'build',
-			fallback: 'index.html'
-		})
-{{else if (eq webDeploy "cloudflare")}}
-		adapter: adapter()
-{{else if (or (eq webDeploy "docker") (eq webDeploy "prisma"))}}
-		// adapter-node builds a standalone Node server (run with \`node build/index.js\`).
-		adapter: adapter()
-{{else if (eq webDeploy "vercel")}}
-		adapter: adapter({ runtime: 'nodejs24.x' })
-{{else}}
-		// adapter-auto only supports some environments, see https://svelte.dev/docs/kit/adapter-auto for a list.
-		// If your environment is not supported, or you settled on a specific environment, switch out the adapter.
-		// See https://svelte.dev/docs/kit/adapters for more information about adapters.
-		adapter: adapter()
-{{/if}}
-	}
-};
-
-export default config;
-`],
   ["frontend/svelte/tsconfig.json.hbs", `{
   {{#if (and (eq api "orpc") (ne backend "convex") (ne backend "none"))}}
   "references": [{ "path": "../../packages/api" }],
   {{/if}}
-	"extends": "./.svelte-kit/tsconfig.json",
+	"extends": "$app/tsconfig",
+	"include": ["src", "test", "*"],
+	"exclude": ["src/service-worker"],
 	"compilerOptions": {
     {{#if (and (eq api "orpc") (ne backend "convex") (ne backend "none"))}}
     "disableSourceOfProjectReferenceRedirect": true,
@@ -34516,13 +34871,8 @@ export default config;
 		"sourceMap": true,
 		"strict": true,
 		"moduleResolution": "bundler"{{#if (eq webDeploy "cloudflare")}},
-			"types": ["@cloudflare/workers-types"]{{/if}}
+			"types": ["$app/types", "@cloudflare/workers-types"]{{/if}}
 	}
-	// Path aliases are handled by https://svelte.dev/docs/kit/configuration#alias
-	// except $lib which is handled by https://svelte.dev/docs/kit/configuration#files
-	//
-	// If you want to overwrite includes/excludes, make sure to copy over the relevant includes/excludes
-	// from the referenced tsconfig.json - TypeScript does not merge them in
 }
 `],
   ["frontend/svelte/vite.config.ts.hbs", `{{#unless (eq webDeploy "cloudflare")}}
@@ -34530,6 +34880,18 @@ import { varlockVitePlugin } from "@varlock/vite-integration";
 {{/unless}}
 import tailwindcss from "@tailwindcss/vite";
 import { sveltekit } from "@sveltejs/kit/vite";
+import { vitePreprocess } from "@sveltejs/vite-plugin-svelte";
+{{#if (or (includes addons "electrobun") (includes addons "tauri"))}}
+import adapter from "@sveltejs/adapter-static";
+{{else if (eq webDeploy "cloudflare")}}
+import adapter from "@sveltejs/adapter-cloudflare";
+{{else if (or (eq webDeploy "docker") (eq webDeploy "prisma"))}}
+import adapter from "@sveltejs/adapter-node";
+{{else if (eq webDeploy "vercel")}}
+import adapter from "@sveltejs/adapter-vercel";
+{{else}}
+import adapter from "@sveltejs/adapter-auto";
+{{/if}}
 import { defineConfig } from "{{#if (includes addons "vite-plus")}}vite-plus{{else}}vite{{/if}}";
 {{#if (and (eq webDeploy "cloudflare") (eq backend "self") (eq orm "prisma"))}}
 import { unwasm } from "unwasm/plugin";
@@ -34544,13 +34906,26 @@ export default defineConfig({
     unwasm({ esmImport: true }),
 {{/if}}
     tailwindcss(),
-    sveltekit(),
+    sveltekit({
+      preprocess: vitePreprocess(),
+{{#if (eq webDeploy "docker")}}
+      paths: { origin: process.env.ORIGIN },
+{{/if}}
+{{#if (or (includes addons "electrobun") (includes addons "tauri"))}}
+      adapter: adapter({ pages: "build", assets: "build", fallback: "index.html" }),
+{{else if (eq webDeploy "vercel")}}
+      adapter: adapter({ runtime: "nodejs24.x" }),
+{{else}}
+      adapter: adapter(),
+{{/if}}
+    }),
   ],
-{{#if (and (eq webDeploy "prisma") (ne backend "none"))}}
+{{#if (eq webDeploy "prisma")}}
   // Prisma Compute uploads only the build artifact, so keep the official
-  // adapter-node output self-contained instead of requiring node_modules.
+  // adapter-node output self-contained. The adapter respects noExternal rules
+  // when deciding which production dependencies to externalize.
   ssr: {
-    noExternal: true,
+    noExternal: [/.*/],
   },
 {{/if}}
 });
@@ -36590,4 +36965,4 @@ export default function Success() {
 `]
 ]);
 
-export const TEMPLATE_COUNT = 534;
+export const TEMPLATE_COUNT = 548;

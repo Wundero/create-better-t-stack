@@ -17,6 +17,7 @@ const turnstileSiteKey = useRuntimeConfig().public.turnstileSiteKey
 const fields: AuthFormField[] = [
   {
     name: 'email',
+    id: 'sign-in-email',
     type: 'email',
     label: 'Email',
     placeholder: 'Enter your email',
@@ -24,6 +25,7 @@ const fields: AuthFormField[] = [
   },
   {
     name: 'password',
+    id: 'sign-in-password',
     type: 'password',
     label: 'Password',
     placeholder: 'Enter your password',

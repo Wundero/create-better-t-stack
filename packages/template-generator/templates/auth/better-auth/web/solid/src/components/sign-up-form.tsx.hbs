@@ -1,5 +1,5 @@
 import { useNavigate } from "@solidjs/router";
-import { createSignal, Show } from "solid-js";{{#if (includes addons "turnstile")}}
+import { createSignal, onSettled, Show } from "solid-js";{{#if (includes addons "turnstile")}}
 import Turnstile from "./Turnstile";{{/if}}
 import { authClient } from "~/lib/auth-client";
 import z from "zod";
@@ -13,7 +13,11 @@ const signUpSchema = z.object({
 export default function SignUpForm({ onSwitchToSignIn }: { onSwitchToSignIn: () => void }) {
   const navigate = useNavigate();
   const [error, setError] = createSignal<string>();
-  const [isSubmitting, setIsSubmitting] = createSignal(false);{{#if (includes addons "turnstile")}}
+  const [isSubmitting, setIsSubmitting] = createSignal(false);
+  const [hydrated, setHydrated] = createSignal(false);
+  onSettled(() => {
+    setHydrated(true);
+  });{{#if (includes addons "turnstile")}}
 
   const [turnstileToken, setTurnstileToken] = createSignal<string | null>(null);
   const [turnstileResetKey, setTurnstileResetKey] = createSignal(0);{{/if}}
@@ -60,7 +64,7 @@ export default function SignUpForm({ onSwitchToSignIn }: { onSwitchToSignIn: () 
   return (
     <div class="mx-auto mt-10 w-full max-w-md p-6">
       <h1 class="mb-6 text-center text-3xl font-bold">Create Account</h1>
-      <form onSubmit={submit} class="space-y-4">
+      <form method="post" onSubmit={submit} class="space-y-4">
         <div class="space-y-2">
           <label for="name">Name</label>
           <input id="name" name="name" minlength="2" required class="w-full rounded border p-2" />
@@ -90,7 +94,7 @@ export default function SignUpForm({ onSwitchToSignIn }: { onSwitchToSignIn: () 
         <button
           type="submit"
           class="w-full rounded bg-indigo-600 p-2 text-white hover:bg-indigo-700 disabled:opacity-50"
-          disabled={{#if (includes addons "turnstile")}}{isSubmitting() || !turnstileToken()}{{else}}{isSubmitting()}{{/if}}
+          disabled={{#if (includes addons "turnstile")}}{!hydrated() || isSubmitting() || !turnstileToken()}{{else}}{!hydrated() || isSubmitting()}{{/if}}
         >
           {isSubmitting() ? "Submitting..." : "Sign Up"}
         </button>
