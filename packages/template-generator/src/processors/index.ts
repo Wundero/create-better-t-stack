@@ -16,6 +16,7 @@ import { processFrontendDeps } from "./frontend-deps";
 import { processInfraDeps } from "./infra-deps";
 import { processNxConfig } from "./nx-generator";
 import { processPaymentsDeps } from "./payments-deps";
+import { processPortlessMode } from "./portless";
 import { processPwaPlugins } from "./pwa-plugins";
 import { processReadme } from "./readme-generator";
 import { processRuntimeDeps } from "./runtime-deps";
@@ -54,6 +55,7 @@ export {
   processFrontendDeps,
   processInfraDeps,
   processPaymentsDeps,
+  processPortlessMode,
   processNxConfig,
   processReadme,
   processRuntimeDeps,

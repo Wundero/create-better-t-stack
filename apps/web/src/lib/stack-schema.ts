@@ -24,6 +24,7 @@ const stackFields = {
   examples: z.array(z.enum(["none", ...getStackOptionIds("examples")])),
   git: option("git"),
   install: option("install"),
+  portless: option("portless"),
   api: option("api"),
   webDeploy: option("webDeploy"),
   serverDeploy: option("serverDeploy"),
@@ -48,6 +49,7 @@ export const StackStateSchema = z.object({
   examples: stackFields.examples.default(DEFAULT_STACK.examples),
   git: stackFields.git.default(DEFAULT_STACK.git),
   install: stackFields.install.default(DEFAULT_STACK.install),
+  portless: stackFields.portless.default(DEFAULT_STACK.portless),
   api: stackFields.api.default(DEFAULT_STACK.api),
   webDeploy: stackFields.webDeploy.default(DEFAULT_STACK.webDeploy),
   serverDeploy: stackFields.serverDeploy.default(DEFAULT_STACK.serverDeploy),
@@ -68,5 +70,6 @@ export function stackStateToConfig(stack: StackState) {
     examples: stack.examples.filter((id) => id !== "none"),
     git: stack.git === "true",
     install: false,
+    portless: stack.portless === "true",
   });
 }

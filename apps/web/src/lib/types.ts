@@ -28,6 +28,7 @@ export type StackState = Pick<
   git: "true" | "false";
   install: "true" | "false";
   yolo: "true" | "false";
+  portless: "true" | "false";
 };
 
 export type TechCategory = Exclude<keyof StackState, "projectName" | "yolo">;
