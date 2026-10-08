@@ -178,7 +178,8 @@ export function getPrismaWebsiteFramework(config: ProjectConfig): string | undef
       case "astro":
         return "Astro";
       case "svelte":
-        return "SvelteKit";
+        // Svelte deployments use the adapter-node artifact through Compute's custom build.
+        return;
       case "tanstack-start":
         return "TanStackStart";
       case "tanstack-router":
