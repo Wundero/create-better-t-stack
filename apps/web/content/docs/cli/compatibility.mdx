@@ -198,6 +198,19 @@ create-better-t-stack --addons turborepo nx
 create-better-t-stack --addons turborepo
 ```
 
+### Linting and Formatting
+
+- `eslint` (ESLint + Prettier) and `vite-plus` are mutually exclusive — Vite+ already provides linting and formatting
+- `oxlint`, `vite-plus`, and `biome` are the preferred linting/formatting choices; `eslint` exists for compatibility
+
+```bash
+# ❌ Invalid - Vite+ already lints and formats
+create-better-t-stack --addons eslint vite-plus
+
+# ✅ Valid
+create-better-t-stack --addons eslint
+```
+
 ### Web Deployment
 
 - `--web-deploy cloudflare`, `--web-deploy docker`, and `--web-deploy vercel` require a web frontend

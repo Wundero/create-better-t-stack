@@ -87,6 +87,7 @@ export const ADDON_COMPATIBILITY = {
   ultracite: [],
   mcp: [],
   oxlint: [],
+  eslint: [],
   fumadocs: [],
   opentui: [],
   wxt: [],
