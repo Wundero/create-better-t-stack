@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -48,6 +48,31 @@ function writeCliFixture(sourceDir: string): void {
   );
   mkdirSync(join(sourceDir, "dist"));
   writeFileSync(join(sourceDir, "dist", "cli.mjs"), "#!/usr/bin/env node\nconsole.log('bts');\n");
+}
+
+function writeWorkspacePackageFixture(packageDir: string): void {
+  writeFileSync(
+    join(packageDir, "package.json"),
+    `${JSON.stringify(
+      {
+        name: "@better-t-stack/types",
+        version: "3.44.1",
+        type: "module",
+        files: ["dist", "templates-binary"],
+        exports: { ".": { default: "./dist/index.mjs" } },
+        scripts: { build: "tsdown" },
+        dependencies: { zod: "^4.5.4", "@better-t-stack/helper": "workspace:*" },
+        devDependencies: { tsdown: "catalog:" },
+        publishConfig: { access: "public" },
+      },
+      null,
+      2,
+    )}\n`,
+  );
+  mkdirSync(join(packageDir, "dist"));
+  writeFileSync(join(packageDir, "dist", "index.mjs"), "export const ALL = [];\n");
+  mkdirSync(join(packageDir, "templates-binary"), { recursive: true });
+  writeFileSync(join(packageDir, "templates-binary", "logo.png"), "binary");
 }
 
 afterEach(() => {
@@ -202,5 +227,45 @@ describe("stagePreviewPackage", () => {
     });
 
     expect(readFileSync(join(outDir, "README.md"), "utf-8")).toContain("Monorepo root readme.");
+  });
+
+  test("bundles workspace packages into node_modules and merges their dependencies", async () => {
+    const sourceDir = makeTemporaryDirectory();
+    const outDir = join(makeTemporaryDirectory(), "staged");
+    const typesDir = makeTemporaryDirectory();
+    writeCliFixture(sourceDir);
+    writeWorkspacePackageFixture(typesDir);
+
+    await stagePreviewPackage({
+      sourceDir,
+      outDir,
+      version: "3.44.1-preview-20260929-abc1234",
+      dependencyVersion: "3.44.1",
+      workspacePackages: [{ name: "@better-t-stack/types", sourceDir: typesDir }],
+    });
+
+    const manifest = JSON.parse(readFileSync(join(outDir, "package.json"), "utf-8"));
+    const nested = join(outDir, "node_modules", "@better-t-stack", "types");
+
+    expect(manifest.bundleDependencies).toEqual(["@better-t-stack/types"]);
+    expect(manifest.dependencies).toEqual({
+      "@better-t-stack/template-generator": "^3.44.1",
+      "@better-t-stack/types": "^3.44.1",
+      "@better-t-stack/helper": "^3.44.1",
+      semver: "^7.8.5",
+      zod: "^4.5.4",
+    });
+    expect(readFileSync(join(nested, "dist", "index.mjs"), "utf-8")).toContain("export const ALL");
+    expect(existsSync(join(nested, "templates-binary", "logo.png"))).toBe(true);
+
+    const nestedManifest = JSON.parse(readFileSync(join(nested, "package.json"), "utf-8"));
+    expect(nestedManifest.name).toBe("@better-t-stack/types");
+    expect(nestedManifest.dependencies).toEqual({
+      zod: "^4.5.4",
+      "@better-t-stack/helper": "^3.44.1",
+    });
+    expect(nestedManifest.scripts).toBeUndefined();
+    expect(nestedManifest.devDependencies).toBeUndefined();
+    expect(nestedManifest.publishConfig).toBeUndefined();
   });
 });

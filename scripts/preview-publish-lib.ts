@@ -3,6 +3,7 @@
 // The version scheme is `<base>-preview-<YYYYMMDD>-<shortSha>` and every
 // function here is deterministic given its inputs so CI and local runs agree.
 
+import { existsSync } from "node:fs";
 import { cp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
@@ -32,12 +33,18 @@ export interface PreviewEnvironment {
   readonly GITHUB_SHA?: string;
 }
 
+export interface WorkspacePackageSource {
+  readonly name: string;
+  readonly sourceDir: string;
+}
+
 export interface StagePreviewPackageOptions {
   readonly sourceDir: string;
   readonly outDir: string;
   readonly version: string;
   readonly dependencyVersion: string;
   readonly readmePath?: string;
+  readonly workspacePackages?: readonly WorkspacePackageSource[];
 }
 
 export interface StagedPreviewPackage {
@@ -48,14 +55,22 @@ export interface StagedPreviewPackage {
 interface PreviewPackageManifest {
   name: string;
   version: string;
-  bin: Record<string, string>;
-  files: string[];
+  bin?: Record<string, string>;
+  files?: string[];
+  type?: string;
+  exports?: unknown;
+  main?: string;
+  module?: string;
   dependencies?: Record<string, string>;
   devDependencies?: Record<string, string>;
   scripts?: Record<string, string>;
+  bundleDependencies?: string[];
   publishConfig?: { access: string };
   repository?: { type: string; url: string; directory?: string };
 }
+
+// `templates-binary` must sit beside `dist/` because fs-writer resolves it from its own module dir.
+const WORKSPACE_PACKAGE_COPY_ENTRIES = ["dist", "templates-binary"] as const;
 
 /** Reduce any package version to its `x.y.z` core, rejecting unparseable input. */
 export function normalizeBaseVersion(rawVersion: string): string {
@@ -153,32 +168,75 @@ async function readManifest(sourceDir: string): Promise<PreviewPackageManifest> 
   return JSON.parse(raw) as PreviewPackageManifest;
 }
 
+async function stageWorkspacePackage(
+  source: WorkspacePackageSource,
+  outDir: string,
+): Promise<Record<string, string>> {
+  const manifest = await readManifest(source.sourceDir);
+  const targetDir = join(outDir, "node_modules", source.name);
+  await mkdir(targetDir, { recursive: true });
+
+  for (const entry of WORKSPACE_PACKAGE_COPY_ENTRIES) {
+    const entrySource = join(source.sourceDir, entry);
+    if (!existsSync(entrySource)) continue;
+    await cp(entrySource, join(targetDir, entry), { recursive: true });
+  }
+
+  const nested: PreviewPackageManifest = {
+    ...manifest,
+    dependencies: rewriteWorkspaceDependencies(manifest.dependencies ?? {}, manifest.version),
+  };
+  delete nested.scripts;
+  delete nested.devDependencies;
+  delete nested.publishConfig;
+  delete nested.repository;
+
+  await writeFile(join(targetDir, "package.json"), `${JSON.stringify(nested, null, 2)}\n`, "utf-8");
+  return nested.dependencies ?? {};
+}
+
 /**
  * Copy the CLI manifest + built `dist/` into `outDir`, rewriting the package
  * identity to the preview scope and resolving workspace deps to concrete
- * versions so the tarball installs standalone.
+ * versions so the tarball installs standalone. Bundled workspace packages are
+ * copied into the tarball's `node_modules` so the preview ships `next`'s
+ * versions instead of the divergent stable ones on npm.
  */
 export async function stagePreviewPackage(
   options: StagePreviewPackageOptions,
 ): Promise<StagedPreviewPackage> {
   const manifest = await readManifest(options.sourceDir);
+  const workspacePackages = options.workspacePackages ?? [];
+  const dependencies = rewriteWorkspaceDependencies(
+    manifest.dependencies ?? {},
+    options.dependencyVersion,
+  );
+
+  await rm(options.outDir, { recursive: true, force: true });
+  await mkdir(options.outDir, { recursive: true });
+  await cp(join(options.sourceDir, "dist"), join(options.outDir, "dist"), { recursive: true });
+
+  for (const workspacePackage of workspacePackages) {
+    const nestedDependencies = await stageWorkspacePackage(workspacePackage, options.outDir);
+    for (const [name, range] of Object.entries(nestedDependencies)) {
+      dependencies[name] ??= range;
+    }
+  }
+
   const staged: PreviewPackageManifest = {
     ...manifest,
     name: PREVIEW_PACKAGE_NAME,
     version: options.version,
     publishConfig: { access: "public" },
     repository: rewriteRepository(manifest.repository),
-    dependencies: rewriteWorkspaceDependencies(
-      manifest.dependencies ?? {},
-      options.dependencyVersion,
-    ),
+    dependencies,
   };
   delete staged.scripts;
   delete staged.devDependencies;
+  if (workspacePackages.length > 0) {
+    staged.bundleDependencies = workspacePackages.map((workspacePackage) => workspacePackage.name);
+  }
 
-  await rm(options.outDir, { recursive: true, force: true });
-  await mkdir(options.outDir, { recursive: true });
-  await cp(join(options.sourceDir, "dist"), join(options.outDir, "dist"), { recursive: true });
   if (options.readmePath !== undefined) {
     await cp(options.readmePath, join(options.outDir, "README.md"));
   }

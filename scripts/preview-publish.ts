@@ -26,7 +26,8 @@ function parseOutDir(args: readonly string[]): string {
 
 async function main(): Promise<void> {
   const outDir = parseOutDir(process.argv.slice(2));
-  const sourceDir = resolve(process.cwd(), "apps/cli");
+  const repoRoot = process.cwd();
+  const sourceDir = resolve(repoRoot, "apps/cli");
 
   const environment: PreviewEnvironment = {
     PREVIEW_DATE: process.env.PREVIEW_DATE,
@@ -41,7 +42,14 @@ async function main(): Promise<void> {
     outDir,
     version,
     dependencyVersion: baseVersion,
-    readmePath: resolve(sourceDir, "..", "..", "README.md"),
+    readmePath: resolve(repoRoot, "README.md"),
+    workspacePackages: [
+      { name: "@better-t-stack/types", sourceDir: resolve(repoRoot, "packages/types") },
+      {
+        name: "@better-t-stack/template-generator",
+        sourceDir: resolve(repoRoot, "packages/template-generator"),
+      },
+    ],
   });
 
   const output = process.env.GITHUB_OUTPUT;
