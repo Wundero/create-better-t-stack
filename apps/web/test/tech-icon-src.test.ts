@@ -35,6 +35,10 @@ describe("hasLightVariant", () => {
     expect(hasLightVariant("/icon/react.svg")).toBe(false);
   });
 
+  test("rejects prisma (R2 has no prisma-light.svg)", () => {
+    expect(hasLightVariant("https://r2.better-t-stack.dev/icons/prisma.svg")).toBe(false);
+  });
+
   test("rejects non-svg paths", () => {
     expect(hasLightVariant("/icon/aws.png")).toBe(false);
   });
