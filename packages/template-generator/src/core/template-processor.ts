@@ -108,10 +108,6 @@ Handlebars.registerHelper(
 
 const getServerUrlSource = `{{#if (and (eq webDeploy serverDeploy) (or (eq webDeploy "vercel") (eq webDeploy "docker")))}}
 function getServerUrl(url: string | undefined) {
-	if (!url) {
-		url = "/api";
-	}
-
 	const processEnv = typeof process === "undefined" ? undefined : process.env;
 	if (typeof window === "undefined" && processEnv?.SERVER_URL) {
 {{#if (eq webDeploy "vercel")}}
@@ -121,6 +117,21 @@ function getServerUrl(url: string | undefined) {
 			? processEnv.SERVER_URL.slice(0, -1)
 			: processEnv.SERVER_URL;
 {{/if}}
+	}
+
+{{#if (eq webDeploy "vercel")}}
+	// Combined Vercel deploys serve the server under the web app's own /api path,
+	// so a missing public server URL resolves to that same-origin prefix instead
+	// of failing. Docker deploys still require an explicit URL (guarded below).
+	if (!url) {
+		url = "/api";
+	}
+{{/if}}
+
+	if (url === undefined) {
+		throw new Error(
+			"getServerUrl: server URL is not set. Set NEXT_PUBLIC_SERVER_URL (or the frontend-specific public server URL variable) for web deployments, or SERVER_URL on the server.",
+		);
 	}
 
 {{#if (eq webDeploy "vercel")}}
