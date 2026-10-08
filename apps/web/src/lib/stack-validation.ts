@@ -1,5 +1,6 @@
 import {
   getBackendDisabledOptions,
+  SERVER_BACKENDS,
   supportsPortlessMode,
   supportsRuntimeBackend,
   supportsRuntimeDatabase,
@@ -664,6 +665,18 @@ export const analyzeStackCompatibility = (stack: StackState): CompatibilityResul
     }
   }
 
+  if (nextStack.serverDeploy === "aws") {
+    const backend = getStackBackend(nextStack.backend);
+    if (backend !== "none" && !SERVER_BACKENDS.includes(backend)) {
+      nextStack.serverDeploy = "none";
+      changed = true;
+      changes.push({
+        category: "serverDeploy",
+        message: "Server deploy set to 'None' (AWS requires Hono, Express, Fastify, or Elysia)",
+      });
+    }
+  }
+
   if (!supportsServerDeployRuntime(nextStack.serverDeploy, nextStack.runtime)) {
     nextStack.serverDeploy = nextStack.runtime === "workers" ? "cloudflare" : "none";
     changed = true;
@@ -1037,6 +1050,12 @@ export const getDisabledReason = (
     }
     if (optionId === "aws" && !supportsServerDeployRuntime(optionId, currentStack.runtime)) {
       return "AWS server deployment requires the Bun, Node.js, or Lambda runtime";
+    }
+    if (optionId === "aws") {
+      const backend = getStackBackend(currentStack.backend);
+      if (backend !== "none" && !SERVER_BACKENDS.includes(backend)) {
+        return "AWS server deployment requires Hono, Express, Fastify, or Elysia backend";
+      }
     }
     if (optionId !== "none") {
       if (
