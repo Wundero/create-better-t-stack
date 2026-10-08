@@ -40,7 +40,7 @@ export function processInfraDeps(vfs: VirtualFileSystem, config: ProjectConfig):
   if (!vfs.exists(infraPath)) return;
 
   const { serverDeploy, webDeploy } = config;
-  if (webDeploy === "prisma" || webDeploy === "aws") {
+  if (webDeploy === "aws") {
     addPackageDependency({
       vfs,
       packagePath: infraPath,
