@@ -4,6 +4,7 @@ import { createVirtual } from "../src/index";
 import { collectFiles } from "./setup";
 
 type CreateOptions = Parameters<typeof createVirtual>[0];
+type AddonId = NonNullable<CreateOptions["addons"]>[number];
 
 const baseConfig = {
   projectName: "cloudflare-addon",
@@ -32,7 +33,7 @@ async function generate(overrides: Partial<CreateOptions>) {
 }
 
 type AddonCase = {
-  addon: string;
+  addon: AddonId;
   declarations: string[];
   binding: string;
   appDeps?: string[];
