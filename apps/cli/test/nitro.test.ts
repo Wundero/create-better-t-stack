@@ -180,6 +180,36 @@ describe("Nitro backend", () => {
     expect(cloudflareFiles.get("apps/server/src/context.ts")).toContain(".api.getSession");
   });
 
+  it("strips the /api prefix for Nitro file routes on combined Vercel deploys", async () => {
+    const files = await generate({
+      projectName: "nitro-vercel-combined",
+      webDeploy: "vercel",
+      serverDeploy: "vercel",
+    });
+    const vercel = JSON.parse(files.get("vercel.json") ?? "{}") as {
+      services?: {
+        server?: {
+          framework?: string;
+          entrypoint?: string;
+          buildCommand?: string;
+          functions?: Record<string, { includeFiles?: string }>;
+          routes?: { src: string; transforms?: { type: string; op: string; args: string }[] }[];
+        };
+      };
+    };
+    const server = vercel.services?.server ?? {};
+    expect(server.framework).toBe("nitro");
+    expect(server.entrypoint).toBeUndefined();
+    expect(server.buildCommand).toBeUndefined();
+    expect(server.functions).toBeUndefined();
+    expect(server.routes).toEqual([
+      {
+        src: "/api/((?!auth(?:/|$)).*)",
+        transforms: [{ type: "request.path", op: "set", args: "/$1" }],
+      },
+    ]);
+  });
+
   it("rejects evlog before generation", async () => {
     const evlog = await createVirtual({
       ...baseConfig,

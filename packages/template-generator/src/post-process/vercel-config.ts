@@ -70,25 +70,48 @@ export function processVercelConfig(vfs: VirtualFileSystem, config: ProjectConfi
   }
 
   if (hasServer) {
-    services.server = {
-      root: "apps/server",
-      framework: backend,
-      entrypoint: backend === "nitro" ? undefined : "src/index.ts",
-      installCommand,
-      // Vercel compiles the entrypoint itself; a dist bundle would be deployed apart
-      // from apps/server/node_modules, which bun and pnpm installs rely on
-      buildCommand: `${packageManager} run env:generate && ${packageManager} run check-types`,
-      functions: {
-        // varlock/auto-load runs the Varlock CLI, which file tracing can't follow.
-        // Paths are relative to the repository root, the function's working directory
-        "src/index.ts": {
-          includeFiles:
-            "{package.json,apps/server/.env.schema,node_modules/.bin/varlock,node_modules/varlock/**}",
+    if (backend === "nitro") {
+      // Vercel's Nitro preset builds `.output`, so there is no `src/index.ts` entrypoint,
+      // no varlock trace config, and the default build command must not be overridden.
+      const server: ServiceConfig = {
+        root: "apps/server",
+        framework: backend,
+        installCommand,
+      };
+      if (hasWeb) {
+        // The client targets same-origin `/api` (web buildCommand seeds `..._SERVER_URL=/api`),
+        // but Nitro's file routes are absolute (`/rpc`, `/trpc`, `/api-reference`). Strip the
+        // `/api` prefix before the request reaches Nitro — except `/api/auth`, which better-auth
+        // derives its own router base path from and must receive unstripped.
+        server.routes = [
+          {
+            src: "/api/((?!auth(?:/|$)).*)",
+            transforms: [{ type: "request.path", op: "set", args: "/$1" }],
+          },
+        ];
+      }
+      services.server = server;
+    } else {
+      services.server = {
+        root: "apps/server",
+        framework: backend,
+        entrypoint: "src/index.ts",
+        installCommand,
+        // Vercel compiles the entrypoint itself; a dist bundle would be deployed apart
+        // from apps/server/node_modules, which bun and pnpm installs rely on
+        buildCommand: `${packageManager} run env:generate && ${packageManager} run check-types`,
+        functions: {
+          // varlock/auto-load runs the Varlock CLI, which file tracing can't follow.
+          // Paths are relative to the repository root, the function's working directory
+          "src/index.ts": {
+            includeFiles:
+              "{package.json,apps/server/.env.schema,node_modules/.bin/varlock,node_modules/varlock/**}",
+          },
         },
-      },
-    };
-    const pkg = vfs.readJson<PackageJson>("package.json");
-    if (pkg) vfs.writeJson("package.json", { ...pkg, varlock: { loadPath: "./apps/server/" } });
+      };
+      const pkg = vfs.readJson<PackageJson>("package.json");
+      if (pkg) vfs.writeJson("package.json", { ...pkg, varlock: { loadPath: "./apps/server/" } });
+    }
   }
 
   if (config.orm === "prisma" && config.database !== "none") {
