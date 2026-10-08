@@ -231,7 +231,7 @@ async function addHandlerInternal(
   const projectDir = path.resolve(projectDirInput);
 
   if (!isSilent()) {
-    renderTitle();
+    await renderTitle();
     intro(pc.magenta("Add to your project"));
   }
 

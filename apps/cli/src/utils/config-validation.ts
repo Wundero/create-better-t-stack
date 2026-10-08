@@ -49,7 +49,7 @@ function validationErr(message: string): ValidationResult {
 
 function hasResolvedWorkersD1Target(config: Partial<ProjectConfig>) {
   return (
-    config.backend === "hono" &&
+    (config.backend === "hono" || config.backend === "nitro") &&
     config.runtime === "workers" &&
     config.serverDeploy === "cloudflare"
   );
@@ -63,7 +63,7 @@ function hasResolvedSelfCloudflareD1Target(config: Partial<ProjectConfig>) {
 
 function canResolveWorkersD1Target(config: Partial<ProjectConfig>) {
   return (
-    (config.backend === undefined || config.backend === "hono") &&
+    (config.backend === undefined || config.backend === "hono" || config.backend === "nitro") &&
     (config.runtime === undefined || config.runtime === "workers") &&
     (config.serverDeploy === undefined || config.serverDeploy === "cloudflare")
   );
