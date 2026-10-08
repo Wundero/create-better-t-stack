@@ -156,14 +156,14 @@ export function putAsset(key: string, value: string) {
 
 export const realtimeKitAppId = ENV.REALTIME_KIT_APP_ID;
 `],
-  ["addons/cloudflare-sandboxes/apps/server/src/cloudflare/sandbox.ts", `import { getSandbox } from "@cloudflare/sandbox";
+  ["addons/cloudflare-sandboxes/apps/server/src/cloudflare/sandbox.ts", `import { getSandbox, type Sandbox } from "@cloudflare/sandbox";
 
 import { ENV } from "../env.server";
 
 export { Sandbox } from "@cloudflare/sandbox";
 
 export function getAppSandbox(id = "default") {
-  return getSandbox(ENV.SANDBOX, id);
+  return getSandbox(ENV.SANDBOX as DurableObjectNamespace<Sandbox>, id);
 }
 `],
   ["addons/cloudflare-stream/apps/server/src/cloudflare/stream.ts", `import { ENV } from "../env.server";
