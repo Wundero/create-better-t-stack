@@ -72,6 +72,11 @@ convention: consumers always install the freshest `next` build with an unqualifi
    - copies `apps/cli`'s manifest + built `dist/` into the temp dir,
    - rewrites `name` → `@wundero/bts`, `version` → preview version,
    - rewrites any `workspace:*`/`catalog:` dependency to a concrete `^<baseVersion>` range,
+   - bundles the built `@better-t-stack/types` and `@better-t-stack/template-generator`
+     packages into the tarball's `node_modules` (`bundleDependencies`) so the preview
+     ships `next`'s versions instead of the divergent stable releases on npm,
+   - merges the bundled packages' dependencies into the staged manifest so their
+     transitive deps (for example `memfs`, `pathe`) install for consumers,
    - sets `publishConfig.access = "public"`.
 6. Skips the publish if `npm view "@wundero/bts@<version>" version` already resolves
    (prevents duplicate-publish failures on re-runs).
@@ -129,5 +134,10 @@ scope is being retired.
 - This pipeline is **additive**: it does not touch `.github/workflows/release.yaml`
   (upstream `create-better-t-stack` publishing) or the CLI package identity in
   `apps/cli/package.json`.
+- The preview **bundles the workspace packages** (`@better-t-stack/types`,
+  `@better-t-stack/template-generator`) rather than resolving them from npm. `next`
+  carries features that are not in the published stable packages, so an externalized
+  workspace dependency would float to a stable version missing `next`'s exports (for
+  example `ALL_PAYMENT_IDS`) and fail at import time.
 - The website renders install commands as `bunx/npx/pnpm dlx @wundero/bts@latest`
   (see `apps/web/src/lib/cli-commands.ts`). Scoped packages cannot use `npm create`.
