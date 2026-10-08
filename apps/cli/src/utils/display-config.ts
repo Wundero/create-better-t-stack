@@ -38,6 +38,7 @@ const VALUE_LABELS = {
   express: "Express",
   fastify: "Fastify",
   elysia: "Elysia",
+  nitro: "Nitro",
   convex: "Convex",
   self: "Fullstack framework",
   bun: "Bun",

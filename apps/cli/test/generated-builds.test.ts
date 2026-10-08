@@ -65,6 +65,113 @@ const baseConfig = {
 } satisfies Partial<CreateInput>;
 
 const buildSamples: BuildSample[] = [
+  {
+    name: "sveltekit-auth-evlog",
+    config: {
+      ...baseConfig,
+      frontend: ["svelte"],
+      backend: "self",
+      runtime: "none",
+      database: "sqlite",
+      orm: "drizzle",
+      api: "orpc",
+      auth: "better-auth",
+      payments: "none",
+      addons: ["evlog"],
+      examples: ["todo"],
+    },
+  },
+  {
+    name: "sveltekit-cloudflare-d1",
+    config: {
+      ...baseConfig,
+      frontend: ["svelte"],
+      backend: "self",
+      runtime: "none",
+      database: "sqlite",
+      orm: "drizzle",
+      dbSetup: "d1",
+      api: "orpc",
+      auth: "none",
+      payments: "none",
+      addons: [],
+      examples: ["todo"],
+      webDeploy: "cloudflare",
+    },
+  },
+  ...(
+    [
+      { name: "sveltekit-default", packageManagers: ["bun", "npm", "pnpm"] },
+      { name: "sveltekit-vercel", webDeploy: "vercel" },
+      { name: "sveltekit-cloudflare", webDeploy: "cloudflare" },
+      { name: "sveltekit-desktop", addons: ["tauri"] },
+      { name: "sveltekit-convex", backend: "convex" },
+      { name: "sveltekit-fullstack", backend: "self", api: "orpc", addons: ["evlog"] },
+    ] satisfies Array<{
+      name: string;
+      packageManagers?: BuildSample["packageManagers"];
+      webDeploy?: CreateInput["webDeploy"];
+      addons?: CreateInput["addons"];
+      backend?: CreateInput["backend"];
+      api?: CreateInput["api"];
+    }>
+  ).map(
+    (sample) =>
+      ({
+        name: sample.name,
+        packageManagers: "packageManagers" in sample ? sample.packageManagers : ["bun"],
+        config: {
+          ...baseConfig,
+          frontend: ["svelte"],
+          backend: "backend" in sample ? sample.backend : "none",
+          runtime: "none",
+          database: "none",
+          orm: "none",
+          api: "api" in sample ? sample.api : "none",
+          auth: "none",
+          payments: "none",
+          addons: "addons" in sample ? sample.addons : [],
+          examples: [],
+          webDeploy: "webDeploy" in sample ? sample.webDeploy : "none",
+        },
+      }) satisfies BuildSample,
+  ),
+  {
+    name: "react-router-server-auth-polar-types",
+    packageManagers: ["bun"],
+    config: {
+      ...baseConfig,
+      frontend: ["react-router"],
+      backend: "hono",
+      runtime: "node",
+      database: "sqlite",
+      orm: "drizzle",
+      api: "orpc",
+      auth: "better-auth",
+      payments: "polar",
+      addons: [],
+      examples: [],
+      webDeploy: "docker",
+      serverDeploy: "docker",
+    },
+  },
+  {
+    name: "svelte-server-auth-polar-types",
+    packageManagers: ["bun"],
+    config: {
+      ...baseConfig,
+      frontend: ["svelte"],
+      backend: "self",
+      runtime: "none",
+      database: "sqlite",
+      orm: "drizzle",
+      api: "orpc",
+      auth: "better-auth",
+      payments: "polar",
+      addons: [],
+      examples: [],
+    },
+  },
   ...(["native-bare", "native-uniwind", "native-unistyles"] as const).map(
     (frontend) =>
       ({
@@ -278,6 +385,110 @@ const buildSamples: BuildSample[] = [
       payments: "none",
       addons: ["turborepo"],
       examples: ["todo"],
+    },
+  },
+  {
+    name: "nitro-orpc-drizzle-auth-todo",
+    packageManagers: ["bun", "npm", "pnpm"],
+    config: {
+      ...baseConfig,
+      frontend: ["tanstack-router"],
+      backend: "nitro",
+      runtime: "node",
+      database: "sqlite",
+      orm: "drizzle",
+      api: "orpc",
+      auth: "better-auth",
+      payments: "none",
+      addons: ["turborepo"],
+      examples: ["todo"],
+    },
+  },
+  {
+    name: "nitro-trpc-clerk-bun",
+    packageManagers: ["bun"],
+    config: {
+      ...baseConfig,
+      frontend: ["tanstack-router"],
+      backend: "nitro",
+      runtime: "bun",
+      database: "none",
+      orm: "none",
+      api: "trpc",
+      auth: "clerk",
+      payments: "none",
+      addons: ["nx"],
+      examples: ["none"],
+    },
+  },
+  {
+    name: "nitro-cloudflare-d1-auth-todo",
+    packageManagers: ["bun"],
+    config: {
+      ...baseConfig,
+      frontend: ["tanstack-router"],
+      backend: "nitro",
+      runtime: "workers",
+      database: "sqlite",
+      orm: "drizzle",
+      dbSetup: "d1",
+      api: "orpc",
+      auth: "better-auth",
+      payments: "none",
+      addons: ["turborepo"],
+      examples: ["todo"],
+      serverDeploy: "cloudflare",
+    },
+  },
+  {
+    name: "nitro-prisma-better-auth",
+    packageManagers: ["bun"],
+    config: {
+      ...baseConfig,
+      frontend: ["react-router"],
+      backend: "nitro",
+      runtime: "bun",
+      database: "sqlite",
+      orm: "prisma",
+      api: "trpc",
+      auth: "better-auth",
+      payments: "polar",
+      addons: ["turborepo"],
+      examples: ["none"],
+    },
+  },
+  {
+    name: "nitro-solid-mongoose",
+    packageManagers: ["bun"],
+    config: {
+      ...baseConfig,
+      frontend: ["solid"],
+      backend: "nitro",
+      runtime: "node",
+      database: "mongodb",
+      orm: "mongoose",
+      api: "orpc",
+      auth: "none",
+      payments: "none",
+      addons: ["turborepo"],
+      examples: ["none"],
+    },
+  },
+  {
+    name: "nitro-ai-bun",
+    packageManagers: ["bun"],
+    config: {
+      ...baseConfig,
+      frontend: ["tanstack-router"],
+      backend: "nitro",
+      runtime: "bun",
+      database: "none",
+      orm: "none",
+      api: "orpc",
+      auth: "none",
+      payments: "none",
+      addons: ["turborepo"],
+      examples: ["ai"],
     },
   },
   {
@@ -584,7 +795,7 @@ const buildSamples: BuildSample[] = [
   },
   {
     name: "prisma-react-router-web",
-    packageManagers: ["bun"],
+    packageManagers: ["bun", "npm"],
     config: {
       ...baseConfig,
       frontend: ["react-router"],
@@ -1281,7 +1492,7 @@ async function bootAndValidatePrismaWebArtifact(sample: SelectedBuildSample, pro
   const frontend = sample.config.frontend ?? [];
   const entrypoint = frontend.includes("react-router")
     ? "build/server/index.js"
-    : frontend.includes("svelte") && sample.config.backend !== "none"
+    : frontend.includes("svelte")
       ? "build/index.js"
       : frontend.includes("solid")
         ? ".output/server/index.mjs"
@@ -1292,39 +1503,46 @@ async function bootAndValidatePrismaWebArtifact(sample: SelectedBuildSample, pro
   const runtimeRoot = await fs.mkdtemp(path.join(tmpdir(), "bts-prisma-artifact-"));
   const artifactDirectory = entrypoint.split("/")[0]!;
   await fs.copy(path.join(webDir, artifactDirectory), path.join(runtimeRoot, artifactDirectory));
-  const port = await getAvailablePort();
-  const runtime = execa("bun", [entrypoint], {
-    cwd: runtimeRoot,
-    all: true,
-    reject: false,
-    env: {
-      ...process.env,
-      HOST: "127.0.0.1",
-      NODE_ENV: "production",
-      PORT: String(port),
-    },
-  });
-
-  let failure: unknown;
+  const runtimes = frontend.includes("svelte") ? ["bun", "node"] : ["bun"];
   try {
-    for (const pathname of ["/"]) {
-      const response = await fetchWhenReady(`http://127.0.0.1:${port}${pathname}`);
-      expect(response?.status).toBe(200);
-    }
-  } catch (error) {
-    failure = error;
-  } finally {
-    runtime.kill("SIGTERM");
-  }
+    for (const command of runtimes) {
+      const port = await getAvailablePort();
+      const runtime = execa(command, [entrypoint], {
+        cwd: runtimeRoot,
+        all: true,
+        reject: false,
+        env: {
+          ...process.env,
+          HOST: "127.0.0.1",
+          NODE_ENV: "production",
+          PORT: String(port),
+        },
+      });
 
-  const result = await runtime;
-  await fs.remove(runtimeRoot);
-  if (failure) {
-    throw new Error(
-      [`Generated Prisma runtime probe failed: ${String(failure)}`, formatOutput(result.all)]
-        .filter(Boolean)
-        .join("\n\n"),
-    );
+      let failure: unknown;
+      try {
+        const response = await fetchWhenReady(`http://127.0.0.1:${port}/`);
+        expect(response?.status).toBe(200);
+      } catch (error) {
+        failure = error;
+      } finally {
+        runtime.kill("SIGTERM");
+      }
+
+      const result = await runtime;
+      if (failure) {
+        throw new Error(
+          [
+            `Generated Prisma runtime probe failed (${command}): ${String(failure)}`,
+            formatOutput(result.all),
+          ]
+            .filter(Boolean)
+            .join("\n\n"),
+        );
+      }
+    }
+  } finally {
+    await fs.remove(runtimeRoot);
   }
 }
 
@@ -1551,6 +1769,114 @@ export type TypeBoundaryProbeClient = RouterClient<typeof typeBoundaryProbe>;\n`
   };
 }
 
+async function writeSvelteHookTypeChecks(sample: SelectedBuildSample, projectDir: string) {
+  if (
+    !sample.config.frontend?.includes("svelte") ||
+    !sample.config.addons?.some((addon) => addon === "evlog" || addon === "axiom")
+  )
+    return;
+  const probe = path.join(projectDir, "apps/web/src/hooks-typecheck.ts");
+  await fs.outputFile(
+    probe,
+    `import type { Handle, HandleServerError } from "@sveltejs/kit/hooks";
+import { handle, handleError } from "./hooks.server";
+
+// Check the generated hooks against Kit's public types, including dependency returns.
+export const checkedHandle: Handle = handle;
+export const checkedHandleError: HandleServerError = handleError;
+`,
+  );
+  return () => fs.remove(probe);
+}
+
+async function bootAndValidateNitroRuntime(sample: SelectedBuildSample, projectDir: string) {
+  if (sample.config.backend !== "nitro" || sample.config.runtime === "workers") return;
+  // The mongoose sample connects to MongoDB at module load; this harness does not provision one.
+  if (sample.config.orm === "mongoose") return;
+
+  const serverDir = path.join(projectDir, "apps/server");
+  const port = await getAvailablePort();
+  const runtime = execa(
+    sample.config.runtime === "bun" ? "bun" : "node",
+    [".output/server/index.mjs"],
+    {
+      cwd: serverDir,
+      all: true,
+      reject: false,
+      env: {
+        ...process.env,
+        BETTER_AUTH_SECRET: "generated-build-test-secret-at-least-32-characters",
+        BETTER_AUTH_URL: `http://127.0.0.1:${port}`,
+        CLERK_PUBLISHABLE_KEY: "pk_test_generated-build-test",
+        CLERK_SECRET_KEY: "sk_test_generated-build-test",
+        CORS_ORIGIN: "https://web.example.test",
+        DATABASE_URL: "file:./local.db",
+        GOOGLE_GENERATIVE_AI_API_KEY: "generated-build-test-key",
+        HOST: "127.0.0.1",
+        NODE_ENV: "production",
+        POLAR_ACCESS_TOKEN: "polar_generated-build-test",
+        POLAR_SUCCESS_URL: `http://127.0.0.1:${port}/success`,
+        PORT: String(port),
+      },
+    },
+  );
+
+  let failure: unknown;
+  try {
+    const root = await fetchWhenReady(`http://127.0.0.1:${port}/`);
+    expect(root?.status).toBe(200);
+    expect(await root?.text()).toBe("OK");
+
+    const preflight = await fetchWhenReady(`http://127.0.0.1:${port}/rpc/healthCheck`, {
+      method: "OPTIONS",
+      headers: {
+        origin: "https://web.example.test",
+        "access-control-request-method": "POST",
+      },
+    });
+    expect(preflight?.status).toBe(204);
+    expect(preflight?.headers.get("access-control-allow-origin")).toBe("https://web.example.test");
+
+    if (sample.config.api === "orpc") {
+      const health = await fetchWhenReady(`http://127.0.0.1:${port}/rpc/healthCheck`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ json: null }),
+      });
+      expect(health?.status).toBe(200);
+      expect(await health?.json()).toEqual({ json: "OK" });
+    }
+
+    if (sample.config.api === "trpc" && sample.config.auth !== "clerk") {
+      const input = encodeURIComponent(JSON.stringify({ json: null }));
+      const health = await fetchWhenReady(
+        `http://127.0.0.1:${port}/trpc/healthCheck?input=${input}`,
+      );
+      expect(health?.status).toBe(200);
+      expect(await health?.json()).toEqual({ result: { data: "OK" } });
+    }
+
+    if (sample.config.auth === "better-auth") {
+      const session = await fetchWhenReady(`http://127.0.0.1:${port}/api/auth/get-session`);
+      expect(session?.status).toBe(200);
+      expect(await session?.json()).toBeNull();
+    }
+  } catch (error) {
+    failure = error;
+  } finally {
+    runtime.kill("SIGTERM");
+  }
+
+  const result = await runtime;
+  if (failure) {
+    throw new Error(
+      [`Generated Nitro runtime probe failed: ${String(failure)}`, formatOutput(result.all)]
+        .filter(Boolean)
+        .join("\n\n"),
+    );
+  }
+}
+
 describe.skipIf(!shouldRunBuildSamples)("Generated project install/build samples", () => {
   for (const sample of getSelectedBuildSamples()) {
     it(
@@ -1592,6 +1918,7 @@ describe.skipIf(!shouldRunBuildSamples)("Generated project install/build samples
             ]);
           }
           const restoreTypeFixtures = await writeOrpcInferenceChecks(sample, projectDir);
+          const restoreSvelteHookTypes = await writeSvelteHookTypeChecks(sample, projectDir);
           if (sample.name === "nuxt-auth-todo-ai") {
             await fs.outputFile(
               path.join(projectDir, "apps/web/app/pages/ssr-auth-probe.vue"),
@@ -1610,6 +1937,7 @@ try {
           } finally {
             // Build and boot the scaffold without the compile-only custom auth field.
             await restoreTypeFixtures?.();
+            await restoreSvelteHookTypes?.();
           }
           const build = getPackageManagerCommand(sample.packageManager, "build");
           await runCommand(sample.name, projectDir, build.command, build.args);
@@ -1619,6 +1947,7 @@ try {
           await bootAndValidateNuxtAuthRuntime(sample, projectDir);
           await bootAndValidateSolidDevRuntime(sample, projectDir);
           await bootAndValidateSolidRuntime(sample, projectDir);
+          await bootAndValidateNitroRuntime(sample, projectDir);
           await validateSolidBuildArtifacts(sample, projectDir);
           await validatePwaBuildArtifacts(sample, projectDir);
           if (sample.config.frontend?.some((frontend) => frontend.startsWith("native-"))) {
