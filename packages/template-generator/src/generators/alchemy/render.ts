@@ -10,6 +10,7 @@ import { createAlchemyWriter, writeObject, type AlchemyWriter } from "./writer";
 
 function databaseProvidersUseCommand(plan: AlchemyDeploymentPlan): boolean {
   return (
+    (plan.server.target === "cloudflare" && plan.config.backend === "nitro") ||
     plan.managedDatabase.kind === "prisma-postgres" ||
     (plan.managedDatabase.kind !== "none" && plan.managedDatabase.orm === "prisma")
   );
@@ -27,6 +28,7 @@ function usesCommand(plan: AlchemyDeploymentPlan): boolean {
 function usesOutput(plan: AlchemyDeploymentPlan): boolean {
   const database = plan.managedDatabase;
   return (
+    (plan.server.target === "cloudflare" && plan.config.backend === "nitro") ||
     database.kind === "neon" ||
     database.kind === "prisma-postgres" ||
     (database.kind === "planetscale-mysql" && database.orm === "prisma")
