@@ -141,6 +141,9 @@ describe("paraglide shared package", () => {
 
     const german = readJson<Record<string, string>>(vfs, "packages/i18n/messages/de.json");
     expect(Object.keys(german)).toEqual(["$schema"]);
+
+    expect(vfs.exists("packages/i18n/messages/es.json")).toBe(false);
+    expect(vfs.exists("packages/i18n/messages/fr.json")).toBe(false);
   });
 
   test("seeds a non-shipped source locale from the English catalog", async () => {
@@ -173,10 +176,30 @@ describe("paraglide Vite wiring", () => {
 
   test("wires every Vite frontend and its home route", async () => {
     const cases = [
-      { frontend: "tanstack-start", page: "apps/web/src/routes/index.tsx", alias: "@/components" },
-      { frontend: "tanstack-router", page: "apps/web/src/routes/index.tsx", alias: "@/components" },
-      { frontend: "react-router", page: "apps/web/src/routes/_index.tsx", alias: "@/components" },
-      { frontend: "solid", page: "apps/web/src/routes/index.tsx", alias: "~/components" },
+      {
+        frontend: "tanstack-start",
+        page: "apps/web/src/routes/index.tsx",
+        alias: "@/components",
+        hook: "apps/web/src/hooks/use-format.ts",
+      },
+      {
+        frontend: "tanstack-router",
+        page: "apps/web/src/routes/index.tsx",
+        alias: "@/components",
+        hook: "apps/web/src/hooks/use-format.ts",
+      },
+      {
+        frontend: "react-router",
+        page: "apps/web/src/routes/_index.tsx",
+        alias: "@/components",
+        hook: "apps/web/src/hooks/use-format.ts",
+      },
+      {
+        frontend: "solid",
+        page: "apps/web/src/routes/index.tsx",
+        alias: "~/components",
+        hook: "apps/web/src/hooks/use-format.ts",
+      },
     ] as const;
 
     for (const item of cases) {
@@ -184,6 +207,9 @@ describe("paraglide Vite wiring", () => {
 
       expect(vfs.readFile("apps/web/vite.config.ts")).toContain("paraglideVitePlugin(");
       expect(vfs.exists("apps/web/src/components/i18n-demo.tsx")).toBe(true);
+      expect(vfs.exists(item.hook)).toBe(true);
+      expect(vfs.readFile(item.hook)).toContain("useFormat");
+      expect(vfs.readFile("apps/web/src/components/i18n-demo.tsx")).toContain("useFormat()");
 
       const page = vfs.readFile(item.page) as string;
       expect(page).toContain("<I18nDemo />");
@@ -214,6 +240,9 @@ describe("paraglide Next wiring", () => {
     const page = vfs.readFile("apps/web/src/app/page.tsx") as string;
     expect(page).toContain("<I18nDemo />");
     expect(page).toContain('"@/components/i18n-demo"');
+
+    expect(vfs.exists("apps/web/src/hooks/use-format.ts")).toBe(true);
+    expect(vfs.readFile("apps/web/src/components/i18n-demo.tsx")).toContain("useFormat()");
   });
 });
 
@@ -226,6 +255,9 @@ describe("paraglide Nuxt, Svelte and Astro wiring", () => {
     expect(nuxtConfig).toContain('outdir: "./app/paraglide"');
 
     expect(vfs.exists("apps/web/app/components/I18nDemo.vue")).toBe(true);
+    expect(vfs.exists("apps/web/app/composables/useFormat.ts")).toBe(true);
+    expect(vfs.readFile("apps/web/app/composables/useFormat.ts")).toContain("useFormat");
+    expect(vfs.readFile("apps/web/app/components/I18nDemo.vue")).toContain("useFormat()");
     expect(vfs.readFile("apps/web/app/pages/index.vue")).toContain("<I18nDemo />");
   });
 
@@ -234,6 +266,9 @@ describe("paraglide Nuxt, Svelte and Astro wiring", () => {
 
     expect(vfs.readFile("apps/web/vite.config.ts")).toContain("paraglideVitePlugin(");
     expect(vfs.exists("apps/web/src/lib/components/i18n-demo.svelte")).toBe(true);
+    expect(vfs.exists("apps/web/src/lib/use-format.svelte.ts")).toBe(true);
+    expect(vfs.readFile("apps/web/src/lib/use-format.svelte.ts")).toContain("$derived");
+    expect(vfs.readFile("apps/web/src/lib/components/i18n-demo.svelte")).toContain("useFormat()");
 
     const page = vfs.readFile("apps/web/src/routes/+page.svelte") as string;
     expect(page).toContain('import I18nDemo from "$lib/components/i18n-demo.svelte"');
@@ -257,6 +292,8 @@ describe("paraglide host surfaces without a Vite pipeline", () => {
     const vfs = await generateVfs(baseConfig({ frontend: ["native-uniwind"] }));
 
     expect(vfs.exists("apps/native/components/i18n-demo.tsx")).toBe(true);
+    expect(vfs.exists("apps/native/hooks/use-format.ts")).toBe(true);
+    expect(vfs.readFile("apps/native/components/i18n-demo.tsx")).toContain("useFormat()");
     const page = vfs.readFile("apps/native/app/(drawer)/index.tsx") as string;
     expect(page).toContain("<I18nDemo />");
 

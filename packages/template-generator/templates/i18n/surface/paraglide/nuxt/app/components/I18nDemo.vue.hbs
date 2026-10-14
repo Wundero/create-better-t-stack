@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { createFormatters, isLocale } from "@{{projectName}}/i18n";
+import { isLocale } from "@{{projectName}}/i18n";
 
 import * as m from "../paraglide/messages.js";
 import { getLocale, locales, setLocale } from "../paraglide/runtime.js";
@@ -10,7 +10,7 @@ import { getLocale, locales, setLocale } from "../paraglide/runtime.js";
  * `createFormatters` bundle, never from the i18n library.
  */
 const locale = getLocale();
-const formatters = createFormatters(locale);
+const formatters = useFormat();
 
 function onLocaleChange(event: Event) {
   const target = event.currentTarget;

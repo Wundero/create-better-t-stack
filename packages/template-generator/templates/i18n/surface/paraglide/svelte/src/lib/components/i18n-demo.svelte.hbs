@@ -1,5 +1,6 @@
 <script lang="ts">
-	import { createFormatters, isLocale } from "@{{projectName}}/i18n";
+	import { isLocale } from "@{{projectName}}/i18n";
+	import { useFormat } from "$lib/use-format.svelte";
 
 	import * as m from "../../paraglide/messages.js";
 	import { getLocale, locales, setLocale } from "../../paraglide/runtime.js";
@@ -10,7 +11,7 @@
 	 * `createFormatters` bundle, never from the i18n library.
 	 */
 	const locale = getLocale();
-	const formatters = createFormatters(locale);
+	const format = useFormat();
 
 	function onLocaleChange(event: Event) {
 		const target = event.currentTarget;
@@ -27,18 +28,18 @@
 	<dl class="mt-3 grid gap-1 text-sm">
 		<div class="flex gap-2">
 			<dt class="text-muted-foreground">{m.i18n_demo_currency_label()}</dt>
-			<dd>{formatters.currency(19.99, "EUR")}</dd>
+			<dd>{format.current.currency(19.99, "EUR")}</dd>
 		</div>
 		<div class="flex gap-2">
 			<dt class="text-muted-foreground">{m.i18n_demo_date_label()}</dt>
-			<dd>{formatters.date(new Date("2024-05-01T00:00:00Z"))}</dd>
+			<dd>{format.current.date(new Date("2024-05-01T00:00:00Z"))}</dd>
 		</div>
 	</dl>
 	<label class="mt-3 flex items-center gap-2 text-sm">
-		<span class="text-muted-foreground">{formatters.displayName(locale)}</span>
+		<span class="text-muted-foreground">{format.current.displayName(locale)}</span>
 		<select class="rounded border bg-transparent px-2 py-1" value={locale} onchange={onLocaleChange}>
 			{#each locales as available (available)}
-				<option value={available}>{formatters.displayName(available) ?? available}</option>
+				<option value={available}>{format.current.displayName(available) ?? available}</option>
 			{/each}
 		</select>
 	</label>

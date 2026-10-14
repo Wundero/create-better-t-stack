@@ -1,18 +1,14 @@
 import type { Frontend, ProjectConfig } from "@better-t-stack/types";
 
-import type { VirtualFileSystem } from "../../core/virtual-fs";
+import type { VirtualFileSystem } from "../../../core/virtual-fs";
 import {
   wireAstroConfig,
   wireNextConfig,
   wireNuxtConfig,
   wireViteConfig,
   writeIgnorePatterns,
-} from "./paraglide/configs";
-import {
-  addParaglideDependencies,
-  upgradeCheckTypes,
-  type ParaglideWebApp,
-} from "./paraglide/deps";
+} from "./configs";
+import { addParaglideDependencies, upgradeCheckTypes, type ParaglideWebApp } from "./deps";
 import {
   insertAstroDemo,
   insertNextDemo,
@@ -23,7 +19,7 @@ import {
   insertViteReactDemo,
   wireElectrobunHost,
   wireServerRoutes,
-} from "./paraglide/surfaces";
+} from "./surfaces";
 
 /**
  * Paraglide dependency wiring (lane L5b).
@@ -84,9 +80,17 @@ function ensureConfiguredCatalogs(vfs: VirtualFileSystem, config: ProjectConfig)
   const locales = config.i18nOptions?.locales ?? DEFAULT_LOCALES;
   const sourceLocale = config.i18nOptions?.sourceLocale ?? "en";
   const englishCatalog = vfs.readFile("packages/i18n/messages/en.json");
+  const configured = new Set(locales);
+  const messagesPrefix = "packages/i18n/messages/";
+
+  for (const file of vfs.getAllFiles()) {
+    if (!file.startsWith(messagesPrefix)) continue;
+    const locale = file.slice(messagesPrefix.length).replace(/\.json$/, "");
+    if (!configured.has(locale)) vfs.deleteFile(file);
+  }
 
   for (const locale of locales) {
-    const path = `packages/i18n/messages/${locale}.json`;
+    const path = `${messagesPrefix}${locale}.json`;
     if (vfs.exists(path)) continue;
     vfs.writeFile(
       path,
@@ -97,6 +101,7 @@ function ensureConfiguredCatalogs(vfs: VirtualFileSystem, config: ProjectConfig)
 
 const REACT_FRAMEWORKS = ["tanstack-router", "react-router", "tanstack-start", "next"] as const;
 const REACT_FRONTEND_SET: ReadonlySet<string> = new Set(REACT_FRAMEWORKS);
+const OTHER_WEB_SURFACES = ["nuxt", "svelte", "solid", "astro"] as const;
 
 type WebSurface = ParaglideWebApp["surface"];
 
@@ -117,9 +122,10 @@ function webSurfaceOf(frontend: Frontend): WebSurface | undefined {
 }
 
 /**
- * Mirrors `processFrontendTemplates`: the CLI guarantees at most one web
- * frontend, and the first selected React framework takes precedence over the
- * other web frameworks.
+ * Mirrors `processFrontendTemplates`: the CLI normalizes the configuration to
+ * at most one web frontend, the first selected React framework wins, and the
+ * remaining frameworks keep the handler's fixed order (nuxt → svelte → solid →
+ * astro).
  */
 function resolveWebSurface(frontends: readonly Frontend[]): WebSurface | undefined {
   for (const frontend of frontends) {
@@ -127,9 +133,8 @@ function resolveWebSurface(frontends: readonly Frontend[]): WebSurface | undefin
     if (surface && REACT_FRONTEND_SET.has(surface)) return surface;
   }
 
-  for (const frontend of frontends) {
-    const surface = webSurfaceOf(frontend);
-    if (surface) return surface;
+  for (const candidate of OTHER_WEB_SURFACES) {
+    if (frontends.some((frontend) => frontend === candidate)) return candidate;
   }
 
   return undefined;

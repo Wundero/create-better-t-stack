@@ -1,6 +1,8 @@
 "use client";
 
-import { createFormatters, isLocale } from "@{{projectName}}/i18n";
+import { isLocale } from "@{{projectName}}/i18n";
+
+import { useFormat } from "../hooks/use-format";
 
 import * as m from "../paraglide/messages.js";
 import { getLocale, locales, setLocale } from "../paraglide/runtime.js";
@@ -12,7 +14,7 @@ import { getLocale, locales, setLocale } from "../paraglide/runtime.js";
  */
 export function I18nDemo() {
   const locale = getLocale();
-  const formatters = createFormatters(locale);
+  const formatters = useFormat();
 
   return (
     <section className="rounded-lg border p-4">

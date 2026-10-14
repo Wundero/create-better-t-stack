@@ -1,5 +1,5 @@
-import { createFormatters } from "@{{projectName}}/i18n";
 import { getLocale, locales, m, setLocale } from "@{{projectName}}/i18n/runtime";
+import { useFormat } from "@/hooks/use-format";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
 /**
@@ -13,7 +13,7 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
  */
 export function I18nDemo() {
   const locale = getLocale();
-  const formatters = createFormatters(locale);
+  const formatters = useFormat();
 
   return (
     <View style={styles.card}>
