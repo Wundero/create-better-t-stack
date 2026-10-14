@@ -1,0 +1,5 @@
+# wuchale build output (compiled catalogs, proxies, generated loaders)
+locales/.wuchale/
+
+# normalized export used by the Rust host
+dist/
