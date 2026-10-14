@@ -47,9 +47,12 @@ translation provider. Translate with the `i18n-translate` skill through
   Extraction works through `i18n:extract`; to transform sources for a build
   without a plugin, run `bunx wuchale --modify <adapter>` on a clean working
   tree (the command overwrites source files in place).
-- **Unsupported surfaces:** Nuxt and WXT Vue have no wuchale adapter; Expo
-  (native), Tauri's Rust host and `react-email` are unsupported or unverified —
-  the compatibility matrix blocks combinations it cannot support.
+- **Unsupported surfaces:** Nuxt and WXT Vue have no wuchale adapter, and Expo
+  (native) and Tauri's Rust host have no wuchale counterpart — the compatibility
+  matrix blocks those combinations with that reason.
+- **Partial surfaces:** `react-email` (server render path) and the OpenTUI
+  React/Solid reconcilers ship glue but are unverified; the compatibility matrix
+  reports them as warnings.
 
 ## Adding a locale
 
