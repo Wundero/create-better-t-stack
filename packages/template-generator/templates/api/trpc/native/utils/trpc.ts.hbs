@@ -9,6 +9,9 @@ import { createTRPCClient, httpBatchLink } from "@trpc/client";
 import { createTRPCOptionsProxy } from "@trpc/tanstack-react-query";
 import type { AppRouter } from "@{{projectName}}/api/routers/index";
 import { ENV } from "../src/env";
+{{#if (and i18n (ne i18n "none"))}}
+import { localeHeader } from "@{{projectName}}/i18n/client";
+{{/if}}
 
 export const queryClient = new QueryClient();
 
@@ -19,6 +22,11 @@ const trpcClient = createTRPCClient<AppRouter>({
 			url: `${ENV.EXPO_PUBLIC_SERVER_URL}/api/trpc`,
 {{else}}
 			url: `${ENV.EXPO_PUBLIC_SERVER_URL}{{apiPrefix webDeploy serverDeploy}}/trpc`,
+{{/if}}
+{{#if (and i18n (ne i18n "none"))}}
+{{#unless (or (eq auth "better-auth") (eq auth "clerk"))}}
+			headers: () => localeHeader(),
+{{/unless}}
 {{/if}}
 {{#if (eq auth "better-auth")}}
 			fetch:
@@ -31,19 +39,19 @@ const trpcClient = createTRPCClient<AppRouter>({
 				},
 			async headers() {
 				if (Platform.OS === "web") {
-					return {};
+					return localeHeader();
 				}
 				const headers = new Map<string, string>();
 				const cookies = await authClient.getCookie();
 				if (cookies) {
 					headers.set("Cookie", cookies);
 				}
-				return Object.fromEntries(headers);
+				return { ...localeHeader(), ...Object.fromEntries(headers) };
 			},
 {{else if (eq auth "clerk")}}
 			headers: async function () {
 				const token = await getClerkAuthToken();
-				return token ? { Authorization: `Bearer ${token}` } : {};
+				return { ...localeHeader(), ...(token ? { Authorization: `Bearer ${token}` } : {}) };
 			},
 {{/if}}
 		}),

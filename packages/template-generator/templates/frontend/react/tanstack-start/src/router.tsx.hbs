@@ -21,6 +21,9 @@ import { TRPCProvider } from "./utils/trpc";
 {{#unless (eq backend "self")}}
 import { ENV } from "./env{{#if (eq webDeploy "cloudflare")}}.public{{/if}}";
 {{/unless}}
+{{#if (and i18n (ne i18n "none") (eq api "trpc"))}}
+import { localeFetch, localeInit } from "@{{projectName}}/i18n/client";
+{{/if}}
 {{#if (eq auth "clerk")}}
 import { getClerkAuthToken } from "@/utils/clerk-auth";
 {{/if}}
@@ -98,6 +101,9 @@ const trpcClient = createTRPCClient<AppRouter>({
 {{else}}
 			url: `${ENV.VITE_SERVER_URL.replace(/\/$/, "")}/trpc`,
 {{/if}}
+{{#if (and i18n (ne i18n "none") (ne auth "better-auth"))}}
+			fetch: localeFetch,
+{{/if}}
 {{#if (eq auth "clerk")}}
 			headers: async () => {
 				const token = await getClerkAuthToken();
@@ -106,10 +112,10 @@ const trpcClient = createTRPCClient<AppRouter>({
 {{/if}}
 {{#if (eq auth "better-auth")}}
 			fetch(url, options) {
-				return fetch(url, {
+				return fetch(url, localeInit({
 					...options,
 					credentials: "include",
-				});
+				}));
 			},
 {{/if}}
 		}),

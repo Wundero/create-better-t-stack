@@ -1,0 +1,56 @@
+import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+
+import {
+  LOCALE_COOKIE,
+  LOCALE_HEADER,
+  routingStrategy,
+} from "@{{projectName}}/i18n/config";
+import {
+  localeFromPathname,
+  negotiateRequestLocale,
+  stripLocalePrefix,
+} from "@{{projectName}}/i18n/routing";
+
+/**
+ * `prefix` / `domain` routing (D6).
+ *
+ * - prefix: `/fr/about` is rewritten to `/about` and the negotiated locale
+ *   travels on `x-app-locale` and the `locale` cookie. With
+ *   `prefixDefaultLocale` the canonical links from `localizeHref` always carry
+ *   the prefix; unprefixed paths still render.
+ * - domain: the request host selects the locale; `?locale=` overrides it on
+ *   localhost so one dev server can preview every locale.
+ *
+ * Cookie routing needs no middleware: clients send `x-app-locale`.
+ */
+export function middleware(request: NextRequest): NextResponse {
+  const { pathname } = request.nextUrl;
+
+  const locale = negotiateRequestLocale({
+    url: request.url,
+    header: request.headers.get(LOCALE_HEADER),
+    cookieHeader: request.headers.get("cookie"),
+    acceptLanguage: request.headers.get("accept-language"),
+  });
+
+  const headers = new Headers(request.headers);
+  headers.set(LOCALE_HEADER, locale);
+
+  let response: NextResponse;
+  if (routingStrategy === "prefix" && localeFromPathname(pathname)) {
+    const url = request.nextUrl.clone();
+    url.pathname = stripLocalePrefix(pathname);
+    response = NextResponse.rewrite(url, { request: { headers } });
+  } else {
+    response = NextResponse.next({ request: { headers } });
+  }
+
+  response.cookies.set(LOCALE_COOKIE, locale, { path: "/", sameSite: "lax" });
+  return response;
+}
+
+export const config = {
+  // Skip Next internals, API routes (auth, tRPC/oRPC) and asset files.
+  matcher: ["/((?!_next/|api/|.*\\.[^/]+$).*)"],
+};
