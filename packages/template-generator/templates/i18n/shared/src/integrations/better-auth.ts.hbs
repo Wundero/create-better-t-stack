@@ -1,10 +1,20 @@
 /**
  * Editable Better Auth translation overrides for `@better-auth/i18n`.
  *
- * TODO(L7): fill the per-locale overrides. Keys are `@better-auth/i18n`
- * translation keys; values are the override string for that locale. Locales
- * without a built-in Better Auth translation fall back to English.
+ * The auth server spreads these on top of the built-in `@better-auth/i18n`
+ * translations, keyed by the configured locale. Keys are `@better-auth/i18n`
+ * translation keys (error codes such as `INVALID_EMAIL_OR_PASSWORD`); values
+ * are the override string for that locale. Locales without a built-in Better
+ * Auth translation fall back to English.
+ *
+ * Example:
+ * ```ts
+ * export const betterAuthTranslations: BetterAuthTranslations = {
+ *   fr: { INVALID_EMAIL_OR_PASSWORD: "E-mail ou mot de passe invalide" },
+ * };
+ * ```
  */
-export const betterAuthTranslations: Readonly<
-  Record<string, Readonly<Record<string, string>>>
-> = {};
+
+export type BetterAuthTranslations = Readonly<Record<string, Readonly<Record<string, string>>>>;
+
+export const betterAuthTranslations: BetterAuthTranslations = {};

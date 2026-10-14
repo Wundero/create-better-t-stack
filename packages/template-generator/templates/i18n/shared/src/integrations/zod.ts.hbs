@@ -1,10 +1,122 @@
 /**
- * Maps BCP-47 tags to the export names used by Zod's locale modules.
- * Examples: `zh-CN` → `zhCN`, `pt-BR` → `ptBR`, `fr-CA` → `frCA`.
+ * Maps BCP-47 tags to the export names used by Zod's locale modules
+ * (`zod/locales`). Examples: `zh-CN` → `zhCN`, `pt-BR` → `ptBR`,
+ * `fr-CA` → `frCA`; tags without a dedicated Zod locale resolve to their
+ * language (`en-US` → `en`).
  *
- * TODO(L7): fill the table for the configured locales. The client calls
- * `z.config(locales[tag]())` on locale change; the server must not call
- * `z.config` per request (it is global) and translates issues at the API
- * boundary instead.
+ * The client wires `z.config(locales[x]())` on locale change through
+ * `./zod-client` (lazy-loaded). The server never calls `z.config`: it is
+ * global, so requests would leak messages across users. On the server,
+ * translate issues at the API boundary with `translateZodIssue(s)` instead.
  */
-export const zodLocaleExportNames: Readonly<Record<string, string>> = {};
+
+/** Zod locale export names, keyed by canonical BCP-47 tag. */
+export const zodLocaleExportNames: Readonly<Record<string, string>> = {
+  "ar": "ar",
+  "az": "az",
+  "be": "be",
+  "bg": "bg",
+  "bn": "bn",
+  "ca": "ca",
+  "ckb": "ckb",
+  "cs": "cs",
+  "da": "da",
+  "de": "de",
+  "el": "el",
+  "en": "en",
+  "eo": "eo",
+  "es": "es",
+  "fa": "fa",
+  "fi": "fi",
+  "fr": "fr",
+  "fr-CA": "frCA",
+  "gu": "gu",
+  "he": "he",
+  "hi": "hi",
+  "hr": "hr",
+  "hu": "hu",
+  "hy": "hy",
+  "id": "id",
+  "is": "is",
+  "it": "it",
+  "ja": "ja",
+  "ka": "ka",
+  "kh": "kh",
+  "km": "km",
+  "kn": "kn",
+  "ko": "ko",
+  "lt": "lt",
+  "mk": "mk",
+  "ms": "ms",
+  "ne": "ne",
+  "nl": "nl",
+  "nn": "nn",
+  "no": "no",
+  "ota": "ota",
+  "ps": "ps",
+  "pl": "pl",
+  "pt": "pt",
+  "pt-BR": "ptBR",
+  "ro": "ro",
+  "ru": "ru",
+  "sk": "sk",
+  "sl": "sl",
+  "sv": "sv",
+  "ta": "ta",
+  "th": "th",
+  "tk": "tk",
+  "tr": "tr",
+  "ua": "ua",
+  "uk": "uk",
+  "ur": "ur",
+  "uz": "uz",
+  "vi": "vi",
+  "zh-CN": "zhCN",
+  "zh-TW": "zhTW",
+  "yo": "yo",
+};
+
+/** A Zod issue, structurally typed so the shared package needs no Zod dependency. */
+export interface ZodIssueLike {
+  readonly code?: string;
+  readonly message?: string;
+  readonly path?: readonly (string | number | symbol)[];
+}
+
+/**
+ * Export name for a BCP-47 tag, using exact (region-aware) and truncated
+ * (language-only) lookup. Returns `undefined` when Zod ships no locale for it.
+ */
+export function zodLocaleExportName(tag: string): string | undefined {
+  const canonical = tag.trim();
+  const exact = zodLocaleExportNames[canonical];
+  if (exact !== undefined) return exact;
+  const [language = ""] = canonical.split("-");
+  return zodLocaleExportNames[language.toLowerCase()];
+}
+
+/**
+ * Server boundary helper: resolves one issue to a translated message without
+ * touching global Zod state. `dictionary` maps issue codes (or `path` names)
+ * to messages; unmatched issues keep their default message.
+ */
+export function translateZodIssue(
+  issue: ZodIssueLike,
+  dictionary: Readonly<Record<string, string>>,
+): string {
+  const candidates = [issue.code, issue.path?.at(-1)?.toString()];
+  for (const candidate of candidates) {
+    if (candidate !== undefined && dictionary[candidate] !== undefined) {
+      return dictionary[candidate];
+    }
+  }
+  return issue.message ?? "";
+}
+
+/** Server boundary helper for whole parse results (`safeParse().error.issues`). */
+export function translateZodIssues(
+  issues: readonly ZodIssueLike[],
+  dictionary: Readonly<Record<string, string>>,
+): string[] {
+  return issues.map((issue) => translateZodIssue(issue, dictionary));
+}
