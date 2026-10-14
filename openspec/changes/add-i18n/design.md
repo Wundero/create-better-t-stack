@@ -112,6 +112,18 @@ Deferred to later lanes (non-blocking):
 - `i18n:compile` chains `i18n:export` only when Tauri is selected — L8 owns the final hook.
 - Paraglide's `paraglide.config.mjs` strategy/`urlPatterns` are co-owned with L6's routing.
 
+**L6 (routing), L7 (built-ins), L9 (tooling) — merged into `wt/i18n`.** Tasks 6.1–6.4, 7.1–7.6/7.11/7.12, 9.1–9.3 done. Reviews: L7/L9 PASS (targeted must-fix cleared); **L6 FAIL → fixed → re-FAIL (two clerk-interaction regressions) → fixed → PASS**. Gate after each merge green: `packages/template-generator` up to 195/195; `apps/cli` 925 pass / 2 toolchain-preflight fails / 78 skip (after an orchestrator test-expectation update); `packages/types` 45/45; `apps/web` 87/87. `templates.generated.ts` regenerated and committed per merge.
+
+Orchestrator follow-ups: updated `apps/cli/test/api.test.ts` for L6's legitimate `localeHeader()` change to the native oRPC client (the stale expectation was not L6-owned); absorbed an oxfmt blank line in this file.
+
+Deferred / verification items:
+- **Runtime verification for L11 curated builds:** React Router 8 (`flatRoutes().then(prefix…)` context mode, `future.v8_middleware`, root `middleware` export default-enablement) and TanStack Start (`createStart` request middleware, paraglide SSR isolation via `src/server.ts`); Elysia double-pass `app.handle` and nitro h3-v2 `next()`.
+- WXT/OpenTUI post-scaffold glue, demo route-mounting, and the wuchale `next` matrix cell (see the L5 section).
+- **`DEFAULT_LOCALES` still duplicated as `["en","es","fr"]` in `processors/i18n/{lingui.ts,i18next.ts,paraglide/index.ts}`** — consolidate onto `I18nOptionsSchema.parse({}).locales`.
+- L9's emitted `scripts/contract.ts` is not imported by the L5 library scripts (they re-declare the shapes); L9 added conformance tests that lock runtime JSON to the emitted copy until those closed lanes adopt the import.
+- The shared package's scripts hardcode `bun` — settle before release.
+- `processors/i18n/routing.ts` ownership table gap: `test/i18n-routing.test.ts` and `readme-generator.ts` edits were authorized ad hoc (recorded here).
+
 ## Goals / Non-Goals
 
 **Goals**

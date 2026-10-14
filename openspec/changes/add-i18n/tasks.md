@@ -67,10 +67,10 @@ For each library, the subtasks are: runtime, catalogs, the extract/compile/pendi
 
 ## 6. Locale Negotiation and Routing
 
-- [ ] 6.1 Add `negotiateLocale` and the `x-app-locale` header in every generated API client: tRPC/oRPC links, the Better Auth client and fetch helpers.
-- [ ] 6.2 Add the server locale middleware for hono, express, fastify, elysia and nitro across bun, node, workers and lambda.
-- [ ] 6.3 Implement `prefix` routing on each supported surface, plus the shared `localizeHref` used by every template link.
-- [ ] 6.4 Implement `domain` routing, including:
+- [x] 6.1 Add `negotiateLocale` and the `x-app-locale` header in every generated API client: tRPC/oRPC links, the Better Auth client and fetch helpers.
+- [x] 6.2 Add the server locale middleware for hono, express, fastify, elysia and nitro across bun, node, workers and lambda.
+- [x] 6.3 Implement `prefix` routing on each supported surface, plus the shared `localizeHref` used by every template link.
+- [x] 6.4 Implement `domain` routing, including:
   - Better Auth `trustedOrigins` and cross-subdomain cookies;
   - CORS;
   - portless dev hosts;
@@ -79,18 +79,18 @@ For each library, the subtasks are: runtime, catalogs, the extract/compile/pendi
 
 ## 7. Built-in Localization Integrations
 
-- [ ] 7.1 Add `@better-auth/i18n`: the detection chain, the user `locale` field with the migration flow, and an editable overrides file.
-- [ ] 7.2 Add `@clerk/localizations` with lazy per-locale loading and the experimental note.
-- [ ] 7.3 Add Zod locales: client `z.config` on locale change, server boundary translation, and the BCP-47→Zod map.
-- [ ] 7.4 Add Nuxt UI `locale`, `@nuxtjs/i18n`, Astro `i18n`, Starlight and Fumadocs i18n, and the PWA manifest `lang`.
-- [ ] 7.5 Add `@wxt-dev/i18n` and `i18n:sync-wxt`.
-- [ ] 7.6 Add `expo-localization` and the Hermes `Intl` polyfills.
+- [x] 7.1 Add `@better-auth/i18n`: the detection chain, the user `locale` field with the migration flow, and an editable overrides file.
+- [x] 7.2 Add `@clerk/localizations` with lazy per-locale loading and the experimental note.
+- [x] 7.3 Add Zod locales: client `z.config` on locale change, server boundary translation, and the BCP-47→Zod map.
+- [x] 7.4 Add Nuxt UI `locale`, `@nuxtjs/i18n`, Astro `i18n`, Starlight and Fumadocs i18n, and the PWA manifest `lang`.
+- [x] 7.5 Add `@wxt-dev/i18n` and `i18n:sync-wxt`.
+- [x] 7.6 Add `expo-localization` and the Hermes `Intl` polyfills.
 - [ ] 7.7 Bind Turnstile `language` (on the stacked branch for `wt/turnstile-addon`, see Section 12).
 - [ ] 7.8 Add payment checkout `locale` for `checkoutLocale !== "none"` providers (on the stacked branch for `wt/payment-providers`, see Section 12).
 - [ ] 7.9 Replace static RTL with locale-derived direction in shadcn (on the stacked branch for `wt/shadcn-theme-config`, see Section 12).
 - [ ] 7.10 Localize React Email templates and pass the Better Auth recipient's locale (on the stacked branch for `wt/email-support`, see Section 12).
-- [ ] 7.11 Add the `lingui/skills` source to the skills addon.
-- [ ] 7.12 Write one focused test per integration proving it is added only when its `when()` holds.
+- [x] 7.11 Add the `lingui/skills` source to the skills addon.
+- [x] 7.12 Write one focused test per integration proving it is added only when its `when()` holds.
 
 ## 8. Rust / Tauri
 
@@ -102,9 +102,9 @@ For each library, the subtasks are: runtime, catalogs, the extract/compile/pendi
 
 ## 9. Translation Tooling and Skills
 
-- [ ] 9.1 Implement the `pending`/`apply`/`check` contract per library, with placeholder/ICU validation in `apply`.
-- [ ] 9.2 Write the `i18n-translate` skill template and mirror it to the skills-addon agent folders.
-- [ ] 9.3 Write the `i18n-adopt` skill template, with library-specific guidance.
+- [x] 9.1 Implement the `pending`/`apply`/`check` contract per library, with placeholder/ICU validation in `apply`.
+- [x] 9.2 Write the `i18n-translate` skill template and mirror it to the skills-addon agent folders.
+- [x] 9.3 Write the `i18n-adopt` skill template, with library-specific guidance.
 
 ## 10. Add Path Retrofitting
 
