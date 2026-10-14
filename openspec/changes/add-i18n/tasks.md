@@ -28,31 +28,31 @@
 
 ## 2. CLI
 
-- [ ] 2.1 Add the flags (D1), defaults and the reproducible-command round-trip.
-- [ ] 2.2 Add the interactive prompt after addons:
+- [x] 2.1 Add the flags (D1), defaults and the reproducible-command round-trip.
+- [x] 2.2 Add the interactive prompt after addons:
   - incompatible libraries shown disabled with the shared reason;
   - an experimental label on wuchale;
   - locale input validation;
   - routing and domain prompts shown only when supported.
-- [ ] 2.3 Wire `validateI18nCompatibility` and `validateI18nOptions` into programmatic validation as `Result.err(CLIError)`.
-- [ ] 2.4 Update the summary to show the library, locales, routing and "Also sets up" integrations. Update post-install next steps.
-- [ ] 2.5 Update MCP: schema, plan, and create contract.
+- [x] 2.3 Wire `validateI18nCompatibility` and `validateI18nOptions` into programmatic validation as `Result.err(CLIError)`.
+- [x] 2.4 Update the summary to show the library, locales, routing and "Also sets up" integrations. Update post-install next steps.
+- [x] 2.5 Update MCP: schema, plan, and create contract.
 
 ## 3. Web Stack Builder
 
-- [ ] 3.1 Add the `i18n` category in `TECH_OPTIONS` with badges, defaults, presets, and `CATEGORY_ORDER` after addons.
-- [ ] 3.2 Build a locale editor (tags, source radio), a routing selector and a domain map editor, each shown only when supported.
-- [ ] 3.3 Implement disabled reasons and auto-fix in `stack-validation.ts` via the shared module. Show partial-support notes as hints.
-- [ ] 3.4 Add URL keys, OG image, agent content and analytics.
-- [ ] 3.5 Write parity tests against the oracle and a URL round-trip test.
+- [x] 3.1 Add the `i18n` category in `TECH_OPTIONS` with badges, defaults, presets, and `CATEGORY_ORDER` after addons.
+- [x] 3.2 Build a locale editor (tags, source radio), a routing selector and a domain map editor, each shown only when supported.
+- [x] 3.3 Implement disabled reasons and auto-fix in `stack-validation.ts` via the shared module. Show partial-support notes as hints.
+- [x] 3.4 Add URL keys, OG image, agent content and analytics.
+- [x] 3.5 Write parity tests against the oracle and a URL round-trip test.
 
 ## 4. Generator Core
 
-- [ ] 4.1 Add `template-handlers/i18n.ts` and `processors/i18n-deps.ts`, and register both.
-- [ ] 4.2 Add the shared `packages/i18n` templates: `config.ts`, `format.ts`, `server.ts`, `integrations/*`, `GLOSSARY.md`, and a `format.test.ts` inside the generated project.
-- [ ] 4.3 Add the root `i18n:*` scripts and task-runner wiring (turbo, nx, vite-plus), so `i18n:compile` runs before `dev`/`build` where needed.
-- [ ] 4.4 Add the README section: library, locales, routing, scripts, partial notes and integration notes.
-- [ ] 4.5 Regenerate `templates.generated.ts` with the script.
+- [x] 4.1 Add `template-handlers/i18n.ts` and `processors/i18n-deps.ts`, and register both.
+- [x] 4.2 Add the shared `packages/i18n` templates: `config.ts`, `format.ts`, `server.ts`, `integrations/*`, `GLOSSARY.md`, and a `format.test.ts` inside the generated project.
+- [x] 4.3 Add the root `i18n:*` scripts and task-runner wiring (turbo, nx, vite-plus), so `i18n:compile` runs before `dev`/`build` where needed.
+- [x] 4.4 Add the README section: library, locales, routing, scripts, partial notes and integration notes.
+- [x] 4.5 Regenerate `templates.generated.ts` with the script.
 
 ## 5. Libraries (parallelizable once Sections 1–4 have landed)
 

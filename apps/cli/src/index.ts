@@ -66,6 +66,7 @@ import {
   UserCancelledError,
 } from "./utils/errors";
 import { getLatestCLIVersion } from "./utils/get-latest-cli-version";
+import { normalizeResolvedI18n } from "./utils/i18n-cli";
 import { type ProjectLauncher, ProjectLauncherSchema } from "./utils/project-launcher";
 import { validateResolvedConfigCompatibility } from "./validation";
 
@@ -514,7 +515,8 @@ export async function createVirtual(
     serverDeploy: virtualOptions.serverDeploy || "none",
   };
 
-  const validationResult = validateResolvedConfigCompatibility(config);
+  const resolvedI18nConfig = normalizeResolvedI18n(config);
+  const validationResult = validateResolvedConfigCompatibility(resolvedI18nConfig);
   if (validationResult.isErr()) {
     return Result.err(
       new GeneratorError({
@@ -526,7 +528,7 @@ export async function createVirtual(
   }
 
   return generate({
-    config,
+    config: resolvedI18nConfig,
     templates: EMBEDDED_TEMPLATES,
   });
 }

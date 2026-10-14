@@ -94,6 +94,12 @@ Review minors left open (fold into later lanes): add a `note` to `I18N_SUPPORT.l
 
 **Environment notes (affect every gate and lane).** `bun run check` fails under Node because `oxlint` cannot load its `.ts` JS plugin — use `bun run --bun check`. `tsdown` requires the optional peer `unrun`, which `bun install` does not install; without it `tsdown.config.ts` cannot load and every package build fails. The gate therefore needs `unrun` installed locally plus `bun run build:cli` before `apps/cli` tests. L2 must add `i18n: "none"` to the remaining `ProjectConfig` literals (`apps/cli/src/index.ts`, `apps/cli/src/helpers/core/command-handlers.ts`, and via `DEFAULT_CONFIG`/prompt results in `constants.ts` and `config-prompts.ts`) to restore `apps/cli` `check-types` (6 errors at L1 merge; 5 remain after the orchestrator glue).
 
+**L2 (cli), L3 (web), L4 (generator-core) — merged into `wt/i18n`** (merges `2dcb3eb2`, `3a7bcd51`, `a4e11219`; lane commits `44cbb5af`, `b0d6da6e`, `c0c37cb9`). Tasks 2.1–2.5, 3.1–3.5, 4.1–4.5 done. All three independent reviews: PASS (minors only). Gate after each merge: template regeneration clean; `bun run --bun check` pass; `packages/types` 45/45; `packages/template-generator` 11/11; `apps/web` 87/87; `apps/cli` 924 pass / 2 fail (known toolchain-preflight). `templates.generated.ts` regenerated and committed by the orchestrator (`f1644428`).
+
+Orchestrator decisions and follow-ups applied after review: (1) D1's i18n routing URL key `rt` collides with `runtime`'s existing `rt`, so i18n routing uses **`irt`** (backward-compatible; note recorded here). (2) Ownership updated — L4 additionally owns `bts-config.ts`, `utils/reproducible-command.ts`, `test/i18n-wiring.test.ts`; L9's script path corrected to `templates/i18n/lib/*/scripts/**`; the handler's template-layout contract documented in `orchestration.md`. (3) Web now imports the shared `I18N_ROUTING_STRATEGY_VALUES` instead of a duplicated routing list; the routing auto-fix clears a stale `domains` map; `createVirtual` normalizes i18n options.
+
+Deferred / non-blocking: `check-test-types` remains red from the pre-existing L1 fallout (test fixtures without the now-required `i18n`); generated `bts.jsonc` always writes `i18n` (pair with the schema-version bump in the Migration Plan); the shared package's scripts hardcode `bun` (settle with L9); `prefixDefaultLocale` has no CLI/reproduce flag (design gap for D1).
+
 ## Goals / Non-Goals
 
 **Goals**

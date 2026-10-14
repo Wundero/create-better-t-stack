@@ -1,10 +1,11 @@
 import type { I18n, I18nConfigInput, I18nOptions } from "@better-t-stack/types";
 import type { I18nRoutingStrategy } from "@better-t-stack/types";
+import { I18N_ROUTING_STRATEGY_VALUES } from "@better-t-stack/types";
 
 import { DEFAULT_I18N_OPTIONS, type StackState } from "./constant";
 import { getStackBackend, getStackFrontends } from "./stack-model";
 
-export const I18N_ROUTING_STRATEGIES = ["cookie", "prefix", "domain"] as const;
+export const I18N_ROUTING_STRATEGIES = I18N_ROUTING_STRATEGY_VALUES;
 export type I18nRoutingStrategyValue = (typeof I18N_ROUTING_STRATEGIES)[number];
 
 const I18N_ROUTING_SET = new Set<string>(I18N_ROUTING_STRATEGIES);

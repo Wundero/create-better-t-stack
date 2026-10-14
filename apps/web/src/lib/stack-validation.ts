@@ -437,7 +437,12 @@ export const analyzeStackCompatibility = (stack: StackState): CompatibilityResul
       if (!routingSupport.isSupported) {
         nextStack.i18nOptions = {
           ...options,
-          routing: { ...DEFAULT_I18N_OPTIONS.routing, ...options.routing, strategy: "cookie" },
+          routing: {
+            ...DEFAULT_I18N_OPTIONS.routing,
+            ...options.routing,
+            strategy: "cookie",
+            domains: undefined,
+          },
         };
         changed = true;
         changes.push({
