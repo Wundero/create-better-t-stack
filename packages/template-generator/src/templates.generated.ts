@@ -33888,6 +33888,1235 @@ export default defineConfig({
 {{/if}}
 });
 `],
+  ["i18n/lib/lingui/bun-preload.ts", `/**
+ * Bun preload that applies the Lingui macro transform to Bun-run hosts
+ * (server on Bun, the Electrobun Bun main process, OpenTUI apps).
+ *
+ * Register it from the host's \`bunfig.toml\`:
+ *
+ *   preload = ["../../packages/i18n/bun-preload.ts"]
+ *
+ * Vite and Next transform macros through their own plugins; this preload is
+ * the equivalent for hosts that execute TypeScript directly with Bun (no
+ * bundler step). It only touches files that import a Lingui macro entrypoint.
+ *
+ * \`@babel/core\` and \`@lingui/babel-plugin-lingui-macro\` are declared on this
+ * package, so Bun resolves both from here regardless of the host app.
+ */
+import { transformAsync } from "@babel/core";
+import linguiMacro from "@lingui/babel-plugin-lingui-macro";
+
+declare const Bun: {
+  file(filePath: string): { text(): Promise<string> };
+  plugin(plugin: {
+    name: string;
+    setup(build: {
+      onLoad(
+        options: { filter: RegExp },
+        handler: (args: {
+          path: string;
+        }) => Promise<{ contents: string; loader: "ts" | "tsx" | "js" | "jsx" } | undefined>,
+      ): void;
+    }): void;
+  }): void;
+};
+
+const SOURCE_FILE = /\\.[cm]?[jt]sx?$/;
+const LINGUI_MACRO = /@lingui\\/(?:core|react|solid)\\/macro/;
+
+Bun.plugin({
+  name: "lingui-macro-preload",
+  setup(build) {
+    build.onLoad({ filter: SOURCE_FILE }, async ({ path }) => {
+      const code = await Bun.file(path).text();
+      if (!LINGUI_MACRO.test(code)) return undefined;
+
+      const result = await transformAsync(code, {
+        filename: path,
+        babelrc: false,
+        configFile: false,
+        sourceMaps: "inline",
+        parserOpts: { plugins: ["typescript", "jsx"] },
+        plugins: [[linguiMacro, {}]],
+      });
+      if (!result?.code) return undefined;
+
+      const loader = path.endsWith("x") ? "tsx" : "ts";
+      return { contents: result.code, loader };
+    });
+  },
+});
+`],
+  ["i18n/lib/lingui/lingui.config.ts.hbs", `/**
+ * Lingui configuration for \`@{{projectName}}/i18n\`.
+ *
+ * - Catalogs live in \`locales/{locale}/messages.po\` (source of truth).
+ * - \`i18n:compile\` compiles them to \`locales/{locale}/messages.ts\` so every
+ *   bundler (Vite, Next, Metro, Bun) can import them statically.
+ * - \`i18n:extract\` scans every app that can contain messages.
+ *
+ * Rust extraction hook (lane L8): the Tauri crate ships a \`syn\`-based
+ * extractor. Register it here so \`t!(...)\` messages from \`src-tauri\` are
+ * merged into the same catalogs, e.g.
+ *
+ *   import { createRustExtractor } from "./rust/extractor";
+ *
+ *   extractors: [babel, createVueExtractor(), createRustExtractor()],
+ */
+import { defineConfig } from "@lingui/cli";
+import { formatter } from "@lingui/format-po";
+{{#if (or (includes frontend "nuxt") (and (includes addons "wxt") (eq addonOptions.wxt.template "vue")))}}
+import babel from "@lingui/cli/api/extractors/babel";
+import { createVueExtractor } from "@lingui/extractor-vue";
+{{/if}}
+
+import { locales, sourceLocale } from "./src/config";
+
+export default defineConfig({
+  locales: [...locales],
+  sourceLocale,
+  catalogs: [
+    {
+      path: "<rootDir>/locales/{locale}/messages",
+      include: [
+        "<rootDir>/../../apps/**/src/**",
+        "<rootDir>/../../apps/**/app/**",
+        "<rootDir>/../../apps/**/server/**",
+        "<rootDir>/../../apps/**/components/**",
+        "<rootDir>/../../apps/**/lib/**",
+        "<rootDir>/../../apps/**/hooks/**",
+        "<rootDir>/../../apps/**/utils/**",
+        "<rootDir>/../*/src/**",
+      ],
+      exclude: [
+        "**/node_modules/**",
+        "**/dist/**",
+        "**/build/**",
+        "**/out/**",
+        "**/.next/**",
+        "**/.nuxt/**",
+        "**/.output/**",
+        "**/.expo/**",
+        "**/.wxt/**",
+        "**/.react-router/**",
+        "**/routeTree.gen.*",
+        "**/*.test.*",
+      ],
+    },
+  ],
+  format: formatter(),
+  compileNamespace: "ts",
+  orderBy: "message",
+{{#if (or (includes frontend "solid") (and (includes addons "wxt") (eq addonOptions.wxt.template "solid")) (and (includes addons "opentui") (eq addonOptions.opentui.template "solid")))}}
+  macro: {
+    corePackage: ["@lingui/core/macro"],
+    jsxPackage: [
+{{#if (or (includes frontend "next") (includes frontend "tanstack-start") (includes frontend "tanstack-router") (includes frontend "react-router") (and (includes addons "wxt") (or (not addonOptions.wxt.template) (eq addonOptions.wxt.template "react"))) (and (includes addons "opentui") (eq addonOptions.opentui.template "react")))}}
+      "@lingui/react/macro",
+{{/if}}
+      "@lingui/solid/macro",
+    ],
+    jsxRuntime: "solid",
+  },
+  runtimeConfigModule: {
+    Trans: ["@lingui/solid", "Trans"],
+    useLingui: ["@lingui/solid", "useLingui"],
+  },
+{{/if}}
+{{#if (or (includes frontend "nuxt") (and (includes addons "wxt") (eq addonOptions.wxt.template "vue")))}}
+  extractors: [babel, createVueExtractor()],
+{{/if}}
+});
+`],
+  ["i18n/lib/lingui/scripts/apply.ts", `/**
+ * \`i18n:apply <file>\` — writes translations produced by the \`i18n-translate\`
+ * skill back into the catalogs.
+ *
+ * Input (\`{ "items": [...] }\`, the same \`id\`/\`locale\` the pending contract
+ * emits):
+ *
+ *   { "items": [{ "id": "vQhkQx", "locale": "fr", "translation": "Bonjour" }] }
+ *
+ * An item is rejected — and its catalog entry stays untouched — when the
+ * translation's ICU argument set differs from the source, when it uses a
+ * construct outside the exported ICU subset, or when the ID/locale does not
+ * exist. Rejections exit non-zero after the accepted items are written.
+ */
+import { readFileSync } from "node:fs";
+
+import { isConfiguredLocale, readCatalog, sourceLocale, writeCatalog } from "./catalogs";
+import { icuSignature, validateIcuSubset } from "./icu";
+import { findEntry, sourceTextOf, type PoCatalog } from "./po";
+
+export interface ApplyItem {
+  id: string;
+  locale: string;
+  translation: string;
+  context?: string | null;
+}
+
+export interface ApplyResult {
+  accepted: number;
+  rejected: { id: string; locale: string; reason: string }[];
+}
+
+export function applyTranslations(items: readonly ApplyItem[]): ApplyResult {
+  const sourceCatalog = readCatalog(sourceLocale);
+  const catalogs = new Map<string, PoCatalog>();
+  const dirty = new Set<string>();
+  const result: ApplyResult = { accepted: 0, rejected: [] };
+
+  const catalogFor = (locale: string): PoCatalog => {
+    let catalog = catalogs.get(locale);
+    if (!catalog) {
+      catalog = readCatalog(locale);
+      catalogs.set(locale, catalog);
+    }
+    return catalog;
+  };
+
+  for (const item of items) {
+    const reject = (reason: string): void => {
+      result.rejected.push({ id: item.id, locale: item.locale, reason });
+    };
+
+    if (!isConfiguredLocale(item.locale)) {
+      reject(\`"\${item.locale}" is not one of the configured locales.\`);
+      continue;
+    }
+    const sourceEntry = findEntry(sourceCatalog, item.id);
+    if (!sourceEntry) {
+      reject("Unknown message ID; run i18n:extract first.");
+      continue;
+    }
+    if (
+      item.context !== undefined &&
+      item.context !== null &&
+      item.context !== (sourceEntry.msgctxt ?? null)
+    ) {
+      reject(\`Context mismatch: expected \${sourceEntry.msgctxt ?? "none"}.\`);
+      continue;
+    }
+
+    const targetCatalog = catalogFor(item.locale);
+    const targetEntry = findEntry(targetCatalog, item.id);
+    if (!targetEntry) {
+      reject("Message missing from the target catalog; run i18n:extract first.");
+      continue;
+    }
+
+    const problems = validateIcuSubset(item.translation);
+    if (problems.length > 0) {
+      reject(\`Invalid ICU: \${problems.join(" ")}\`);
+      continue;
+    }
+
+    const sourceSignature = icuSignature(sourceTextOf(sourceEntry));
+    const translationSignature = icuSignature(item.translation);
+    if (sourceSignature !== translationSignature) {
+      reject(
+        \`Placeholder mismatch: source uses [\${sourceSignature}], translation uses [\${translationSignature}].\`,
+      );
+      continue;
+    }
+
+    targetEntry.msgstr = item.translation;
+    targetEntry.flags = targetEntry.flags.filter((flag) => flag !== "fuzzy");
+    dirty.add(item.locale);
+    result.accepted += 1;
+  }
+
+  for (const locale of dirty) {
+    writeCatalog(locale, catalogFor(locale));
+  }
+  return result;
+}
+
+if (import.meta.main) {
+  const file = process.argv[2];
+  if (!file) {
+    console.error("Usage: i18n:apply <file>");
+    process.exit(2);
+  }
+
+  let parsed: { items?: ApplyItem[] };
+  try {
+    parsed = JSON.parse(readFileSync(file, "utf8")) as { items?: ApplyItem[] };
+  } catch (error) {
+    console.error(
+      \`Could not read \${file}: \${error instanceof Error ? error.message : String(error)}\`,
+    );
+    process.exit(2);
+  }
+
+  if (!Array.isArray(parsed.items)) {
+    console.error('The apply file must contain an "items" array.');
+    process.exit(2);
+  }
+
+  const result = applyTranslations(parsed.items);
+  console.log(\`Applied \${result.accepted} translations.\`);
+  for (const rejection of result.rejected) {
+    console.error(\`Rejected \${rejection.id} (\${rejection.locale}): \${rejection.reason}\`);
+  }
+  if (result.rejected.length > 0) process.exit(1);
+}
+`],
+  ["i18n/lib/lingui/scripts/catalogs.ts", `/**
+ * Catalog file access for the \`i18n:*\` scripts.
+ *
+ * Catalogs live at \`locales/<locale>/messages.po\`; \`i18n:compile\` writes the
+ * compiled \`messages.ts\` next to them. The locale list is the single source of
+ * truth in \`src/config.ts\`.
+ */
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+import { locales, sourceLocale } from "../src/config";
+import { createHeader, parsePoFile, serializePoFile, type PoCatalog } from "./po";
+
+export const packageRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+
+export { locales, sourceLocale };
+
+export function isConfiguredLocale(value: string): boolean {
+  return locales.some((locale) => locale === value);
+}
+
+export function catalogPath(locale: string): string {
+  return path.join(packageRoot, "locales", locale, "messages.po");
+}
+
+export function readCatalog(locale: string): PoCatalog {
+  const file = catalogPath(locale);
+  if (!existsSync(file)) {
+    return { headers: createHeader(locale), entries: [] };
+  }
+  return parsePoFile(readFileSync(file, "utf8"));
+}
+
+export function writeCatalog(locale: string, catalog: PoCatalog): void {
+  const file = catalogPath(locale);
+  mkdirSync(path.dirname(file), { recursive: true });
+  catalog.headers = { ...catalog.headers, Language: locale };
+  writeFileSync(file, serializePoFile(catalog));
+}
+
+/** Target locales that receive translations: every configured locale except the source. */
+export function targetLocales(): string[] {
+  return locales.filter((locale) => locale !== sourceLocale);
+}
+`],
+  ["i18n/lib/lingui/scripts/check.ts", `/**
+ * \`i18n:check\` — fails when a catalog is out of sync with the source or has
+ * missing/invalid translations. \`I18N_CHECK_ALLOW_MISSING=1\` relaxes missing
+ * translations for local development; sync and compile errors still fail.
+ */
+import { runLinguiCli } from "./lingui-cli";
+
+const allowMissing = process.env.I18N_CHECK_ALLOW_MISSING === "1";
+
+const missingStatus = runLinguiCli(["check", "missing"]);
+const syncStatus = runLinguiCli(["check", "sync"]);
+
+if (syncStatus !== 0) {
+  process.exit(syncStatus);
+}
+
+if (missingStatus !== 0) {
+  if (!allowMissing) process.exit(missingStatus);
+  console.warn("I18N_CHECK_ALLOW_MISSING=1: missing translations are allowed for this run.");
+}
+`],
+  ["i18n/lib/lingui/scripts/compile.ts", `/**
+ * \`i18n:compile\` — compiles \`locales/<locale>/messages.po\` into
+ * \`locales/<locale>/messages.ts\` and refreshes the normalized catalog that the
+ * Rust side consumes (\`packages/i18n/dist/catalog.json\`, D7).
+ *
+ * Tauri's \`beforeDevCommand\`/\`beforeBuildCommand\` also run this script, so the
+ * Rust crate always sees the current catalogs.
+ */
+import { exportCatalog } from "./export";
+import { runLinguiCli } from "./lingui-cli";
+
+const status = runLinguiCli(["compile"]);
+if (status !== 0) {
+  process.exit(status);
+}
+
+const exported = exportCatalog();
+if (!exported.ok) {
+  console.error("i18n:export failed:");
+  for (const error of exported.errors) console.error(\`  - \${error}\`);
+  process.exit(1);
+}
+
+console.log(\`Compiled catalogs and exported \${exported.messages} messages.\`);
+`],
+  ["i18n/lib/lingui/scripts/export.ts", `/**
+ * \`i18n:export\` — normalizes every PO catalog into the D7 catalog that the
+ * generated Rust crate compiles:
+ *
+ *   { sourceLocale, locales, messages: { "<id>": { source, context, translations } } }
+ *
+ * Message IDs are the library's own IDs (\`generateMessageId(source, context)\`
+ * for generated-ID entries, the literal \`msgid\` for explicit-ID ones). Every
+ * translation is validated as an ICU MessageFormat subset; a construct the Rust
+ * evaluator cannot run makes the script fail and names the message ID.
+ */
+import { mkdirSync, writeFileSync } from "node:fs";
+import path from "node:path";
+
+import { packageRoot, readCatalog, sourceLocale, targetLocales } from "./catalogs";
+import { validateIcuSubset } from "./icu";
+import { catalogId, sourceTextOf } from "./po";
+
+export interface NormalizedMessage {
+  source: string;
+  context: string | null;
+  translations: Record<string, string>;
+}
+
+export interface NormalizedCatalog {
+  sourceLocale: string;
+  locales: string[];
+  messages: Record<string, NormalizedMessage>;
+}
+
+export interface ExportResult {
+  ok: boolean;
+  messages?: number;
+  errors: string[];
+}
+
+export interface CatalogBuildResult {
+  catalog: NormalizedCatalog;
+  errors: string[];
+}
+
+export function buildCatalog(): CatalogBuildResult {
+  const errors: string[] = [];
+  const source = readCatalog(sourceLocale);
+  const targets = targetLocales().map((locale) => ({ locale, catalog: readCatalog(locale) }));
+
+  const messages: Record<string, NormalizedMessage> = {};
+
+  for (const entry of source.entries) {
+    if (entry.obsolete) continue;
+    const id = catalogId(entry);
+    const sourceText = sourceTextOf(entry);
+    const translations: Record<string, string> = {};
+
+    for (const problem of validateIcuSubset(sourceText)) {
+      errors.push(\`\${id} (\${sourceLocale}): \${problem}\`);
+    }
+    translations[sourceLocale] = sourceText;
+
+    for (const { locale, catalog } of targets) {
+      const translated = catalog.entries.find(
+        (candidate) => !candidate.obsolete && catalogId(candidate) === id,
+      );
+      const value = translated?.msgstr.trim() ? translated.msgstr : sourceText;
+      for (const problem of validateIcuSubset(value)) {
+        errors.push(\`\${id} (\${locale}): \${problem}\`);
+      }
+      translations[locale] = value;
+    }
+
+    messages[id] = {
+      source: sourceText,
+      context: entry.msgctxt ?? null,
+      translations,
+    };
+  }
+
+  return {
+    catalog: { sourceLocale, locales: [sourceLocale, ...targetLocales()], messages },
+    errors,
+  };
+}
+
+export function exportCatalog(
+  outFile = path.join(packageRoot, "dist", "catalog.json"),
+): ExportResult {
+  const { catalog, errors } = buildCatalog();
+  if (errors.length > 0) {
+    return { ok: false, errors };
+  }
+
+  mkdirSync(path.dirname(outFile), { recursive: true });
+  writeFileSync(outFile, \`\${JSON.stringify(catalog, null, 2)}\\n\`);
+  return { ok: true, messages: Object.keys(catalog.messages).length, errors: [] };
+}
+
+if (import.meta.main) {
+  const result = exportCatalog();
+  if (!result.ok) {
+    console.error("i18n:export failed:");
+    for (const error of result.errors) console.error(\`  - \${error}\`);
+    process.exit(1);
+  }
+  console.log(\`Exported \${result.messages} messages to dist/catalog.json\`);
+}
+`],
+  ["i18n/lib/lingui/scripts/extract.ts", `/**
+ * \`i18n:extract\` — scans every app for Lingui macros and refreshes
+ * \`locales/<locale>/messages.po\`, removing obsolete entries.
+ *
+ * Rust extraction hook (lane L8): the Tauri crate ships a \`syn\`-based
+ * extractor that emits \`{ source, context?, references[] }\` items for
+ * \`t!(...)\`. Once the crate exists, run it here and merge each item through
+ * \`scripts/po.ts\` (\`generateMessageId\`, \`findEntry\`, \`writeCatalog\`) before
+ * \`--clean\` prunes anything, so Rust-only messages are never removed.
+ */
+import { runLinguiCli } from "./lingui-cli";
+
+process.exitCode = runLinguiCli(["extract", "--clean"]);
+`],
+  ["i18n/lib/lingui/scripts/icu.ts", `/**
+ * ICU MessageFormat subset analysis shared by the Lingui \`i18n:*\` scripts.
+ *
+ * \`i18n:export\` must fail loudly when a message uses constructs the Rust side
+ * cannot evaluate, and \`i18n:apply\` must reject translations whose argument
+ * sets differ from the source. Both use the analyzer here. The subset is the
+ * one D7 describes: arguments, \`plural\`/\`selectordinal\` with \`#\`, \`select\`,
+ * and recursive nesting.
+ */
+
+const SUPPORTED_TYPES = new Set(["plural", "selectordinal", "select", "number", "date", "time"]);
+
+const IDENTIFIER = /[A-Za-z0-9_$@.-]/;
+const KEY = /[A-Za-z0-9_=+-]/;
+
+export interface IcuArgument {
+  name: string;
+  type: "argument" | "plural" | "selectordinal" | "select" | "format";
+  categories: string[];
+}
+
+export interface IcuAnalysis {
+  arguments: IcuArgument[];
+  issues: string[];
+}
+
+interface ScanState {
+  text: string;
+  index: number;
+  depth: number;
+  pluralDepth: number;
+  issues: string[];
+}
+
+function scanIdentifier(state: ScanState): string {
+  let value = "";
+  while (state.index < state.text.length) {
+    const character = state.text[state.index] ?? "";
+    if (!IDENTIFIER.test(character)) break;
+    value += character;
+    state.index += 1;
+  }
+  return value;
+}
+
+function skipWhitespace(state: ScanState): void {
+  while (state.index < state.text.length && /\\s/.test(state.text[state.index] ?? "")) {
+    state.index += 1;
+  }
+}
+
+function scanKey(state: ScanState): string {
+  let value = "";
+  while (state.index < state.text.length) {
+    const character = state.text[state.index] ?? "";
+    if (!KEY.test(character)) break;
+    value += character;
+    state.index += 1;
+  }
+  return value;
+}
+
+function scanMessage(state: ScanState, untilBrace: boolean, argumentsList: IcuArgument[]): void {
+  while (state.index < state.text.length) {
+    const character = state.text[state.index] ?? "";
+
+    if (character === "}") {
+      if (untilBrace) {
+        state.index += 1;
+        return;
+      }
+      state.issues.push('Unexpected "}".');
+      state.index += 1;
+      continue;
+    }
+
+    if (character === "#") {
+      if (state.pluralDepth === 0) {
+        state.issues.push('"#" is only supported inside plural arguments.');
+      }
+      state.index += 1;
+      continue;
+    }
+
+    if (character !== "{") {
+      state.index += 1;
+      continue;
+    }
+
+    state.index += 1;
+    skipWhitespace(state);
+    const name = scanIdentifier(state);
+    skipWhitespace(state);
+
+    const next = state.text[state.index] ?? "";
+    if (next === "}") {
+      state.index += 1;
+      if (!name) state.issues.push("Empty argument name.");
+      else argumentsList.push({ name, type: "argument", categories: [] });
+      continue;
+    }
+
+    if (next !== ",") {
+      state.issues.push(\`Invalid argument syntax near "\${name || "{"}".\`);
+      state.index += 1;
+      continue;
+    }
+    state.index += 1;
+    skipWhitespace(state);
+    const type = scanIdentifier(state);
+    skipWhitespace(state);
+
+    if (!SUPPORTED_TYPES.has(type)) {
+      state.issues.push(\`Unsupported argument type "\${type}" in "{\${name}, \${type}".\`);
+    }
+
+    if (type === "plural" || type === "selectordinal" || type === "select") {
+      const categories: string[] = [];
+      state.pluralDepth += type === "select" ? 0 : 1;
+      while (state.index < state.text.length) {
+        skipWhitespace(state);
+        const character = state.text[state.index] ?? "";
+        if (character === "}") {
+          state.index += 1;
+          break;
+        }
+        if (character === "{") {
+          state.issues.push('Expected a category key before "{".');
+          state.index += 1;
+          state.depth += 1;
+          scanMessage(state, true, argumentsList);
+          state.depth -= 1;
+          continue;
+        }
+        const category = scanKey(state);
+        if (!category) {
+          state.index += 1;
+          continue;
+        }
+        categories.push(category);
+        skipWhitespace(state);
+        if ((state.text[state.index] ?? "") === "{") {
+          state.index += 1;
+          state.depth += 1;
+          scanMessage(state, true, argumentsList);
+          state.depth -= 1;
+        }
+      }
+      state.pluralDepth -= type === "select" ? 0 : 1;
+      if (!name) state.issues.push("Missing argument name.");
+      else {
+        argumentsList.push({
+          name,
+          type:
+            type === "selectordinal" ? "selectordinal" : type === "select" ? "select" : "plural",
+          categories: [...categories].sort(),
+        });
+      }
+      continue;
+    }
+
+    // Format arguments (\`number\`, \`date\`, \`time\`) keep the style, not a message.
+    let braces = 0;
+    for (; state.index < state.text.length; state.index += 1) {
+      const inner = state.text[state.index] ?? "";
+      if (inner === "{") braces += 1;
+      else if (inner === "}") {
+        braces -= 1;
+        if (braces < 0) {
+          state.index += 1;
+          break;
+        }
+      }
+    }
+    if (name) argumentsList.push({ name, type: "format", categories: [] });
+  }
+
+  if (untilBrace) state.issues.push('Missing closing "}".');
+}
+
+export function analyzeIcu(message: string): IcuAnalysis {
+  const state: ScanState = { text: message, index: 0, depth: 0, pluralDepth: 0, issues: [] };
+  const argumentsList: IcuArgument[] = [];
+  scanMessage(state, false, argumentsList);
+  return { arguments: argumentsList, issues: state.issues };
+}
+
+/** Returns the list of problems that keep a message out of the exported ICU subset. */
+export function validateIcuSubset(message: string): string[] {
+  return analyzeIcu(message).issues;
+}
+
+/**
+ * Canonical, comparable form of a message's argument set. Two messages with
+ * the same signature accept exactly the same values, so \`i18n:apply\` compares
+ * the source signature with the translation signature.
+ */
+export function icuSignature(message: string): string {
+  return analyzeIcu(message)
+    .arguments.map((argument) =>
+      argument.type === "argument" || argument.type === "format"
+        ? argument.name
+        : \`\${argument.name}:\${argument.type}[\${argument.categories.join(",")}]\`,
+    )
+    .sort()
+    .join("|");
+}
+
+/** The names \`i18n:pending\` hands to translators so they can keep placeholders intact. */
+export function icuPlaceholders(message: string): string[] {
+  return [...new Set(analyzeIcu(message).arguments.map((argument) => argument.name))].sort();
+}
+`],
+  ["i18n/lib/lingui/scripts/lingui-cli.ts", `/**
+ * Runs the local \`@lingui/cli\` for the commands it owns (\`extract\`, \`compile\`,
+ * \`check\`). Spawning the CLI keeps its catalog semantics authoritative instead
+ * of re-implementing them; \`pending\`/\`apply\` still run in-process against the
+ * PO files so the JSON contract stays library-independent.
+ *
+ * The CLI spawns its subcommands through \`process.argv[0]\`, which breaks under
+ * \`bun x\` (the child inherits \`bun x\` as \`execArgv\` and exits silently). The
+ * scripts therefore resolve the local bin and run it with the current runtime.
+ */
+import { spawnSync } from "node:child_process";
+import { existsSync, realpathSync } from "node:fs";
+import path from "node:path";
+
+import { packageRoot } from "./catalogs";
+
+function resolveLinguiBin(): string | undefined {
+  let dir = packageRoot;
+  for (;;) {
+    const candidate = path.join(dir, "node_modules", ".bin", "lingui");
+    if (existsSync(candidate)) {
+      try {
+        return realpathSync(candidate);
+      } catch {
+        return candidate;
+      }
+    }
+    const parent = path.dirname(dir);
+    if (parent === dir) return undefined;
+    dir = parent;
+  }
+}
+
+export function runLinguiCli(args: string[]): number {
+  const bin = resolveLinguiBin();
+  const commandArgs = bin ? [bin, ...args] : ["x", "lingui", ...args];
+  const result = spawnSync(process.execPath, commandArgs, {
+    cwd: packageRoot,
+    stdio: "inherit",
+  });
+
+  if (result.error) {
+    throw result.error;
+  }
+  return result.status ?? 1;
+}
+`],
+  ["i18n/lib/lingui/scripts/pending.ts", `import { isConfiguredLocale, readCatalog, sourceLocale, targetLocales } from "./catalogs";
+import { icuPlaceholders } from "./icu";
+/**
+ * \`i18n:pending [--locale <l> | --all] [--limit N]\` — emits the library-independent
+ * JSON contract the \`i18n-translate\` skill consumes:
+ *
+ *   { library, sourceLocale, items: [{ id, locale, source, context, comments,
+ *     references, placeholders, status }] }
+ *
+ * Only messages that still need a translation (missing or fuzzy) are listed.
+ */
+import type { PoEntry } from "./po";
+import { catalogId, sourceTextOf } from "./po";
+
+export type PendingStatus = "missing" | "fuzzy";
+
+export interface PendingItem {
+  id: string;
+  locale: string;
+  source: string;
+  context: string | null;
+  comments: string[];
+  references: string[];
+  placeholders: string[];
+  status: PendingStatus;
+}
+
+export interface PendingContract {
+  library: "lingui";
+  sourceLocale: string;
+  items: PendingItem[];
+}
+
+function statusOf(entry: PoEntry): PendingStatus | undefined {
+  if (entry.flags.includes("fuzzy")) return "fuzzy";
+  if (entry.msgstr.trim() === "") return "missing";
+  return undefined;
+}
+
+export function collectPending(localeList: readonly string[], limit?: number): PendingContract {
+  const sourceCatalog = readCatalog(sourceLocale);
+  const items: PendingItem[] = [];
+
+  for (const entry of sourceCatalog.entries) {
+    if (entry.obsolete) continue;
+    const id = catalogId(entry);
+    const source = sourceTextOf(entry);
+    for (const locale of localeList) {
+      const target = readCatalog(locale).entries.find(
+        (candidate) => !candidate.obsolete && catalogId(candidate) === id,
+      );
+      const status = target ? statusOf(target) : "missing";
+      if (!status) continue;
+      items.push({
+        id,
+        locale,
+        source,
+        context: entry.msgctxt ?? null,
+        comments: entry.comments,
+        references: entry.references,
+        placeholders: icuPlaceholders(source),
+        status,
+      });
+      if (limit !== undefined && items.length >= limit)
+        return { library: "lingui", sourceLocale, items };
+    }
+  }
+
+  return { library: "lingui", sourceLocale, items };
+}
+
+interface PendingOptions {
+  locales: string[];
+  limit?: number;
+  error?: string;
+}
+
+export function parsePendingArgs(argv: readonly string[]): PendingOptions {
+  const locales: string[] = [];
+  let all = false;
+  let limit: number | undefined;
+
+  for (let index = 0; index < argv.length; index += 1) {
+    const argument = argv[index];
+    if (argument === "--all") {
+      all = true;
+      continue;
+    }
+    if (argument === "--locale") {
+      const value = argv[index + 1];
+      index += 1;
+      if (!value) return { locales, error: "--locale requires a value." };
+      locales.push(value);
+      continue;
+    }
+    if (argument === "--limit") {
+      const value = Number(argv[index + 1]);
+      index += 1;
+      if (!Number.isInteger(value) || value <= 0) {
+        return { locales, error: "--limit requires a positive integer." };
+      }
+      limit = value;
+      continue;
+    }
+    return { locales, error: \`Unknown argument: \${argument}\` };
+  }
+
+  if (all) return { locales: targetLocales(), limit };
+  if (locales.length === 0) return { locales, limit, error: "Pass --locale <locale> or --all." };
+
+  for (const locale of locales) {
+    if (!isConfiguredLocale(locale)) {
+      return { locales, limit, error: \`"\${locale}" is not one of the configured locales.\` };
+    }
+  }
+  return { locales: locales.filter((locale) => locale !== sourceLocale), limit };
+}
+
+if (import.meta.main) {
+  const options = parsePendingArgs(process.argv.slice(2));
+  if (options.error) {
+    console.error(options.error);
+    process.exit(2);
+  }
+  console.log(JSON.stringify(collectPending(options.locales, options.limit), null, 2));
+}
+`],
+  ["i18n/lib/lingui/scripts/po.ts", `/**
+ * Minimal gettext PO reader/writer for the shared \`i18n:*\` script contract.
+ *
+ * The generated project owns its catalogs, so the scripts read and write the
+ * exact Lingui PO shape (\`msgid\` = source text, optional \`msgctxt\`, \`js-lingui-*\`
+ * flags, \`#.\` comments, \`#:\` references, \`#~\` obsolete entries) without pulling
+ * in extra parsing dependencies.
+ */
+import { createHash } from "node:crypto";
+
+export interface PoEntry {
+  msgid: string;
+  msgctxt?: string;
+  msgstr: string;
+  comments: string[];
+  references: string[];
+  flags: string[];
+  obsolete: boolean;
+  previous?: string;
+}
+
+export interface PoCatalog {
+  headers: Record<string, string>;
+  entries: PoEntry[];
+}
+
+export const EXPLICIT_ID_FLAG = "js-lingui-explicit-id";
+
+/**
+ * Lingui v6 message ID: first 6 chars of base64url(sha256(message + 0x1F + context)).
+ * Must stay in sync with the Rust \`t!\` macro and the macro transform, so the
+ * export round-trip test locks it.
+ */
+export function generateMessageId(message: string, context = ""): string {
+  const digest = createHash("sha256")
+    .update(message)
+    .update("\\u001f")
+    .update(context)
+    .digest("base64url");
+  return digest.slice(0, 6);
+}
+
+/** The runtime ID of a PO entry: explicit IDs stay as-is, generated ones are hashes. */
+export function catalogId(entry: PoEntry): string {
+  if (entry.flags.includes(EXPLICIT_ID_FLAG)) return entry.msgid;
+  return generateMessageId(entry.msgid, entry.msgctxt ?? "");
+}
+
+/**
+ * Source text of a PO entry. Generated-ID entries carry the source in \`msgid\`;
+ * explicit-ID entries use \`msgid\` as the ID and keep the source text in the
+ * source-locale \`msgstr\`.
+ */
+export function sourceTextOf(entry: PoEntry): string {
+  if (!entry.flags.includes(EXPLICIT_ID_FLAG)) return entry.msgid;
+  return entry.msgstr.trim() === "" ? entry.msgid : entry.msgstr;
+}
+
+export function unescapePo(value: string): string {
+  let result = "";
+  for (let index = 0; index < value.length; index += 1) {
+    const character = value[index] ?? "";
+    if (character !== "\\\\") {
+      result += character;
+      continue;
+    }
+    const next = value[index + 1];
+    index += 1;
+    switch (next) {
+      case "n":
+        result += "\\n";
+        break;
+      case "t":
+        result += "\\t";
+        break;
+      case "r":
+        result += "\\r";
+        break;
+      case '"':
+        result += '"';
+        break;
+      case "\\\\":
+        result += "\\\\";
+        break;
+      default:
+        result += next ?? "";
+    }
+  }
+  return result;
+}
+
+export function escapePo(value: string): string {
+  return value
+    .replace(/\\\\/g, "\\\\\\\\")
+    .replace(/"/g, '\\\\"')
+    .replace(/\\n/g, "\\\\n")
+    .replace(/\\t/g, "\\\\t")
+    .replace(/\\r/g, "\\\\r");
+}
+
+function quotedValue(line: string): string | undefined {
+  const match = /^"((?:[^"\\\\]|\\\\.)*)"$/.exec(line);
+  return match ? unescapePo(match[1] ?? "") : undefined;
+}
+
+function emptyEntry(): PoEntry {
+  return {
+    msgid: "",
+    msgstr: "",
+    comments: [],
+    references: [],
+    flags: [],
+    obsolete: false,
+  };
+}
+
+interface ParserState {
+  entry: PoEntry;
+  field?: "msgid" | "msgctxt" | "msgstr";
+}
+
+/** Parses one PO file. Header entries (\`msgid ""\`) feed \`headers\`. */
+export function parsePoFile(content: string): PoCatalog {
+  const headers: Record<string, string> = {};
+  const entries: PoEntry[] = [];
+  let state: ParserState | undefined;
+
+  const pushEntry = (): void => {
+    if (!state) return;
+    const entry = state.entry;
+    if (entry.msgid === "" && entry.msgctxt === undefined && !entry.obsolete) {
+      for (const line of entry.msgstr.split("\\n")) {
+        const separator = line.indexOf(":");
+        if (separator > 0) {
+          headers[line.slice(0, separator).trim()] = line.slice(separator + 1).trim();
+        }
+      }
+    } else if (entry.msgid !== "" || entry.msgctxt !== undefined) {
+      entries.push(entry);
+    }
+    state = undefined;
+  };
+
+  for (const rawLine of content.split(/\\r?\\n/)) {
+    const isObsolete = rawLine.startsWith("#~");
+    const line = isObsolete ? rawLine.replace(/^#~\\s?/, "") : rawLine;
+    const trimmed = line.trim();
+
+    if (trimmed === "") {
+      pushEntry();
+      continue;
+    }
+
+    if (trimmed.startsWith("#.")) {
+      state ??= { entry: emptyEntry() };
+      state.entry.comments.push(trimmed.slice(2).trim());
+      continue;
+    }
+    if (trimmed.startsWith("#:")) {
+      state ??= { entry: emptyEntry() };
+      state.entry.references.push(...trimmed.slice(2).trim().split(/\\s+/));
+      continue;
+    }
+    if (trimmed.startsWith("#,")) {
+      state ??= { entry: emptyEntry() };
+      state.entry.flags.push(
+        ...trimmed
+          .slice(2)
+          .split(",")
+          .map((flag) => flag.trim())
+          .filter(Boolean),
+      );
+      continue;
+    }
+    if (trimmed.startsWith("#|")) {
+      state ??= { entry: emptyEntry() };
+      const value = quotedValue(trimmed.slice(2).trim());
+      if (value !== undefined) state.entry.previous = value;
+      continue;
+    }
+    if (trimmed.startsWith("#")) {
+      state ??= { entry: emptyEntry() };
+      continue;
+    }
+
+    const continuation = quotedValue(trimmed);
+    if (continuation !== undefined) {
+      if (state?.field) {
+        state.entry[state.field] = (state.entry[state.field] ?? "") + continuation;
+      }
+      continue;
+    }
+
+    const keyword = /^(msgid|msgctxt|msgstr)(?:\\s+(.*))?$/.exec(trimmed);
+    if (keyword) {
+      const field = keyword[1] as ParserState["field"];
+      const value = quotedValue(keyword[2] ?? '""') ?? "";
+      state ??= { entry: emptyEntry() };
+      state.field = field;
+      if (field) state.entry[field] = value;
+      if (isObsolete) state.entry.obsolete = true;
+      continue;
+    }
+
+    if (isObsolete) {
+      state ??= { entry: emptyEntry() };
+      state.entry.obsolete = true;
+    }
+  }
+
+  pushEntry();
+  return { headers, entries };
+}
+
+function wrapString(keyword: string, value: string): string {
+  if (!value.includes("\\n")) return \`\${keyword} "\${escapePo(value)}"\`;
+  const lines = value.split("\\n");
+  const parts = [\`\${keyword} "\${escapePo(lines[0] ?? "")}\\\\n"\`];
+  for (let index = 1; index < lines.length; index += 1) {
+    const last = index === lines.length - 1;
+    parts.push(\`"\${escapePo(lines[index] ?? "")}\${last ? "" : "\\\\n"}"\`);
+  }
+  return parts.join("\\n");
+}
+
+/** Serializes a catalog. Active entries keep their order; obsolete ones move last. */
+export function serializePoFile(catalog: PoCatalog): string {
+  const header = \`msgid ""\\nmsgstr ""\\n\${Object.entries(catalog.headers)
+    .map(([key, value]) => \`"\${escapePo(\`\${key}: \${value}\\n\`)}"\`)
+    .join("\\n")}\`;
+
+  const blocks: string[] = [];
+  const obsolete: string[] = [];
+  for (const entry of catalog.entries) {
+    const lines: string[] = [];
+    for (const comment of entry.comments) lines.push(\`#. \${comment}\`);
+    if (entry.references.length > 0) lines.push(\`#: \${entry.references.join(" ")}\`);
+    if (entry.previous !== undefined) lines.push(\`#| msgid "\${escapePo(entry.previous)}"\`);
+    if (entry.flags.length > 0) lines.push(\`#, \${entry.flags.join(", ")}\`);
+    if (entry.msgctxt !== undefined) lines.push(wrapString("msgctxt", entry.msgctxt), "");
+    lines.push(wrapString("msgid", entry.msgid));
+    lines.push(wrapString("msgstr", entry.msgstr));
+    const block = lines.join("\\n");
+    if (entry.obsolete)
+      obsolete.push(
+        block
+          .split("\\n")
+          .map((line) => \`#~ \${line}\`)
+          .join("\\n"),
+      );
+    else blocks.push(block);
+  }
+
+  const sections = [header, ...blocks];
+  if (obsolete.length > 0) sections.push(...obsolete);
+  return \`\${sections.filter((section) => section.trim() !== "").join("\\n\\n")}\\n\`;
+}
+
+export function findEntry(catalog: PoCatalog, id: string): PoEntry | undefined {
+  return catalog.entries.find((entry) => !entry.obsolete && catalogId(entry) === id);
+}
+
+export function createHeader(language: string) {
+  return {
+    "MIME-Version": "1.0",
+    "Content-Type": "text/plain; charset=utf-8",
+    "Content-Transfer-Encoding": "8bit",
+    "X-Generator": "@lingui/cli",
+    Language: language,
+  };
+}
+`],
+  ["i18n/lib/lingui/src/runtime.ts.hbs", `/**
+ * Lingui runtime for \`@{{projectName}}/i18n\`.
+ *
+ * The shared \`i18n\` instance is created by \`@lingui/core\` and activated by the
+ * surface glue in each app. Catalogs are compiled by \`i18n:compile\`
+ * (\`lingui compile\`, \`compileNamespace: "ts"\`) into \`locales/<locale>/messages.ts\`;
+ * the static loader map below keeps bundlers (Vite, Next, Metro, Bun) happy —
+ * no dynamic \`import()\` expressions with variables.
+ *
+ * Formatting is *not* part of this file: every surface formats dates, numbers,
+ * currencies and plurals through \`createFormatters()\` from \`./format\`.
+ */
+import { i18n, setupI18n as createI18n } from "@lingui/core";
+import type { I18n, Messages } from "@lingui/core";
+
+import { negotiateLocale, sourceLocale } from "./config";
+import type { Locale, NegotiateLocaleInput } from "./config";
+
+export { i18n };
+export type { I18n, Messages };
+
+/** One static loader per configured locale: \`locales/<locale>/messages.ts\`. */
+const catalogLoaders: Record<Locale, () => Promise<{ messages: Messages }>> = {
+{{#if i18nOptions.locales}}
+{{#each i18nOptions.locales}}  "{{this}}": () => import(\`../locales/{{this}}/messages\`),
+{{/each}}
+{{else}}
+  "en": () => import("../locales/en/messages"),
+  "es": () => import("../locales/es/messages"),
+  "fr": () => import("../locales/fr/messages"),
+{{/if}}
+};
+
+export function hasCatalogLoader(locale: string): locale is Locale {
+  return Object.prototype.hasOwnProperty.call(catalogLoaders, locale);
+}
+
+export async function loadCatalog(locale: Locale): Promise<Messages> {
+  const { messages } = await catalogLoaders[locale]();
+  return messages;
+}
+
+/** Loads and activates a locale on the shared instance. Idempotent per locale. */
+export async function activateLocale(locale: Locale): Promise<void> {
+  i18n.load(locale, await loadCatalog(locale));
+  i18n.activate(locale);
+}
+
+/**
+ * A fresh, isolated instance. Use it on the server for request-scoped
+ * rendering instead of mutating the shared instance, which is process-global.
+ */
+export async function setupI18n(locale: Locale = sourceLocale): Promise<I18n> {
+  const messages = await loadCatalog(locale);
+  return createI18n({ locale, messages: { [locale]: messages } });
+}
+
+/**
+ * Negotiates through the shared contract (\`src/config.ts\`) and activates the
+ * result. Client surfaces pass \`stored\` (localStorage/storage.local) so the
+ * user's choice wins over browser preferences; server surfaces pass the
+ * request headers. Returns the negotiated locale for persistence.
+ */
+export async function initializeLocale(input: NegotiateLocaleInput = {}): Promise<Locale> {
+  const locale = negotiateLocale(input);
+  await activateLocale(locale);
+  return locale;
+}
+
+/**
+ * Subscribes to locale changes and returns an unsubscribe function. Imports of
+ * framework glue (React \`useLingui\`, the Vue composable, Solid signals) build
+ * on this instead of re-implementing the listener.
+ */
+export function onLocaleChange(listener: (locale: Locale) => void): () => void {
+  const handler = (): void => {
+    if (hasCatalogLoader(i18n.locale)) listener(i18n.locale as Locale);
+  };
+  i18n.on("change", handler);
+  return () => {
+    i18n.removeListener("change", handler);
+  };
+}
+`],
   ["i18n/shared/GLOSSARY.md.hbs", `# Translation Glossary
 
 The \`i18n-translate\` skill reads this file before translating anything. Keep it
@@ -34407,6 +35636,1122 @@ describe("createFormatters", () => {
     "noEmit": true
   },
   "include": ["src"]
+}
+`],
+  ["i18n/surface/lingui/astro/src/components/I18nDemo.astro.hbs", `---
+import { msg } from "@lingui/core/macro";
+import { LOCALE_COOKIE, locales, negotiateLocale } from "@{{projectName}}/i18n/config";
+import { createFormatters } from "@{{projectName}}/i18n/format";
+import { setupI18n } from "@{{projectName}}/i18n/runtime";
+
+/**
+ * i18n demo: translated heading, interpolation, plural, currency, date and a
+ * locale switcher. Dates and numbers come from the shared \`createFormatters\`,
+ * never from Lingui (D4).
+ *
+ * Astro partial support: macros run in the frontmatter (and in island
+ * components), not in \`.astro\` markup expressions.
+ */
+const name = "Ada";
+const count = 3;
+
+// One instance per render: SSR requests with different locales must not share
+// the process-global \`i18n\` instance (D4).
+const locale = negotiateLocale({
+  cookie: Astro.cookies.get(LOCALE_COOKIE)?.value,
+  header: Astro.request.headers.get("x-app-locale") ?? undefined,
+  acceptLanguage: Astro.request.headers.get("accept-language") ?? undefined,
+});
+const i18n = await setupI18n(locale);
+const formatters = createFormatters(locale);
+
+const heading = i18n._(msg\`Internationalization\`);
+const greeting = i18n._(msg\`Hello \${name}, welcome back!\`);
+const unread = i18n._(msg\`{count, plural, one {# unread message} other {# unread messages}}\`);
+const currency = formatters.currency(42.5, "EUR");
+const date = formatters.date(new Date());
+---
+
+<section class="rounded-lg border border-neutral-700 p-4">
+  <h2 class="mb-2 font-medium text-white">{heading}</h2>
+  <p class="text-neutral-300">{greeting}</p>
+  <p class="text-neutral-300">{unread}</p>
+  <p class="text-neutral-300">{currency}</p>
+  <p class="text-neutral-300">{date}</p>
+  <label class="mt-3 flex items-center gap-2 text-sm text-neutral-300">
+    <select id="i18n-locale" class="rounded border border-neutral-700 bg-transparent px-1 py-0.5">
+      {
+        locales.map((value) => (
+          <option value={value} selected={value === locale}>
+            {value}
+          </option>
+        ))
+      }
+    </select>
+  </label>
+</section>
+
+<script>
+  import { isLocale, LOCALE_COOKIE } from "@{{projectName}}/i18n/config";
+  import { activateLocale } from "@{{projectName}}/i18n/runtime";
+
+  const select = document.getElementById("i18n-locale") as HTMLSelectElement | null;
+  select?.addEventListener("change", () => {
+    const next = select.value;
+    if (!isLocale(next)) return;
+    window.localStorage.setItem(LOCALE_COOKIE, next);
+    document.cookie = \`\${LOCALE_COOKIE}=\${next};path=/;max-age=31536000;samesite=lax\`;
+    void activateLocale(next).then(() => window.location.reload());
+  });
+</script>
+`],
+  ["i18n/surface/lingui/electrobun-host/src/bun/i18n-demo.ts.hbs", `/**
+ * Bun main-process i18n demo for the Electrobun host.
+ *
+ * The Bun preload (\`packages/i18n/bun-preload.ts\`, registered in
+ * \`apps/desktop/bunfig.toml\`) transforms macros in host code; this demo uses
+ * explicit IDs instead so it also runs from a plain \`bun run\` without reload.
+ * Formatting comes from the shared \`createFormatters\`, never from Lingui (D4).
+ */
+import { isLocale, sourceLocale } from "@{{projectName}}/i18n/config";
+import { createFormatters } from "@{{projectName}}/i18n/format";
+import { setupI18n } from "@{{projectName}}/i18n/runtime";
+
+export async function printI18nDemo(locale?: string): Promise<void> {
+  const resolved = locale !== undefined && isLocale(locale) ? locale : sourceLocale;
+  const i18n = await setupI18n(resolved);
+  const format = createFormatters(resolved);
+
+  console.log(i18n._(/** i18n */ { id: "desktop.heading", message: "Desktop internationalization" }));
+  console.log(
+    i18n._(/** i18n */ { id: "desktop.unread", message: "{count, plural, one {# unread message} other {# unread messages}}", values: { count: 3 } }),
+  );
+  console.log(format.currency(42.5, "EUR"));
+  console.log(format.date(new Date()));
+}
+`],
+  ["i18n/surface/lingui/native/components/i18n-demo.tsx.hbs", `import { useMemo, useState } from "react";
+import { Pressable, StyleSheet, Text, View } from "react-native";
+import { useLingui } from "@lingui/react/macro";
+
+import { locales, type Locale } from "@{{projectName}}/i18n/config";
+import { createFormatters } from "@{{projectName}}/i18n/format";
+import { activateLocale } from "@{{projectName}}/i18n/runtime";
+
+import { I18nProvider } from "@/components/i18n-provider";
+
+/**
+ * i18n demo: translated heading, interpolation, plural, currency, date and a
+ * locale switcher. Dates and numbers come from the shared \`createFormatters\`,
+ * never from Lingui (D4).
+ */
+export function I18nDemo() {
+  return (
+    <I18nProvider>
+      <I18nDemoContent />
+    </I18nProvider>
+  );
+}
+
+function I18nDemoContent() {
+  const { t, i18n } = useLingui();
+  const locale = i18n.locale as Locale;
+  const formatters = useMemo(() => createFormatters(locale), [locale]);
+  const [count, setCount] = useState(3);
+  const name = "Ada";
+
+  return (
+    <View style={styles.card}>
+      <Text style={styles.title}>{t\`Internationalization\`}</Text>
+      <Text style={styles.body}>{t\`Hello \${name}, welcome back!\`}</Text>
+      <Text style={styles.body}>
+        {t\`{count, plural, one {# unread message} other {# unread messages}}\`}
+      </Text>
+      <Text style={styles.body}>{formatters.currency(42.5, "EUR")}</Text>
+      <Text style={styles.body}>{formatters.date(new Date())}</Text>
+      <View style={styles.row}>
+        <Pressable style={styles.button} onPress={() => setCount((value) => value + 1)}>
+          <Text style={styles.buttonText}>{t\`Add a message\`}</Text>
+        </Pressable>
+        {locales.map((value) => (
+          <Pressable
+            key={value}
+            style={value === locale ? styles.buttonActive : styles.button}
+            onPress={() => void activateLocale(value)}
+          >
+            <Text style={styles.buttonText}>{value}</Text>
+          </Pressable>
+        ))}
+      </View>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  card: {
+    borderRadius: 12,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: "#94a3b8",
+    padding: 16,
+    gap: 6,
+  },
+  title: { fontSize: 18, fontWeight: "600" },
+  body: { fontSize: 15 },
+  row: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 8 },
+  button: {
+    borderRadius: 8,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: "#94a3b8",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  buttonActive: {
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#2563eb",
+    backgroundColor: "#dbeafe",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  buttonText: { fontSize: 14 },
+});
+`],
+  ["i18n/surface/lingui/native/components/i18n-provider.tsx.hbs", `import { useEffect, type ReactNode } from "react";
+import { I18nProvider as LinguiI18nProvider } from "@lingui/react";
+
+import { i18n, initializeLocale } from "@{{projectName}}/i18n/runtime";
+
+/**
+ * Surface glue: activates the negotiated locale and provides the shared \`i18n\`
+ * instance to the \`@lingui/react\` macros. Wrap the app root with it once.
+ *
+ * The system locale comes from the runtime \`Intl\` implementation; L7's
+ * \`expo-localization\` integration plugs the device locale into the same
+ * negotiation contract.
+ */
+export function I18nProvider({ children }: { children: ReactNode }) {
+  useEffect(() => {
+    void initializeLocale({
+      system: Intl.DateTimeFormat().resolvedOptions().locale,
+    });
+  }, []);
+
+  return <LinguiI18nProvider i18n={i18n}>{children}</LinguiI18nProvider>;
+}
+`],
+  ["i18n/surface/lingui/next/src/components/i18n-demo.tsx.hbs", `"use client";
+
+import { useMemo, useState } from "react";
+import { Trans, useLingui } from "@lingui/react/macro";
+
+import { LOCALE_COOKIE, locales, type Locale } from "@{{projectName}}/i18n/config";
+import { createFormatters } from "@{{projectName}}/i18n/format";
+import { activateLocale } from "@{{projectName}}/i18n/runtime";
+
+/**
+ * i18n demo: translated heading, interpolation, plural, currency, date and a
+ * locale switcher. Dates and numbers come from the shared \`createFormatters\`,
+ * never from Lingui (D4).
+ */
+export function I18nDemo() {
+  const { t, i18n } = useLingui();
+  const locale = i18n.locale as Locale;
+  const formatters = useMemo(() => createFormatters(locale), [locale]);
+  const [count, setCount] = useState(3);
+  const name = "Ada";
+  const referenceDate = new Date();
+
+  return (
+    <section className="rounded-lg border p-4">
+      <h2 className="mb-2 font-medium">{t\`Internationalization\`}</h2>
+      <p>{t\`Hello \${name}, welcome back!\`}</p>
+      <p>{t\`{count, plural, one {# unread message} other {# unread messages}}\`}</p>
+      <p>{formatters.currency(42.5, "EUR")}</p>
+      <p>{formatters.date(referenceDate)}</p>
+      <div className="mt-3 flex flex-wrap items-center gap-3">
+        <button
+          type="button"
+          className="rounded border px-2 py-1 text-sm"
+          onClick={() => setCount((value) => value + 1)}
+        >
+          <Trans>Add a message</Trans>
+        </button>
+        <label className="flex items-center gap-2 text-sm">
+          <Trans>Language</Trans>
+          <select
+            className="rounded border bg-transparent px-1 py-0.5"
+            value={locale}
+            onChange={(event) => {
+              const next = event.target.value as Locale;
+              window.localStorage.setItem(LOCALE_COOKIE, next);
+              void activateLocale(next);
+            }}
+          >
+            {locales.map((value) => (
+              <option key={value} value={value}>
+                {value}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
+    </section>
+  );
+}
+`],
+  ["i18n/surface/lingui/next/src/components/i18n-provider.tsx.hbs", `"use client";
+
+import { useEffect, type ReactNode } from "react";
+import { I18nProvider as LinguiI18nProvider } from "@lingui/react";
+
+import { LOCALE_COOKIE } from "@{{projectName}}/i18n/config";
+import { i18n, initializeLocale } from "@{{projectName}}/i18n/runtime";
+
+/**
+ * Surface glue: activates the negotiated locale (stored choice → browser
+ * preference → source locale) and provides the shared \`i18n\` instance to the
+ * \`@lingui/react\` macros. Wrap the app root with it once; \`<Trans>\` and the
+ * \`t\` macro read this provider.
+ */
+export function I18nProvider({ children }: { children: ReactNode }) {
+  useEffect(() => {
+    const stored = window.localStorage.getItem(LOCALE_COOKIE);
+    void initializeLocale({
+      stored: stored ?? undefined,
+      acceptLanguage: typeof navigator === "undefined" ? undefined : navigator.languages.join(","),
+    }).then((locale) => {
+      document.documentElement.lang = locale;
+    });
+  }, []);
+
+  return <LinguiI18nProvider i18n={i18n}>{children}</LinguiI18nProvider>;
+}
+`],
+  ["i18n/surface/lingui/nuxt/app/components/I18nDemo.vue.hbs", `<script setup lang="ts">
+import { computed, ref } from "vue";
+import { LOCALE_COOKIE, locales, type Locale } from "@{{projectName}}/i18n/config";
+import { activateLocale } from "@{{projectName}}/i18n/runtime";
+import { demoMessages } from "~/i18n/messages";
+import { useAppI18n } from "~/composables/useAppI18n";
+
+/**
+ * i18n demo: translated heading, interpolation, plural, currency, date and a
+ * locale switcher. Dates and numbers come from the shared \`createFormatters\`,
+ * never from Lingui (D4).
+ */
+const { i18n, locale, formatters } = useAppI18n();
+const count = ref(3);
+const unread = computed(() =>
+  i18n._({ ...demoMessages.unread, values: { count: count.value } }),
+);
+
+function switchLocale(event: Event) {
+  const next = (event.target as HTMLSelectElement).value as Locale;
+  if (typeof window !== "undefined") window.localStorage.setItem(LOCALE_COOKIE, next);
+  void activateLocale(next);
+}
+</script>
+
+<template>
+  <UCard>
+    <template #header>
+      <div class="font-medium">\\{{ i18n._(demoMessages.heading) }}</div>
+    </template>
+    <p>\\{{ i18n._(demoMessages.greeting) }}</p>
+    <p>\\{{ unread }}</p>
+    <p>\\{{ formatters.currency(42.5, "EUR") }}</p>
+    <p>\\{{ formatters.date(new Date()) }}</p>
+    <div class="mt-3 flex flex-wrap items-center gap-3">
+      <UButton size="sm" variant="outline" @click="count += 1">
+        \\{{ i18n._(demoMessages.addMessage) }}
+      </UButton>
+      <label class="flex items-center gap-2 text-sm">
+        <span>\\{{ i18n._(demoMessages.language) }}</span>
+        <select
+          class="rounded border bg-transparent px-1 py-0.5"
+          :value="locale"
+          @change="switchLocale"
+        >
+          <option v-for="value in locales" :key="value" :value="value">\\{{ value }}</option>
+        </select>
+      </label>
+    </div>
+  </UCard>
+</template>
+`],
+  ["i18n/surface/lingui/nuxt/app/composables/useAppI18n.ts.hbs", `import { computed, getCurrentScope, onScopeDispose, ref } from "vue";
+import { createFormatters } from "@{{projectName}}/i18n/format";
+import { i18n as sharedI18n, onLocaleChange, type I18n } from "@{{projectName}}/i18n/runtime";
+import type { Locale } from "@{{projectName}}/i18n/config";
+
+/**
+ * Vue composable over the runtime instance for the current request. Lingui has
+ * no Vue binding, so the message descriptors live in \`.ts\` files (transformed
+ * by \`@lingui/vite-plugin\`) and components call \`i18n.t(...)\` / \`i18n._(...)\`
+ * with them.
+ *
+ * The Nuxt plugin provides a request-scoped instance on SSR and the shared one
+ * on the client. \`locale\` and \`formatters\` are reactive: switching the locale
+ * re-renders any template that reads them.
+ */
+export function useAppI18n() {
+  const nuxtApp = useNuxtApp();
+  const i18n = (nuxtApp as unknown as { $i18n?: I18n }).$i18n ?? sharedI18n;
+  const locale = ref(i18n.locale) as { value: Locale };
+
+  const unsubscribe = onLocaleChange((next) => {
+    locale.value = next;
+  });
+  if (getCurrentScope()) onScopeDispose(unsubscribe);
+
+  return {
+    i18n,
+    locale,
+    formatters: computed(() => createFormatters(locale.value)),
+  };
+}
+`],
+  ["i18n/surface/lingui/nuxt/app/i18n/messages.ts.hbs", `import { msg } from "@lingui/core/macro";
+
+/**
+ * Message descriptors for the Vue surface. Lingui has no Vue binding, so the
+ * macros live in \`.ts\` files (transformed by \`@lingui/vite-plugin\`) and
+ * components pass the descriptors to the shared \`i18n\` instance.
+ */
+const name = "Ada";
+/** Overridden by callers through \`values\`; \`count\` only satisfies the macro. */
+const count = 0;
+
+export const demoMessages = {
+  heading: msg\`Internationalization\`,
+  greeting: msg\`Hello \${name}, welcome back!\`,
+  unread: msg\`{count, plural, one {# unread message} other {# unread messages}}\`,
+  addMessage: msg\`Add a message\`,
+  language: msg\`Language\`,
+};
+
+export { count as demoCount };
+`],
+  ["i18n/surface/lingui/nuxt/app/plugins/i18n.ts.hbs", `import { LOCALE_COOKIE, LOCALE_HEADER, negotiateLocale } from "@{{projectName}}/i18n/config";
+import {
+  activateLocale,
+  i18n as sharedI18n,
+  setupI18n,
+} from "@{{projectName}}/i18n/runtime";
+
+/**
+ * Nuxt plugin: negotiates the locale through the shared contract and exposes an
+ * instance to the app. Server rendering gets a request-scoped instance so
+ * concurrent requests cannot clobber each other; the client activates the
+ * shared instance.
+ */
+export default defineNuxtPlugin(async (nuxtApp) => {
+  const event = nuxtApp.ssrContext?.event;
+  const headers = event?.node.req.headers;
+  const cookieHeader = headers?.cookie ?? "";
+  const cookie = cookieHeader
+    .split(";")
+    .map((entry) => entry.trim().split("="))
+    .find(([name]) => name === LOCALE_COOKIE)?.[1];
+
+  const locale = negotiateLocale({
+    header: typeof headers?.[LOCALE_HEADER] === "string" ? headers[LOCALE_HEADER] : undefined,
+    cookie: cookie === undefined ? undefined : decodeURIComponent(cookie),
+    acceptLanguage: typeof headers?.["accept-language"] === "string" ? headers["accept-language"] : undefined,
+    stored:
+      typeof window === "undefined" ? undefined : (window.localStorage.getItem(LOCALE_COOKIE) ?? undefined),
+    system: typeof navigator === "undefined" ? undefined : navigator.language,
+  });
+
+  if (event) {
+    nuxtApp.provide("i18n", await setupI18n(locale));
+    return;
+  }
+
+  await activateLocale(locale);
+  nuxtApp.provide("i18n", sharedI18n);
+});
+`],
+  ["i18n/surface/lingui/opentui-core/src/i18n-demo.ts.hbs", `/**
+ * OpenTUI i18n demo.
+ *
+ * The TUI app is scaffolded by \`create-tui\` at setup time and wired by the
+ * i18n post-step. The Bun preload (\`packages/i18n/bun-preload.ts\`) transforms
+ * macros in host code; this module uses explicit IDs instead so it also runs
+ * from a plain \`bun run\` without a reload. \`createFormatters\` owns dates and
+ * numbers (D4).
+ */
+import { isLocale, sourceLocale } from "@{{projectName}}/i18n/config";
+import { createFormatters } from "@{{projectName}}/i18n/format";
+import { setupI18n } from "@{{projectName}}/i18n/runtime";
+
+export interface TuiI18nDemo {
+  locale: string;
+  heading: string;
+  unread: string;
+  currency: string;
+  date: string;
+}
+
+export async function renderI18nDemo(locale?: string): Promise<TuiI18nDemo> {
+  const resolved = locale !== undefined && isLocale(locale) ? locale : sourceLocale;
+  const i18n = await setupI18n(resolved);
+  const format = createFormatters(resolved);
+
+  return {
+    locale: resolved,
+    heading: i18n._(/** i18n */ { id: "tui.heading", message: "OpenTUI internationalization" }),
+    unread: i18n._(
+      /** i18n */ {
+        id: "tui.unread",
+        message: "{count, plural, one {# unread message} other {# unread messages}}",
+        values: { count: 3 },
+      },
+    ),
+    currency: format.currency(42.5, "EUR"),
+    date: format.date(new Date()),
+  };
+}
+`],
+  ["i18n/surface/lingui/opentui-react/src/i18n-demo.ts.hbs", `/**
+ * OpenTUI i18n demo.
+ *
+ * The TUI app is scaffolded by \`create-tui\` at setup time and wired by the
+ * i18n post-step. The Bun preload (\`packages/i18n/bun-preload.ts\`) transforms
+ * macros in host code; this module uses explicit IDs instead so it also runs
+ * from a plain \`bun run\` without a reload. \`createFormatters\` owns dates and
+ * numbers (D4).
+ */
+import { isLocale, sourceLocale } from "@{{projectName}}/i18n/config";
+import { createFormatters } from "@{{projectName}}/i18n/format";
+import { setupI18n } from "@{{projectName}}/i18n/runtime";
+
+export interface TuiI18nDemo {
+  locale: string;
+  heading: string;
+  unread: string;
+  currency: string;
+  date: string;
+}
+
+export async function renderI18nDemo(locale?: string): Promise<TuiI18nDemo> {
+  const resolved = locale !== undefined && isLocale(locale) ? locale : sourceLocale;
+  const i18n = await setupI18n(resolved);
+  const format = createFormatters(resolved);
+
+  return {
+    locale: resolved,
+    heading: i18n._(/** i18n */ { id: "tui.heading", message: "OpenTUI internationalization" }),
+    unread: i18n._(
+      /** i18n */ {
+        id: "tui.unread",
+        message: "{count, plural, one {# unread message} other {# unread messages}}",
+        values: { count: 3 },
+      },
+    ),
+    currency: format.currency(42.5, "EUR"),
+    date: format.date(new Date()),
+  };
+}
+`],
+  ["i18n/surface/lingui/opentui-solid/src/i18n-demo.ts.hbs", `/**
+ * OpenTUI i18n demo.
+ *
+ * The TUI app is scaffolded by \`create-tui\` at setup time and wired by the
+ * i18n post-step. The Bun preload (\`packages/i18n/bun-preload.ts\`) transforms
+ * macros in host code; this module uses explicit IDs instead so it also runs
+ * from a plain \`bun run\` without a reload. \`createFormatters\` owns dates and
+ * numbers (D4).
+ */
+import { isLocale, sourceLocale } from "@{{projectName}}/i18n/config";
+import { createFormatters } from "@{{projectName}}/i18n/format";
+import { setupI18n } from "@{{projectName}}/i18n/runtime";
+
+export interface TuiI18nDemo {
+  locale: string;
+  heading: string;
+  unread: string;
+  currency: string;
+  date: string;
+}
+
+export async function renderI18nDemo(locale?: string): Promise<TuiI18nDemo> {
+  const resolved = locale !== undefined && isLocale(locale) ? locale : sourceLocale;
+  const i18n = await setupI18n(resolved);
+  const format = createFormatters(resolved);
+
+  return {
+    locale: resolved,
+    heading: i18n._(/** i18n */ { id: "tui.heading", message: "OpenTUI internationalization" }),
+    unread: i18n._(
+      /** i18n */ {
+        id: "tui.unread",
+        message: "{count, plural, one {# unread message} other {# unread messages}}",
+        values: { count: 3 },
+      },
+    ),
+    currency: format.currency(42.5, "EUR"),
+    date: format.date(new Date()),
+  };
+}
+`],
+  ["i18n/surface/lingui/react-router/src/components/i18n-demo.tsx.hbs", `"use client";
+
+import { useMemo, useState } from "react";
+import { Trans, useLingui } from "@lingui/react/macro";
+
+import { LOCALE_COOKIE, locales, type Locale } from "@{{projectName}}/i18n/config";
+import { createFormatters } from "@{{projectName}}/i18n/format";
+import { activateLocale } from "@{{projectName}}/i18n/runtime";
+
+/**
+ * i18n demo: translated heading, interpolation, plural, currency, date and a
+ * locale switcher. Dates and numbers come from the shared \`createFormatters\`,
+ * never from Lingui (D4).
+ */
+export function I18nDemo() {
+  const { t, i18n } = useLingui();
+  const locale = i18n.locale as Locale;
+  const formatters = useMemo(() => createFormatters(locale), [locale]);
+  const [count, setCount] = useState(3);
+  const name = "Ada";
+  const referenceDate = new Date();
+
+  return (
+    <section className="rounded-lg border p-4">
+      <h2 className="mb-2 font-medium">{t\`Internationalization\`}</h2>
+      <p>{t\`Hello \${name}, welcome back!\`}</p>
+      <p>{t\`{count, plural, one {# unread message} other {# unread messages}}\`}</p>
+      <p>{formatters.currency(42.5, "EUR")}</p>
+      <p>{formatters.date(referenceDate)}</p>
+      <div className="mt-3 flex flex-wrap items-center gap-3">
+        <button
+          type="button"
+          className="rounded border px-2 py-1 text-sm"
+          onClick={() => setCount((value) => value + 1)}
+        >
+          <Trans>Add a message</Trans>
+        </button>
+        <label className="flex items-center gap-2 text-sm">
+          <Trans>Language</Trans>
+          <select
+            className="rounded border bg-transparent px-1 py-0.5"
+            value={locale}
+            onChange={(event) => {
+              const next = event.target.value as Locale;
+              window.localStorage.setItem(LOCALE_COOKIE, next);
+              void activateLocale(next);
+            }}
+          >
+            {locales.map((value) => (
+              <option key={value} value={value}>
+                {value}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
+    </section>
+  );
+}
+`],
+  ["i18n/surface/lingui/react-router/src/components/i18n-provider.tsx.hbs", `"use client";
+
+import { useEffect, type ReactNode } from "react";
+import { I18nProvider as LinguiI18nProvider } from "@lingui/react";
+
+import { LOCALE_COOKIE } from "@{{projectName}}/i18n/config";
+import { i18n, initializeLocale } from "@{{projectName}}/i18n/runtime";
+
+/**
+ * Surface glue: activates the negotiated locale (stored choice → browser
+ * preference → source locale) and provides the shared \`i18n\` instance to the
+ * \`@lingui/react\` macros. Wrap the app root with it once; \`<Trans>\` and the
+ * \`t\` macro read this provider.
+ */
+export function I18nProvider({ children }: { children: ReactNode }) {
+  useEffect(() => {
+    const stored = window.localStorage.getItem(LOCALE_COOKIE);
+    void initializeLocale({
+      stored: stored ?? undefined,
+      acceptLanguage: typeof navigator === "undefined" ? undefined : navigator.languages.join(","),
+    }).then((locale) => {
+      document.documentElement.lang = locale;
+    });
+  }, []);
+
+  return <LinguiI18nProvider i18n={i18n}>{children}</LinguiI18nProvider>;
+}
+`],
+  ["i18n/surface/lingui/server/src/i18n-demo.ts.hbs", `/**
+ * Server-side i18n demo.
+ *
+ * The generated server code uses explicit message IDs (the i18n annotation
+ * comment) instead of macros: tsdown bundles this file without running the
+ * Lingui macro transform, and the \`@lingui/cli\` extractor still picks
+ * annotated descriptors up. Request-scoped rendering uses a fresh instance
+ * (\`setupI18n\`) so parallel requests never fight over the process-global one.
+ *
+ * Formatting comes from the shared \`createFormatters\`, never from Lingui (D4).
+ */
+import { isLocale, sourceLocale } from "@{{projectName}}/i18n/config";
+import { createFormatters } from "@{{projectName}}/i18n/format";
+import { setupI18n } from "@{{projectName}}/i18n/runtime";
+
+export interface I18nDemoPayload {
+  locale: string;
+  heading: string;
+  greeting: string;
+  unread: string;
+  currency: string;
+  date: string;
+}
+
+export async function renderI18nDemo(locale?: string): Promise<I18nDemoPayload> {
+  const resolved = locale !== undefined && isLocale(locale) ? locale : sourceLocale;
+  const i18n = await setupI18n(resolved);
+  const format = createFormatters(resolved);
+
+  return {
+    locale: resolved,
+    heading: i18n._(/** i18n */ { id: "server.heading", message: "Internationalization" }),
+    greeting: i18n._(
+      /** i18n */ { id: "server.greeting", message: "Hello {name}, welcome back!", values: { name: "Ada" } },
+    ),
+    unread: i18n._(
+      /** i18n */ {
+        id: "server.unread",
+        message: "{count, plural, one {# unread message} other {# unread messages}}",
+        values: { count: 3 },
+      },
+    ),
+    currency: format.currency(42.5, "EUR"),
+    date: format.date(new Date("2026-01-15T12:30:00Z")),
+  };
+}
+`],
+  ["i18n/surface/lingui/solid/src/components/i18n-demo.tsx.hbs", `import { createMemo, createSignal } from "solid-js";
+import { msg } from "@lingui/core/macro";
+import { useLingui } from "@lingui/solid";
+import { Trans } from "@lingui/solid/macro";
+
+import { LOCALE_COOKIE, locales, type Locale } from "@{{projectName}}/i18n/config";
+import { createFormatters } from "@{{projectName}}/i18n/format";
+import { activateLocale } from "@{{projectName}}/i18n/runtime";
+
+/**
+ * i18n demo: translated heading, interpolation, plural, currency, date and a
+ * locale switcher. Dates and numbers come from the shared \`createFormatters\`,
+ * never from Lingui (D4).
+ */
+export function I18nDemo() {
+  const { _, i18n } = useLingui();
+  const locale = () => i18n().locale as Locale;
+  const formatters = createMemo(() => createFormatters(locale()));
+  const [count, setCount] = createSignal(3);
+  const name = "Ada";
+  const unread = msg\`{count, plural, one {# unread message} other {# unread messages}}\`;
+
+  return (
+    <section class="rounded-lg border p-4">
+      <h2 class="mb-2 font-medium">
+        <Trans>Internationalization</Trans>
+      </h2>
+      <p>
+        <Trans>Hello {name}, welcome back!</Trans>
+      </p>
+      <p>{_({ ...unread, values: { count: count() } })}</p>
+      <p>{formatters().currency(42.5, "EUR")}</p>
+      <p>{formatters().date(new Date())}</p>
+      <div class="mt-3 flex flex-wrap items-center gap-3">
+        <button
+          type="button"
+          class="rounded border px-2 py-1 text-sm"
+          onClick={() => setCount((value) => value + 1)}
+        >
+          <Trans>Add a message</Trans>
+        </button>
+        <label class="flex items-center gap-2 text-sm">
+          <Trans>Language</Trans>
+          <select
+            class="rounded border bg-transparent px-1 py-0.5"
+            value={locale()}
+            onChange={(event) => {
+              const next = event.currentTarget.value as Locale;
+              window.localStorage.setItem(LOCALE_COOKIE, next);
+              void activateLocale(next);
+            }}
+          >
+            {locales.map((value) => (
+              <option value={value}>{value}</option>
+            ))}
+          </select>
+        </label>
+      </div>
+    </section>
+  );
+}
+`],
+  ["i18n/surface/lingui/solid/src/components/i18n-provider.tsx.hbs", `import { createEffect, type JSX } from "solid-js";
+import { I18nProvider as LinguiI18nProvider } from "@lingui/solid";
+
+import { LOCALE_COOKIE } from "@{{projectName}}/i18n/config";
+import { i18n, initializeLocale } from "@{{projectName}}/i18n/runtime";
+
+/**
+ * Surface glue: activates the negotiated locale (stored choice → browser
+ * preference → source locale) and provides the shared \`i18n\` instance to the
+ * \`@lingui/solid\` macros. Wrap the app root with it once.
+ */
+export function I18nProvider(props: { children: JSX.Element }) {
+  createEffect(() => {
+    const stored =
+      typeof window === "undefined" ? undefined : window.localStorage.getItem(LOCALE_COOKIE);
+    void initializeLocale({
+      stored: stored ?? undefined,
+      acceptLanguage: typeof navigator === "undefined" ? undefined : navigator.languages.join(","),
+    }).then((locale) => {
+      if (typeof document !== "undefined") document.documentElement.lang = locale;
+    });
+  });
+
+  return <LinguiI18nProvider i18n={i18n}>{props.children}</LinguiI18nProvider>;
+}
+`],
+  ["i18n/surface/lingui/tanstack-router/src/components/i18n-demo.tsx.hbs", `"use client";
+
+import { useMemo, useState } from "react";
+import { Trans, useLingui } from "@lingui/react/macro";
+
+import { LOCALE_COOKIE, locales, type Locale } from "@{{projectName}}/i18n/config";
+import { createFormatters } from "@{{projectName}}/i18n/format";
+import { activateLocale } from "@{{projectName}}/i18n/runtime";
+
+/**
+ * i18n demo: translated heading, interpolation, plural, currency, date and a
+ * locale switcher. Dates and numbers come from the shared \`createFormatters\`,
+ * never from Lingui (D4).
+ */
+export function I18nDemo() {
+  const { t, i18n } = useLingui();
+  const locale = i18n.locale as Locale;
+  const formatters = useMemo(() => createFormatters(locale), [locale]);
+  const [count, setCount] = useState(3);
+  const name = "Ada";
+  const referenceDate = new Date();
+
+  return (
+    <section className="rounded-lg border p-4">
+      <h2 className="mb-2 font-medium">{t\`Internationalization\`}</h2>
+      <p>{t\`Hello \${name}, welcome back!\`}</p>
+      <p>{t\`{count, plural, one {# unread message} other {# unread messages}}\`}</p>
+      <p>{formatters.currency(42.5, "EUR")}</p>
+      <p>{formatters.date(referenceDate)}</p>
+      <div className="mt-3 flex flex-wrap items-center gap-3">
+        <button
+          type="button"
+          className="rounded border px-2 py-1 text-sm"
+          onClick={() => setCount((value) => value + 1)}
+        >
+          <Trans>Add a message</Trans>
+        </button>
+        <label className="flex items-center gap-2 text-sm">
+          <Trans>Language</Trans>
+          <select
+            className="rounded border bg-transparent px-1 py-0.5"
+            value={locale}
+            onChange={(event) => {
+              const next = event.target.value as Locale;
+              window.localStorage.setItem(LOCALE_COOKIE, next);
+              void activateLocale(next);
+            }}
+          >
+            {locales.map((value) => (
+              <option key={value} value={value}>
+                {value}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
+    </section>
+  );
+}
+`],
+  ["i18n/surface/lingui/tanstack-router/src/components/i18n-provider.tsx.hbs", `"use client";
+
+import { useEffect, type ReactNode } from "react";
+import { I18nProvider as LinguiI18nProvider } from "@lingui/react";
+
+import { LOCALE_COOKIE } from "@{{projectName}}/i18n/config";
+import { i18n, initializeLocale } from "@{{projectName}}/i18n/runtime";
+
+/**
+ * Surface glue: activates the negotiated locale (stored choice → browser
+ * preference → source locale) and provides the shared \`i18n\` instance to the
+ * \`@lingui/react\` macros. Wrap the app root with it once; \`<Trans>\` and the
+ * \`t\` macro read this provider.
+ */
+export function I18nProvider({ children }: { children: ReactNode }) {
+  useEffect(() => {
+    const stored = window.localStorage.getItem(LOCALE_COOKIE);
+    void initializeLocale({
+      stored: stored ?? undefined,
+      acceptLanguage: typeof navigator === "undefined" ? undefined : navigator.languages.join(","),
+    }).then((locale) => {
+      document.documentElement.lang = locale;
+    });
+  }, []);
+
+  return <LinguiI18nProvider i18n={i18n}>{children}</LinguiI18nProvider>;
+}
+`],
+  ["i18n/surface/lingui/tanstack-start/src/components/i18n-demo.tsx.hbs", `"use client";
+
+import { useMemo, useState } from "react";
+import { Trans, useLingui } from "@lingui/react/macro";
+
+import { LOCALE_COOKIE, locales, type Locale } from "@{{projectName}}/i18n/config";
+import { createFormatters } from "@{{projectName}}/i18n/format";
+import { activateLocale } from "@{{projectName}}/i18n/runtime";
+
+/**
+ * i18n demo: translated heading, interpolation, plural, currency, date and a
+ * locale switcher. Dates and numbers come from the shared \`createFormatters\`,
+ * never from Lingui (D4).
+ */
+export function I18nDemo() {
+  const { t, i18n } = useLingui();
+  const locale = i18n.locale as Locale;
+  const formatters = useMemo(() => createFormatters(locale), [locale]);
+  const [count, setCount] = useState(3);
+  const name = "Ada";
+  const referenceDate = new Date();
+
+  return (
+    <section className="rounded-lg border p-4">
+      <h2 className="mb-2 font-medium">{t\`Internationalization\`}</h2>
+      <p>{t\`Hello \${name}, welcome back!\`}</p>
+      <p>{t\`{count, plural, one {# unread message} other {# unread messages}}\`}</p>
+      <p>{formatters.currency(42.5, "EUR")}</p>
+      <p>{formatters.date(referenceDate)}</p>
+      <div className="mt-3 flex flex-wrap items-center gap-3">
+        <button
+          type="button"
+          className="rounded border px-2 py-1 text-sm"
+          onClick={() => setCount((value) => value + 1)}
+        >
+          <Trans>Add a message</Trans>
+        </button>
+        <label className="flex items-center gap-2 text-sm">
+          <Trans>Language</Trans>
+          <select
+            className="rounded border bg-transparent px-1 py-0.5"
+            value={locale}
+            onChange={(event) => {
+              const next = event.target.value as Locale;
+              window.localStorage.setItem(LOCALE_COOKIE, next);
+              void activateLocale(next);
+            }}
+          >
+            {locales.map((value) => (
+              <option key={value} value={value}>
+                {value}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
+    </section>
+  );
+}
+`],
+  ["i18n/surface/lingui/tanstack-start/src/components/i18n-provider.tsx.hbs", `"use client";
+
+import { useEffect, type ReactNode } from "react";
+import { I18nProvider as LinguiI18nProvider } from "@lingui/react";
+
+import { LOCALE_COOKIE } from "@{{projectName}}/i18n/config";
+import { i18n, initializeLocale } from "@{{projectName}}/i18n/runtime";
+
+/**
+ * Surface glue: activates the negotiated locale (stored choice → browser
+ * preference → source locale) and provides the shared \`i18n\` instance to the
+ * \`@lingui/react\` macros. Wrap the app root with it once; \`<Trans>\` and the
+ * \`t\` macro read this provider.
+ */
+export function I18nProvider({ children }: { children: ReactNode }) {
+  useEffect(() => {
+    const stored = window.localStorage.getItem(LOCALE_COOKIE);
+    void initializeLocale({
+      stored: stored ?? undefined,
+      acceptLanguage: typeof navigator === "undefined" ? undefined : navigator.languages.join(","),
+    }).then((locale) => {
+      document.documentElement.lang = locale;
+    });
+  }, []);
+
+  return <LinguiI18nProvider i18n={i18n}>{children}</LinguiI18nProvider>;
+}
+`],
+  ["i18n/surface/lingui/wxt-react/lib/i18n-demo.ts.hbs", `/**
+ * WXT i18n demo.
+ *
+ * The extension is scaffolded by \`wxt init\` at setup time and wired by the
+ * i18n post-step, so this module is framework-agnostic: explicit IDs instead
+ * of macros, and \`createFormatters\` for dates and numbers (D4). Import it from
+ * a popup, options page or content script entrypoint.
+ */
+import { isLocale, sourceLocale } from "@{{projectName}}/i18n/config";
+import { createFormatters } from "@{{projectName}}/i18n/format";
+import { setupI18n } from "@{{projectName}}/i18n/runtime";
+
+export interface ExtensionI18nDemo {
+  locale: string;
+  heading: string;
+  unread: string;
+  currency: string;
+  date: string;
+}
+
+export async function renderI18nDemo(locale?: string): Promise<ExtensionI18nDemo> {
+  const resolved = locale !== undefined && isLocale(locale) ? locale : sourceLocale;
+  const i18n = await setupI18n(resolved);
+  const format = createFormatters(resolved);
+
+  return {
+    locale: resolved,
+    heading: i18n._(/** i18n */ { id: "extension.heading", message: "Extension internationalization" }),
+    unread: i18n._(
+      /** i18n */ {
+        id: "extension.unread",
+        message: "{count, plural, one {# unread message} other {# unread messages}}",
+        values: { count: 3 },
+      },
+    ),
+    currency: format.currency(42.5, "EUR"),
+    date: format.date(new Date()),
+  };
+}
+`],
+  ["i18n/surface/lingui/wxt-solid/lib/i18n-demo.ts.hbs", `/**
+ * WXT i18n demo.
+ *
+ * The extension is scaffolded by \`wxt init\` at setup time and wired by the
+ * i18n post-step, so this module is framework-agnostic: explicit IDs instead
+ * of macros, and \`createFormatters\` for dates and numbers (D4). Import it from
+ * a popup, options page or content script entrypoint.
+ */
+import { isLocale, sourceLocale } from "@{{projectName}}/i18n/config";
+import { createFormatters } from "@{{projectName}}/i18n/format";
+import { setupI18n } from "@{{projectName}}/i18n/runtime";
+
+export interface ExtensionI18nDemo {
+  locale: string;
+  heading: string;
+  unread: string;
+  currency: string;
+  date: string;
+}
+
+export async function renderI18nDemo(locale?: string): Promise<ExtensionI18nDemo> {
+  const resolved = locale !== undefined && isLocale(locale) ? locale : sourceLocale;
+  const i18n = await setupI18n(resolved);
+  const format = createFormatters(resolved);
+
+  return {
+    locale: resolved,
+    heading: i18n._(/** i18n */ { id: "extension.heading", message: "Extension internationalization" }),
+    unread: i18n._(
+      /** i18n */ {
+        id: "extension.unread",
+        message: "{count, plural, one {# unread message} other {# unread messages}}",
+        values: { count: 3 },
+      },
+    ),
+    currency: format.currency(42.5, "EUR"),
+    date: format.date(new Date()),
+  };
+}
+`],
+  ["i18n/surface/lingui/wxt-vanilla/lib/i18n-demo.ts.hbs", `/**
+ * WXT i18n demo.
+ *
+ * The extension is scaffolded by \`wxt init\` at setup time and wired by the
+ * i18n post-step, so this module is framework-agnostic: explicit IDs instead
+ * of macros, and \`createFormatters\` for dates and numbers (D4). Import it from
+ * a popup, options page or content script entrypoint.
+ */
+import { isLocale, sourceLocale } from "@{{projectName}}/i18n/config";
+import { createFormatters } from "@{{projectName}}/i18n/format";
+import { setupI18n } from "@{{projectName}}/i18n/runtime";
+
+export interface ExtensionI18nDemo {
+  locale: string;
+  heading: string;
+  unread: string;
+  currency: string;
+  date: string;
+}
+
+export async function renderI18nDemo(locale?: string): Promise<ExtensionI18nDemo> {
+  const resolved = locale !== undefined && isLocale(locale) ? locale : sourceLocale;
+  const i18n = await setupI18n(resolved);
+  const format = createFormatters(resolved);
+
+  return {
+    locale: resolved,
+    heading: i18n._(/** i18n */ { id: "extension.heading", message: "Extension internationalization" }),
+    unread: i18n._(
+      /** i18n */ {
+        id: "extension.unread",
+        message: "{count, plural, one {# unread message} other {# unread messages}}",
+        values: { count: 3 },
+      },
+    ),
+    currency: format.currency(42.5, "EUR"),
+    date: format.date(new Date()),
+  };
+}
+`],
+  ["i18n/surface/lingui/wxt-vue/lib/i18n-demo.ts.hbs", `/**
+ * WXT i18n demo.
+ *
+ * The extension is scaffolded by \`wxt init\` at setup time and wired by the
+ * i18n post-step, so this module is framework-agnostic: explicit IDs instead
+ * of macros, and \`createFormatters\` for dates and numbers (D4). Import it from
+ * a popup, options page or content script entrypoint.
+ */
+import { isLocale, sourceLocale } from "@{{projectName}}/i18n/config";
+import { createFormatters } from "@{{projectName}}/i18n/format";
+import { setupI18n } from "@{{projectName}}/i18n/runtime";
+
+export interface ExtensionI18nDemo {
+  locale: string;
+  heading: string;
+  unread: string;
+  currency: string;
+  date: string;
+}
+
+export async function renderI18nDemo(locale?: string): Promise<ExtensionI18nDemo> {
+  const resolved = locale !== undefined && isLocale(locale) ? locale : sourceLocale;
+  const i18n = await setupI18n(resolved);
+  const format = createFormatters(resolved);
+
+  return {
+    locale: resolved,
+    heading: i18n._(/** i18n */ { id: "extension.heading", message: "Extension internationalization" }),
+    unread: i18n._(
+      /** i18n */ {
+        id: "extension.unread",
+        message: "{count, plural, one {# unread message} other {# unread messages}}",
+        values: { count: 3 },
+      },
+    ),
+    currency: format.currency(42.5, "EUR"),
+    date: format.date(new Date()),
+  };
 }
 `],
   ["packages/config/package.json.hbs", `{
@@ -36444,4 +38789,4 @@ export default function Success() {
 `]
 ]);
 
-export const TEMPLATE_COUNT = 554;
+export const TEMPLATE_COUNT = 593;
