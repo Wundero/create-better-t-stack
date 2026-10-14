@@ -34024,6 +34024,212 @@ for (const locale of locales) {
 console.log(\`i18n:compile OK for \${locales.join(", ")} (source \${sourceLocale})\`);
 console.log(\`i18n:compile wrote \${runExport(root)}\`);
 `],
+  ["i18n/lib/i18next/scripts/contract.ts", `/**
+ * The library-independent translation-script contract (design D8).
+ *
+ * \`i18n:pending\`, \`i18n:apply\` and \`i18n:check\` speak the same JSON shapes for
+ * every i18n library. This module is the single definition of those shapes:
+ * the \`i18n-translate\` skill writes exactly the file \`decodeApplyFile\`
+ * accepts, \`parsePendingReport\` validates what \`i18n:pending\` prints, and
+ * \`i18n:check\` reads the \`I18N_CHECK_ALLOW_MISSING\` environment variable.
+ *
+ * Everything here is library-independent: no compatibility rules, no catalog
+ * formats and no library imports. Each library ships an identical copy so the
+ * generated \`packages/i18n/scripts/contract.ts\` always matches the scripts
+ * next to it.
+ */
+
+/** One untranslated message from \`i18n:pending\`. */
+export interface PendingItem {
+  readonly id: string;
+  readonly locale: string;
+  readonly source: string;
+  readonly context: string | null;
+  readonly comments: readonly string[];
+  readonly references: readonly string[];
+  readonly placeholders: readonly string[];
+  /** Library-specific: \`missing\`, \`empty\`, \`pending\`, \`fuzzy\`, \`obsolete\`, … */
+  readonly status: string;
+}
+
+/** The JSON envelope \`i18n:pending\` prints on stdout. */
+export interface PendingReport {
+  readonly library: string;
+  readonly sourceLocale: string;
+  readonly items: readonly PendingItem[];
+}
+
+/**
+ * One item of the file passed to \`i18n:apply <file>\`.
+ *
+ * \`translation\` is a single form. \`translations\` carries one entry per plural
+ * form (in the locale's CLDR order) for libraries whose catalogs store plural
+ * forms separately, such as wuchale. Exactly one of the two is required.
+ */
+export interface ApplyItem {
+  readonly id: string;
+  readonly locale: string;
+  readonly translation?: string;
+  readonly translations?: readonly string[];
+  readonly context?: string | null;
+}
+
+/** The file \`i18n:apply <file>\` consumes. */
+export interface ApplyFile {
+  readonly items: readonly ApplyItem[];
+}
+
+export interface ApplyFileOptions {
+  /**
+   * Translations are written for target locales only; the source locale is
+   * edited in the catalogs directly. An item for the source locale is a
+   * contract violation.
+   */
+  readonly sourceLocale: string;
+}
+
+/** \`i18n:check\` relaxes missing translations when this is \`"1"\`. */
+export const I18N_CHECK_ALLOW_MISSING = "I18N_CHECK_ALLOW_MISSING";
+
+export function isMissingAllowed(
+  environment: Record<string, string | undefined> = process.env,
+): boolean {
+  return environment[I18N_CHECK_ALLOW_MISSING] === "1";
+}
+
+/** Raised when output or input violates the D8 contract. */
+export class I18nContractError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "I18nContractError";
+  }
+}
+
+function fail(message: string): never {
+  throw new I18nContractError(message);
+}
+
+function requireNonEmptyString(value: string | undefined, path: string): string {
+  if (value === undefined || value.trim().length === 0) {
+    fail(\`\${path} must be a non-empty string\`);
+  }
+  return value;
+}
+
+function requireStringArray(value: readonly string[] | undefined, path: string): readonly string[] {
+  if (!Array.isArray(value)) fail(\`\${path} must be an array of strings\`);
+  return value;
+}
+
+function normalizePendingItem(item: PendingItem, path: string): PendingItem {
+  return {
+    id: requireNonEmptyString(item.id, \`\${path}.id\`),
+    locale: requireNonEmptyString(item.locale, \`\${path}.locale\`),
+    source: requireNonEmptyString(item.source, \`\${path}.source\`),
+    context: item.context ?? null,
+    comments: requireStringArray(item.comments, \`\${path}.comments\`),
+    references: requireStringArray(item.references, \`\${path}.references\`),
+    placeholders: requireStringArray(item.placeholders, \`\${path}.placeholders\`),
+    status: requireNonEmptyString(item.status, \`\${path}.status\`),
+  };
+}
+
+/** Parses and validates the stdout of \`i18n:pending\`. */
+export function parsePendingReport(stdout: string): PendingReport {
+  let parsed: Partial<PendingReport> | null;
+  try {
+    parsed = JSON.parse(stdout) as Partial<PendingReport> | null;
+  } catch (error) {
+    fail(
+      \`i18n:pending output is not JSON: \${error instanceof Error ? error.message : String(error)}\`,
+    );
+  }
+  if (!parsed || Array.isArray(parsed)) fail("i18n:pending output must be an object");
+
+  const items = parsed.items;
+  if (!Array.isArray(items)) fail("i18n:pending output must contain an items array");
+
+  return {
+    library: requireNonEmptyString(parsed.library, "library"),
+    sourceLocale: requireNonEmptyString(parsed.sourceLocale, "sourceLocale"),
+    items: items.map((item, index) => normalizePendingItem(item, \`items[\${index}]\`)),
+  };
+}
+
+interface ApplyItemDraft {
+  id: string;
+  locale: string;
+  translation?: string;
+  translations?: readonly string[];
+  context: string | null;
+}
+
+function normalizeApplyItem(
+  item: ApplyItem,
+  path: string,
+  options: ApplyFileOptions,
+): ApplyItemDraft {
+  const id = requireNonEmptyString(item.id, \`\${path}.id\`);
+  const locale = requireNonEmptyString(item.locale, \`\${path}.locale\`);
+  if (locale === options.sourceLocale) {
+    fail(\`\${path}.locale is the source locale "\${locale}"; edit the source catalog instead\`);
+  }
+
+  const translation = item.translation;
+  const translations = item.translations;
+  if (translation === undefined && translations === undefined) {
+    fail(\`\${path} needs a translation or a translations array\`);
+  }
+
+  const draft: ApplyItemDraft = { id, locale, context: item.context ?? null };
+  if (translation !== undefined) {
+    draft.translation = requireNonEmptyString(translation, \`\${path}.translation\`);
+  }
+  if (translations !== undefined) {
+    if (!Array.isArray(translations) || translations.length === 0) {
+      fail(\`\${path}.translations must contain at least one form\`);
+    }
+    draft.translations = translations;
+  }
+  return draft;
+}
+
+/**
+ * Parses and validates the \`i18n:apply <file>\` payload: an object with a
+ * non-empty \`items\` array, every item targeting a configured non-source
+ * locale, with no duplicate \`(id, locale)\` pair.
+ */
+export function decodeApplyFile(text: string, options: ApplyFileOptions): ApplyFile {
+  let parsed: Partial<ApplyFile> | null;
+  try {
+    parsed = JSON.parse(text) as Partial<ApplyFile> | null;
+  } catch (error) {
+    fail(\`the apply file is not JSON: \${error instanceof Error ? error.message : String(error)}\`);
+  }
+  if (!parsed || Array.isArray(parsed)) {
+    fail('the apply file must be an object with an "items" array');
+  }
+
+  const items = parsed.items;
+  if (!Array.isArray(items)) fail('the apply file must contain an "items" array');
+  if (items.length === 0) {
+    fail("the apply file must contain at least one item; skip i18n:apply when nothing is pending");
+  }
+
+  const seen = new Set<string>();
+  const decoded = items.map((item, index) => {
+    const parsedItem = normalizeApplyItem(item, \`items[\${index}]\`, options);
+    const key = \`\${parsedItem.id}\\u0000\${parsedItem.locale}\`;
+    if (seen.has(key)) {
+      fail(\`items[\${index}] duplicates \${parsedItem.id} (\${parsedItem.locale})\`);
+    }
+    seen.add(key);
+    return parsedItem;
+  });
+
+  return { items: decoded };
+}
+`],
   ["i18n/lib/i18next/scripts/export.ts", `/**
  * \`i18n:export\` — writes the normalized catalog (\`dist/catalog.json\`) consumed
  * by the Rust host (design D7): one message per source-text id with every
@@ -35019,6 +35225,212 @@ if (!exported.ok) {
 }
 
 console.log(\`Compiled catalogs and exported \${exported.messages} messages.\`);
+`],
+  ["i18n/lib/lingui/scripts/contract.ts", `/**
+ * The library-independent translation-script contract (design D8).
+ *
+ * \`i18n:pending\`, \`i18n:apply\` and \`i18n:check\` speak the same JSON shapes for
+ * every i18n library. This module is the single definition of those shapes:
+ * the \`i18n-translate\` skill writes exactly the file \`decodeApplyFile\`
+ * accepts, \`parsePendingReport\` validates what \`i18n:pending\` prints, and
+ * \`i18n:check\` reads the \`I18N_CHECK_ALLOW_MISSING\` environment variable.
+ *
+ * Everything here is library-independent: no compatibility rules, no catalog
+ * formats and no library imports. Each library ships an identical copy so the
+ * generated \`packages/i18n/scripts/contract.ts\` always matches the scripts
+ * next to it.
+ */
+
+/** One untranslated message from \`i18n:pending\`. */
+export interface PendingItem {
+  readonly id: string;
+  readonly locale: string;
+  readonly source: string;
+  readonly context: string | null;
+  readonly comments: readonly string[];
+  readonly references: readonly string[];
+  readonly placeholders: readonly string[];
+  /** Library-specific: \`missing\`, \`empty\`, \`pending\`, \`fuzzy\`, \`obsolete\`, … */
+  readonly status: string;
+}
+
+/** The JSON envelope \`i18n:pending\` prints on stdout. */
+export interface PendingReport {
+  readonly library: string;
+  readonly sourceLocale: string;
+  readonly items: readonly PendingItem[];
+}
+
+/**
+ * One item of the file passed to \`i18n:apply <file>\`.
+ *
+ * \`translation\` is a single form. \`translations\` carries one entry per plural
+ * form (in the locale's CLDR order) for libraries whose catalogs store plural
+ * forms separately, such as wuchale. Exactly one of the two is required.
+ */
+export interface ApplyItem {
+  readonly id: string;
+  readonly locale: string;
+  readonly translation?: string;
+  readonly translations?: readonly string[];
+  readonly context?: string | null;
+}
+
+/** The file \`i18n:apply <file>\` consumes. */
+export interface ApplyFile {
+  readonly items: readonly ApplyItem[];
+}
+
+export interface ApplyFileOptions {
+  /**
+   * Translations are written for target locales only; the source locale is
+   * edited in the catalogs directly. An item for the source locale is a
+   * contract violation.
+   */
+  readonly sourceLocale: string;
+}
+
+/** \`i18n:check\` relaxes missing translations when this is \`"1"\`. */
+export const I18N_CHECK_ALLOW_MISSING = "I18N_CHECK_ALLOW_MISSING";
+
+export function isMissingAllowed(
+  environment: Record<string, string | undefined> = process.env,
+): boolean {
+  return environment[I18N_CHECK_ALLOW_MISSING] === "1";
+}
+
+/** Raised when output or input violates the D8 contract. */
+export class I18nContractError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "I18nContractError";
+  }
+}
+
+function fail(message: string): never {
+  throw new I18nContractError(message);
+}
+
+function requireNonEmptyString(value: string | undefined, path: string): string {
+  if (value === undefined || value.trim().length === 0) {
+    fail(\`\${path} must be a non-empty string\`);
+  }
+  return value;
+}
+
+function requireStringArray(value: readonly string[] | undefined, path: string): readonly string[] {
+  if (!Array.isArray(value)) fail(\`\${path} must be an array of strings\`);
+  return value;
+}
+
+function normalizePendingItem(item: PendingItem, path: string): PendingItem {
+  return {
+    id: requireNonEmptyString(item.id, \`\${path}.id\`),
+    locale: requireNonEmptyString(item.locale, \`\${path}.locale\`),
+    source: requireNonEmptyString(item.source, \`\${path}.source\`),
+    context: item.context ?? null,
+    comments: requireStringArray(item.comments, \`\${path}.comments\`),
+    references: requireStringArray(item.references, \`\${path}.references\`),
+    placeholders: requireStringArray(item.placeholders, \`\${path}.placeholders\`),
+    status: requireNonEmptyString(item.status, \`\${path}.status\`),
+  };
+}
+
+/** Parses and validates the stdout of \`i18n:pending\`. */
+export function parsePendingReport(stdout: string): PendingReport {
+  let parsed: Partial<PendingReport> | null;
+  try {
+    parsed = JSON.parse(stdout) as Partial<PendingReport> | null;
+  } catch (error) {
+    fail(
+      \`i18n:pending output is not JSON: \${error instanceof Error ? error.message : String(error)}\`,
+    );
+  }
+  if (!parsed || Array.isArray(parsed)) fail("i18n:pending output must be an object");
+
+  const items = parsed.items;
+  if (!Array.isArray(items)) fail("i18n:pending output must contain an items array");
+
+  return {
+    library: requireNonEmptyString(parsed.library, "library"),
+    sourceLocale: requireNonEmptyString(parsed.sourceLocale, "sourceLocale"),
+    items: items.map((item, index) => normalizePendingItem(item, \`items[\${index}]\`)),
+  };
+}
+
+interface ApplyItemDraft {
+  id: string;
+  locale: string;
+  translation?: string;
+  translations?: readonly string[];
+  context: string | null;
+}
+
+function normalizeApplyItem(
+  item: ApplyItem,
+  path: string,
+  options: ApplyFileOptions,
+): ApplyItemDraft {
+  const id = requireNonEmptyString(item.id, \`\${path}.id\`);
+  const locale = requireNonEmptyString(item.locale, \`\${path}.locale\`);
+  if (locale === options.sourceLocale) {
+    fail(\`\${path}.locale is the source locale "\${locale}"; edit the source catalog instead\`);
+  }
+
+  const translation = item.translation;
+  const translations = item.translations;
+  if (translation === undefined && translations === undefined) {
+    fail(\`\${path} needs a translation or a translations array\`);
+  }
+
+  const draft: ApplyItemDraft = { id, locale, context: item.context ?? null };
+  if (translation !== undefined) {
+    draft.translation = requireNonEmptyString(translation, \`\${path}.translation\`);
+  }
+  if (translations !== undefined) {
+    if (!Array.isArray(translations) || translations.length === 0) {
+      fail(\`\${path}.translations must contain at least one form\`);
+    }
+    draft.translations = translations;
+  }
+  return draft;
+}
+
+/**
+ * Parses and validates the \`i18n:apply <file>\` payload: an object with a
+ * non-empty \`items\` array, every item targeting a configured non-source
+ * locale, with no duplicate \`(id, locale)\` pair.
+ */
+export function decodeApplyFile(text: string, options: ApplyFileOptions): ApplyFile {
+  let parsed: Partial<ApplyFile> | null;
+  try {
+    parsed = JSON.parse(text) as Partial<ApplyFile> | null;
+  } catch (error) {
+    fail(\`the apply file is not JSON: \${error instanceof Error ? error.message : String(error)}\`);
+  }
+  if (!parsed || Array.isArray(parsed)) {
+    fail('the apply file must be an object with an "items" array');
+  }
+
+  const items = parsed.items;
+  if (!Array.isArray(items)) fail('the apply file must contain an "items" array');
+  if (items.length === 0) {
+    fail("the apply file must contain at least one item; skip i18n:apply when nothing is pending");
+  }
+
+  const seen = new Set<string>();
+  const decoded = items.map((item, index) => {
+    const parsedItem = normalizeApplyItem(item, \`items[\${index}]\`, options);
+    const key = \`\${parsedItem.id}\\u0000\${parsedItem.locale}\`;
+    if (seen.has(key)) {
+      fail(\`items[\${index}] duplicates \${parsedItem.id} (\${parsedItem.locale})\`);
+    }
+    seen.add(key);
+    return parsedItem;
+  });
+
+  return { items: decoded };
+}
 `],
   ["i18n/lib/lingui/scripts/export.ts", `/**
  * \`i18n:export\` — normalizes every PO catalog into the D7 catalog that the
@@ -36310,6 +36722,212 @@ if (import.meta.main) {
 {{else}}
   process.exitCode = compileExitCode;
 {{/if}}
+}
+`],
+  ["i18n/lib/paraglide/scripts/contract.ts", `/**
+ * The library-independent translation-script contract (design D8).
+ *
+ * \`i18n:pending\`, \`i18n:apply\` and \`i18n:check\` speak the same JSON shapes for
+ * every i18n library. This module is the single definition of those shapes:
+ * the \`i18n-translate\` skill writes exactly the file \`decodeApplyFile\`
+ * accepts, \`parsePendingReport\` validates what \`i18n:pending\` prints, and
+ * \`i18n:check\` reads the \`I18N_CHECK_ALLOW_MISSING\` environment variable.
+ *
+ * Everything here is library-independent: no compatibility rules, no catalog
+ * formats and no library imports. Each library ships an identical copy so the
+ * generated \`packages/i18n/scripts/contract.ts\` always matches the scripts
+ * next to it.
+ */
+
+/** One untranslated message from \`i18n:pending\`. */
+export interface PendingItem {
+  readonly id: string;
+  readonly locale: string;
+  readonly source: string;
+  readonly context: string | null;
+  readonly comments: readonly string[];
+  readonly references: readonly string[];
+  readonly placeholders: readonly string[];
+  /** Library-specific: \`missing\`, \`empty\`, \`pending\`, \`fuzzy\`, \`obsolete\`, … */
+  readonly status: string;
+}
+
+/** The JSON envelope \`i18n:pending\` prints on stdout. */
+export interface PendingReport {
+  readonly library: string;
+  readonly sourceLocale: string;
+  readonly items: readonly PendingItem[];
+}
+
+/**
+ * One item of the file passed to \`i18n:apply <file>\`.
+ *
+ * \`translation\` is a single form. \`translations\` carries one entry per plural
+ * form (in the locale's CLDR order) for libraries whose catalogs store plural
+ * forms separately, such as wuchale. Exactly one of the two is required.
+ */
+export interface ApplyItem {
+  readonly id: string;
+  readonly locale: string;
+  readonly translation?: string;
+  readonly translations?: readonly string[];
+  readonly context?: string | null;
+}
+
+/** The file \`i18n:apply <file>\` consumes. */
+export interface ApplyFile {
+  readonly items: readonly ApplyItem[];
+}
+
+export interface ApplyFileOptions {
+  /**
+   * Translations are written for target locales only; the source locale is
+   * edited in the catalogs directly. An item for the source locale is a
+   * contract violation.
+   */
+  readonly sourceLocale: string;
+}
+
+/** \`i18n:check\` relaxes missing translations when this is \`"1"\`. */
+export const I18N_CHECK_ALLOW_MISSING = "I18N_CHECK_ALLOW_MISSING";
+
+export function isMissingAllowed(
+  environment: Record<string, string | undefined> = process.env,
+): boolean {
+  return environment[I18N_CHECK_ALLOW_MISSING] === "1";
+}
+
+/** Raised when output or input violates the D8 contract. */
+export class I18nContractError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "I18nContractError";
+  }
+}
+
+function fail(message: string): never {
+  throw new I18nContractError(message);
+}
+
+function requireNonEmptyString(value: string | undefined, path: string): string {
+  if (value === undefined || value.trim().length === 0) {
+    fail(\`\${path} must be a non-empty string\`);
+  }
+  return value;
+}
+
+function requireStringArray(value: readonly string[] | undefined, path: string): readonly string[] {
+  if (!Array.isArray(value)) fail(\`\${path} must be an array of strings\`);
+  return value;
+}
+
+function normalizePendingItem(item: PendingItem, path: string): PendingItem {
+  return {
+    id: requireNonEmptyString(item.id, \`\${path}.id\`),
+    locale: requireNonEmptyString(item.locale, \`\${path}.locale\`),
+    source: requireNonEmptyString(item.source, \`\${path}.source\`),
+    context: item.context ?? null,
+    comments: requireStringArray(item.comments, \`\${path}.comments\`),
+    references: requireStringArray(item.references, \`\${path}.references\`),
+    placeholders: requireStringArray(item.placeholders, \`\${path}.placeholders\`),
+    status: requireNonEmptyString(item.status, \`\${path}.status\`),
+  };
+}
+
+/** Parses and validates the stdout of \`i18n:pending\`. */
+export function parsePendingReport(stdout: string): PendingReport {
+  let parsed: Partial<PendingReport> | null;
+  try {
+    parsed = JSON.parse(stdout) as Partial<PendingReport> | null;
+  } catch (error) {
+    fail(
+      \`i18n:pending output is not JSON: \${error instanceof Error ? error.message : String(error)}\`,
+    );
+  }
+  if (!parsed || Array.isArray(parsed)) fail("i18n:pending output must be an object");
+
+  const items = parsed.items;
+  if (!Array.isArray(items)) fail("i18n:pending output must contain an items array");
+
+  return {
+    library: requireNonEmptyString(parsed.library, "library"),
+    sourceLocale: requireNonEmptyString(parsed.sourceLocale, "sourceLocale"),
+    items: items.map((item, index) => normalizePendingItem(item, \`items[\${index}]\`)),
+  };
+}
+
+interface ApplyItemDraft {
+  id: string;
+  locale: string;
+  translation?: string;
+  translations?: readonly string[];
+  context: string | null;
+}
+
+function normalizeApplyItem(
+  item: ApplyItem,
+  path: string,
+  options: ApplyFileOptions,
+): ApplyItemDraft {
+  const id = requireNonEmptyString(item.id, \`\${path}.id\`);
+  const locale = requireNonEmptyString(item.locale, \`\${path}.locale\`);
+  if (locale === options.sourceLocale) {
+    fail(\`\${path}.locale is the source locale "\${locale}"; edit the source catalog instead\`);
+  }
+
+  const translation = item.translation;
+  const translations = item.translations;
+  if (translation === undefined && translations === undefined) {
+    fail(\`\${path} needs a translation or a translations array\`);
+  }
+
+  const draft: ApplyItemDraft = { id, locale, context: item.context ?? null };
+  if (translation !== undefined) {
+    draft.translation = requireNonEmptyString(translation, \`\${path}.translation\`);
+  }
+  if (translations !== undefined) {
+    if (!Array.isArray(translations) || translations.length === 0) {
+      fail(\`\${path}.translations must contain at least one form\`);
+    }
+    draft.translations = translations;
+  }
+  return draft;
+}
+
+/**
+ * Parses and validates the \`i18n:apply <file>\` payload: an object with a
+ * non-empty \`items\` array, every item targeting a configured non-source
+ * locale, with no duplicate \`(id, locale)\` pair.
+ */
+export function decodeApplyFile(text: string, options: ApplyFileOptions): ApplyFile {
+  let parsed: Partial<ApplyFile> | null;
+  try {
+    parsed = JSON.parse(text) as Partial<ApplyFile> | null;
+  } catch (error) {
+    fail(\`the apply file is not JSON: \${error instanceof Error ? error.message : String(error)}\`);
+  }
+  if (!parsed || Array.isArray(parsed)) {
+    fail('the apply file must be an object with an "items" array');
+  }
+
+  const items = parsed.items;
+  if (!Array.isArray(items)) fail('the apply file must contain an "items" array');
+  if (items.length === 0) {
+    fail("the apply file must contain at least one item; skip i18n:apply when nothing is pending");
+  }
+
+  const seen = new Set<string>();
+  const decoded = items.map((item, index) => {
+    const parsedItem = normalizeApplyItem(item, \`items[\${index}]\`, options);
+    const key = \`\${parsedItem.id}\\u0000\${parsedItem.locale}\`;
+    if (seen.has(key)) {
+      fail(\`items[\${index}] duplicates \${parsedItem.id} (\${parsedItem.locale})\`);
+    }
+    seen.add(key);
+    return parsedItem;
+  });
+
+  return { items: decoded };
 }
 `],
   ["i18n/lib/paraglide/scripts/export.ts", `/**
@@ -37642,6 +38260,212 @@ if (extractStatus !== 0) process.exit(extractStatus);
 
 process.exit(await writeNormalizedCatalog(packageRoot));
 `],
+  ["i18n/lib/wuchale/scripts/contract.ts", `/**
+ * The library-independent translation-script contract (design D8).
+ *
+ * \`i18n:pending\`, \`i18n:apply\` and \`i18n:check\` speak the same JSON shapes for
+ * every i18n library. This module is the single definition of those shapes:
+ * the \`i18n-translate\` skill writes exactly the file \`decodeApplyFile\`
+ * accepts, \`parsePendingReport\` validates what \`i18n:pending\` prints, and
+ * \`i18n:check\` reads the \`I18N_CHECK_ALLOW_MISSING\` environment variable.
+ *
+ * Everything here is library-independent: no compatibility rules, no catalog
+ * formats and no library imports. Each library ships an identical copy so the
+ * generated \`packages/i18n/scripts/contract.ts\` always matches the scripts
+ * next to it.
+ */
+
+/** One untranslated message from \`i18n:pending\`. */
+export interface PendingItem {
+  readonly id: string;
+  readonly locale: string;
+  readonly source: string;
+  readonly context: string | null;
+  readonly comments: readonly string[];
+  readonly references: readonly string[];
+  readonly placeholders: readonly string[];
+  /** Library-specific: \`missing\`, \`empty\`, \`pending\`, \`fuzzy\`, \`obsolete\`, … */
+  readonly status: string;
+}
+
+/** The JSON envelope \`i18n:pending\` prints on stdout. */
+export interface PendingReport {
+  readonly library: string;
+  readonly sourceLocale: string;
+  readonly items: readonly PendingItem[];
+}
+
+/**
+ * One item of the file passed to \`i18n:apply <file>\`.
+ *
+ * \`translation\` is a single form. \`translations\` carries one entry per plural
+ * form (in the locale's CLDR order) for libraries whose catalogs store plural
+ * forms separately, such as wuchale. Exactly one of the two is required.
+ */
+export interface ApplyItem {
+  readonly id: string;
+  readonly locale: string;
+  readonly translation?: string;
+  readonly translations?: readonly string[];
+  readonly context?: string | null;
+}
+
+/** The file \`i18n:apply <file>\` consumes. */
+export interface ApplyFile {
+  readonly items: readonly ApplyItem[];
+}
+
+export interface ApplyFileOptions {
+  /**
+   * Translations are written for target locales only; the source locale is
+   * edited in the catalogs directly. An item for the source locale is a
+   * contract violation.
+   */
+  readonly sourceLocale: string;
+}
+
+/** \`i18n:check\` relaxes missing translations when this is \`"1"\`. */
+export const I18N_CHECK_ALLOW_MISSING = "I18N_CHECK_ALLOW_MISSING";
+
+export function isMissingAllowed(
+  environment: Record<string, string | undefined> = process.env,
+): boolean {
+  return environment[I18N_CHECK_ALLOW_MISSING] === "1";
+}
+
+/** Raised when output or input violates the D8 contract. */
+export class I18nContractError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "I18nContractError";
+  }
+}
+
+function fail(message: string): never {
+  throw new I18nContractError(message);
+}
+
+function requireNonEmptyString(value: string | undefined, path: string): string {
+  if (value === undefined || value.trim().length === 0) {
+    fail(\`\${path} must be a non-empty string\`);
+  }
+  return value;
+}
+
+function requireStringArray(value: readonly string[] | undefined, path: string): readonly string[] {
+  if (!Array.isArray(value)) fail(\`\${path} must be an array of strings\`);
+  return value;
+}
+
+function normalizePendingItem(item: PendingItem, path: string): PendingItem {
+  return {
+    id: requireNonEmptyString(item.id, \`\${path}.id\`),
+    locale: requireNonEmptyString(item.locale, \`\${path}.locale\`),
+    source: requireNonEmptyString(item.source, \`\${path}.source\`),
+    context: item.context ?? null,
+    comments: requireStringArray(item.comments, \`\${path}.comments\`),
+    references: requireStringArray(item.references, \`\${path}.references\`),
+    placeholders: requireStringArray(item.placeholders, \`\${path}.placeholders\`),
+    status: requireNonEmptyString(item.status, \`\${path}.status\`),
+  };
+}
+
+/** Parses and validates the stdout of \`i18n:pending\`. */
+export function parsePendingReport(stdout: string): PendingReport {
+  let parsed: Partial<PendingReport> | null;
+  try {
+    parsed = JSON.parse(stdout) as Partial<PendingReport> | null;
+  } catch (error) {
+    fail(
+      \`i18n:pending output is not JSON: \${error instanceof Error ? error.message : String(error)}\`,
+    );
+  }
+  if (!parsed || Array.isArray(parsed)) fail("i18n:pending output must be an object");
+
+  const items = parsed.items;
+  if (!Array.isArray(items)) fail("i18n:pending output must contain an items array");
+
+  return {
+    library: requireNonEmptyString(parsed.library, "library"),
+    sourceLocale: requireNonEmptyString(parsed.sourceLocale, "sourceLocale"),
+    items: items.map((item, index) => normalizePendingItem(item, \`items[\${index}]\`)),
+  };
+}
+
+interface ApplyItemDraft {
+  id: string;
+  locale: string;
+  translation?: string;
+  translations?: readonly string[];
+  context: string | null;
+}
+
+function normalizeApplyItem(
+  item: ApplyItem,
+  path: string,
+  options: ApplyFileOptions,
+): ApplyItemDraft {
+  const id = requireNonEmptyString(item.id, \`\${path}.id\`);
+  const locale = requireNonEmptyString(item.locale, \`\${path}.locale\`);
+  if (locale === options.sourceLocale) {
+    fail(\`\${path}.locale is the source locale "\${locale}"; edit the source catalog instead\`);
+  }
+
+  const translation = item.translation;
+  const translations = item.translations;
+  if (translation === undefined && translations === undefined) {
+    fail(\`\${path} needs a translation or a translations array\`);
+  }
+
+  const draft: ApplyItemDraft = { id, locale, context: item.context ?? null };
+  if (translation !== undefined) {
+    draft.translation = requireNonEmptyString(translation, \`\${path}.translation\`);
+  }
+  if (translations !== undefined) {
+    if (!Array.isArray(translations) || translations.length === 0) {
+      fail(\`\${path}.translations must contain at least one form\`);
+    }
+    draft.translations = translations;
+  }
+  return draft;
+}
+
+/**
+ * Parses and validates the \`i18n:apply <file>\` payload: an object with a
+ * non-empty \`items\` array, every item targeting a configured non-source
+ * locale, with no duplicate \`(id, locale)\` pair.
+ */
+export function decodeApplyFile(text: string, options: ApplyFileOptions): ApplyFile {
+  let parsed: Partial<ApplyFile> | null;
+  try {
+    parsed = JSON.parse(text) as Partial<ApplyFile> | null;
+  } catch (error) {
+    fail(\`the apply file is not JSON: \${error instanceof Error ? error.message : String(error)}\`);
+  }
+  if (!parsed || Array.isArray(parsed)) {
+    fail('the apply file must be an object with an "items" array');
+  }
+
+  const items = parsed.items;
+  if (!Array.isArray(items)) fail('the apply file must contain an "items" array');
+  if (items.length === 0) {
+    fail("the apply file must contain at least one item; skip i18n:apply when nothing is pending");
+  }
+
+  const seen = new Set<string>();
+  const decoded = items.map((item, index) => {
+    const parsedItem = normalizeApplyItem(item, \`items[\${index}]\`, options);
+    const key = \`\${parsedItem.id}\\u0000\${parsedItem.locale}\`;
+    if (seen.has(key)) {
+      fail(\`items[\${index}] duplicates \${parsedItem.id} (\${parsedItem.locale})\`);
+    }
+    seen.add(key);
+    return parsedItem;
+  });
+
+  return { items: decoded };
+}
+`],
   ["i18n/lib/wuchale/scripts/export.ts.hbs", `/**
  * \`i18n:export\` — write the normalized catalog (\`dist/catalog.json\`) shared
  * with the Rust side, converting every message to the ICU subset
@@ -38780,6 +39604,163 @@ describe("createFormatters", () => {
   },
   "include": ["src"]
 }
+`],
+  ["i18n/skill/i18n-adopt/SKILL.md.hbs", `---
+name: i18n-adopt
+description: Wrap the existing hard-coded strings of this project with its i18n library, incrementally and surface by surface. Use after i18n was added to an existing project, or when asked to adopt/migrate strings to i18n.
+---
+
+# i18n-adopt
+
+This project uses **{{i18n}}**. Wrapping existing hard-coded strings is an incremental migration, not a rewrite: one surface per change, extract after each surface, keep every commit green.
+
+## Loop per surface
+
+1. **Pick one surface** — a single route, component or file at a time. List the strings a user can see: headings, labels, button text, empty states, error messages, \`aria-label\`s, placeholders, toast copy, page titles and (where configured) manifest names and descriptions.
+2. **Wrap** them with the library's mechanism (see the library notes). Leave code identifiers, CSS classes, test ids, log messages, config keys, URLs and analytics event names alone.
+3. **Extract and translate**:
+   - \`{{packageManager}} run i18n:extract\` — the new strings appear in the source catalog;
+   - \`{{packageManager}} run i18n:pending --locale <locale> --limit 50\` and translate through the \`i18n-translate\` skill or the same \`i18n:apply\` file shape;
+   - \`{{packageManager}} run i18n:compile\` and \`I18N_CHECK_ALLOW_MISSING=1 {{packageManager}} run i18n:check\`.
+4. **Verify** — run the app (or the surface's tests) in the source locale and in one target locale; the text must render, and placeholders must interpolate.
+5. **Commit** the wrapped surface with its catalog changes. Repeat for the next surface.
+
+Do not batch every surface into one change: a broken placeholder is much easier to find in a small diff, and \`i18n:check\` stays meaningful along the way.
+
+## Library notes
+
+{{#if (eq i18n "lingui")}}
+- React/JSX: wrap text in \`<Trans>Hello {name}</Trans>\` from \`@lingui/react/macro\`. Keep markup and child components inside \`Trans\` so the message stays one unit.
+- Non-JSX: use the \`t\` macro from \`@lingui/core/macro\` (\`const message = t\`Hello\`\`) or a \`msg\` descriptor for values built outside render. Plurals go through the \`plural\` macro.
+- Lingui generates ids from the source text and context; you never author ids. Re-wording swaps the id and re-extracts cleanly.
+- If the same sentence needs two different translations, give each a \`context\` via \`msg({ context: "…" })\` / \`Trans context="…"\` — context is stored as \`msgctxt\`.
+- Vue/Svelte/Solid/Astro have their own macro packages; use the one already imported by the surface (see the i18n glue in that app).
+{{else if (eq i18n "paraglide")}}
+- Import the generated messages module for the app (\`import * as m from "…/paraglide/messages"\`) and replace the literal with \`m.<id>({ …params })\`.
+- Ids are authored, snake_case, and stable: add the id to \`packages/i18n/messages/<source>.json\` first, then use it in code. Never reword an existing id's message without checking references.
+- Keep parameters as placeholders in the message (\`{name}\`); the compiler generates the typed function from the message.
+- Plural and select messages use the ICU subset (\`plural\`, \`selectordinal\`, \`select\`).
+{{else if (eq i18n "i18next")}}
+- In components use \`const { t } = useTranslation()\` (or the surface's equivalent) and replace the literal with \`t("Hello \\{{name}}", { name })\` — **the source text is the key**, so keep it byte-identical to what you want in the catalog.
+- Plurals: author \`key_one\` / \`key_other\` keys and call \`t("…", { count })\`.
+- Re-wording a key later means a new key; prefer stable, complete sentences over fragments.
+{{else if (eq i18n "wuchale")}}
+- **Do not wrap strings.** Wuchale extracts the source text implicitly, so wrapping would change message ids.
+- Instead, scope the include globs in \`wuchale.config.mjs\`: add the app's source directories so its files are scanned, and exclude generated or vendor paths that must not be extracted.
+- After scoping the globs, run \`{{packageManager}} run i18n:extract\`; wuchale writes the per-adapter \`.po\` catalogs, and the strings become pending for translation through \`i18n:pending\` / \`i18n:apply\`.
+- If a string must stay out of the catalogs (logs, test ids, dynamic keys), keep it in an excluded path rather than fighting the extractor.
+{{/if}}
+- All libraries: keep placeholders intact when moving text, prefer one message per user-visible sentence, follow \`packages/i18n/GLOSSARY.md\`, and leave the source locale text as the source of truth.
+
+## After the Add Path
+
+\`bts add --i18n …\` wires configs, surfaces, scripts and integrations, but deliberately leaves existing strings untouched. Start from the surface that matters most, then continue this loop. Re-run \`i18n:check\` without \`I18N_CHECK_ALLOW_MISSING\` once the migration is complete.
+
+## Report
+
+Summarize: surfaces wrapped, strings wrapped per surface, strings intentionally skipped (with the reason), locales translated, and the remaining hard-coded strings you found.
+`],
+  ["i18n/skill/i18n-translate/SKILL.md.hbs", `---
+name: i18n-translate
+description: Translate the pending i18n messages of this project through the generated \`i18n:*\` script contract. Use when asked to translate the app or fill missing locales, and when \`i18n:check\` fails with missing translations.
+---
+
+# i18n-translate
+
+Translate **only** through the generated scripts. Never edit catalog files by hand: \`i18n:extract\` owns extraction, \`i18n:apply\` validates every translation against the source, and \`i18n:compile\` produces what the app runtimes import. A batch that drops or renames a placeholder is rejected item by item and stays pending, so the catalogs can never be corrupted by a bad translation.
+
+## Loop
+
+1. **Extract** — refresh the source catalogs from the code:
+   \`{{packageManager}} run i18n:extract\`
+2. **Pending** — ask for at most 50 items per batch:
+   - every target locale: \`{{packageManager}} run i18n:pending --all --limit 50\`
+   - one locale: \`{{packageManager}} run i18n:pending --locale <locale> --limit 50\`
+
+   The output is the uniform contract:
+
+   \`\`\`json
+   {
+     "library": "{{i18n}}",
+     "sourceLocale": "en",
+     "items": [
+       {
+         "id": "…",
+         "locale": "fr",
+         "source": "…",
+         "context": null,
+         "comments": [],
+         "references": [],
+         "placeholders": [],
+         "status": "missing"
+       }
+     ]
+   }
+   \`\`\`
+
+3. **Translate** the batch. Read \`packages/i18n/GLOSSARY.md\` before the first batch, and use each item's \`source\`, \`context\`, \`comments\` and \`references\` — never translate an item you cannot see in context; leave it pending and report it instead.
+4. **Apply** — write the batch to a temporary JSON file and run \`i18n:apply\`:
+
+   \`\`\`json
+   {
+     "items": [
+       { "id": "<item id>", "locale": "<item locale>", "translation": "…" }
+     ]
+   }
+   \`\`\`
+
+   \`{{packageManager}} run i18n:apply <file>\`
+
+   An item whose placeholders or ICU arguments differ from the source is rejected with a reason; its catalog entry stays pending. Fix that item and apply again. The file must target target locales only — the source locale is edited in the source catalog, not through \`i18n:apply\`.
+5. **Compile and check** — \`{{packageManager}} run i18n:compile\`, then \`{{packageManager}} run i18n:check\`. During development \`I18N_CHECK_ALLOW_MISSING=1\` allows missing entries, but placeholder or ICU mismatches always fail.
+6. **Report** — list the locales touched, the number of applied translations, the rejected items with their exact reasons, and the items left untouched with the reason (ambiguous, needs a product decision, and so on).
+
+{{#if (eq packageManager "bun")}}
+Bun passes script flags through directly. With npm or pnpm, add \`--\` before the flags, e.g. \`npm run i18n:pending -- --all --limit 50\`.
+{{else}}
+With npm and pnpm, add \`--\` before the script flags, e.g. \`{{packageManager}} run i18n:pending -- --all --limit 50\`.
+{{/if}}
+
+## Translation rules
+
+- **Preserve every placeholder exactly.** A translation with a different argument set is rejected.
+  {{#if (eq i18n "i18next")}}
+  i18next placeholders are double-braced: \`\\{{name}}\`, \`\\{{count}}\`. Plural families use \`_one\` / \`_other\` id suffixes; translate each pending item as its own key.
+  {{else if (eq i18n "wuchale")}}
+  wuchale placeholders are positional: \`{0}\`, \`{1}\`. A plural item lists its forms in the pending \`source\`, separated by \` || \`; provide one \`translations\` entry per form, in the order the item lists them (CLDR category order for the locale).
+  {{else}}
+  Placeholders are ICU arguments: \`{name}\`, \`{count, plural, one {# …} other {# …}}\`, \`{gender, select, …}\`. Keep \`#\`, the plural/select categories and the nesting exactly as in the source.
+  {{/if}}
+- **Keep markup.** HTML/JSX tags, \`<Trans>\` contents and template expressions around a message stay where they are; translate only the text.
+- Never translate message ids, keys, code identifiers, URLs, environment variable names or brand names.
+- Keep numbers, dates and currency as placeholders — formatting goes through \`createFormatters\` in \`@<project>/i18n\`, never through the library.
+- Prefer the glossary term when one exists. Keep the tone and length close to the source unless the locale demands otherwise.
+- Do not delete, merge or recreate catalog entries; \`i18n:extract\` prunes obsolete ones.
+
+## Library notes
+
+{{#if (eq i18n "lingui")}}
+- Lingui: catalogs are \`packages/i18n/locales/<locale>/messages.po\`. Message ids are hashes generated from the source text and the context — apply by the \`id\` from \`i18n:pending\`, never touch the \`msgid\`. \`msgctxt\` carries the context.
+{{else if (eq i18n "paraglide")}}
+- Paraglide: catalogs are \`packages/i18n/messages/<locale>.json\`; ids are authored snake_case names (\`i18n_demo_heading\`). Messages use the ICU subset (arguments, \`plural\`, \`selectordinal\` with \`#\`, \`select\`).
+{{else if (eq i18n "i18next")}}
+- i18next: catalogs are \`packages/i18n/locales/<locale>/<namespace>.json\`; ids are the natural-language source strings, with \`_one\` / \`_other\` suffixes for plurals. The source text is the key, so do not reword it while translating.
+{{else if (eq i18n "wuchale")}}
+- Wuchale: catalogs are per-adapter \`.po\` files in \`packages/i18n/locales\` (\`<adapter>.<locale>.po\`). Ids are the source text; placeholders are positional (\`{0}\`). Wuchale's built-in AI translation is disabled — translate here, through \`i18n:apply\`.
+{{/if}}
+
+## Command reference
+
+| Command | Purpose |
+| --- | --- |
+| \`i18n:extract\` | Extract messages into the source catalogs |
+| \`i18n:pending --locale <l> \\| --all [--limit N]\` | Print pending items as JSON |
+| \`i18n:apply <file>\` | Validate and write a translation batch |
+| \`i18n:compile\` | Compile catalogs for the app runtimes |
+| \`i18n:check\` | Fail on missing or invalid entries (\`I18N_CHECK_ALLOW_MISSING=1\` allows missing) |
+| \`i18n:export\` | Write the normalized catalog for the Rust host (Tauri only) |
+
+The JSON shapes above are defined in \`packages/i18n/scripts/contract.ts\` — read it if a shape is unclear.
 `],
   ["i18n/surface/i18next/astro/src/lib/i18n.ts.hbs", `// Astro glue for i18next: a request-scoped translator. The locale middleware
 // (routing lane) wraps requests in \`runWithLocale\`; without it the negotiation
@@ -44372,4 +45353,4 @@ export default function Success() {
 `]
 ]);
 
-export const TEMPLATE_COUNT = 722;
+export const TEMPLATE_COUNT = 728;
