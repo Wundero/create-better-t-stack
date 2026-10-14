@@ -1013,16 +1013,22 @@ export const DELETE = handleRequest;`],
 import { createORPCClient } from "@orpc/client";
 import { RPCLink } from "@orpc/client/fetch";
 import { createTanstackQueryUtils } from "@orpc/tanstack-query";
+{{#if (and i18n (ne i18n "none"))}}
+import { localeFetch, localeInit } from "@{{projectName}}/i18n/client";
+{{/if}}
 
 export default defineNuxtPlugin(() => {
   const rpcLink = new RPCLink({
     url: \`\${window.location.origin}/rpc\`,
+    {{#if (and i18n (ne i18n "none") (ne auth "better-auth"))}}
+    fetch: localeFetch,
+    {{/if}}
     {{#if (eq auth "better-auth")}}
     fetch(url, options) {
-        return fetch(url, {
+        return fetch(url, localeInit({
         ...options,
         credentials: "include",
-        });
+        }));
     },
     {{/if}}
   });
@@ -1362,6 +1368,9 @@ import { createTanstackQueryUtils } from "@orpc/tanstack-query";
 import { QueryCache, QueryClient } from "@tanstack/react-query";
 import type { AppRouterClient } from "@{{projectName}}/api/routers/index";
 import { ENV } from "../src/env";
+{{#if (and i18n (ne i18n "none"))}}
+import { localeHeader } from "@{{projectName}}/i18n/client";
+{{/if}}
 {{#if (eq auth "better-auth")}}
 import { authClient } from "@/lib/auth-client";
 import { Platform } from "react-native";
@@ -1409,23 +1418,26 @@ export const link = new RPCLink({
 	},
 	async headers() {
 		if (Platform.OS === "web") {
-			return {};
+			return localeHeader();
 		}
 		const headers = new Map<string, string>();
 		const cookies = await authClient.getCookie();
 		if (cookies) {
 			headers.set("Cookie", cookies);
 		}
-		return Object.fromEntries(headers);
+		return { ...localeHeader(), ...Object.fromEntries(headers) };
 	},
 {{else if (eq auth "clerk")}}
 	headers: async () => {
 		const token = await getClerkAuthToken();
-		return token ? { Authorization: \`Bearer \${token}\` } : {};
+		return { ...localeHeader(), ...(token ? { Authorization: \`Bearer \${token}\` } : {}) };
 	},
 	fetch: expoFetch,
 {{else}}
 	fetch: expoFetch,
+{{#if (and i18n (ne i18n "none"))}}
+	headers: () => localeHeader(),
+{{/if}}
 {{/if}}
 });
 
@@ -1614,11 +1626,17 @@ export type AppRouter = typeof appRouter;
 
 import { createORPCClient } from "@orpc/client";
 import { RPCLink } from "@orpc/client/fetch";
+{{#if (and i18n (ne i18n "none"))}}
+import { localeFetch, localeInit } from "@{{projectName}}/i18n/client";
+{{/if}}
 
 {{#if (eq backend "self")}}
 export const link = new RPCLink({
   // Lazy: this module is imported during SSR where window does not exist
   url: () => \`\${window.location.origin}/rpc\`,
+{{#if (and i18n (ne i18n "none"))}}
+  fetch: localeFetch,
+{{/if}}
 });
 {{else}}
 import { ENV } from "../env{{#if (eq webDeploy "cloudflare")}}.public{{/if}}";
@@ -1631,12 +1649,15 @@ export const link = new RPCLink({
 {{else}}
   url: \`\${ENV.PUBLIC_SERVER_URL.replace(/\\/$/, "")}/rpc\`,
 {{/if}}
+{{#if (and i18n (ne i18n "none") (ne auth "better-auth"))}}
+  fetch: localeFetch,
+{{/if}}
 {{#if (eq auth "better-auth")}}
   fetch(url, options) {
-    return fetch(url, {
+    return fetch(url, localeInit({
       ...options,
       credentials: "include",
-    });
+    }));
   },
 {{/if}}
 });
@@ -1649,6 +1670,9 @@ import type { AppRouterClient } from "@{{projectName}}/api/routers/index";
 import { createORPCClient } from '@orpc/client'
 import { RPCLink } from '@orpc/client/fetch'
 import { createTanstackQueryUtils } from "@orpc/tanstack-query";
+{{#if (and i18n (ne i18n "none"))}}
+import { localeHeader, localeInit } from "@{{projectName}}/i18n/client";
+{{/if}}
 
 {{> getServerUrlSpaces}}
 
@@ -1662,13 +1686,16 @@ export default defineNuxtPlugin(() => {
 
   const rpcLink = new RPCLink({
     url: rpcUrl,
-    headers: import.meta.server ? useRequestHeaders(["cookie"]) : {},
+    headers: () => ({
+      ...localeHeader(),
+      ...(import.meta.server ? useRequestHeaders(["cookie"]) : {}),
+    }),
     {{#if (eq auth "better-auth")}}
     fetch(url, options) {
-        return fetch(url, {
+        return fetch(url, localeInit({
         ...options,
         credentials: "include",
-        });
+        }));
     },
     {{/if}}
   })
@@ -1742,6 +1769,9 @@ import { RPCLink } from "@orpc/client/fetch";
 import { createTanstackQueryUtils } from "@orpc/tanstack-query";
 import { QueryCache, QueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+{{#if (and i18n (ne i18n "none"))}}
+import { localeFetch, localeInit } from "@{{projectName}}/i18n/client";
+{{/if}}
 {{#if (and (includes frontend "tanstack-start") (eq backend "self"))}}
 import { createRouterClient } from "@orpc/server";
 import type { RouterClient } from "@orpc/server";
@@ -1805,12 +1835,15 @@ const getORPCClient = createIsomorphicFn()
 	.client((): RouterClient<typeof appRouter> => {
 			const link = new RPCLink({
 			url: \`\${window.location.origin}/api/rpc\`,
+{{#if (and i18n (ne i18n "none") (ne auth "better-auth"))}}
+			fetch: localeFetch,
+{{/if}}
 {{#if (eq auth "better-auth")}}
 			fetch(url, options) {
-				return fetch(url, {
+				return fetch(url, localeInit({
 					...options,
 					credentials: "include",
-				});
+				}));
 			},
 {{/if}}
 		});
@@ -1826,6 +1859,9 @@ const link = new RPCLink({
 {{else}}
 	url: \`\${ENV.VITE_SERVER_URL.replace(/\\/$/, "")}/rpc\`,
 {{/if}}
+{{#if (and i18n (ne i18n "none") (ne auth "better-auth"))}}
+	fetch: localeFetch,
+{{/if}}
 {{#if (eq auth "clerk")}}
 	headers: async () => {
 		const token = await getClerkAuthToken();
@@ -1834,10 +1870,10 @@ const link = new RPCLink({
 {{/if}}
 {{#if (eq auth "better-auth")}}
 	fetch(url, options) {
-		return fetch(url, {
+		return fetch(url, localeInit({
 			...options,
 			credentials: "include",
-		});
+		}));
 	},
 {{/if}}
 });
@@ -1860,6 +1896,9 @@ export const link = new RPCLink({
 	url: \`\${ENV.VITE_SERVER_URL.replace(/\\/$/, "")}/rpc\`,
 {{/if}}
 {{/if}}
+{{#if (and i18n (ne i18n "none") (ne auth "better-auth"))}}
+	fetch: localeFetch,
+{{/if}}
 {{#if (eq auth "clerk")}}
 	headers: async () => {
 		{{#if (includes frontend "next")}}
@@ -1881,10 +1920,10 @@ export const link = new RPCLink({
 {{/if}}
 {{#if (eq auth "better-auth")}}
 	fetch(url, options) {
-		return fetch(url, {
+		return fetch(url, localeInit({
 			...options,
 			credentials: "include",
-		});
+		}));
 	},
 {{#if (includes frontend "next")}}
 	headers: async () => {
@@ -1912,6 +1951,9 @@ import { QueryCache, QueryClient } from "@tanstack/solid-query";
 import { getRequestEvent } from "@solidjs/web";
 {{/unless}}
 import type { AppRouterClient } from "@{{projectName}}/api/routers/index";
+{{#if (and i18n (ne i18n "none"))}}
+import { localeFetch, localeInit } from "@{{projectName}}/i18n/client";
+{{/if}}
 {{#unless (eq backend "self")}}
 import { ENV } from "../env{{#if (eq webDeploy "cloudflare")}}.public{{/if}}";
 {{/unless}}
@@ -1933,12 +1975,15 @@ const link = new RPCLink({
 
 		return \`\${window.location.origin}/rpc\`;
 	},
+{{#if (and i18n (ne i18n "none") (ne auth "better-auth"))}}
+	fetch: localeFetch,
+{{/if}}
 {{#if (eq auth "better-auth")}}
 	fetch(url, options) {
-		return fetch(url, {
+		return fetch(url, localeInit({
 			...options,
 			credentials: "include",
-		});
+		}));
 	},
 {{/if}}
 });
@@ -1952,12 +1997,15 @@ const link = new RPCLink({
 	url: \`\${ENV.VITE_SERVER_URL.replace(/\\/$/, "")}/rpc\`,
 {{/if}}
 	headers: () => getRequestEvent()?.request.headers ?? {},
+{{#if (and i18n (ne i18n "none") (ne auth "better-auth"))}}
+	fetch: localeFetch,
+{{/if}}
 {{#if (eq auth "better-auth")}}
 	fetch(url, options) {
-		return fetch(url, {
+		return fetch(url, localeInit({
 			...options,
 			credentials: "include",
-		});
+		}));
 	},
 {{/if}}
 });
@@ -1985,6 +2033,9 @@ import { RPCLink } from "@orpc/client/fetch";
 import { createTanstackQueryUtils } from "@orpc/tanstack-query";
 import { QueryCache, QueryClient } from "@tanstack/svelte-query";
 import type { AppRouterClient } from "@{{projectName}}/api/routers/index";
+{{#if (and i18n (ne i18n "none"))}}
+import { localeFetch, localeInit } from "@{{projectName}}/i18n/client";
+{{/if}}
 
 export const queryClient = new QueryClient({
 	queryCache: new QueryCache({
@@ -2014,12 +2065,15 @@ export const link = new RPCLink({
 	url: \`\${ENV.PUBLIC_SERVER_URL.replace(/\\/$/, "")}/rpc\`,
 {{/if}}
 	{{/if}}
+	{{#if (and i18n (ne i18n "none") (ne auth "better-auth"))}}
+	fetch: localeFetch,
+	{{/if}}
 	{{#if (eq auth "better-auth")}}
 	fetch(url, options) {
-		return fetch(url, {
+		return fetch(url, localeInit({
 			...options,
 			credentials: "include",
-		});
+		}));
 	},
 	{{/if}}
 });
@@ -2416,6 +2470,9 @@ import { createTRPCClient, httpBatchLink } from "@trpc/client";
 import { createTRPCOptionsProxy } from "@trpc/tanstack-react-query";
 import type { AppRouter } from "@{{projectName}}/api/routers/index";
 import { ENV } from "../src/env";
+{{#if (and i18n (ne i18n "none"))}}
+import { localeHeader } from "@{{projectName}}/i18n/client";
+{{/if}}
 
 export const queryClient = new QueryClient();
 
@@ -2426,6 +2483,11 @@ const trpcClient = createTRPCClient<AppRouter>({
 			url: \`\${ENV.EXPO_PUBLIC_SERVER_URL}/api/trpc\`,
 {{else}}
 			url: \`\${ENV.EXPO_PUBLIC_SERVER_URL}{{apiPrefix webDeploy serverDeploy}}/trpc\`,
+{{/if}}
+{{#if (and i18n (ne i18n "none"))}}
+{{#unless (or (eq auth "better-auth") (eq auth "clerk"))}}
+			headers: () => localeHeader(),
+{{/unless}}
 {{/if}}
 {{#if (eq auth "better-auth")}}
 			fetch:
@@ -2438,19 +2500,19 @@ const trpcClient = createTRPCClient<AppRouter>({
 				},
 			async headers() {
 				if (Platform.OS === "web") {
-					return {};
+					return localeHeader();
 				}
 				const headers = new Map<string, string>();
 				const cookies = await authClient.getCookie();
 				if (cookies) {
 					headers.set("Cookie", cookies);
 				}
-				return Object.fromEntries(headers);
+				return { ...localeHeader(), ...Object.fromEntries(headers) };
 			},
 {{else if (eq auth "clerk")}}
 			headers: async function () {
 				const token = await getClerkAuthToken();
-				return token ? { Authorization: \`Bearer \${token}\` } : {};
+				return { ...localeHeader(), ...(token ? { Authorization: \`Bearer \${token}\` } : {}) };
 			},
 {{/if}}
 		}),
@@ -2644,6 +2706,9 @@ import { createTRPCClient, httpBatchLink } from '@trpc/client';
 import { createTRPCOptionsProxy } from '@trpc/tanstack-react-query';
 import type { AppRouter } from "@{{projectName}}/api/routers/index";
 import { toast } from 'sonner';
+{{#if (and i18n (ne i18n "none"))}}
+import { localeFetch, localeInit } from "@{{projectName}}/i18n/client";
+{{/if}}
 {{#unless (eq backend "self")}}
 
 {{> getServerUrl}}
@@ -2679,6 +2744,9 @@ const trpcClient = createTRPCClient<AppRouter>({
 			url: \`\${process.env.NEXT_PUBLIC_SERVER_URL!.replace(/\\/$/, "")}/trpc\`,
 {{/if}}
 {{/if}}
+{{#if (and i18n (ne i18n "none") (ne auth "better-auth"))}}
+			fetch: localeFetch,
+{{/if}}
 {{#if (eq auth "clerk")}}
 			headers: async () => {
 				if (typeof window !== "undefined") {
@@ -2695,10 +2763,10 @@ const trpcClient = createTRPCClient<AppRouter>({
 {{/if}}
 {{#if (eq auth "better-auth")}}
 			fetch(url, options) {
-				return fetch(url, {
+				return fetch(url, localeInit({
 					...options,
 					credentials: "include",
-				});
+				}));
 			},
 {{/if}}
 		}),
@@ -2724,6 +2792,9 @@ import { createTRPCClient, httpBatchLink } from "@trpc/client";
 import { createTRPCOptionsProxy } from "@trpc/tanstack-react-query";
 import { toast } from "sonner";
 import { ENV } from "../env{{#if (eq webDeploy "cloudflare")}}.public{{/if}}";
+{{#if (and i18n (ne i18n "none"))}}
+import { localeFetch, localeInit } from "@{{projectName}}/i18n/client";
+{{/if}}
 {{#if (eq auth "clerk")}}
 import { getClerkAuthToken } from "@/utils/clerk-auth";
 {{/if}}
@@ -2753,6 +2824,9 @@ export const trpcClient = createTRPCClient<AppRouter>({
 {{else}}
 			url: \`\${ENV.VITE_SERVER_URL.replace(/\\/$/, "")}/trpc\`,
 {{/if}}
+{{#if (and i18n (ne i18n "none") (ne auth "better-auth"))}}
+			fetch: localeFetch,
+{{/if}}
 {{#if (eq auth "clerk")}}
 			headers: async () => {
 				const token = await getClerkAuthToken();
@@ -2761,10 +2835,10 @@ export const trpcClient = createTRPCClient<AppRouter>({
 {{/if}}
 {{#if (eq auth "better-auth")}}
 			fetch(url, options) {
-				return fetch(url, {
+				return fetch(url, localeInit({
 					...options,
 					credentials: "include",
-				});
+				}));
 			},
 {{/if}}
 		}),
@@ -9334,6 +9408,9 @@ import { authClient } from "../lib/auth-client";
 </script>
 `],
   ["auth/better-auth/web/astro/src/lib/auth-client.ts.hbs", `import { createAuthClient } from "better-auth/client";
+{{#if (and i18n (ne i18n "none"))}}
+import { localeFetch } from "@{{projectName}}/i18n/client";
+{{/if}}
 {{#if (eq payments "polar")}}
 import { polarClient } from "@polar-sh/better-auth/client";
 {{/if}}
@@ -9348,6 +9425,9 @@ import { ENV } from "../env{{#if (eq webDeploy "cloudflare")}}.public{{/if}}";
 
 {{/if}}
 export const authClient = createAuthClient({
+{{#if (and i18n (ne i18n "none"))}}
+  fetchOptions: { customFetchImpl: localeFetch },
+{{/if}}
 {{#if (ne backend "self")}}
 {{#if (and (eq webDeploy serverDeploy) (or (eq webDeploy "vercel") (eq webDeploy "docker")))}}
   baseURL: {{#if (eq webDeploy "vercel")}}\`\${getServerUrl(ENV.PUBLIC_SERVER_URL)}/auth\`{{else}}new URL("/api/auth", getServerUrl(ENV.PUBLIC_SERVER_URL)).toString(){{/if}},
@@ -9887,6 +9967,9 @@ watchEffect(() => {
 </template>
 `],
   ["auth/better-auth/web/nuxt/app/plugins/auth-client.ts.hbs", `import { createAuthClient } from "better-auth/vue";
+{{#if (and i18n (ne i18n "none"))}}
+import { localeFetch, localeHeader } from "@{{projectName}}/i18n/client";
+{{/if}}
 {{#if (eq payments "polar")}}
 import { polarClient } from "@polar-sh/better-auth/client";
 {{/if}}
@@ -9906,7 +9989,15 @@ export default defineNuxtPlugin(() => {
 
   const authClient = createAuthClient({
     fetchOptions: {
+{{#if (and i18n (ne i18n "none"))}}
+      customFetchImpl: localeFetch,
+      headers: {
+        ...localeHeader(),
+        ...(import.meta.server ? useRequestHeaders(["cookie"]) : {}),
+      },
+{{else}}
       headers: import.meta.server ? useRequestHeaders(["cookie"]) : undefined,
+{{/if}}
     },
     {{#if (ne backend "self")}}
     baseURL: {{#if (and (eq webDeploy "vercel") (eq serverDeploy "vercel"))}}\`\${serverOrigin}/auth\`{{else}}new URL("/api/auth", serverOrigin).toString(){{/if}},
@@ -9926,6 +10017,9 @@ export default defineNuxtPlugin(() => {
 });
 `],
   ["auth/better-auth/web/react/base/src/lib/auth-client.ts.hbs", `import { createAuthClient } from "better-auth/react";
+{{#if (and i18n (ne i18n "none"))}}
+import { localeFetch } from "@{{projectName}}/i18n/client";
+{{/if}}
 {{#if (eq payments "polar")}}
 import { polarClient } from "@polar-sh/better-auth/client";
 {{/if}}
@@ -9938,6 +10032,9 @@ import { ENV } from "../env{{#if (eq webDeploy "cloudflare")}}.public{{/if}}";
 {{/unless}}
 
 export const authClient = createAuthClient({
+{{#if (and i18n (ne i18n "none"))}}
+  fetchOptions: { customFetchImpl: localeFetch },
+{{/if}}
 {{#unless (eq backend "self")}}
 {{#if (and (eq webDeploy serverDeploy) (or (eq webDeploy "vercel") (eq webDeploy "docker")))}}
   baseURL: {{#if (eq webDeploy "vercel")}}\`\${getServerUrl({{#if (includes frontend "next")}}process.env.NEXT_PUBLIC_SERVER_URL!{{else}}ENV.VITE_SERVER_URL{{/if}})}/auth\`{{else}}new URL("/api/auth", getServerUrl({{#if (includes frontend "next")}}process.env.NEXT_PUBLIC_SERVER_URL!{{else}}ENV.VITE_SERVER_URL{{/if}})).toString(){{/if}},
@@ -12620,6 +12717,9 @@ export default function Login() {
 import { ENV } from "../env{{#if (eq webDeploy "cloudflare")}}.public{{else}}.generated{{/if}}";
 {{/unless}}
 import { createAuthClient } from "better-auth/svelte";
+{{#if (and i18n (ne i18n "none"))}}
+import { localeFetch } from "@{{projectName}}/i18n/client";
+{{/if}}
 {{#if (eq payments "polar")}}
 import { polarClient } from "@polar-sh/better-auth/client";
 {{/if}}
@@ -12629,6 +12729,9 @@ import { polarClient } from "@polar-sh/better-auth/client";
 
 {{/unless}}
 export const authClient = createAuthClient({
+{{#if (and i18n (ne i18n "none"))}}
+  fetchOptions: { customFetchImpl: localeFetch },
+{{/if}}
 {{#unless (eq backend "self")}}
 {{#if (and (eq webDeploy serverDeploy) (or (eq webDeploy "vercel") (eq webDeploy "docker")))}}
   baseURL: {{#if (eq webDeploy "vercel")}}\`\${getServerUrl(ENV.PUBLIC_SERVER_URL)}/auth\`{{else}}new URL("/api/auth", getServerUrl(ENV.PUBLIC_SERVER_URL)).toString(){{/if}},
@@ -32397,6 +32500,9 @@ import { TRPCProvider } from "./utils/trpc";
 {{#unless (eq backend "self")}}
 import { ENV } from "./env{{#if (eq webDeploy "cloudflare")}}.public{{/if}}";
 {{/unless}}
+{{#if (and i18n (ne i18n "none") (eq api "trpc"))}}
+import { localeFetch, localeInit } from "@{{projectName}}/i18n/client";
+{{/if}}
 {{#if (eq auth "clerk")}}
 import { getClerkAuthToken } from "@/utils/clerk-auth";
 {{/if}}
@@ -32474,6 +32580,9 @@ const trpcClient = createTRPCClient<AppRouter>({
 {{else}}
 			url: \`\${ENV.VITE_SERVER_URL.replace(/\\/$/, "")}/trpc\`,
 {{/if}}
+{{#if (and i18n (ne i18n "none") (ne auth "better-auth"))}}
+			fetch: localeFetch,
+{{/if}}
 {{#if (eq auth "clerk")}}
 			headers: async () => {
 				const token = await getClerkAuthToken();
@@ -32482,10 +32591,10 @@ const trpcClient = createTRPCClient<AppRouter>({
 {{/if}}
 {{#if (eq auth "better-auth")}}
 			fetch(url, options) {
-				return fetch(url, {
+				return fetch(url, localeInit({
 					...options,
 					credentials: "include",
-				});
+				}));
 			},
 {{/if}}
 		}),
@@ -39416,6 +39525,657 @@ translation provider. Translate with the \`i18n-translate\` skill through
 2. Run \`bun run i18n:extract\` — wuchale creates \`locales/<adapter>.<locale>.po\`.
 3. Translate through the scripts above.
 `],
+  ["i18n/routing/server/elysia/locale.ts.hbs", `import type { Elysia } from "elysia";
+
+import { LOCALE_HEADER } from "@{{projectName}}/i18n/config";
+import { negotiateRequestLocale } from "@{{projectName}}/i18n/routing";
+import { runWithLocale } from "@{{projectName}}/i18n/server";
+
+const APPLIED_HEADER = "x-i18n-locale-applied";
+
+/**
+ * Negotiates the request locale (D5) and runs the rest of the request inside
+ * \`runWithLocale\`, so handlers read it back with \`getRequestLocale()\`.
+ *
+ * Elysia lifecycle hooks have no \`next()\` callback to wrap, so the outer
+ * \`onRequest\` re-enters \`app.handle()\` once with the request marked: the inner
+ * pass runs the full pipeline inside the AsyncLocalStorage scope and its
+ * response is returned as the outer response. Called from \`src/index.ts\`.
+ */
+export function withLocale(app: Elysia): Elysia {
+  app.onRequest(({ request }) => {
+    if (request.headers.get(APPLIED_HEADER) === "1") return;
+
+    const locale = negotiateRequestLocale({
+      url: request.url,
+      header: request.headers.get(LOCALE_HEADER),
+      cookieHeader: request.headers.get("cookie"),
+      acceptLanguage: request.headers.get("accept-language"),
+    });
+
+    const inner = request.clone();
+    inner.headers.set(APPLIED_HEADER, "1");
+    return runWithLocale(locale, () => app.handle(inner));
+  });
+
+  return app;
+}
+`],
+  ["i18n/routing/server/express/locale.ts.hbs", `import type { NextFunction, Request, Response } from "express";
+
+import { LOCALE_HEADER } from "@{{projectName}}/i18n/config";
+import { negotiateRequestLocale } from "@{{projectName}}/i18n/routing";
+import { runWithLocale } from "@{{projectName}}/i18n/server";
+
+function headerValue(value: string | string[] | undefined): string | undefined {
+  return Array.isArray(value) ? value[0] : value;
+}
+
+/**
+ * Negotiates the request locale (D5) and runs the rest of the request inside
+ * \`runWithLocale\`, so handlers read it back with \`getRequestLocale()\`.
+ * Registered in \`src/index.ts\`.
+ */
+export function localeMiddleware(req: Request, _res: Response, next: NextFunction): void {
+  const locale = negotiateRequestLocale({
+    url: \`\${req.protocol}://\${req.get("host") ?? "localhost"}\${req.originalUrl}\`,
+    header: headerValue(req.headers[LOCALE_HEADER]),
+    cookieHeader: headerValue(req.headers.cookie),
+    acceptLanguage: headerValue(req.headers["accept-language"]),
+  });
+
+  runWithLocale(locale, () => next());
+}
+`],
+  ["i18n/routing/server/fastify/locale.ts.hbs", `import type { FastifyInstance } from "fastify";
+
+import { LOCALE_HEADER } from "@{{projectName}}/i18n/config";
+import { negotiateRequestLocale } from "@{{projectName}}/i18n/routing";
+import { runWithLocale } from "@{{projectName}}/i18n/server";
+
+function headerValue(value: string | string[] | undefined): string | undefined {
+  return Array.isArray(value) ? value[0] : value;
+}
+
+/**
+ * Negotiates the request locale (D5) and runs the rest of the request inside
+ * \`runWithLocale\`, so handlers read it back with \`getRequestLocale()\`.
+ * Called from \`src/index.ts\`.
+ */
+export function registerLocale(app: FastifyInstance): void {
+  app.addHook("onRequest", (request, _reply, done) => {
+    const locale = negotiateRequestLocale({
+      url: \`\${request.protocol}://\${request.host}\${request.url}\`,
+      header: headerValue(request.headers[LOCALE_HEADER]),
+      cookieHeader: headerValue(request.headers.cookie),
+      acceptLanguage: headerValue(request.headers["accept-language"]),
+    });
+
+    runWithLocale(locale, () => done());
+  });
+}
+`],
+  ["i18n/routing/server/hono/locale.ts.hbs", `import { createMiddleware } from "hono/factory";
+
+import { LOCALE_HEADER } from "@{{projectName}}/i18n/config";
+import { negotiateRequestLocale } from "@{{projectName}}/i18n/routing";
+import { runWithLocale } from "@{{projectName}}/i18n/server";
+
+/**
+ * Negotiates the request locale (D5) and runs the rest of the request inside
+ * \`runWithLocale\`, so handlers read it back with \`getRequestLocale()\`.
+ * Registered in \`src/index.ts\`.
+ */
+export const localeMiddleware = createMiddleware(async (c, next) => {
+  const locale = negotiateRequestLocale({
+    url: c.req.url,
+    header: c.req.header(LOCALE_HEADER),
+    cookieHeader: c.req.header("cookie"),
+    acceptLanguage: c.req.header("accept-language"),
+  });
+
+  await runWithLocale(locale, () => next());
+});
+`],
+  ["i18n/routing/server/nitro/locale.ts.hbs", `import { defineMiddleware } from "nitro";
+
+import { LOCALE_HEADER } from "@{{projectName}}/i18n/config";
+import { negotiateRequestLocale } from "@{{projectName}}/i18n/routing";
+import { runWithLocale } from "@{{projectName}}/i18n/server";
+
+/**
+ * Negotiates the request locale (D5) and runs the route handlers inside
+ * \`runWithLocale\` through h3 v2's middleware \`next()\`, so handlers read it
+ * back with \`getRequestLocale()\`. Auto-registered from \`server/middleware/\`.
+ */
+export default defineMiddleware((event, next) => {
+  const locale = negotiateRequestLocale({
+    url: event.req.url,
+    header: event.req.headers.get(LOCALE_HEADER),
+    cookieHeader: event.req.headers.get("cookie"),
+    acceptLanguage: event.req.headers.get("accept-language"),
+  });
+
+  return runWithLocale(locale, () => next());
+});
+`],
+  ["i18n/routing/shared/src/client.ts.hbs", `/**
+ * Client-side locale helpers. Every generated API client (tRPC/oRPC links,
+ * the Better Auth client, fetch helpers) sends the \`x-app-locale\` header so a
+ * cross-origin \`apps/server\` receives the app's chosen locale instead of
+ * relying on the browser preference alone (D5).
+ *
+ * Import from \`@<project>/i18n/client\`.
+ */
+import { LOCALE_COOKIE, LOCALE_HEADER, negotiateLocale, sourceLocale } from "./config";
+import type { Locale } from "./config";
+
+const STORAGE_KEY = "locale";
+
+interface StorageLike {
+  getItem(key: string): string | null;
+}
+
+function browserStorage(): StorageLike | undefined {
+  return (globalThis as { localStorage?: StorageLike }).localStorage;
+}
+
+function browserCookieHeader(): string | undefined {
+  return (globalThis as { document?: { cookie?: string } }).document?.cookie;
+}
+
+function browserAcceptLanguage(): string | undefined {
+  const navigatorLike = (globalThis as {
+    navigator?: { languages?: readonly string[]; language?: string };
+  }).navigator;
+  if (!navigatorLike) return undefined;
+  return navigatorLike.languages?.join(",") ?? navigatorLike.language;
+}
+
+function readBrowserStorage(key: string): string | undefined {
+  try {
+    const value = browserStorage()?.getItem(key);
+    return value ?? undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/** The current locale on the client: cookie → \`localStorage\` → browser language. */
+export function getClientLocale(): Locale {
+  if (typeof (globalThis as { window?: unknown }).window === "undefined") return sourceLocale;
+
+  const cookieHeader = browserCookieHeader();
+  const cookie = cookieHeader
+    ? cookieHeader
+        .split(";")
+        .map((entry) => entry.trim().split("="))
+        .find(([name]) => name === LOCALE_COOKIE)
+        ?.slice(1)
+        .join("=")
+    : undefined;
+
+  return negotiateLocale({
+    cookie,
+    stored: readBrowserStorage(STORAGE_KEY),
+    acceptLanguage: browserAcceptLanguage(),
+  });
+}
+
+/** \`x-app-locale\` for the current client locale. */
+export function localeHeader(): Record<string, string> {
+  return { [LOCALE_HEADER]: getClientLocale() };
+}
+
+/** A \`RequestInit\` with \`x-app-locale\` merged into its headers. */
+export function localeInit(init?: Parameters<typeof fetch>[1]): Parameters<typeof fetch>[1] {
+  const headers = new Headers(init?.headers);
+  for (const [name, value] of Object.entries(localeHeader())) {
+    headers.set(name, value);
+  }
+  return { ...init, headers };
+}
+
+/** \`fetch\` wrapper that always sends \`x-app-locale\`. */
+export function localeFetch(
+  input: Parameters<typeof fetch>[0],
+  init?: Parameters<typeof fetch>[1],
+): Promise<Response> {
+  return fetch(input, localeInit(init));
+}
+`],
+  ["i18n/routing/shared/src/routing.ts.hbs", `/**
+ * URL localization for the \`prefix\` and \`domain\` routing strategies (D6).
+ *
+ * Every template link goes through \`localizeHref\` so the visible URL always
+ * carries the active locale; \`negotiateRequestLocale\` is the server-side entry
+ * point used by the generated middleware. The negotiation sources themselves
+ * live in \`./config\`.
+ */
+import {
+  LOCALE_COOKIE,
+  isLocale,
+  localeDomains,
+  locales,
+  negotiateLocale,
+  prefixDefaultLocale,
+  routingStrategy,
+  sourceLocale,
+} from "./config";
+import type { Locale } from "./config";
+
+export interface HreflangLink {
+  readonly hreflang: string;
+  readonly href: string;
+}
+
+function isExternalHref(href: string): boolean {
+  return /^[a-z][a-z0-9+.-]*:/i.test(href) || href.startsWith("//");
+}
+
+function splitHref(href: string): { path: string; suffix: string } {
+  const index = href.search(/[?#]/);
+  if (index === -1) return { path: href, suffix: "" };
+  return { path: href.slice(0, index), suffix: href.slice(index) };
+}
+
+function withLeadingSlash(path: string): string {
+  return path.startsWith("/") ? path : \`/\${path}\`;
+}
+
+function isLocalHostname(hostname: string): boolean {
+  return hostname === "localhost" || hostname === "127.0.0.1" || hostname.endsWith(".localhost");
+}
+
+function originForHost(host: string): string {
+  return \`\${isLocalHostname(host) ? "http" : "https"}://\${host}\`;
+}
+
+/** Reads one cookie value out of a raw \`Cookie\` header. */
+export function readCookieValue(
+  cookieHeader: string | null | undefined,
+  name: string,
+): string | undefined {
+  if (!cookieHeader) return undefined;
+  for (const entry of cookieHeader.split(";")) {
+    const separator = entry.indexOf("=");
+    if (separator === -1) continue;
+    if (entry.slice(0, separator).trim() === name) {
+      return decodeURIComponent(entry.slice(separator + 1).trim());
+    }
+  }
+  return undefined;
+}
+
+/** The locale prefix of a pathname, when the first segment is a locale. */
+export function localeFromPathname(pathname: string): Locale | undefined {
+  const [first] = pathname.split("/").filter((segment) => segment.length > 0);
+  if (!first || !isLocale(first)) return undefined;
+  return first;
+}
+
+/** Removes the leading locale segment (\`/fr/about\` → \`/about\`). */
+export function stripLocalePrefix(pathname: string): string {
+  const locale = localeFromPathname(pathname);
+  if (!locale) return pathname;
+  const rest = pathname.slice(locale.length + 1);
+  return rest.length > 0 ? rest : "/";
+}
+
+/**
+ * \`?locale=\` development override for local hosts (\`localhost\`,
+ * \`127.0.0.1\`, \`*.localhost\`). Portless mode serves each locale from
+ * \`<locale>.<app>.localhost\`, so this is the fallback for plain localhost.
+ */
+export function localeOverrideFromUrl(url: string | URL): Locale | undefined {
+  const parsed = typeof url === "string" ? new URL(url, "http://localhost") : url;
+  if (!isLocalHostname(parsed.hostname)) return undefined;
+  const override = parsed.searchParams.get("locale");
+  return override && isLocale(override) ? override : undefined;
+}
+
+/**
+ * Server-side negotiation entry point: extracts the D5 sources from a request
+ * and resolves them through the shared \`negotiateLocale\` contract.
+ */
+export function negotiateRequestLocale(sources: {
+  readonly url: string | URL;
+  readonly header?: string | null;
+  readonly cookieHeader?: string | null;
+  readonly acceptLanguage?: string | null;
+}): Locale {
+  const parsed = typeof sources.url === "string" ? new URL(sources.url, "http://localhost") : sources.url;
+
+  const override = localeOverrideFromUrl(parsed);
+  if (override) return override;
+
+  return negotiateLocale({
+    pathname: parsed.pathname,
+    host: parsed.host,
+    header: sources.header ?? undefined,
+    cookie: readCookieValue(sources.cookieHeader, LOCALE_COOKIE),
+    acceptLanguage: sources.acceptLanguage ?? undefined,
+  });
+}
+
+/**
+ * Locale-aware version of an href.
+ *
+ * - \`cookie\`: unchanged.
+ * - \`prefix\`: \`/about\` → \`/fr/about\`; the source locale keeps its bare path
+ *   unless \`prefixDefaultLocale\` is set.
+ * - \`domain\`: absolute URL on the mapped host when one is configured.
+ *
+ * Query strings, hash fragments and external URLs are preserved, and calling
+ * this twice with the same locale is idempotent.
+ */
+export function localizeHref(href: string, locale: Locale = sourceLocale): string {
+  if (routingStrategy === "cookie" || isExternalHref(href) || href.startsWith("#")) return href;
+
+  const { path, suffix } = splitHref(href);
+  const bare = stripLocalePrefix(withLeadingSlash(path));
+
+  if (routingStrategy === "prefix") {
+    if (locale === sourceLocale && !prefixDefaultLocale) return \`\${bare}\${suffix}\`;
+    const prefixed = bare === "/" ? \`/\${locale}\` : \`/\${locale}\${bare}\`;
+    return \`\${prefixed}\${suffix}\`;
+  }
+
+  // domain
+  const host = localeDomains[locale];
+  if (!host) return \`\${bare}\${suffix}\`;
+  return \`\${originForHost(host)}\${bare === "/" ? "" : bare}\${suffix}\`;
+}
+
+/**
+ * \`hreflang\` link descriptors for a page, one per configured locale plus
+ * \`x-default\`. Domain routing prefers the absolute host from \`localeDomains\`;
+ * \`origin\` (the app's own origin) covers locales without a host and the
+ * \`x-default\` entry. Returns an empty list for cookie routing.
+ */
+export function hreflangLinks(pathname = "/", origin?: string): HreflangLink[] {
+  if (routingStrategy === "cookie") return [];
+
+  const bare = stripLocalePrefix(pathname);
+  const trimmedOrigin = origin?.replace(/\\/$/, "");
+  const links: HreflangLink[] = [];
+
+  for (const locale of locales) {
+    if (routingStrategy === "domain") {
+      const host = localeDomains[locale];
+      if (host) {
+        links.push({
+          hreflang: locale,
+          href: \`\${originForHost(host)}\${bare === "/" ? "" : bare}\`,
+        });
+        continue;
+      }
+    }
+    if (!trimmedOrigin) continue;
+    links.push({ hreflang: locale, href: \`\${trimmedOrigin}\${localizeHref(bare, locale)}\` });
+  }
+
+  if (trimmedOrigin) {
+    links.push({ hreflang: "x-default", href: \`\${trimmedOrigin}\${bare}\` });
+  }
+
+  return links;
+}
+`],
+  ["i18n/routing/surface/astro/HreflangLinks.astro.hbs", `---
+import { hreflangLinks } from "@{{projectName}}/i18n/routing";
+
+const links = hreflangLinks(Astro.url.pathname, Astro.url.origin);
+---
+
+{links.map(({ hreflang, href }) => (
+  <link rel="alternate" hreflang={hreflang} href={href} />
+))}
+`],
+  ["i18n/routing/surface/next/hreflang.tsx.hbs", `import { headers } from "next/headers";
+
+import { hreflangLinks } from "@{{projectName}}/i18n/routing";
+
+/**
+ * \`<link rel="alternate" hreflang>\` tags for the current page (D6 SEO).
+ * React 19 hoists them into the document head. \`x-pathname\` carries the public
+ * pathname set by \`src/middleware.ts\`, so prefixed URLs stay canonical.
+ */
+export async function HreflangLinks() {
+  const requestHeaders = await headers();
+  const host = requestHeaders.get("host");
+  const pathname = requestHeaders.get("x-pathname") ?? "/";
+  const isLocal = host?.startsWith("localhost") || host?.startsWith("127.0.0.1");
+  const protocol = requestHeaders.get("x-forwarded-proto") ?? (isLocal ? "http" : "https");
+  const origin = host ? \`\${protocol}://\${host}\` : undefined;
+
+  return (
+    <>
+      {hreflangLinks(pathname, origin).map(({ hreflang, href }) => (
+        <link key={hreflang} rel="alternate" hrefLang={hreflang} href={href} />
+      ))}
+    </>
+  );
+}
+`],
+  ["i18n/routing/surface/next/middleware.ts.hbs", `import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+
+import {
+  LOCALE_COOKIE,
+  LOCALE_HEADER,
+  routingStrategy,
+} from "@{{projectName}}/i18n/config";
+import {
+  localeFromPathname,
+  negotiateRequestLocale,
+  stripLocalePrefix,
+} from "@{{projectName}}/i18n/routing";
+
+/**
+ * \`prefix\` / \`domain\` routing (D6).
+ *
+ * - prefix: \`/fr/about\` is rewritten to \`/about\` and the negotiated locale
+ *   travels on \`x-app-locale\` and the \`locale\` cookie. With
+ *   \`prefixDefaultLocale\` the canonical links from \`localizeHref\` always carry
+ *   the prefix; unprefixed paths still render.
+ * - domain: the request host selects the locale; \`?locale=\` overrides it on
+ *   localhost so one dev server can preview every locale.
+ *
+ * Cookie routing needs no middleware: clients send \`x-app-locale\`.
+ */
+export function middleware(request: NextRequest): NextResponse {
+  const { pathname } = request.nextUrl;
+
+  const locale = negotiateRequestLocale({
+    url: request.url,
+    header: request.headers.get(LOCALE_HEADER),
+    cookieHeader: request.headers.get("cookie"),
+    acceptLanguage: request.headers.get("accept-language"),
+  });
+
+  const headers = new Headers(request.headers);
+  headers.set(LOCALE_HEADER, locale);
+  // Lets the root layout render hreflang links for the public URL.
+  headers.set("x-pathname", pathname);
+
+  let response: NextResponse;
+  if (routingStrategy === "prefix" && localeFromPathname(pathname)) {
+    const url = request.nextUrl.clone();
+    url.pathname = stripLocalePrefix(pathname);
+    response = NextResponse.rewrite(url, { request: { headers } });
+  } else {
+    response = NextResponse.next({ request: { headers } });
+  }
+
+  response.cookies.set(LOCALE_COOKIE, locale, { path: "/", sameSite: "lax" });
+  return response;
+}
+
+export const config = {
+  // Skip Next internals, API routes (auth, tRPC/oRPC) and asset files.
+  matcher: ["/((?!_next/|api/|.*\\\\.[^/]+$).*)"],
+};
+`],
+  ["i18n/routing/surface/nuxt/hreflang.ts.hbs", `import { hreflangLinks } from "@{{projectName}}/i18n/routing";
+
+/** D6 SEO: \`<link rel="alternate" hreflang>\` for the current page. */
+export default defineNuxtPlugin(() => {
+  const url = useRequestURL();
+
+  useHead({
+    link: hreflangLinks(url.pathname, url.origin).map(({ hreflang, href }) => ({
+      rel: "alternate",
+      hreflang,
+      href,
+    })),
+  });
+});
+`],
+  ["i18n/routing/surface/react-router/i18n-middleware.ts.hbs", `import type { MiddlewareFunction } from "react-router";
+
+import { LOCALE_HEADER } from "@{{projectName}}/i18n/config";
+import { negotiateRequestLocale } from "@{{projectName}}/i18n/routing";
+import { runWithLocale } from "@{{projectName}}/i18n/server";
+{{#if (eq i18n "paraglide")}}
+import { isLocale, sourceLocale } from "@{{projectName}}/i18n/config";
+
+import { paraglideMiddleware } from "./paraglide/server.js";
+{{/if}}
+
+/**
+ * Root middleware (D5/D6): negotiates the request locale and runs loaders and
+ * SSR inside \`runWithLocale\`. Wired into \`src/root.tsx\`; route matching keeps
+ * the optional \`:locale?\` prefix from \`src/routes.ts\`.
+ */
+export const i18nMiddleware: MiddlewareFunction = ({ request }, next) => {
+{{#if (eq i18n "paraglide")}}
+  return paraglideMiddleware(request, ({ locale }) =>
+    runWithLocale(isLocale(locale) ? locale : sourceLocale, () => next()),
+  );
+{{else}}
+  const locale = negotiateRequestLocale({
+    url: request.url,
+    header: request.headers.get(LOCALE_HEADER),
+    cookieHeader: request.headers.get("cookie"),
+    acceptLanguage: request.headers.get("accept-language"),
+  });
+
+  return runWithLocale(locale, () => next());
+{{/if}}
+};
+`],
+  ["i18n/routing/surface/react-router/routes.ts.hbs", `import { flatRoutes } from "@react-router/fs-routes";
+import { prefix } from "@react-router/dev/routes";
+import type { RouteConfig } from "@react-router/dev/routes";
+
+/**
+ * React Router middleware cannot rewrite the request before matching, so every
+ * file route is wrapped in an optional \`:locale?\` segment (D6): both \`/about\`
+ * and \`/fr/about\` match the same route module.
+ */
+export default flatRoutes().then((routes) =>
+  prefix(":locale?", routes),
+) satisfies RouteConfig;
+`],
+  ["i18n/routing/surface/svelte/hooks.client.ts.hbs", `// SvelteKit reroutes localized paths (\`/fr/about\` → \`/about\`) before route
+// matching, so prefix/domain links work with client-side navigation.
+export { reroute } from "./paraglide/runtime.js";
+`],
+  ["i18n/routing/surface/svelte/hooks.server.ts.hbs", `import { isLocale, sourceLocale } from "@{{projectName}}/i18n/config";
+import { runWithLocale } from "@{{projectName}}/i18n/server";
+import type { Handle } from "@sveltejs/kit/hooks";
+
+import { paraglideMiddleware } from "./paraglide/server.js";
+
+// Server-side reroute for localized paths (\`/fr/about\` → \`/about\`).
+export { reroute } from "./paraglide/runtime.js";
+
+/** Resolves the Paraglide locale inside \`runWithLocale\` for SSR. */
+export const handle: Handle = ({ event, resolve }) =>
+  paraglideMiddleware(event.request, ({ request: localizedRequest, locale }) => {
+    event.request = localizedRequest;
+    return runWithLocale(isLocale(locale) ? locale : sourceLocale, () => resolve(event));
+  });
+`],
+  ["i18n/routing/surface/tanstack-start/i18n-middleware.ts.hbs", `import { createMiddleware } from "@tanstack/react-start";
+import { getRequest } from "@tanstack/react-start/server";
+
+import { LOCALE_HEADER } from "@{{projectName}}/i18n/config";
+import { negotiateRequestLocale } from "@{{projectName}}/i18n/routing";
+import { runWithLocale } from "@{{projectName}}/i18n/server";
+
+/**
+ * D5 negotiation for every Start request — server routes, SSR and server
+ * functions run inside \`runWithLocale\`. Registered in \`src/start.ts\`.
+ */
+export const i18nRequestMiddleware = createMiddleware().server(({ next }) => {
+  const request = getRequest();
+
+  const locale = negotiateRequestLocale({
+    url: request.url,
+    header: request.headers.get(LOCALE_HEADER),
+    cookieHeader: request.headers.get("cookie"),
+    acceptLanguage: request.headers.get("accept-language"),
+  });
+
+  return runWithLocale(locale, () => next());
+});
+`],
+  ["i18n/routing/surface/tanstack-start/start.ts.hbs", `import { createStart } from "@tanstack/react-start";
+
+import { i18nRequestMiddleware } from "./i18n-middleware";
+
+export const startInstance = createStart(() => ({
+  requestMiddleware: [i18nRequestMiddleware],
+}));
+`],
+  ["i18n/routing/surface/tanstack/i18n-routing.ts.hbs", `{{#if (eq i18n "paraglide")}}
+import { deLocalizeUrl, localizeUrl } from "./paraglide/runtime.js";
+{{else}}
+import { sourceLocale } from "@{{projectName}}/i18n/config";
+import { localeFromPathname, localizeHref, stripLocalePrefix } from "@{{projectName}}/i18n/routing";
+{{/if}}
+
+/**
+ * TanStack Router URL rewriting (D6): the router owns URL localization, so
+ * matching sees the internal path (\`/about\`) while the address bar keeps the
+ * localized one (\`/fr/about\`). Wired into the router in \`router.tsx\`.
+ */
+export const i18nRewrite = {
+{{#if (eq i18n "paraglide")}}
+  input: ({ url }: { url: URL }): URL => deLocalizeUrl(url),
+  output: ({ url }: { url: URL }): URL => localizeUrl(url),
+{{else}}
+  input: ({ url }: { url: URL }): URL => {
+    const next = new URL(url);
+    next.pathname = stripLocalePrefix(url.pathname);
+    return next;
+  },
+  output: ({ url }: { url: URL }): URL => {
+    const current =
+      typeof window === "undefined" ? undefined : localeFromPathname(window.location.pathname);
+    const next = new URL(url);
+    next.pathname = localizeHref(url.pathname, current ?? sourceLocale);
+    return next;
+  },
+{{/if}}
+};
+`],
+  ["i18n/routing/surface/web/i18n-link.ts.hbs", `/**
+ * Locale-aware href for template links (D6). Import \`localeHref\` in headers,
+ * navs and layouts so every link carries the active locale prefix.
+ */
+import { isLocale, sourceLocale } from "@{{projectName}}/i18n/config";
+import { localizeHref } from "@{{projectName}}/i18n/routing";
+
+export function localeHref(href: string): string {
+  if (typeof window === "undefined") return localizeHref(href, sourceLocale);
+
+  const [first] = window.location.pathname.split("/").filter((segment) => segment.length > 0);
+  return localizeHref(href, first && isLocale(first) ? first : sourceLocale);
+}
+`],
   ["i18n/shared/GLOSSARY.md.hbs", `# Translation Glossary
 
 The \`i18n-translate\` skill reads this file before translating anything. Keep it
@@ -45926,4 +46686,4 @@ export default function Success() {
 `]
 ]);
 
-export const TEMPLATE_COUNT = 736;
+export const TEMPLATE_COUNT = 755;
