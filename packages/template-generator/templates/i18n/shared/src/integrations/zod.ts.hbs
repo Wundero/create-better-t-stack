@@ -1,0 +1,10 @@
+/**
+ * Maps BCP-47 tags to the export names used by Zod's locale modules.
+ * Examples: `zh-CN` → `zhCN`, `pt-BR` → `ptBR`, `fr-CA` → `frCA`.
+ *
+ * TODO(L7): fill the table for the configured locales. The client calls
+ * `z.config(locales[tag]())` on locale change; the server must not call
+ * `z.config` per request (it is global) and translates issues at the API
+ * boundary instead.
+ */
+export const zodLocaleExportNames: Readonly<Record<string, string>> = {};
