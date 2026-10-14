@@ -1,0 +1,21 @@
+import { defineI18n } from "fumadocs-core/i18n";
+
+/**
+ * Fumadocs i18n configuration. Fumadocs ships its own UI strings; the shared
+ * locale package only provides the configured languages.
+ *
+ * Wire this into `lib/source.ts` by passing `i18n` to the Fumadocs `loader`.
+ */
+export const i18n = defineI18n({
+  defaultLanguage: {{#if i18nOptions.sourceLocale}}"{{i18nOptions.sourceLocale}}"{{else}}"en"{{/if}},
+  languages: [
+{{#if i18nOptions.locales}}
+{{#each i18nOptions.locales}}    "{{this}}",
+{{/each}}
+{{else}}
+    "en",
+    "es",
+    "fr",
+{{/if}}
+  ],
+});
