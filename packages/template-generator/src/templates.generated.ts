@@ -33888,6 +33888,527 @@ export default defineConfig({
 {{/if}}
 });
 `],
+  ["i18n/shared/GLOSSARY.md.hbs", `# Translation Glossary
+
+The \`i18n-translate\` skill reads this file before translating anything. Keep it
+short and concrete: the rules below apply to every message in every locale.
+
+## Voice and tone
+
+- Second person, direct, no exclamation marks unless the source string has them.
+- Sentence case for UI strings and buttons.
+- Do not translate product names, brand names, code identifiers, or URLs.
+
+## Terms
+
+Add one row per product term so translations stay consistent.
+
+| Term | Rule                    | Notes |
+| ---- | ----------------------- | ----- |
+| —    | translate / keep as-is  | —     |
+
+## Locales
+
+Source locale: {{#if i18nOptions.sourceLocale}}\`{{i18nOptions.sourceLocale}}\`{{else}}\`en\`{{/if}}
+
+{{#if i18nOptions.locales}}
+{{#each i18nOptions.locales}}- \`{{this}}\`
+{{/each}}
+{{else}}
+- \`en\`
+- \`es\`
+- \`fr\`
+{{/if}}
+
+## Rules for translators
+
+- Preserve every placeholder, ICU argument, plural category (\`one\`, \`other\`, …)
+  and markup tag exactly as it appears in the source message.
+- Reorder placeholders only when the target language's grammar requires it.
+- When a term is missing here, choose the most common translation for the
+  product's domain and add it to the table above.
+`],
+  ["i18n/shared/package.json.hbs", `{
+  "name": "@{{projectName}}/i18n",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./*": "./src/*.ts"
+  },
+  "scripts": {
+    "check-types": "tsc --noEmit",
+    "test": "bun test",
+    "i18n:extract": "bun run scripts/extract.ts",
+    "i18n:compile": "bun run scripts/compile.ts",
+    "i18n:pending": "bun run scripts/pending.ts",
+    "i18n:apply": "bun run scripts/apply.ts",
+    "i18n:check": "bun run scripts/check.ts",
+    "i18n:export": "bun run scripts/export.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^26.4.1"
+  }
+}
+`],
+  ["i18n/shared/src/config.ts.hbs", `/**
+ * Locale configuration shared by every surface and every i18n library.
+ * Edit \`locales\` (or the \`i18nOptions\` in \`bts.jsonc\`) to change the supported
+ * locales, then restart the dev server.
+ */
+
+export const locales = [
+{{#if i18nOptions.locales}}
+{{#each i18nOptions.locales}}  "{{this}}",
+{{/each}}
+{{else}}
+  "en",
+  "es",
+  "fr",
+{{/if}}
+] as const;
+
+export const sourceLocale = {{#if i18nOptions.sourceLocale}}"{{i18nOptions.sourceLocale}}"{{else}}"en"{{/if}};
+
+export type RoutingStrategy = "cookie" | "prefix" | "domain";
+
+export const routingStrategy: RoutingStrategy = {{#if i18nOptions.routing.strategy}}"{{i18nOptions.routing.strategy}}"{{else}}"cookie"{{/if}};
+
+export const prefixDefaultLocale = {{#if i18nOptions.routing.prefixDefaultLocale}}true{{else}}false{{/if}};
+
+/** Locale → host map. Only populated for the \`domain\` routing strategy. */
+export const localeDomains: Readonly<Record<string, string>> = {
+{{#if i18nOptions.routing.domains}}
+{{#each i18nOptions.routing.domains}}  "{{@key}}": "{{this}}",
+{{/each}}
+{{/if}}
+};
+
+export const LOCALE_COOKIE = "locale";
+export const LOCALE_HEADER = "x-app-locale";
+
+export type Locale = (typeof locales)[number];
+
+export type TextDirection = "ltr" | "rtl";
+
+const RTL_LANGUAGE_CODES: ReadonlySet<string> = new Set([
+  "ar",
+  "arc",
+  "ckb",
+  "dv",
+  "fa",
+  "he",
+  "khw",
+  "ks",
+  "ku",
+  "mzn",
+  "nqo",
+  "ps",
+  "sd",
+  "ug",
+  "ur",
+  "yi",
+]);
+
+export function isLocale(value: string): value is Locale {
+  return locales.some((locale) => locale === value);
+}
+
+function languageSubtag(tag: string): string {
+  const [language = ""] = tag.toLowerCase().split("-");
+  return language;
+}
+
+/**
+ * Text direction for a locale. Uses \`Intl.Locale#getTextInfo\` when the runtime
+ * provides it and falls back to the RTL language table otherwise (Hermes).
+ */
+export function getTextDirection(locale: string): TextDirection {
+  try {
+    const { direction } = new Intl.Locale(locale).getTextInfo();
+    if (direction === "rtl" || direction === "ltr") return direction;
+  } catch {
+    // Invalid tag or a runtime without getTextInfo: use the fallback table.
+  }
+  return RTL_LANGUAGE_CODES.has(languageSubtag(locale)) ? "rtl" : "ltr";
+}
+
+export interface NegotiateLocaleInput {
+  /** Request path, used by \`prefix\` routing. */
+  readonly pathname?: string;
+  /** Request host, used by \`domain\` routing. */
+  readonly host?: string;
+  /** \`x-app-locale\` header value. */
+  readonly header?: string;
+  /** \`locale\` cookie value. */
+  readonly cookie?: string;
+  /** Raw \`Accept-Language\` header value. */
+  readonly acceptLanguage?: string;
+  /** Locale persisted by the current client (localStorage, storage.local …). */
+  readonly stored?: string;
+  /** Locale reported by the system or device (LANG/LC_ALL, expo-localization …). */
+  readonly system?: string;
+}
+
+/** BCP-47 lookup with truncation: \`fr-CA\` matches \`fr\`. */
+function matchLocale(tag: string | undefined): Locale | undefined {
+  if (!tag) return undefined;
+  const segments = tag.toLowerCase().split("-");
+  while (segments.length > 0) {
+    const candidate = segments.join("-");
+    const match = locales.find((locale) => locale.toLowerCase() === candidate);
+    if (match) return match;
+    segments.pop();
+  }
+  return undefined;
+}
+
+function parseAcceptLanguage(header: string | undefined): string[] {
+  if (!header) return [];
+  return header
+    .split(",")
+    .map((entry) => {
+      const [tag = "", ...parameters] = entry.trim().split(";");
+      const qualityParameter = parameters.find((parameter) => parameter.trim().startsWith("q="));
+      const quality = qualityParameter ? Number.parseFloat(qualityParameter.trim().slice(2)) : 1;
+      return { tag: tag.trim(), quality };
+    })
+    .filter((entry) => entry.tag.length > 0 && entry.tag !== "*" && entry.quality > 0)
+    .sort((first, second) => second.quality - first.quality)
+    .map((entry) => entry.tag);
+}
+
+function routingSourceLocale(input: NegotiateLocaleInput): string | undefined {
+  if (routingStrategy === "prefix" && input.pathname) {
+    const [firstSegment] = input.pathname.split("/").filter((segment) => segment.length > 0);
+    return firstSegment;
+  }
+  if (routingStrategy === "domain" && input.host) {
+    const host = input.host.toLowerCase();
+    for (const [locale, domain] of Object.entries(localeDomains)) {
+      if (domain.toLowerCase() === host) return locale;
+    }
+  }
+  return undefined;
+}
+
+/**
+ * One negotiation contract for every surface. Sources are checked in order:
+ * routing (prefix segment or host) → \`x-app-locale\` → cookie →
+ * \`Accept-Language\` → stored/system → the source locale.
+ */
+export function negotiateLocale(input: NegotiateLocaleInput = {}): Locale {
+  const candidates: (string | undefined)[] = [
+    routingSourceLocale(input),
+    input.header,
+    input.cookie,
+    ...parseAcceptLanguage(input.acceptLanguage),
+    input.stored,
+    input.system,
+  ];
+  for (const candidate of candidates) {
+    const match = matchLocale(candidate);
+    if (match) return match;
+  }
+  return sourceLocale;
+}
+`],
+  ["i18n/shared/src/format.ts.hbs", `/**
+ * Library-agnostic formatters shared by every surface.
+ *
+ * Templates never use the i18n library for dates, numbers or lists: they call
+ * \`createFormatters(locale)\` so every library produces identical \`Intl\`
+ * output. On the server use \`createFormatters(getRequestLocale())\`.
+ */
+
+import { sourceLocale } from "./config";
+import type { Locale } from "./config";
+
+export type DateTimeValue = Date | number;
+
+export interface Formatters {
+  readonly locale: Locale;
+  date(value: DateTimeValue, options?: Intl.DateTimeFormatOptions): string;
+  time(value: DateTimeValue, options?: Intl.DateTimeFormatOptions): string;
+  dateTime(value: DateTimeValue, options?: Intl.DateTimeFormatOptions): string;
+  dateRange(
+    start: DateTimeValue,
+    end: DateTimeValue,
+    options?: Intl.DateTimeFormatOptions,
+  ): string;
+  relative(
+    value: number,
+    unit: Intl.RelativeTimeFormatUnit,
+    options?: Intl.RelativeTimeFormatOptions,
+  ): string;
+  /** Formats a date relative to now (or \`base\`) in the best-fitting unit. */
+  relativeFrom(value: DateTimeValue, base?: DateTimeValue): string;
+  number(value: number, options?: Intl.NumberFormatOptions): string;
+  currency(
+    value: number,
+    currencyCode: string,
+    options?: Intl.NumberFormatOptions,
+  ): string;
+  percent(value: number, options?: Intl.NumberFormatOptions): string;
+  unit(value: number, unitCode: string, options?: Intl.NumberFormatOptions): string;
+  compact(value: number, options?: Intl.NumberFormatOptions): string;
+  list(items: readonly string[], options?: Intl.ListFormatOptions): string;
+  plural(value: number, options?: Intl.PluralRulesOptions): Intl.LDMLPluralRule;
+  displayName(code: string, type?: Intl.DisplayNamesType): string | undefined;
+}
+
+const DATE_STYLE: Intl.DateTimeFormatOptions = { dateStyle: "medium" };
+const TIME_STYLE: Intl.DateTimeFormatOptions = { timeStyle: "medium" };
+const DATE_TIME_STYLE: Intl.DateTimeFormatOptions = {
+  dateStyle: "medium",
+  timeStyle: "medium",
+};
+const PERCENT_STYLE: Intl.NumberFormatOptions = { style: "percent" };
+
+const RELATIVE_UNITS = [
+  { unit: "year", milliseconds: 31_536_000_000 },
+  { unit: "month", milliseconds: 2_592_000_000 },
+  { unit: "week", milliseconds: 604_800_000 },
+  { unit: "day", milliseconds: 86_400_000 },
+  { unit: "hour", milliseconds: 3_600_000 },
+  { unit: "minute", milliseconds: 60_000 },
+] as const satisfies ReadonlyArray<{
+  unit: Intl.RelativeTimeFormatUnit;
+  milliseconds: number;
+}>;
+
+const formatterCache = new Map<string, Formatters>();
+
+function toMilliseconds(value: DateTimeValue): number {
+  return value instanceof Date ? value.getTime() : value;
+}
+
+/** Memoized per locale: repeated calls return the same bundle. */
+export function createFormatters(locale: Locale = sourceLocale): Formatters {
+  const cached = formatterCache.get(locale);
+  if (cached) return cached;
+
+  const dateFormat = new Intl.DateTimeFormat(locale, DATE_STYLE);
+  const timeFormat = new Intl.DateTimeFormat(locale, TIME_STYLE);
+  const dateTimeFormat = new Intl.DateTimeFormat(locale, DATE_TIME_STYLE);
+  const numberFormat = new Intl.NumberFormat(locale);
+  const percentFormat = new Intl.NumberFormat(locale, PERCENT_STYLE);
+  const relativeFormat = new Intl.RelativeTimeFormat(locale);
+  const listFormat = new Intl.ListFormat(locale);
+  const pluralRules = new Intl.PluralRules(locale);
+  const currencyFormats = new Map<string, Intl.NumberFormat>();
+  const displayNamesByType = new Map<Intl.DisplayNamesType, Intl.DisplayNames>();
+
+  const formatters: Formatters = {
+    locale,
+    date: (value, options) =>
+      options ? new Intl.DateTimeFormat(locale, options).format(value) : dateFormat.format(value),
+    time: (value, options) =>
+      options ? new Intl.DateTimeFormat(locale, options).format(value) : timeFormat.format(value),
+    dateTime: (value, options) =>
+      options
+        ? new Intl.DateTimeFormat(locale, options).format(value)
+        : dateTimeFormat.format(value),
+    dateRange: (start, end, options) =>
+      options
+        ? new Intl.DateTimeFormat(locale, options).formatRange(start, end)
+        : dateFormat.formatRange(start, end),
+    relative: (value, unit, options) =>
+      options
+        ? new Intl.RelativeTimeFormat(locale, options).format(value, unit)
+        : relativeFormat.format(value, unit),
+    relativeFrom: (value, base = Date.now()) => {
+      const delta = toMilliseconds(value) - toMilliseconds(base);
+      const magnitude = Math.abs(delta);
+      for (const { unit, milliseconds } of RELATIVE_UNITS) {
+        if (magnitude >= milliseconds) {
+          return relativeFormat.format(Math.round(delta / milliseconds), unit);
+        }
+      }
+      return relativeFormat.format(Math.round(delta / 1_000), "second");
+    },
+    number: (value, options) =>
+      options ? new Intl.NumberFormat(locale, options).format(value) : numberFormat.format(value),
+    currency: (value, currencyCode, options) => {
+      if (options) {
+        return new Intl.NumberFormat(locale, {
+          ...options,
+          style: "currency",
+          currency: currencyCode,
+        }).format(value);
+      }
+      let format = currencyFormats.get(currencyCode);
+      if (!format) {
+        format = new Intl.NumberFormat(locale, {
+          style: "currency",
+          currency: currencyCode,
+        });
+        currencyFormats.set(currencyCode, format);
+      }
+      return format.format(value);
+    },
+    percent: (value, options) =>
+      options ? new Intl.NumberFormat(locale, options).format(value) : percentFormat.format(value),
+    unit: (value, unitCode, options) =>
+      new Intl.NumberFormat(locale, { ...options, style: "unit", unit: unitCode }).format(value),
+    compact: (value, options) =>
+      new Intl.NumberFormat(locale, { ...options, notation: "compact" }).format(value),
+    list: (items, options) =>
+      options
+        ? new Intl.ListFormat(locale, options).format(items)
+        : listFormat.format(items),
+    plural: (value, options) =>
+      options ? new Intl.PluralRules(locale, options).select(value) : pluralRules.select(value),
+    displayName: (code, type = "language") => {
+      let displayNames = displayNamesByType.get(type);
+      if (!displayNames) {
+        displayNames = new Intl.DisplayNames(locale, { type });
+        displayNamesByType.set(type, displayNames);
+      }
+      return displayNames.of(code);
+    },
+  };
+
+  formatterCache.set(locale, formatters);
+  return formatters;
+}
+`],
+  ["i18n/shared/src/index.ts.hbs", `// Locale configuration, negotiation and formatting shared by every surface.
+// The library-specific runtime lives in \`@{{projectName}}/i18n/runtime\`.
+
+export * from "./config";
+export * from "./format";
+`],
+  ["i18n/shared/src/integrations/better-auth.ts.hbs", `/**
+ * Editable Better Auth translation overrides for \`@better-auth/i18n\`.
+ *
+ * TODO(L7): fill the per-locale overrides. Keys are \`@better-auth/i18n\`
+ * translation keys; values are the override string for that locale. Locales
+ * without a built-in Better Auth translation fall back to English.
+ */
+export const betterAuthTranslations: Readonly<
+  Record<string, Readonly<Record<string, string>>>
+> = {};
+`],
+  ["i18n/shared/src/integrations/clerk.ts.hbs", `/**
+ * Clerk localization notes.
+ *
+ * TODO(L7): lazy-load and cache the \`@clerk/localizations\` entry for the
+ * current locale, and report configured locales without a built-in
+ * translation. Clerk marks localization experimental and does not localize
+ * the hosted Account Portal, which stays in English.
+ */
+export const CLERK_LOCALIZATION_NOTE =
+  "Clerk localization is experimental and the hosted Account Portal stays in English.";
+`],
+  ["i18n/shared/src/integrations/zod.ts.hbs", `/**
+ * Maps BCP-47 tags to the export names used by Zod's locale modules.
+ * Examples: \`zh-CN\` → \`zhCN\`, \`pt-BR\` → \`ptBR\`, \`fr-CA\` → \`frCA\`.
+ *
+ * TODO(L7): fill the table for the configured locales. The client calls
+ * \`z.config(locales[tag]())\` on locale change; the server must not call
+ * \`z.config\` per request (it is global) and translates issues at the API
+ * boundary instead.
+ */
+export const zodLocaleExportNames: Readonly<Record<string, string>> = {};
+`],
+  ["i18n/shared/src/server.ts.hbs", `/**
+ * Request-scoped locale for server runtimes (Bun, Node, and workers with
+ * \`nodejs_compat\`). Server middleware negotiates the locale, then wraps the
+ * request in \`runWithLocale\`; render code reads it back synchronously.
+ */
+
+import { AsyncLocalStorage } from "node:async_hooks";
+
+import { sourceLocale } from "./config";
+import type { Locale } from "./config";
+
+const localeStorage = new AsyncLocalStorage<Locale>();
+
+export function runWithLocale<T>(locale: Locale, callback: () => T): T {
+  return localeStorage.run(locale, callback);
+}
+
+export function getRequestLocale(): Locale {
+  return localeStorage.getStore() ?? sourceLocale;
+}
+`],
+  ["i18n/shared/test/format.test.ts.hbs", `import { describe, expect, test } from "bun:test";
+
+import { sourceLocale } from "../src/config";
+import { createFormatters } from "../src/format";
+
+const referenceDate = new Date(Date.UTC(2026, 0, 15, 12, 30, 0));
+const referenceMs = referenceDate.getTime();
+
+describe("createFormatters", () => {
+  test("memoizes one bundle per locale", () => {
+    expect(createFormatters(sourceLocale)).toBe(createFormatters(sourceLocale));
+  });
+
+  test("formats dates and times exactly like native Intl", () => {
+    const formatters = createFormatters(sourceLocale);
+
+    expect(formatters.date(referenceDate)).toBe(
+      new Intl.DateTimeFormat(sourceLocale, { dateStyle: "medium" }).format(referenceDate),
+    );
+    expect(formatters.time(referenceDate)).toBe(
+      new Intl.DateTimeFormat(sourceLocale, { timeStyle: "medium" }).format(referenceDate),
+    );
+    expect(formatters.dateTime(referenceDate)).toBe(
+      new Intl.DateTimeFormat(sourceLocale, {
+        dateStyle: "medium",
+        timeStyle: "medium",
+      }).format(referenceDate),
+    );
+  });
+
+  test("formats numbers, currency, percent and compact notation like native Intl", () => {
+    const formatters = createFormatters(sourceLocale);
+
+    expect(formatters.number(1234567.89)).toBe(new Intl.NumberFormat(sourceLocale).format(1234567.89));
+    expect(formatters.currency(42.5, "EUR")).toBe(
+      new Intl.NumberFormat(sourceLocale, { style: "currency", currency: "EUR" }).format(42.5),
+    );
+    expect(formatters.percent(0.25)).toBe(
+      new Intl.NumberFormat(sourceLocale, { style: "percent" }).format(0.25),
+    );
+    expect(formatters.compact(123456)).toBe(
+      new Intl.NumberFormat(sourceLocale, { notation: "compact" }).format(123456),
+    );
+    expect(formatters.plural(1)).toBe(
+      new Intl.PluralRules(sourceLocale).select(1),
+    );
+  });
+
+  test("formats relative time and relative dates like native Intl", () => {
+    const formatters = createFormatters(sourceLocale);
+
+    expect(formatters.relative(-2, "day")).toBe(
+      new Intl.RelativeTimeFormat(sourceLocale).format(-2, "day"),
+    );
+    expect(formatters.relativeFrom(referenceMs + 2 * 86_400_000, referenceMs)).toBe(
+      new Intl.RelativeTimeFormat(sourceLocale).format(2, "day"),
+    );
+  });
+
+  test("formats lists like native Intl", () => {
+    const formatters = createFormatters(sourceLocale);
+    const items = ["Ada", "Grace", "Linus"];
+
+    expect(formatters.list(items)).toBe(new Intl.ListFormat(sourceLocale).format(items));
+  });
+});
+`],
+  ["i18n/shared/tsconfig.json.hbs", `{
+  "extends": "@{{projectName}}/config/tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true
+  },
+  "include": ["src"]
+}
+`],
   ["packages/config/package.json.hbs", `{
   "name": "@{{projectName}}/config",
   "version": "0.0.0",
@@ -35923,4 +36444,4 @@ export default function Success() {
 `]
 ]);
 
-export const TEMPLATE_COUNT = 543;
+export const TEMPLATE_COUNT = 554;
