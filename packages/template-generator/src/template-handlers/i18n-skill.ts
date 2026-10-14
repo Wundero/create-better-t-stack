@@ -28,66 +28,104 @@ const DEFAULT_SKILLS_AGENTS = [
 
 /**
  * Project-scope skill directories per agent, as published by the `skills` CLI
- * (vercel-labs/skills). Agents absent from this table read `.agents/skills`.
+ * (vercel-labs/skills). Total over `SkillsAgent`, so adding an agent to the
+ * schema fails typecheck until it is classified here.
+ *
+ * `.agents/skills` is the universal location every universal-family agent
+ * reads, so those agents need no mirror. Verified against `skills@1.7.2`
+ * (`skills@latest`): `droid`, `kilo` and `pi` also read `.agents/skills` —
+ * their legacy/global config directories (`~/.factory/skills`,
+ * `~/.kilo/skills`, `~/.pi`) are not project-scope mirror targets, and a copy
+ * there would make those agents read the same skill twice.
+ *
+ * `clawdbot` is a legacy alias for `openclaw` in `apps/cli`'s
+ * `expandSkillsAgentTargets` and shares its `skills` directory.
  */
-const AGENT_SKILL_DIRECTORIES = new Map<SkillsAgent, string>([
-  ["adal", ".adal/skills"],
-  ["aider-desk", ".aider-desk/skills"],
-  ["astrbot", "data/skills"],
-  ["autohand-code", ".autohand/skills"],
-  ["augment", ".augment/skills"],
-  ["bob", ".bob/skills"],
-  ["claude-code", ".claude/skills"],
-  ["codearts-agent", ".codeartsdoer/skills"],
-  ["codebuddy", ".codebuddy/skills"],
-  ["codemaker", ".codemaker/skills"],
-  ["codestudio", ".codestudio/skills"],
-  ["command-code", ".commandcode/skills"],
-  ["continue", ".continue/skills"],
-  ["cortex", ".cortex/skills"],
-  ["crush", ".crush/skills"],
-  ["devin", ".devin/skills"],
-  ["eve", "agent/skills"],
-  ["forgecode", ".forge/skills"],
-  ["goose", ".goose/skills"],
-  ["grok", ".grok/skills"],
-  ["hermes-agent", ".hermes/skills"],
-  ["iflow-cli", ".iflow/skills"],
-  ["inference-sh", ".inferencesh/skills"],
-  ["jazz", ".jazz/skills"],
-  ["junie", ".junie/skills"],
-  ["kimchi", ".kimchi/skills"],
-  ["kiro-cli", ".kiro/skills"],
-  ["kode", ".kode/skills"],
-  ["lingma", ".lingma/skills"],
-  ["mcpjam", ".mcpjam/skills"],
-  ["minimax-code", ".minimax/skills"],
-  ["mistral-vibe", ".vibe/skills"],
-  ["moxby", ".moxby/skills"],
-  ["mux", ".mux/skills"],
-  ["neovate", ".neovate/skills"],
-  ["ona", ".ona/skills"],
-  ["clawdbot", "skills"],
-  ["openclaw", "skills"],
-  ["openhands", ".openhands/skills"],
-  ["pochi", ".pochi/skills"],
-  ["posit-assistant", ".posit/assistant/skills"],
-  ["qoder", ".qoder/skills"],
-  ["qoder-cn", ".qoder/skills"],
-  ["qwen-code", ".qwen/skills"],
-  ["reasonix", ".reasonix/skills"],
-  ["roo", ".roo/skills"],
-  ["rovodev", ".rovodev/skills"],
-  ["tabnine-cli", ".tabnine/agent/skills"],
-  ["terramind", ".terramind/skills"],
-  ["tinycloud", ".tinycloud/skills"],
-  ["trae", ".trae/skills"],
-  ["trae-cn", ".trae/skills"],
-  ["windsurf", ".windsurf/skills"],
-  ["zcode", ".zcode/skills"],
-  ["zencoder", ".zencoder/skills"],
-  ["zenflow", ".zencoder/skills"],
-] as const satisfies readonly (readonly [SkillsAgent, string])[]);
+const AGENT_SKILL_DIRECTORIES = {
+  adal: ".adal/skills",
+  "aider-desk": ".aider-desk/skills",
+  amp: UNIVERSAL_SKILLS_DIRECTORY,
+  antigravity: UNIVERSAL_SKILLS_DIRECTORY,
+  "antigravity-cli": UNIVERSAL_SKILLS_DIRECTORY,
+  astrbot: "data/skills",
+  augment: ".augment/skills",
+  "autohand-code": ".autohand/skills",
+  bob: ".bob/skills",
+  "claude-code": ".claude/skills",
+  clawdbot: "skills",
+  cline: UNIVERSAL_SKILLS_DIRECTORY,
+  "codearts-agent": ".codeartsdoer/skills",
+  codebuddy: ".codebuddy/skills",
+  codemaker: ".codemaker/skills",
+  codestudio: ".codestudio/skills",
+  codex: UNIVERSAL_SKILLS_DIRECTORY,
+  "command-code": ".commandcode/skills",
+  continue: ".continue/skills",
+  cortex: ".cortex/skills",
+  crush: ".crush/skills",
+  cursor: UNIVERSAL_SKILLS_DIRECTORY,
+  deepagents: UNIVERSAL_SKILLS_DIRECTORY,
+  devin: ".devin/skills",
+  dexto: UNIVERSAL_SKILLS_DIRECTORY,
+  droid: UNIVERSAL_SKILLS_DIRECTORY,
+  eve: "agent/skills",
+  firebender: UNIVERSAL_SKILLS_DIRECTORY,
+  forgecode: ".forge/skills",
+  "gemini-cli": UNIVERSAL_SKILLS_DIRECTORY,
+  "github-copilot": UNIVERSAL_SKILLS_DIRECTORY,
+  goose: ".goose/skills",
+  grok: ".grok/skills",
+  "hermes-agent": ".hermes/skills",
+  "iflow-cli": ".iflow/skills",
+  "inference-sh": ".inferencesh/skills",
+  jazz: ".jazz/skills",
+  junie: ".junie/skills",
+  kilo: UNIVERSAL_SKILLS_DIRECTORY,
+  kimchi: ".kimchi/skills",
+  "kimi-code-cli": UNIVERSAL_SKILLS_DIRECTORY,
+  "kiro-cli": ".kiro/skills",
+  kode: ".kode/skills",
+  lingma: ".lingma/skills",
+  loaf: UNIVERSAL_SKILLS_DIRECTORY,
+  mcpjam: ".mcpjam/skills",
+  "minimax-code": ".minimax/skills",
+  "mistral-vibe": ".vibe/skills",
+  moxby: ".moxby/skills",
+  mux: ".mux/skills",
+  neovate: ".neovate/skills",
+  ona: ".ona/skills",
+  openclaw: "skills",
+  opencode: UNIVERSAL_SKILLS_DIRECTORY,
+  openhands: ".openhands/skills",
+  pi: UNIVERSAL_SKILLS_DIRECTORY,
+  pochi: ".pochi/skills",
+  "posit-assistant": ".posit/assistant/skills",
+  promptscript: UNIVERSAL_SKILLS_DIRECTORY,
+  qoder: ".qoder/skills",
+  "qoder-cn": ".qoder/skills",
+  "qwen-code": ".qwen/skills",
+  reasonix: ".reasonix/skills",
+  replit: UNIVERSAL_SKILLS_DIRECTORY,
+  roo: ".roo/skills",
+  rovodev: ".rovodev/skills",
+  "tabnine-cli": ".tabnine/agent/skills",
+  terramind: ".terramind/skills",
+  tinycloud: ".tinycloud/skills",
+  trae: ".trae/skills",
+  "trae-cn": ".trae/skills",
+  universal: UNIVERSAL_SKILLS_DIRECTORY,
+  warp: UNIVERSAL_SKILLS_DIRECTORY,
+  windsurf: ".windsurf/skills",
+  zcode: ".zcode/skills",
+  zed: UNIVERSAL_SKILLS_DIRECTORY,
+  zencoder: ".zencoder/skills",
+  zenflow: ".zencoder/skills",
+} as const satisfies Record<SkillsAgent, string>;
+
+/** The project-scope skills directory the CLI installs this agent's skills to. */
+export function getAgentSkillDirectory(agent: SkillsAgent): string {
+  return AGENT_SKILL_DIRECTORIES[agent];
+}
 
 /** Agent directories that receive a mirrored copy of the i18n skills. */
 export function getI18nSkillMirrorDirectories(config: ProjectConfig): string[] {
@@ -96,8 +134,8 @@ export function getI18nSkillMirrorDirectories(config: ProjectConfig): string[] {
   const agents = config.addonOptions?.skills?.agents ?? DEFAULT_SKILLS_AGENTS;
   const directories = new Set<string>();
   for (const agent of agents) {
-    const directory = AGENT_SKILL_DIRECTORIES.get(agent);
-    if (directory && directory !== UNIVERSAL_SKILLS_DIRECTORY) directories.add(directory);
+    const directory = getAgentSkillDirectory(agent);
+    if (directory !== UNIVERSAL_SKILLS_DIRECTORY) directories.add(directory);
   }
   return [...directories];
 }

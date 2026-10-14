@@ -2,11 +2,14 @@ import { describe, expect, test } from "bun:test";
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import path from "node:path";
 
-import type { ProjectConfig } from "@better-t-stack/types";
+import { SkillsAgentSchema, type ProjectConfig } from "@better-t-stack/types";
 
 import { VirtualFileSystem } from "../src/core/virtual-fs";
 import { processI18nTemplates } from "../src/template-handlers/i18n";
-import { getI18nSkillMirrorDirectories } from "../src/template-handlers/i18n-skill";
+import {
+  getAgentSkillDirectory,
+  getI18nSkillMirrorDirectories,
+} from "../src/template-handlers/i18n-skill";
 import type { TemplateData } from "../src/template-handlers/utils";
 
 function loadI18nTemplates(): TemplateData {
@@ -198,5 +201,40 @@ describe("skills-addon mirror", () => {
     ]);
     expect(directories(["openclaw", "clawdbot"])).toEqual(["skills"]);
     expect(directories(["eve"])).toEqual(["agent/skills"]);
+  });
+
+  test("classifies every SkillsAgent in the skills CLI project-scope map", () => {
+    for (const agent of SkillsAgentSchema.options) {
+      expect(getAgentSkillDirectory(agent).length).toBeGreaterThan(0);
+    }
+  });
+
+  test("every non-universal SkillsAgent resolves to a mirror directory", () => {
+    for (const agent of SkillsAgentSchema.options) {
+      const directory = getAgentSkillDirectory(agent);
+      const mirrors = getI18nSkillMirrorDirectories(
+        baseConfig({ addons: ["skills"], addonOptions: { skills: { agents: [agent] } } }),
+      );
+
+      if (directory === ".agents/skills") {
+        expect(mirrors).toEqual([]);
+      } else {
+        expect(mirrors).toEqual([directory]);
+      }
+    }
+  });
+
+  test("droid, kilo and pi read the universal location (skills@1.7.2)", () => {
+    for (const agent of ["droid", "kilo", "pi"] as const) {
+      expect(getAgentSkillDirectory(agent)).toBe(".agents/skills");
+    }
+
+    const directories = getI18nSkillMirrorDirectories(
+      baseConfig({
+        addons: ["skills"],
+        addonOptions: { skills: { agents: ["droid", "kilo", "pi"] } },
+      }),
+    );
+    expect(directories).toEqual([]);
   });
 });

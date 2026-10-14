@@ -12,6 +12,7 @@ import {
 } from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { pathToFileURL } from "node:url";
 
 import type { ProjectConfig } from "@better-t-stack/types";
 
@@ -22,6 +23,7 @@ import {
   decodeApplyFile,
   isMissingAllowed,
   parsePendingReport,
+  type ApplyFile,
   type PendingItem,
   type PendingReport,
 } from "../templates/i18n/lib/lingui/scripts/contract";
@@ -129,6 +131,18 @@ function writeFile(root: string, relativePath: string, content: string): void {
   const target = path.join(root, relativePath);
   mkdirSync(path.dirname(target), { recursive: true });
   writeFileSync(target, content);
+}
+
+interface EmittedContract {
+  parsePendingReport(stdout: string): PendingReport;
+  decodeApplyFile(text: string, options: { sourceLocale: string }): ApplyFile;
+}
+
+/** Imports `packages/i18n/scripts/contract.ts` exactly as the generated project ships it. */
+async function importEmittedContract(root: string): Promise<EmittedContract> {
+  return (await import(
+    pathToFileURL(path.join(root, "scripts", "contract.ts")).href
+  )) as EmittedContract;
 }
 
 function writeApplyFile(root: string, items: readonly Record<string, string>[]): string {
@@ -445,6 +459,67 @@ describe("uniform i18n script contract", () => {
       test("i18n:check enforces missing and invalid entries", async () => {
         await assertCheckExitCodes(fixture, await setup(fixture));
       });
+    });
+  }
+});
+
+/**
+ * Conformance of the emitted `packages/i18n/scripts/contract.ts` with the
+ * runtime scripts beside it.
+ *
+ * Residual duplication (recorded for the orchestrator): the L5 `pending`/
+ * `apply`/`check` scripts re-declare their own interfaces instead of importing
+ * this helper, so nothing in the generated project links the two. These tests
+ * close the gap from the outside: every library's real script output must
+ * decode under the helper that is actually emitted next to it.
+ */
+describe("emitted contract conformance", () => {
+  for (const fixture of FIXTURES) {
+    test(`${fixture.name}: emitted contract decodes runtime pending and apply payloads`, async () => {
+      const root = await setup(fixture);
+
+      const emittedCopy = readFileSync(path.join(root, "scripts", "contract.ts"), "utf8");
+      expect(emittedCopy).toBe(
+        readFileSync(
+          path.join(
+            import.meta.dir,
+            "..",
+            "templates",
+            "i18n",
+            "lib",
+            fixture.name,
+            "scripts",
+            "contract.ts",
+          ),
+          "utf8",
+        ),
+      );
+
+      const contract = await importEmittedContract(root);
+
+      const pendingResult = runScript(root, "pending.ts", ["--all"]);
+      expect(pendingResult.status).toBe(0);
+      const report = contract.parsePendingReport(pendingResult.stdout);
+      expect(report.library).toBe(fixture.name);
+      expect(report.sourceLocale).toBe("en");
+      expect(report.items.length).toBeGreaterThan(0);
+
+      const items = report.items.map((item) => ({
+        id: item.id,
+        locale: item.locale,
+        translation: fixture.validTranslation(item.source),
+      }));
+      const decoded = contract.decodeApplyFile(JSON.stringify({ items }), {
+        sourceLocale: report.sourceLocale,
+      });
+      const file = path.join(root, "conformance-apply.json");
+      writeFileSync(file, JSON.stringify(decoded, null, 2));
+
+      expect(runScript(root, "apply.ts", [file]).status).toBe(0);
+
+      const after = runScript(root, "pending.ts", ["--all"]);
+      expect(after.status).toBe(0);
+      expect(contract.parsePendingReport(after.stdout).items).toHaveLength(0);
     });
   }
 });
