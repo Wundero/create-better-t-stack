@@ -1,0 +1,63 @@
+---
+import { msg } from "@lingui/core/macro";
+import { LOCALE_COOKIE, isLocale, locales } from "@{{projectName}}/i18n/config";
+import { createFormatters } from "@{{projectName}}/i18n/format";
+import { i18n, initializeLocale } from "@{{projectName}}/i18n/runtime";
+
+/**
+ * i18n demo: translated heading, interpolation, plural, currency, date and a
+ * locale switcher. Dates and numbers come from the shared `createFormatters`,
+ * never from Lingui (D4).
+ *
+ * Astro partial support: macros run in the frontmatter (and in island
+ * components), not in `.astro` markup expressions.
+ */
+const name = "Ada";
+const count = 3;
+
+const locale = await initializeLocale({
+  cookie: Astro.cookies.get(LOCALE_COOKIE)?.value,
+  header: Astro.request.headers.get("x-app-locale") ?? undefined,
+  acceptLanguage: Astro.request.headers.get("accept-language") ?? undefined,
+});
+const formatters = createFormatters(locale);
+
+const heading = i18n._(msg`Internationalization`);
+const greeting = i18n._(msg`Hello ${name}, welcome back!`);
+const unread = i18n._(msg`{count, plural, one {# unread message} other {# unread messages}}`);
+const currency = formatters.currency(42.5, "EUR");
+const date = formatters.date(new Date());
+---
+
+<section class="rounded-lg border border-neutral-700 p-4">
+  <h2 class="mb-2 font-medium text-white">{heading}</h2>
+  <p class="text-neutral-300">{greeting}</p>
+  <p class="text-neutral-300">{unread}</p>
+  <p class="text-neutral-300">{currency}</p>
+  <p class="text-neutral-300">{date}</p>
+  <label class="mt-3 flex items-center gap-2 text-sm text-neutral-300">
+    <select id="i18n-locale" class="rounded border border-neutral-700 bg-transparent px-1 py-0.5">
+      {
+        locales.map((value) => (
+          <option value={value} selected={value === locale}>
+            {value}
+          </option>
+        ))
+      }
+    </select>
+  </label>
+</section>
+
+<script>
+  import { isLocale, LOCALE_COOKIE } from "@{{projectName}}/i18n/config";
+  import { activateLocale } from "@{{projectName}}/i18n/runtime";
+
+  const select = document.getElementById("i18n-locale") as HTMLSelectElement | null;
+  select?.addEventListener("change", () => {
+    const next = select.value;
+    if (!isLocale(next)) return;
+    window.localStorage.setItem(LOCALE_COOKIE, next);
+    document.cookie = `${LOCALE_COOKIE}=${next};path=/;max-age=31536000;samesite=lax`;
+    void activateLocale(next).then(() => window.location.reload());
+  });
+</script>

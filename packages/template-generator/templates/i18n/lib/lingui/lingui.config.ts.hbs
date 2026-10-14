@@ -1,0 +1,80 @@
+/**
+ * Lingui configuration for `@{{projectName}}/i18n`.
+ *
+ * - Catalogs live in `locales/{locale}/messages.po` (source of truth).
+ * - `i18n:compile` compiles them to `locales/{locale}/messages.ts` so every
+ *   bundler (Vite, Next, Metro, Bun) can import them statically.
+ * - `i18n:extract` scans every app that can contain messages.
+ *
+ * Rust extraction hook (lane L8): the Tauri crate ships a `syn`-based
+ * extractor. Register it here so `t!(...)` messages from `src-tauri` are
+ * merged into the same catalogs, e.g.
+ *
+ *   import { createRustExtractor } from "./rust/extractor";
+ *
+ *   extractors: [babel, createVueExtractor(), createRustExtractor()],
+ */
+import { defineConfig } from "@lingui/cli";
+import { formatter } from "@lingui/format-po";
+{{#if (or (includes frontend "nuxt") (and (includes addons "wxt") (eq addonOptions.wxt.template "vue")))}}
+import babel from "@lingui/cli/api/extractors/babel";
+import { createVueExtractor } from "@lingui/extractor-vue";
+{{/if}}
+
+import { locales, sourceLocale } from "./src/config";
+
+export default defineConfig({
+  locales: [...locales],
+  sourceLocale,
+  catalogs: [
+    {
+      path: "<rootDir>/locales/{locale}/messages",
+      include: [
+        "<rootDir>/../../apps/**/src/**",
+        "<rootDir>/../../apps/**/app/**",
+        "<rootDir>/../../apps/**/server/**",
+        "<rootDir>/../../apps/**/components/**",
+        "<rootDir>/../../apps/**/lib/**",
+        "<rootDir>/../../apps/**/hooks/**",
+        "<rootDir>/../../apps/**/utils/**",
+        "<rootDir>/../*/src/**",
+      ],
+      exclude: [
+        "**/node_modules/**",
+        "**/dist/**",
+        "**/build/**",
+        "**/out/**",
+        "**/.next/**",
+        "**/.nuxt/**",
+        "**/.output/**",
+        "**/.expo/**",
+        "**/.wxt/**",
+        "**/.react-router/**",
+        "**/routeTree.gen.*",
+        "**/*.test.*",
+      ],
+    },
+  ],
+  format: formatter(),
+  compileNamespace: "ts",
+  orderBy: "message",
+{{#if (or (includes frontend "solid") (and (includes addons "wxt") (eq addonOptions.wxt.template "solid")) (and (includes addons "opentui") (eq addonOptions.opentui.template "solid")))}}
+  macro: {
+    corePackage: ["@lingui/core/macro"],
+    jsxPackage: [
+{{#if (or (includes frontend "next") (includes frontend "tanstack-start") (includes frontend "tanstack-router") (includes frontend "react-router") (and (includes addons "wxt") (or (not addonOptions.wxt.template) (eq addonOptions.wxt.template "react"))) (and (includes addons "opentui") (eq addonOptions.opentui.template "react")))}}
+      "@lingui/react/macro",
+{{/if}}
+      "@lingui/solid/macro",
+    ],
+    jsxRuntime: "solid",
+  },
+  runtimeConfigModule: {
+    Trans: ["@lingui/solid", "Trans"],
+    useLingui: ["@lingui/solid", "useLingui"],
+  },
+{{/if}}
+{{#if (or (includes frontend "nuxt") (and (includes addons "wxt") (eq addonOptions.wxt.template "vue")))}}
+  extractors: [babel, createVueExtractor()],
+{{/if}}
+});

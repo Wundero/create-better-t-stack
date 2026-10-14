@@ -1,0 +1,46 @@
+/**
+ * Server-side i18n demo.
+ *
+ * The generated server code uses explicit message IDs (the i18n annotation
+ * comment) instead of macros: tsdown bundles this file without running the
+ * Lingui macro transform, and the `@lingui/cli` extractor still picks
+ * annotated descriptors up. Request-scoped rendering uses a fresh instance
+ * (`setupI18n`) so parallel requests never fight over the process-global one.
+ *
+ * Formatting comes from the shared `createFormatters`, never from Lingui (D4).
+ */
+import { isLocale, sourceLocale } from "@{{projectName}}/i18n/config";
+import { createFormatters } from "@{{projectName}}/i18n/format";
+import { setupI18n } from "@{{projectName}}/i18n/runtime";
+
+export interface I18nDemoPayload {
+  locale: string;
+  heading: string;
+  greeting: string;
+  unread: string;
+  currency: string;
+  date: string;
+}
+
+export async function renderI18nDemo(locale?: string): Promise<I18nDemoPayload> {
+  const resolved = locale !== undefined && isLocale(locale) ? locale : sourceLocale;
+  const i18n = await setupI18n(resolved);
+  const format = createFormatters(resolved);
+
+  return {
+    locale: resolved,
+    heading: i18n._(/** i18n */ { id: "server.heading", message: "Internationalization" }),
+    greeting: i18n._(
+      /** i18n */ { id: "server.greeting", message: "Hello {name}, welcome back!", values: { name: "Ada" } },
+    ),
+    unread: i18n._(
+      /** i18n */ {
+        id: "server.unread",
+        message: "{count, plural, one {# unread message} other {# unread messages}}",
+        values: { count: 3 },
+      },
+    ),
+    currency: format.currency(42.5, "EUR"),
+    date: format.date(new Date("2026-01-15T12:30:00Z")),
+  };
+}
