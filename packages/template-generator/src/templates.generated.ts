@@ -33888,6 +33888,338 @@ export default defineConfig({
 {{/if}}
 });
 `],
+  ["i18n/integrations/clerk/clerk-client.ts.hbs", `/**
+ * Lazy Clerk localization loading (emitted only for projects that use Clerk).
+ *
+ * \`@clerk/localizations\` ships one bundle per locale; the bundle for the active
+ * locale is imported on demand and cached. Locales without a bundle resolve
+ * \`undefined\`, and the provider falls back to Clerk's English default.
+ *
+ * Clerk marks localization experimental and does not localize the hosted
+ * Account Portal, which stays in English.
+ */
+
+import { clerkLocalizationExportName } from "./clerk";
+
+type ClerkLocalizations = typeof import("@clerk/localizations");
+
+export type ClerkLocalization = ClerkLocalizations["enUS"];
+
+const cache = new Map<string, ClerkLocalization>();
+
+export async function loadClerkLocalization(
+  locale: string,
+): Promise<ClerkLocalization | undefined> {
+  const exportName = clerkLocalizationExportName(locale);
+  if (exportName === undefined) return undefined;
+
+  const cached = cache.get(exportName);
+  if (cached !== undefined) return cached;
+
+  const clerkLocalizations: ClerkLocalizations = await import("@clerk/localizations");
+  const resource = clerkLocalizations[exportName as keyof ClerkLocalizations];
+  cache.set(exportName, resource);
+  return resource;
+}
+`],
+  ["i18n/integrations/clerk/clerk-localization-provider.native.tsx.hbs", `"use client";
+
+import { useEffect, useState, type ComponentProps } from "react";
+import { ClerkProvider } from "@clerk/expo";
+
+import { getDeviceLocaleTag } from "@/lib/device-locale";
+import { negotiateLocale } from "@{{projectName}}/i18n/config";
+import {
+  loadClerkLocalization,
+  type ClerkLocalization,
+} from "@{{projectName}}/i18n/integrations/clerk-client";
+
+type ClerkProviderProps = ComponentProps<typeof ClerkProvider>;
+
+/**
+ * Forwards every prop to \`ClerkProvider\` and lazily loads the \`@clerk/localizations\`
+ * bundle for the device locale (via \`expo-localization\`). Locales without a
+ * Clerk translation fall back to English.
+ *
+ * Clerk marks localization experimental and the hosted Account Portal stays in
+ * English.
+ */
+export function ClerkLocalizationProvider({ children, ...props }: ClerkProviderProps) {
+  const [localization, setLocalization] = useState<ClerkLocalization>();
+
+  useEffect(() => {
+    let cancelled = false;
+    void loadClerkLocalization(negotiateLocale({ system: getDeviceLocaleTag() })).then((next) => {
+      if (!cancelled && next !== undefined) setLocalization(next);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  return (
+    <ClerkProvider {...props} localization={localization}>
+      {children}
+    </ClerkProvider>
+  );
+}
+`],
+  ["i18n/integrations/clerk/clerk-localization-provider.tsx.hbs", `{{#if (includes frontend "next")}}"use client";
+
+{{/if}}import { useEffect, useState, type ComponentProps } from "react";
+{{#if (includes frontend "next")}}
+import { ClerkProvider } from "@clerk/nextjs";
+{{else if (includes frontend "tanstack-start")}}
+import { ClerkProvider } from "@clerk/tanstack-react-start";
+{{else if (includes frontend "react-router")}}
+import { ClerkProvider } from "@clerk/react-router";
+{{else}}
+import { ClerkProvider } from "@clerk/react";
+{{/if}}
+
+import { LOCALE_COOKIE, negotiateLocale } from "@{{projectName}}/i18n/config";
+import {
+  loadClerkLocalization,
+  type ClerkLocalization,
+} from "@{{projectName}}/i18n/integrations/clerk-client";
+
+type ClerkProviderProps = ComponentProps<typeof ClerkProvider>;
+
+/**
+ * Forwards every prop to \`ClerkProvider\` and lazily loads the \`@clerk/localizations\`
+ * bundle for the negotiated locale. The bundle is cached by the shared helper;
+ * locales without a Clerk translation fall back to English.
+ *
+ * Clerk marks localization experimental and the hosted Account Portal stays in
+ * English.
+ */
+export function ClerkLocalizationProvider({ children, ...props }: ClerkProviderProps) {
+  const [localization, setLocalization] = useState<ClerkLocalization>();
+
+  useEffect(() => {
+    const stored =
+      typeof window === "undefined"
+        ? undefined
+        : (window.localStorage.getItem(LOCALE_COOKIE) ?? undefined);
+    let cancelled = false;
+    void loadClerkLocalization(negotiateLocale({ stored })).then((next) => {
+      if (!cancelled && next !== undefined) setLocalization(next);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  return (
+    <ClerkProvider {...props} localization={localization}>
+      {children}
+    </ClerkProvider>
+  );
+}
+`],
+  ["i18n/integrations/expo/device-locale.ts.hbs", `import { getLocales } from "expo-localization";
+
+/**
+ * Device locale from \`expo-localization\`, fed into the shared negotiation
+ * contract as the \`system\` source. Hermes' \`Intl\` is incomplete, so the
+ * polyfills in \`polyfills/intl.ts\` back both this call and the shared
+ * formatters.
+ */
+export function getDeviceLocaleTag(): string | undefined {
+  const [primary] = getLocales();
+  return primary?.languageTag ?? undefined;
+}
+`],
+  ["i18n/integrations/fumadocs/lib/i18n.ts.hbs", `import { defineI18n } from "fumadocs-core/i18n";
+
+/**
+ * Fumadocs i18n configuration. Fumadocs ships its own UI strings; the shared
+ * locale package only provides the configured languages.
+ *
+ * Wire this into \`lib/source.ts\` by passing \`i18n\` to the Fumadocs \`loader\`.
+ */
+export const i18n = defineI18n({
+  defaultLanguage: {{#if i18nOptions.sourceLocale}}"{{i18nOptions.sourceLocale}}"{{else}}"en"{{/if}},
+  languages: [
+{{#if i18nOptions.locales}}
+{{#each i18nOptions.locales}}    "{{this}}",
+{{/each}}
+{{else}}
+    "en",
+    "es",
+    "fr",
+{{/if}}
+  ],
+});
+`],
+  ["i18n/integrations/nuxt/use-ui-locale.ts.hbs", `/**
+ * Nuxt UI locale object for the active \`@nuxtjs/i18n\` locale.
+ *
+ * Nuxt UI ships one locale object per language in \`@nuxt/ui/locale\`; the
+ * active one is bound to \`<UApp :locale>\` so Nuxt UI's built-in strings follow
+ * the negotiated locale.
+ *
+ * \`computed\` (Nuxt) and \`useI18n\` (\`@nuxtjs/i18n\`) are auto-imported.
+ */
+import * as nuxtUiLocales from "@nuxt/ui/locale";
+
+export function useUiLocale() {
+  const { locale } = useI18n();
+  return computed(() => {
+    const language = locale.value.split("-")[0] ?? "en";
+    return nuxtUiLocales[language as keyof typeof nuxtUiLocales] ?? nuxtUiLocales.en;
+  });
+}
+`],
+  ["i18n/integrations/wxt/sync-wxt.ts.hbs", `/**
+ * \`i18n:sync-wxt\` — writes \`apps/extension/locales/<locale>.yml\` from the
+ * reserved \`extension.*\` section of the normalized catalog
+ * (\`packages/i18n/dist/catalog.json\`, produced by \`i18n:export\`).
+ *
+ * \`@wxt-dev/i18n\` reads these YAML files for the runtime API and for the
+ * manifest \`name\`/\`description\` localization. Run after \`i18n:export\`.
+ */
+
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { dirname, join, resolve } from "node:path";
+
+interface CatalogMessage {
+  readonly source: string;
+  readonly translations?: Readonly<Record<string, string>>;
+}
+
+interface Catalog {
+  readonly sourceLocale: string;
+  readonly locales: readonly string[];
+  readonly messages: Readonly<Record<string, CatalogMessage>>;
+}
+
+type YamlValue = string | { readonly [key: string]: YamlValue };
+
+const EXTENSION_PREFIX = "extension.";
+const packageRoot = resolve(import.meta.dir, "..");
+const catalogPath = join(packageRoot, "dist", "catalog.json");
+const localeDir = resolve(packageRoot, "../../apps/extension/locales");
+
+function readCatalog(): Catalog | undefined {
+  if (!existsSync(catalogPath)) {
+    console.warn(\`i18n:sync-wxt: \${catalogPath} is missing. Run \\\`i18n:export\\\` first.\`);
+    return undefined;
+  }
+  return JSON.parse(readFileSync(catalogPath, "utf8")) as Catalog;
+}
+
+/** \`extension.popup.title\` → \`{ popup: { title: ... } }\`. */
+function assignNested(root: Record<string, YamlValue>, key: string, value: string): void {
+  const segments = key.split(".");
+  let cursor: Record<string, YamlValue> = root;
+  for (const segment of segments.slice(0, -1)) {
+    const existing = cursor[segment];
+    if (typeof existing === "object" && existing !== null) {
+      cursor = existing as Record<string, YamlValue>;
+    } else {
+      const next: Record<string, YamlValue> = {};
+      cursor[segment] = next;
+      cursor = next;
+    }
+  }
+  const last = segments[segments.length - 1];
+  if (last !== undefined) cursor[last] = value;
+}
+
+function quoteKey(key: string): string {
+  return /^[A-Za-z0-9_.-]+$/.test(key) ? key : JSON.stringify(key);
+}
+
+function toYaml(value: YamlValue, indent = 0): string {
+  const padding = "  ".repeat(indent);
+  if (typeof value === "string") return \`\${padding}\${JSON.stringify(value)}\\n\`;
+  return Object.entries(value)
+    .map(([key, child]) => {
+      if (typeof child === "string") return \`\${padding}\${quoteKey(key)}: \${JSON.stringify(child)}\\n\`;
+      return \`\${padding}\${quoteKey(key)}:\\n\${toYaml(child, indent + 1)}\`;
+    })
+    .join("");
+}
+
+function extensionMessages(catalog: Catalog, locale: string): Record<string, YamlValue> {
+  const root: Record<string, YamlValue> = {};
+  for (const [id, message] of Object.entries(catalog.messages)) {
+    if (!id.startsWith(EXTENSION_PREFIX)) continue;
+    const value = message.translations?.[locale] ?? message.source;
+    assignNested(root, id.slice(EXTENSION_PREFIX.length), value);
+  }
+  return root;
+}
+
+function main(): void {
+  const catalog = readCatalog();
+  if (catalog === undefined) {
+    process.exitCode = 1;
+    return;
+  }
+
+  const reserved = Object.keys(catalog.messages).filter((id) => id.startsWith(EXTENSION_PREFIX));
+  if (reserved.length === 0) {
+    console.warn(
+      \`i18n:sync-wxt: the catalog has no \\\`\${EXTENSION_PREFIX}*\\\` messages; nothing to sync.\`,
+    );
+    return;
+  }
+
+  if (!existsSync(dirname(localeDir))) {
+    console.warn(\`i18n:sync-wxt: \${localeDir} does not exist; skipping the WXT app.\`);
+    return;
+  }
+
+  mkdirSync(localeDir, { recursive: true });
+  for (const locale of catalog.locales) {
+    const messages = extensionMessages(catalog, locale);
+    writeFileSync(join(localeDir, \`\${locale}.yml\`), toYaml(messages), "utf8");
+  }
+  console.log(
+    \`i18n:sync-wxt: wrote \${catalog.locales.length} locale file(s) to apps/extension/locales.\`,
+  );
+}
+
+main();
+`],
+  ["i18n/integrations/zod/zod-client.ts.hbs", `/**
+ * Client-side Zod locale wiring (emitted only for projects that use Zod).
+ *
+ * Calling \`z.config\` is global: it is applied on the client when the locale
+ * changes and never on the server. The locale module is imported lazily and
+ * cached per export name, so only the active locale ships to the browser.
+ */
+
+import { zodLocaleExportName } from "./zod";
+
+type ZodModule = typeof import("zod");
+type ZodLocales = typeof import("zod/locales");
+
+const configuredLocales = new Set<string>();
+
+/**
+ * Applies the Zod locale for \`locale\` on the client. Resolves \`false\` when the
+ * locale has no Zod translation or when running on the server (where
+ * \`z.config\` must stay untouched — translate issues at the boundary instead).
+ */
+export async function applyZodLocale(locale: string): Promise<boolean> {
+  if (typeof window === "undefined") return false;
+  const exportName = zodLocaleExportName(locale);
+  if (exportName === undefined) return false;
+  if (configuredLocales.has(exportName)) return true;
+
+  const [zod, locales]: [ZodModule, ZodLocales] = await Promise.all([
+    import("zod"),
+    import("zod/locales"),
+  ]);
+  const factory = locales[exportName as keyof ZodLocales];
+  zod.z.config(factory());
+  configuredLocales.add(exportName);
+  return true;
+}
+`],
   ["i18n/lib/i18next/i18next.config.ts.hbs", `import { defineConfig } from "i18next-cli";
 
 /**
@@ -39479,35 +39811,276 @@ export * from "./format";
   ["i18n/shared/src/integrations/better-auth.ts.hbs", `/**
  * Editable Better Auth translation overrides for \`@better-auth/i18n\`.
  *
- * TODO(L7): fill the per-locale overrides. Keys are \`@better-auth/i18n\`
- * translation keys; values are the override string for that locale. Locales
- * without a built-in Better Auth translation fall back to English.
+ * The auth server spreads these on top of the built-in \`@better-auth/i18n\`
+ * translations, keyed by the configured locale. Keys are \`@better-auth/i18n\`
+ * translation keys (error codes such as \`INVALID_EMAIL_OR_PASSWORD\`); values
+ * are the override string for that locale. Locales without a built-in Better
+ * Auth translation fall back to English.
+ *
+ * Example:
+ * \`\`\`ts
+ * export const betterAuthTranslations: BetterAuthTranslations = {
+ *   fr: { INVALID_EMAIL_OR_PASSWORD: "E-mail ou mot de passe invalide" },
+ * };
+ * \`\`\`
  */
-export const betterAuthTranslations: Readonly<
-  Record<string, Readonly<Record<string, string>>>
-> = {};
+
+export type BetterAuthTranslations = Readonly<Record<string, Readonly<Record<string, string>>>>;
+
+export const betterAuthTranslations: BetterAuthTranslations = {};
 `],
   ["i18n/shared/src/integrations/clerk.ts.hbs", `/**
- * Clerk localization notes.
+ * Clerk localization metadata.
  *
- * TODO(L7): lazy-load and cache the \`@clerk/localizations\` entry for the
- * current locale, and report configured locales without a built-in
- * translation. Clerk marks localization experimental and does not localize
- * the hosted Account Portal, which stays in English.
+ * \`@clerk/localizations\` ships one translation object per locale. Clerk marks
+ * localization experimental and does not localize the hosted Account Portal,
+ * which stays in English. Configuring a locale without a built-in Clerk
+ * translation falls back to English and produces a generator warning.
+ *
+ * The lazy per-locale loader lives in \`./clerk-client\`, which is emitted only
+ * for projects using Clerk.
  */
+
+/** \`@clerk/localizations\` export names, keyed by canonical BCP-47 tag. */
+export const clerkLocalizationExportNames: Readonly<Record<string, string>> = {
+  "ar-SA": "arSA",
+  "be-BY": "beBY",
+  "bg-BG": "bgBG",
+  "bn-IN": "bnIN",
+  "ca-ES": "caES",
+  "cs-CZ": "csCZ",
+  "da-DK": "daDK",
+  "de-DE": "deDE",
+  "el-GR": "elGR",
+  "en-GB": "enGB",
+  "en-US": "enUS",
+  "en-XA": "enXA",
+  "es-CR": "esCR",
+  "es-ES": "esES",
+  "es-MX": "esMX",
+  "es-UY": "esUY",
+  "fa-IR": "faIR",
+  "fi-FI": "fiFI",
+  "fr-FR": "frFR",
+  "he-IL": "heIL",
+  "hi-IN": "hiIN",
+  "hr-HR": "hrHR",
+  "hu-HU": "huHU",
+  "id-ID": "idID",
+  "is-IS": "isIS",
+  "it-IT": "itIT",
+  "ja-JP": "jaJP",
+  "kk-KZ": "kkKZ",
+  "ko-KR": "koKR",
+  "mn-MN": "mnMN",
+  "ms-MY": "msMY",
+  "nb-NO": "nbNO",
+  "nl-BE": "nlBE",
+  "nl-NL": "nlNL",
+  "pl-PL": "plPL",
+  "pt-BR": "ptBR",
+  "pt-PT": "ptPT",
+  "ro-RO": "roRO",
+  "ru-RU": "ruRU",
+  "sk-SK": "skSK",
+  "sr-RS": "srRS",
+  "sv-SE": "svSE",
+  "ta-IN": "taIN",
+  "te-IN": "teIN",
+  "th-TH": "thTH",
+  "tr-TR": "trTR",
+  "uk-UA": "ukUA",
+  "vi-VN": "viVN",
+  "zh-CN": "zhCN",
+  "zh-TW": "zhTW",
+};
+
+/**
+ * Export name for a BCP-47 tag. Clerk only ships region-qualified locale
+ * bundles, so bare language tags expand to their primary region
+ * (\`fr\` → \`frFR\`, \`es\` → \`esES\`, \`en\` → \`enUS\`).
+ */
+export function clerkLocalizationExportName(tag: string): string | undefined {
+  const canonical = tag.trim();
+  const exact = clerkLocalizationExportNames[canonical];
+  if (exact !== undefined) return exact;
+  const [language = ""] = canonical.split("-");
+  const primary = PRIMARY_REGION_LOCALES[language.toLowerCase()];
+  return primary === undefined ? undefined : clerkLocalizationExportNames[primary];
+}
+
+const PRIMARY_REGION_LOCALES: Readonly<Record<string, string>> = {
+  ar: "ar-SA",
+  be: "be-BY",
+  bg: "bg-BG",
+  bn: "bn-IN",
+  ca: "ca-ES",
+  cs: "cs-CZ",
+  da: "da-DK",
+  de: "de-DE",
+  el: "el-GR",
+  en: "en-US",
+  es: "es-ES",
+  fa: "fa-IR",
+  fi: "fi-FI",
+  fr: "fr-FR",
+  he: "he-IL",
+  hi: "hi-IN",
+  hr: "hr-HR",
+  hu: "hu-HU",
+  id: "id-ID",
+  is: "is-IS",
+  it: "it-IT",
+  ja: "ja-JP",
+  kk: "kk-KZ",
+  ko: "ko-KR",
+  mn: "mn-MN",
+  ms: "ms-MY",
+  nb: "nb-NO",
+  nl: "nl-NL",
+  no: "nb-NO",
+  pl: "pl-PL",
+  pt: "pt-PT",
+  ro: "ro-RO",
+  ru: "ru-RU",
+  sk: "sk-SK",
+  sr: "sr-RS",
+  sv: "sv-SE",
+  ta: "ta-IN",
+  te: "te-IN",
+  th: "th-TH",
+  tr: "tr-TR",
+  uk: "uk-UA",
+  ua: "uk-UA",
+  vi: "vi-VN",
+  zh: "zh-CN",
+};
+
 export const CLERK_LOCALIZATION_NOTE =
   "Clerk localization is experimental and the hosted Account Portal stays in English.";
 `],
   ["i18n/shared/src/integrations/zod.ts.hbs", `/**
- * Maps BCP-47 tags to the export names used by Zod's locale modules.
- * Examples: \`zh-CN\` → \`zhCN\`, \`pt-BR\` → \`ptBR\`, \`fr-CA\` → \`frCA\`.
+ * Maps BCP-47 tags to the export names used by Zod's locale modules
+ * (\`zod/locales\`). Examples: \`zh-CN\` → \`zhCN\`, \`pt-BR\` → \`ptBR\`,
+ * \`fr-CA\` → \`frCA\`; tags without a dedicated Zod locale resolve to their
+ * language (\`en-US\` → \`en\`).
  *
- * TODO(L7): fill the table for the configured locales. The client calls
- * \`z.config(locales[tag]())\` on locale change; the server must not call
- * \`z.config\` per request (it is global) and translates issues at the API
- * boundary instead.
+ * The client wires \`z.config(locales[x]())\` on locale change through
+ * \`./zod-client\` (lazy-loaded). The server never calls \`z.config\`: it is
+ * global, so requests would leak messages across users. On the server,
+ * translate issues at the API boundary with \`translateZodIssue(s)\` instead.
  */
-export const zodLocaleExportNames: Readonly<Record<string, string>> = {};
+
+/** Zod locale export names, keyed by canonical BCP-47 tag. */
+export const zodLocaleExportNames: Readonly<Record<string, string>> = {
+  "ar": "ar",
+  "az": "az",
+  "be": "be",
+  "bg": "bg",
+  "bn": "bn",
+  "ca": "ca",
+  "ckb": "ckb",
+  "cs": "cs",
+  "da": "da",
+  "de": "de",
+  "el": "el",
+  "en": "en",
+  "eo": "eo",
+  "es": "es",
+  "fa": "fa",
+  "fi": "fi",
+  "fr": "fr",
+  "fr-CA": "frCA",
+  "gu": "gu",
+  "he": "he",
+  "hi": "hi",
+  "hr": "hr",
+  "hu": "hu",
+  "hy": "hy",
+  "id": "id",
+  "is": "is",
+  "it": "it",
+  "ja": "ja",
+  "ka": "ka",
+  "kh": "kh",
+  "km": "km",
+  "kn": "kn",
+  "ko": "ko",
+  "lt": "lt",
+  "mk": "mk",
+  "ms": "ms",
+  "ne": "ne",
+  "nl": "nl",
+  "nn": "nn",
+  "no": "no",
+  "ota": "ota",
+  "ps": "ps",
+  "pl": "pl",
+  "pt": "pt",
+  "pt-BR": "ptBR",
+  "ro": "ro",
+  "ru": "ru",
+  "sk": "sk",
+  "sl": "sl",
+  "sv": "sv",
+  "ta": "ta",
+  "th": "th",
+  "tk": "tk",
+  "tr": "tr",
+  "ua": "ua",
+  "uk": "uk",
+  "ur": "ur",
+  "uz": "uz",
+  "vi": "vi",
+  "zh-CN": "zhCN",
+  "zh-TW": "zhTW",
+  "yo": "yo",
+};
+
+/** A Zod issue, structurally typed so the shared package needs no Zod dependency. */
+export interface ZodIssueLike {
+  readonly code?: string;
+  readonly message?: string;
+  readonly path?: readonly (string | number | symbol)[];
+}
+
+/**
+ * Export name for a BCP-47 tag, using exact (region-aware) and truncated
+ * (language-only) lookup. Returns \`undefined\` when Zod ships no locale for it.
+ */
+export function zodLocaleExportName(tag: string): string | undefined {
+  const canonical = tag.trim();
+  const exact = zodLocaleExportNames[canonical];
+  if (exact !== undefined) return exact;
+  const [language = ""] = canonical.split("-");
+  return zodLocaleExportNames[language.toLowerCase()];
+}
+
+/**
+ * Server boundary helper: resolves one issue to a translated message without
+ * touching global Zod state. \`dictionary\` maps issue codes (or \`path\` names)
+ * to messages; unmatched issues keep their default message.
+ */
+export function translateZodIssue(
+  issue: ZodIssueLike,
+  dictionary: Readonly<Record<string, string>>,
+): string {
+  const candidates = [issue.code, issue.path?.at(-1)?.toString()];
+  for (const candidate of candidates) {
+    if (candidate !== undefined && dictionary[candidate] !== undefined) {
+      return dictionary[candidate];
+    }
+  }
+  return issue.message ?? "";
+}
+
+/** Server boundary helper for whole parse results (\`safeParse().error.issues\`). */
+export function translateZodIssues(
+  issues: readonly ZodIssueLike[],
+  dictionary: Readonly<Record<string, string>>,
+): string[] {
+  return issues.map((issue) => translateZodIssue(issue, dictionary));
+}
 `],
   ["i18n/shared/src/server.ts.hbs", `/**
  * Request-scoped locale for server runtimes (Bun, Node, and workers with
@@ -45353,4 +45926,4 @@ export default function Success() {
 `]
 ]);
 
-export const TEMPLATE_COUNT = 728;
+export const TEMPLATE_COUNT = 736;
