@@ -15,8 +15,8 @@
 
 ## 1. Shared Configuration and Compatibility
 
-- [ ] 1.1 Add `I18nSchema` and `I18nOptionsSchema` to all configuration schemas, `AddInputSchema`, the JSON schema, analytics-safe values and display names.
-- [ ] 1.2 Create `packages/types/src/i18n.ts`, containing:
+- [x] 1.1 Add `I18nSchema` and `I18nOptionsSchema` to all configuration schemas, `AddInputSchema`, the JSON schema, analytics-safe values and display names.
+- [x] 1.2 Create `packages/types/src/i18n.ts`, containing:
   - surfaces and `getI18nSurfaces`;
   - the `I18N_SUPPORT` matrix (using `satisfies`);
   - `I18N_LIBRARY_META`;
@@ -24,7 +24,7 @@
   - routing support;
   - the integrations map.
 - [ ] 1.3 Add `checkoutLocale` to `PaymentProviderMeta`, with Polar and Stripe set to `"api"` and the rest `"none"` (on the stacked branch for `wt/payment-providers`, see Section 12).
-- [ ] 1.4 Write the test-owned i18n Compatibility Oracle, plus unit tests for surfaces, matrix completeness, reason strings, default-library order, option validation and routing gates.
+- [x] 1.4 Write the test-owned i18n Compatibility Oracle, plus unit tests for surfaces, matrix completeness, reason strings, default-library order, option validation and routing gates.
 
 ## 2. CLI
 

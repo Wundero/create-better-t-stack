@@ -86,6 +86,14 @@ Absent (consistent with D7/D11): Tauri `src-tauri/**`, WXT entrypoints, the Open
 - Svelte layout: normalize `+layout.svelte` to a single unique anchor.
 - Rust crate: default `formatjs_icu_messageformat`; in-house evaluator acceptable fallback; final call at L8 (⛔2).
 
+### Lane log
+
+**L1 (types) — merged into `wt/i18n`** (merge `62ff1040`, lane commit `4399eb50`). Tasks 1.1, 1.2, 1.4 done. Independent reviewer verdict: PASS (minors only). Gate: template regeneration clean (no drift); `bun run --bun check` pass; `packages/types` 45/45 pass; `apps/cli` 894 pass / 2 fail — both environmental toolchain-preflight failures (local Node 22.14 / npm 10.9.2 rejected by the CLI's own requirements), not caused by the change; web has no test script. `wxt-solid` was added to `I18nSurface` (required by the D2 matrix, though D2's union literal omitted it). Orchestrator applied one L10-owned glue line (`apps/cli/src/helpers/core/add-handler.ts`: `i18n: existingConfig.i18n`).
+
+Review minors left open (fold into later lanes): add a `note` to `I18N_SUPPORT.lingui.solid`; reconcile the `expo-localization` vs `hermes-intl-polyfills` integration id with D3; rename one test; loosen one assertion that copies a note string; add a positive `emailRenderer` → `email` surface test.
+
+**Environment notes (affect every gate and lane).** `bun run check` fails under Node because `oxlint` cannot load its `.ts` JS plugin — use `bun run --bun check`. `tsdown` requires the optional peer `unrun`, which `bun install` does not install; without it `tsdown.config.ts` cannot load and every package build fails. The gate therefore needs `unrun` installed locally plus `bun run build:cli` before `apps/cli` tests. L2 must add `i18n: "none"` to the remaining `ProjectConfig` literals (`apps/cli/src/index.ts`, `apps/cli/src/helpers/core/command-handlers.ts`, and via `DEFAULT_CONFIG`/prompt results in `constants.ts` and `config-prompts.ts`) to restore `apps/cli` `check-types` (6 errors at L1 merge; 5 remain after the orchestrator glue).
+
 ## Goals / Non-Goals
 
 **Goals**
