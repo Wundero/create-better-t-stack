@@ -33888,6 +33888,772 @@ export default defineConfig({
 {{/if}}
 });
 `],
+  ["i18n/lib/i18next/i18next.config.ts.hbs", `import { defineConfig } from "i18next-cli";
+
+/**
+ * Extractor configuration for the shared catalogs.
+ *
+ * Natural-language keys with separators disabled: the extractor reads
+ * \`t("Save changes")\` as one flat key and writes \`locales/<locale>/common.json\`.
+ * Run \`bun run i18n:extract\` from the project root or \`packages/i18n\`.
+ */
+export default defineConfig({
+  locales: [
+{{#if i18nOptions.locales}}
+{{#each i18nOptions.locales}}
+    "{{this}}",
+{{/each}}
+{{else}}
+    "en",
+    "es",
+    "fr",
+{{/if}}
+  ],
+  extract: {
+    input: [
+      "../../apps/**/*.{ts,tsx,js,jsx,vue,svelte,astro}",
+      "../../packages/**/*.{ts,tsx,js,jsx}",
+    ],
+    ignore: [
+      "../../packages/i18n/**",
+      "**/node_modules/**",
+      "**/dist/**",
+      "**/.next/**",
+      "**/.nuxt/**",
+      "**/.svelte-kit/**",
+      "**/.expo/**",
+      "**/.output/**",
+      "**/routeTree.gen.ts",
+    ],
+    output: "locales/\\{{language}}/\\{{namespace}}.json",
+    defaultNS: "common",
+    keySeparator: false,
+    nsSeparator: false,
+    removeUnusedKeys: true,
+    sort: false,
+  },
+});
+`],
+  ["i18n/lib/i18next/locales/en/common.json", `{
+  "i18n demo": "i18n demo",
+  "Hello, {{name}}!": "Hello, {{name}}!",
+  "You have {{count}} new message_one": "You have {{count}} new message",
+  "You have {{count}} new message_other": "You have {{count}} new messages",
+  "Language": "Language",
+  "Current locale: {{locale}}": "Current locale: {{locale}}"
+}
+`],
+  ["i18n/lib/i18next/scripts/apply.ts", `/**
+ * \`i18n:apply <file>\` — validates translations from the \`i18n-translate\` skill
+ * and writes them into the catalogs (design D8).
+ *
+ * The file is either \`{ "items": [{ id, locale, translation }] }\` or a bare
+ * array of the same items. Items whose \`{{placeholders}}\` differ from the
+ * source are rejected and stay pending.
+ */
+
+import { readFileSync } from "node:fs";
+
+import { locales, sourceLocale } from "../src/config";
+import { applyTranslations, packageRoot, type ApplyItem } from "./lib/catalogs";
+
+interface ApplyPayload {
+  readonly items?: readonly ApplyItem[];
+}
+
+const [file] = process.argv.slice(2).filter((argument) => !argument.startsWith("--"));
+if (!file) {
+  console.error("usage: i18n:apply <file>");
+  process.exit(1);
+}
+
+const payload = JSON.parse(readFileSync(file, "utf8")) as readonly ApplyItem[] | ApplyPayload;
+const candidates = Array.isArray(payload) ? payload : (payload.items ?? []);
+// Decode at the file boundary: an item is usable only with all three fields.
+const items = candidates.filter(
+  (item) => Boolean(item.id) && Boolean(item.locale) && Boolean(item.translation),
+);
+
+const result = applyTranslations(packageRoot(), { locales, sourceLocale }, items);
+for (const rejection of result.rejected) {
+  console.error(\`rejected \${rejection.locale} "\${rejection.id}": \${rejection.reason}\`);
+}
+console.log(
+  \`Applied \${result.appliedCount} translation(s)\` +
+    (result.rejected.length > 0 ? \`, rejected \${result.rejected.length}\` : ""),
+);
+if (result.rejected.length > 0) process.exit(1);
+`],
+  ["i18n/lib/i18next/scripts/check.ts", `/**
+ * \`i18n:check\` — fails on missing, untranslated or placeholder-invalid entries.
+ * \`I18N_CHECK_ALLOW_MISSING=1\` relaxes missing/untranslated entries during
+ * development; placeholder mismatches always fail (design D8).
+ */
+
+import { locales, sourceLocale } from "../src/config";
+import { checkCatalogs, packageRoot } from "./lib/catalogs";
+
+const allowMissing = process.env.I18N_CHECK_ALLOW_MISSING === "1";
+const result = checkCatalogs(packageRoot(), { locales, sourceLocale }, { allowMissing });
+
+for (const problem of result.problems.slice(0, 50)) {
+  console.error(\`\${problem.locale} "\${problem.id}": \${problem.reason}\`);
+}
+if (result.problems.length > 0) {
+  console.error(\`\${result.problems.length} problem(s) across \${result.checked} checked entries\`);
+  process.exit(1);
+}
+console.log(\`i18n:check passed (\${result.checked} checked entries)\`);
+`],
+  ["i18n/lib/i18next/scripts/compile.ts", `/**
+ * \`i18n:compile\` — validates every catalog and writes the normalized export
+ * (design D7). Runs before \`dev\` and \`build\`; a message outside the ICU subset
+ * fails here with its id.
+ */
+
+import { sourceLocale, locales } from "../src/config";
+import { runExport } from "./export";
+import { icuMessagesById, packageRoot, readCatalog } from "./lib/catalogs";
+
+const root = packageRoot();
+
+for (const locale of locales) {
+  icuMessagesById(readCatalog(root, locale));
+}
+
+console.log(\`i18n:compile OK for \${locales.join(", ")} (source \${sourceLocale})\`);
+console.log(\`i18n:compile wrote \${runExport(root)}\`);
+`],
+  ["i18n/lib/i18next/scripts/export.ts", `/**
+ * \`i18n:export\` — writes the normalized catalog (\`dist/catalog.json\`) consumed
+ * by the Rust host (design D7): one message per source-text id with every
+ * locale converted to the ICU subset.
+ */
+
+import { mkdirSync, writeFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+
+import { locales, sourceLocale } from "../src/config";
+import { icuMessagesById, packageRoot, readCatalogSet } from "./lib/catalogs";
+
+export interface NormalizedMessage {
+  /** The source-locale ICU message. */
+  readonly source: string;
+  readonly context: null;
+  readonly translations: Readonly<Record<string, string>>;
+}
+
+export interface NormalizedCatalog {
+  readonly sourceLocale: string;
+  readonly locales: readonly string[];
+  readonly messages: Readonly<Record<string, NormalizedMessage>>;
+}
+
+export function buildNormalizedCatalog(root: string = packageRoot()): NormalizedCatalog {
+  const catalogs = readCatalogSet(root, { locales, sourceLocale });
+  const icuByLocale = new Map<string, Map<string, string>>();
+  for (const locale of locales) {
+    const messages = new Map<string, string>();
+    for (const message of icuMessagesById(catalogs.get(locale) ?? {})) {
+      messages.set(message.id, message.icu);
+    }
+    icuByLocale.set(locale, messages);
+  }
+
+  const sourceMessages = icuMessagesById(catalogs.get(sourceLocale) ?? {});
+  const messages: Record<string, NormalizedMessage> = {};
+  for (const sourceMessage of sourceMessages) {
+    const translations: Record<string, string> = {};
+    for (const locale of locales) {
+      translations[locale] = icuByLocale.get(locale)?.get(sourceMessage.id) ?? sourceMessage.icu;
+    }
+    messages[sourceMessage.id] = { source: sourceMessage.icu, context: null, translations };
+  }
+
+  return { sourceLocale, locales, messages };
+}
+
+export function runExport(root: string = packageRoot()): string {
+  const output = join(root, "dist", "catalog.json");
+  mkdirSync(dirname(output), { recursive: true });
+  writeFileSync(output, \`\${JSON.stringify(buildNormalizedCatalog(root), null, 2)}\\n\`);
+  return output;
+}
+
+if (import.meta.main) {
+  console.log(\`i18n:export wrote \${runExport()}\`);
+}
+`],
+  ["i18n/lib/i18next/scripts/extract.ts", `/**
+ * \`i18n:extract\` — runs the i18next-cli extractor over the app sources and
+ * updates \`locales/<locale>/common.json\` with natural-language keys.
+ *
+ * The extractor walks \`apps/**\` and \`packages/**\` from \`i18next.config.ts\`;
+ * extra arguments are forwarded (\`--watch\`, \`--ci\`, …).
+ */
+
+import { packageRoot } from "./lib/catalogs";
+
+const root = packageRoot();
+const forwarded = process.argv.slice(2);
+
+const extractor = Bun.spawn(["bunx", "i18next-cli", "extract", ...forwarded], {
+  cwd: root,
+  stdout: "inherit",
+  stderr: "inherit",
+});
+
+const exitCode = await extractor.exited;
+if (exitCode !== 0) process.exit(exitCode);
+
+// Task 8.3 (Rust/Tauri) merges \`t!(...)\` references into the source catalog
+// after the extractor runs, so keys used only by the Rust host are never
+// pruned. It hooks in here and stays a no-op without the Tauri addon.
+`],
+  ["i18n/lib/i18next/scripts/lib/catalogs.ts", `/**
+ * Catalog file access and the uniform script contract (design D8) for
+ * i18next: \`locales/<locale>/<namespace>.json\`, natural-language keys with
+ * separators disabled, plural suffixes (\`_one\`, \`_other\`) and \`{{placeholders}}\`.
+ */
+
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+
+import {
+  exportCatalogEntries,
+  interpolationNames,
+  type CatalogEntry,
+  type IcuMessage,
+} from "./icu";
+
+export const DEFAULT_NAMESPACE = "common";
+
+export interface I18nScriptConfig {
+  readonly locales: readonly string[];
+  readonly sourceLocale: string;
+}
+
+export interface Catalog {
+  readonly [id: string]: string;
+}
+
+export interface PendingItem {
+  readonly id: string;
+  readonly locale: string;
+  readonly source: string;
+  readonly context: string | null;
+  readonly comments: readonly string[];
+  readonly references: readonly string[];
+  readonly placeholders: readonly string[];
+  readonly status: "missing" | "pending";
+}
+
+export interface PendingOptions {
+  readonly locale?: string;
+  readonly all?: boolean;
+  readonly limit?: number;
+}
+
+export interface ApplyItem {
+  readonly id: string;
+  readonly locale: string;
+  readonly translation: string;
+}
+
+export interface ApplyRejection {
+  readonly id: string;
+  readonly locale: string;
+  readonly reason: string;
+}
+
+export interface ApplyResult {
+  readonly appliedCount: number;
+  readonly rejected: ApplyRejection[];
+}
+
+export interface CheckProblem {
+  readonly id: string;
+  readonly locale: string;
+  readonly reason: string;
+}
+
+export interface CheckResult {
+  readonly checked: number;
+  readonly problems: CheckProblem[];
+}
+
+/** Root of the generated \`@<project>/i18n\` package (this file lives in \`scripts/lib\`). */
+export function packageRoot(): string {
+  return dirname(dirname(import.meta.dir));
+}
+
+export function catalogPath(root: string, locale: string, namespace = DEFAULT_NAMESPACE): string {
+  return join(root, "locales", locale, \`\${namespace}.json\`);
+}
+
+export function readCatalog(root: string, locale: string, namespace = DEFAULT_NAMESPACE): Catalog {
+  const path = catalogPath(root, locale, namespace);
+  if (!existsSync(path)) return {};
+  return JSON.parse(readFileSync(path, "utf8")) as Catalog;
+}
+
+export function writeCatalog(
+  root: string,
+  locale: string,
+  catalog: Catalog,
+  namespace = DEFAULT_NAMESPACE,
+): void {
+  const path = catalogPath(root, locale, namespace);
+  mkdirSync(dirname(path), { recursive: true });
+  const sorted: Catalog = {};
+  for (const id of Object.keys(catalog).sort()) {
+    const value = catalog[id];
+    if (value !== undefined) sorted[id] = value;
+  }
+  writeFileSync(path, \`\${JSON.stringify(sorted, null, 2)}\\n\`);
+}
+
+export function readCatalogSet(
+  root: string,
+  config: I18nScriptConfig,
+  namespace = DEFAULT_NAMESPACE,
+): Map<string, Catalog> {
+  const catalogs = new Map<string, Catalog>();
+  for (const locale of config.locales) {
+    catalogs.set(locale, readCatalog(root, locale, namespace));
+  }
+  return catalogs;
+}
+
+function entriesOf(catalog: Catalog): CatalogEntry[] {
+  return Object.entries(catalog).map(([id, value]) => ({ id, value }));
+}
+
+/** ICU messages for one locale, keyed by the i18next source-text id. */
+export function icuMessagesById(catalog: Catalog): IcuMessage[] {
+  return exportCatalogEntries(entriesOf(catalog));
+}
+
+function targetLocales(config: I18nScriptConfig, options: PendingOptions): string[] {
+  if (options.locale) return [options.locale];
+  if (options.all) return config.locales.filter((locale) => locale !== config.sourceLocale);
+  throw new Error("i18n:pending needs --locale <locale> or --all");
+}
+
+/** Untranslated entries: missing from the target catalog or still equal to the source. */
+export function collectPending(
+  root: string,
+  config: I18nScriptConfig,
+  options: PendingOptions,
+): PendingItem[] {
+  const source = readCatalog(root, config.sourceLocale);
+  const items: PendingItem[] = [];
+  const limit = options.limit ?? Number.POSITIVE_INFINITY;
+
+  for (const locale of targetLocales(config, options)) {
+    const target = readCatalog(root, locale);
+    for (const [id, sourceValue] of Object.entries(source)) {
+      if (items.length >= limit) return items;
+      const targetValue = target[id];
+      if (targetValue === undefined) {
+        items.push(pendingItem(id, locale, sourceValue, "missing"));
+      } else if (targetValue === sourceValue) {
+        items.push(pendingItem(id, locale, sourceValue, "pending"));
+      }
+    }
+  }
+  return items;
+}
+
+function pendingItem(
+  id: string,
+  locale: string,
+  source: string,
+  status: "missing" | "pending",
+): PendingItem {
+  return {
+    id,
+    locale,
+    source,
+    context: null,
+    comments: [],
+    references: [],
+    placeholders: interpolationNames(source),
+    status,
+  };
+}
+
+/** Writes valid translations; rejects items whose placeholders differ from the source. */
+export function applyTranslations(
+  root: string,
+  config: I18nScriptConfig,
+  items: readonly ApplyItem[],
+): ApplyResult {
+  const source = readCatalog(root, config.sourceLocale);
+  const catalogs = new Map<string, Catalog>();
+  const rejected: ApplyRejection[] = [];
+  let appliedCount = 0;
+
+  for (const item of items) {
+    const rejection = rejectApplyItem(item, source, config);
+    if (rejection) {
+      rejected.push(rejection);
+      continue;
+    }
+    const catalog = catalogs.get(item.locale) ?? readCatalog(root, item.locale);
+    catalogs.set(item.locale, { ...catalog, [item.id]: item.translation });
+    appliedCount += 1;
+  }
+
+  for (const [locale, catalog] of catalogs) writeCatalog(root, locale, catalog);
+  return { appliedCount, rejected };
+}
+
+function rejectApplyItem(
+  item: ApplyItem,
+  source: Catalog,
+  config: I18nScriptConfig,
+): ApplyRejection | null {
+  if (!config.locales.includes(item.locale)) {
+    return { id: item.id, locale: item.locale, reason: "locale is not configured" };
+  }
+  const sourceValue = source[item.id];
+  if (sourceValue === undefined) {
+    return { id: item.id, locale: item.locale, reason: "id is not in the source catalog" };
+  }
+  if (item.translation.trim().length === 0) {
+    return { id: item.id, locale: item.locale, reason: "translation is empty" };
+  }
+  const sourceNames = interpolationNames(sourceValue).sort();
+  const translationNames = interpolationNames(item.translation).sort();
+  if (sourceNames.join(",") !== translationNames.join(",")) {
+    const expected = sourceNames.join(", ") || "none";
+    const received = translationNames.join(", ") || "none";
+    return {
+      id: item.id,
+      locale: item.locale,
+      reason: \`placeholders differ: expected \${expected}, got \${received}\`,
+    };
+  }
+  return null;
+}
+
+/** Missing, untranslated and placeholder-invalid entries per configured locale. */
+export function checkCatalogs(
+  root: string,
+  config: I18nScriptConfig,
+  options: { readonly allowMissing: boolean },
+): CheckResult {
+  const source = readCatalog(root, config.sourceLocale);
+  const problems: CheckProblem[] = [];
+  let checked = 0;
+
+  for (const locale of config.locales) {
+    if (locale === config.sourceLocale) continue;
+    const target = readCatalog(root, locale);
+    for (const [id, sourceValue] of Object.entries(source)) {
+      checked += 1;
+      const targetValue = target[id];
+      if (targetValue === undefined) {
+        if (!options.allowMissing) problems.push({ id, locale, reason: "missing" });
+        continue;
+      }
+      if (targetValue === sourceValue) {
+        if (!options.allowMissing) problems.push({ id, locale, reason: "untranslated" });
+        continue;
+      }
+      const sourceNames = interpolationNames(sourceValue).sort().join(",");
+      const targetNames = interpolationNames(targetValue).sort().join(",");
+      if (sourceNames !== targetNames) {
+        problems.push({ id, locale, reason: "placeholders differ from the source" });
+      }
+    }
+  }
+  return { checked, problems };
+}
+`],
+  ["i18n/lib/i18next/scripts/lib/icu.ts", `/**
+ * i18next ⇄ ICU message conversion for the normalized export (design D7).
+ *
+ * The supported subset is exactly: \`{{name}}\` interpolation and i18next v4
+ * plural suffixes (\`_one\`, \`_other\`, …). Anything else — nesting via \`$t(...)\`,
+ * a stray brace, or a non-identifier argument — fails with the message id.
+ *
+ * \`importCatalogEntries\` is the inverse of \`exportCatalogEntries\`; the
+ * generator's ICU round-trip test asserts the two are lossless.
+ */
+
+export const PLURAL_CATEGORIES = ["zero", "one", "two", "few", "many", "other"] as const;
+export type PluralCategory = (typeof PLURAL_CATEGORIES)[number];
+
+export interface CatalogEntry {
+  readonly id: string;
+  readonly value: string;
+}
+
+/** One normalized message: the source-text id and its ICU form. */
+export interface IcuMessage {
+  readonly id: string;
+  readonly icu: string;
+}
+
+export class IcuConversionError extends Error {
+  readonly messageId: string;
+
+  constructor(messageId: string, reason: string) {
+    super(\`Cannot convert "\${messageId}" to ICU: \${reason}\`);
+    this.name = "IcuConversionError";
+    this.messageId = messageId;
+  }
+}
+
+const INTERPOLATION_PATTERN = /\\{\\{\\s*([A-Za-z][A-Za-z0-9_$]*)\\s*\\}\\}/g;
+const SHORT_ARGUMENT_PATTERN = /\\{([A-Za-z][A-Za-z0-9_$]*)\\}/g;
+const PLURAL_OPTION_PATTERN =
+  /(zero|one|two|few|many|other) \\{((?:[^{}]|\\{[A-Za-z][A-Za-z0-9_$]*\\})*)\\}/g;
+
+function isPluralCategory(value: string): value is PluralCategory {
+  return (PLURAL_CATEGORIES as readonly string[]).includes(value);
+}
+
+interface PluralId {
+  readonly base: string;
+  readonly category: PluralCategory | null;
+}
+
+export function splitPluralId(id: string): PluralId {
+  const separator = id.lastIndexOf("_");
+  if (separator === -1) return { base: id, category: null };
+  const suffix = id.slice(separator + 1);
+  if (!isPluralCategory(suffix)) return { base: id, category: null };
+  return { base: id.slice(0, separator), category: suffix };
+}
+
+/** Names of the \`{{placeholders}}\` in a message, in first-seen order. */
+export function interpolationNames(message: string): string[] {
+  const names: string[] = [];
+  for (const match of message.matchAll(INTERPOLATION_PATTERN)) {
+    const name = match[1];
+    if (name && !names.includes(name)) names.push(name);
+  }
+  return names;
+}
+
+/** i18next template → ICU. Throws \`IcuConversionError\` outside the subset. */
+export function toIcuMessage(id: string, message: string): string {
+  if (message.includes("$t("))
+    throw new IcuConversionError(id, "nesting via $t() is not supported");
+  const icu = message.replace(INTERPOLATION_PATTERN, "{$1}");
+  const withoutArguments = icu.replace(SHORT_ARGUMENT_PATTERN, "");
+  if (withoutArguments.includes("{") || withoutArguments.includes("}")) {
+    throw new IcuConversionError(id, "contains braces that are not {{placeholders}}");
+  }
+  return icu;
+}
+
+/** ICU → i18next template. Throws \`IcuConversionError\` outside the subset. */
+const FORMATTED_ARGUMENT_PATTERN = /\\{[A-Za-z][A-Za-z0-9_$]*\\s*,/;
+
+export function fromIcuMessage(id: string, icu: string): string {
+  if (FORMATTED_ARGUMENT_PATTERN.test(icu) || icu.includes("#")) {
+    throw new IcuConversionError(id, "ICU arguments other than {name} are not supported");
+  }
+  return icu.replace(SHORT_ARGUMENT_PATTERN, "{{$1}}");
+}
+
+interface PluralMember {
+  readonly id: string;
+  readonly category: PluralCategory | null;
+  readonly value: string;
+}
+
+function comparePluralCategories(first: PluralCategory, second: PluralCategory): number {
+  return PLURAL_CATEGORIES.indexOf(first) - PLURAL_CATEGORIES.indexOf(second);
+}
+
+function exportFamily(base: string, family: readonly PluralMember[]): IcuMessage {
+  if (family.length === 1) {
+    const [only] = family;
+    if (!only) throw new IcuConversionError(base, "empty plural family");
+    if (only.category !== null) {
+      throw new IcuConversionError(base, \`has _\${only.category} but no other plural forms\`);
+    }
+    return { id: base, icu: toIcuMessage(only.id, only.value) };
+  }
+
+  const forms: PluralMember[] = [];
+  for (const member of family) {
+    if (member.category === null) {
+      throw new IcuConversionError(base, "mixes a plural family with a plain key of the same name");
+    }
+    forms.push(member);
+  }
+  if (!forms.some((form) => form.category === "other")) {
+    throw new IcuConversionError(base, "is missing the \`other\` plural category");
+  }
+
+  forms.sort((first, second) =>
+    comparePluralCategories(first.category ?? "other", second.category ?? "other"),
+  );
+  const options = forms
+    .map((form) => \`\${form.category} {\${toIcuMessage(form.id, form.value)}}\`)
+    .join(" ");
+  return { id: base, icu: \`{count, plural, \${options}}\` };
+}
+
+/**
+ * Source-text catalog entries → normalized ICU messages. Plural families
+ * (\`id_one\`, \`id_other\`, …) collapse into one \`{count, plural, …}\` message.
+ */
+export function exportCatalogEntries(entries: readonly CatalogEntry[]): IcuMessage[] {
+  const families = new Map<string, PluralMember[]>();
+  for (const entry of entries) {
+    const { base, category } = splitPluralId(entry.id);
+    const family = families.get(base) ?? [];
+    family.push({ id: entry.id, category, value: entry.value });
+    families.set(base, family);
+  }
+  return [...families.entries()].map(([base, family]) => exportFamily(base, family));
+}
+
+/** Inverse of \`exportCatalogEntries\`, used by the ICU round-trip test. */
+export function importCatalogEntries(messages: readonly IcuMessage[]): CatalogEntry[] {
+  const entries: CatalogEntry[] = [];
+  for (const message of messages) {
+    const pluralMatch = /^\\{count, plural, (.*)\\}$/s.exec(message.icu);
+    if (!pluralMatch?.[1]) {
+      entries.push({ id: message.id, value: fromIcuMessage(message.id, message.icu) });
+      continue;
+    }
+    const forms = [...pluralMatch[1].matchAll(PLURAL_OPTION_PATTERN)];
+    if (forms.length === 0) throw new IcuConversionError(message.id, "plural has no options");
+    for (const form of forms) {
+      const category = form[1];
+      const body = form[2];
+      if (!category || body === undefined) {
+        throw new IcuConversionError(message.id, "plural option is malformed");
+      }
+      entries.push({
+        id: \`\${message.id}_\${category}\`,
+        value: fromIcuMessage(\`\${message.id}_\${category}\`, body),
+      });
+    }
+  }
+  return entries;
+}
+`],
+  ["i18n/lib/i18next/scripts/pending.ts", `/**
+ * \`i18n:pending --locale <locale> | --all [--limit N]\` — machine-readable list
+ * of untranslated messages for the \`i18n-translate\` skill (design D8).
+ */
+
+import { sourceLocale, locales } from "../src/config";
+import { collectPending, packageRoot } from "./lib/catalogs";
+
+const args = process.argv.slice(2);
+
+function flagValue(name: string): string | undefined {
+  const index = args.indexOf(name);
+  return index === -1 ? undefined : args[index + 1];
+}
+
+const limitValue = flagValue("--limit");
+const items = collectPending(
+  packageRoot(),
+  { locales, sourceLocale },
+  {
+    locale: flagValue("--locale"),
+    all: args.includes("--all"),
+    limit: limitValue ? Number.parseInt(limitValue, 10) : undefined,
+  },
+);
+
+console.log(JSON.stringify({ library: "i18next", sourceLocale, items }, null, 2));
+`],
+  ["i18n/lib/i18next/src/runtime.ts.hbs", `/**
+ * i18next runtime for the generated project.
+ *
+ * Natural-language keys with separators disabled: \`t("Hello, {{name}}!")\`
+ * looks up the exact sentence, and plural suffixes resolve from \`count\`
+ * (\`..._one\`, \`..._other\`). Framework glue lives next to each surface and
+ * registers its adapter (\`react-i18next\`, \`i18next-vue\`, the shipped Svelte
+ * store, the shipped Solid primitive) on the instances exported here.
+ */
+
+import i18next from "i18next";
+import type { i18n as I18nInstance, InitOptions } from "i18next";
+{{#if i18nOptions.locales}}
+{{#each i18nOptions.locales}}
+import catalog{{@index}} from "../locales/{{this}}/common.json";
+{{/each}}
+{{else}}
+import catalog0 from "../locales/en/common.json";
+import catalog1 from "../locales/es/common.json";
+import catalog2 from "../locales/fr/common.json";
+{{/if}}
+
+import { isLocale, locales, negotiateLocale, sourceLocale } from "./config";
+import type { Locale } from "./config";
+
+export const resources = {
+{{#if i18nOptions.locales}}
+{{#each i18nOptions.locales}}
+  "{{this}}": { common: catalog{{@index}} },
+{{/each}}
+{{else}}
+  en: { common: catalog0 },
+  es: { common: catalog1 },
+  fr: { common: catalog2 },
+{{/if}}
+};
+
+function instanceOptions(locale: Locale): InitOptions {
+  return {
+    resources,
+    lng: locale,
+    fallbackLng: sourceLocale,
+    supportedLngs: [...locales],
+    defaultNS: "common",
+    keySeparator: false,
+    nsSeparator: false,
+    initAsync: false,
+    interpolation: { escapeValue: false },
+  };
+}
+
+/**
+ * A fresh instance for one request or one server render. Static resources make
+ * initialization synchronous, so the returned instance is immediately usable.
+ */
+export function createI18next(locale: Locale = negotiateLocale()): I18nInstance {
+  const instance = i18next.createInstance();
+  void instance.init(instanceOptions(locale));
+  return instance;
+}
+
+/**
+ * The shared client instance. Framework adapters register on this instance, so
+ * every component in the app sees the same translations and language changes.
+ */
+export function initI18next(locale: Locale = negotiateLocale()): I18nInstance {
+  if (!i18next.isInitialized) {
+    void i18next.init(instanceOptions(locale));
+  }
+  return i18next;
+}
+
+export function setLocale(locale: Locale): Promise<unknown> {
+  initI18next();
+  return i18next.changeLanguage(locale);
+}
+
+export function currentLocale(): Locale {
+  const language = i18next.resolvedLanguage ?? i18next.language;
+  return language && isLocale(language) ? language : sourceLocale;
+}
+
+export { i18next };
+`],
   ["i18n/lib/lingui/bun-preload.ts", `/**
  * Bun preload that applies the Lingui macro transform to Bun-run hosts
  * (server on Bun, the Electrobun Bun main process, OpenTUI apps).
@@ -38013,6 +38779,1012 @@ describe("createFormatters", () => {
     "noEmit": true
   },
   "include": ["src"]
+}
+`],
+  ["i18n/surface/i18next/astro/src/lib/i18n.ts.hbs", `// Astro glue for i18next: a request-scoped translator. The locale middleware
+// (routing lane) wraps requests in \`runWithLocale\`; without it the negotiation
+// falls back to the source locale.
+import { createFormatters } from "@{{projectName}}/i18n";
+import { getRequestLocale } from "@{{projectName}}/i18n/server";
+import { initI18next } from "@{{projectName}}/i18n/runtime";
+import type { Locale } from "@{{projectName}}/i18n";
+
+export function getT(locale: Locale = getRequestLocale()) {
+  return initI18next(locale).getFixedT(locale);
+}
+
+/** Date, number, currency and list formatters for a request locale. */
+export function getFormat(locale: Locale = getRequestLocale()) {
+  return createFormatters(locale);
+}
+`],
+  ["i18n/surface/i18next/astro/src/pages/i18n-demo.astro.hbs", `---
+import { getTextDirection, isLocale, locales, sourceLocale } from "@{{projectName}}/i18n";
+import { getFormat, getT } from "../lib/i18n";
+import Layout from "../layouts/Layout.astro";
+import { getRequestLocale } from "@{{projectName}}/i18n/server";
+
+const requestLocale = getRequestLocale();
+const locale = isLocale(requestLocale) ? requestLocale : sourceLocale;
+const t = getT(locale);
+const formatters = getFormat(locale);
+const count = 2;
+---
+
+<Layout title="i18n demo">
+  <main dir={getTextDirection(locale)} class="container mx-auto max-w-2xl space-y-4 px-4 py-10">
+    <h1 class="text-2xl font-semibold">{t("i18n demo")}</h1>
+    <p>{t("Hello, \\{{name}}!", { name: "Ada" })}</p>
+    <p>{t("You have \\{{count}} new message", { count })}</p>
+    <dl class="grid grid-cols-2 gap-2 text-sm">
+      <dt class="text-muted-foreground">{t("Language")}</dt>
+      <dd>{formatters.displayName(locale) ?? locale}</dd>
+      <dt class="text-muted-foreground">{t("Current locale: \\{{locale}}", { locale })}</dt>
+      <dd>
+        {formatters.date(new Date("2026-10-14T12:00:00Z"))} · {formatters.currency(42.5, "EUR")}
+      </dd>
+    </dl>
+    <div class="flex flex-wrap gap-2">
+      {locales.map((option) => (
+        <button type="button" data-locale={option} class="rounded-md border px-3 py-1 text-sm">
+          {option}
+        </button>
+      ))}
+    </div>
+  </main>
+  <script>
+    for (const button of document.querySelectorAll("button[data-locale]")) {
+      button.addEventListener("click", () => {
+        document.cookie = \`locale=\${button.getAttribute("data-locale")};path=/\`;
+        location.reload();
+      });
+    }
+  </script>
+</Layout>
+`],
+  ["i18n/surface/i18next/electrobun-host/src/bun/i18n-demo.ts.hbs", `import { hostI18n } from "./i18n";
+
+/** Demo payload rendered by the host process (logs, native menus, tray). */
+export function renderI18nDemo() {
+  const { locale, t, format } = hostI18n();
+  return {
+    locale,
+    heading: t("i18n demo"),
+    greeting: t("Hello, \\{{name}}!", { name: "Ada" }),
+    plural: t("You have \\{{count}} new message", { count: 2 }),
+    language: format.displayName(locale) ?? locale,
+    date: format.date(new Date("2026-10-14T12:00:00Z")),
+    currency: format.currency(42.5, "EUR"),
+  };
+}
+`],
+  ["i18n/surface/i18next/electrobun-host/src/bun/i18n.ts.hbs", `// Bun main-process glue for i18next. The webview uses the same catalogs
+// through \`@{{projectName}}/i18n/runtime\`; the host negotiates from the system.
+import { createFormatters, negotiateLocale } from "@{{projectName}}/i18n";
+import { createI18next } from "@{{projectName}}/i18n/runtime";
+import type { Locale } from "@{{projectName}}/i18n";
+
+export function hostI18n(locale: Locale = negotiateLocale({ system: process.env.LANG })) {
+  const instance = createI18next(locale);
+  return {
+    locale,
+    t: instance.getFixedT(locale),
+    format: createFormatters(locale),
+  };
+}
+`],
+  ["i18n/surface/i18next/native/app/i18n-demo.tsx.hbs", `import { isLocale, locales, sourceLocale } from "@{{projectName}}/i18n";
+import { useTranslation } from "react-i18next";
+import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+
+import { setLocale, useFormat } from "@/lib/i18n";
+
+export default function I18nDemoScreen() {
+  const { t, i18n } = useTranslation();
+  const resolved = i18n.resolvedLanguage ?? "";
+  const locale = isLocale(resolved) ? resolved : sourceLocale;
+  const formatters = useFormat();
+  const count = 2;
+
+  return (
+    <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
+      <Text style={styles.heading}>{t("i18n demo")}</Text>
+      <Text style={styles.body}>{t("Hello, \\{{name}}!", { name: "Ada" })}</Text>
+      <Text style={styles.body}>{t("You have \\{{count}} new message", { count })}</Text>
+      <View style={styles.row}>
+        <Text style={styles.label}>{t("Language")}</Text>
+        <Text style={styles.body}>{formatters.displayName(locale) ?? locale}</Text>
+      </View>
+      <View style={styles.row}>
+        <Text style={styles.label}>{t("Current locale: \\{{locale}}", { locale })}</Text>
+        <Text style={styles.body}>
+          {formatters.date(new Date("2026-10-14T12:00:00Z"))} · {formatters.currency(42.5, "EUR")}
+        </Text>
+      </View>
+      <View style={styles.switcher}>
+        {locales.map((option) => (
+          <Pressable key={option} style={styles.button} onPress={() => void setLocale(option)}>
+            <Text style={styles.buttonLabel}>{option}</Text>
+          </Pressable>
+        ))}
+      </View>
+    </ScrollView>
+  );
+}
+
+const styles = StyleSheet.create({
+  screen: { flex: 1 },
+  content: { gap: 12, padding: 16 },
+  heading: { fontSize: 20, fontWeight: "600" },
+  body: { fontSize: 14 },
+  label: { fontSize: 14, opacity: 0.6 },
+  row: { flexDirection: "row", justifyContent: "space-between", gap: 12 },
+  switcher: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  button: { borderWidth: 1, borderColor: "#888", borderRadius: 6, paddingHorizontal: 12, paddingVertical: 6 },
+  buttonLabel: { fontSize: 14 },
+});
+`],
+  ["i18n/surface/i18next/native/lib/i18n.ts.hbs", `// Registers the shared i18next runtime with react-i18next for React Native.
+import { createFormatters, isLocale, sourceLocale } from "@{{projectName}}/i18n";
+import { i18next, initI18next } from "@{{projectName}}/i18n/runtime";
+import { useMemo } from "react";
+import { initReactI18next, useTranslation } from "react-i18next";
+
+i18next.use(initReactI18next);
+initI18next();
+
+export { currentLocale, i18next, setLocale } from "@{{projectName}}/i18n/runtime";
+
+/** Date, number and currency formatters for the active locale. */
+export function useFormat() {
+  const { i18n } = useTranslation();
+  const resolved = i18n.resolvedLanguage ?? "";
+  const locale = isLocale(resolved) ? resolved : sourceLocale;
+  return useMemo(() => createFormatters(locale), [locale]);
+}
+`],
+  ["i18n/surface/i18next/next/src/app/i18n-demo/page.tsx.hbs", `"use client";
+
+import { isLocale, locales, sourceLocale } from "@{{projectName}}/i18n";
+import { useTranslation } from "react-i18next";
+
+import { setLocale, useFormat } from "@/i18n";
+
+export default function I18nDemoPage() {
+  const { t, i18n } = useTranslation();
+  const resolved = i18n.resolvedLanguage ?? "";
+  const locale = isLocale(resolved) ? resolved : sourceLocale;
+  const formatters = useFormat();
+  const count = 2;
+
+  return (
+    <main className="container mx-auto max-w-2xl space-y-4 px-4 py-10">
+      <h1 className="text-2xl font-semibold">{t("i18n demo")}</h1>
+      <p>{t("Hello, \\{{name}}!", { name: "Ada" })}</p>
+      <p>{t("You have \\{{count}} new message", { count })}</p>
+      <dl className="grid grid-cols-2 gap-2 text-sm">
+        <dt className="text-muted-foreground">{t("Language")}</dt>
+        <dd>{formatters.displayName(locale) ?? locale}</dd>
+        <dt className="text-muted-foreground">
+          {t("Current locale: \\{{locale}}", { locale })}
+        </dt>
+        <dd>
+          {formatters.date(new Date("2026-10-14T12:00:00Z"))} ·{" "}
+          {formatters.currency(42.5, "EUR")}
+        </dd>
+      </dl>
+      <div className="flex flex-wrap gap-2">
+        {locales.map((option) => (
+          <button
+            key={option}
+            type="button"
+            className="rounded-md border px-3 py-1 text-sm"
+            onClick={() => void setLocale(option)}
+          >
+            {option}
+          </button>
+        ))}
+      </div>
+    </main>
+  );
+}
+`],
+  ["i18n/surface/i18next/next/src/i18n.ts.hbs", `"use client";
+
+// Registers the i18next runtime (packages/i18n) with react-i18next. Import
+// this module from any component that uses \`useTranslation\`.
+import { createFormatters, isLocale, sourceLocale } from "@{{projectName}}/i18n";
+import { i18next, initI18next } from "@{{projectName}}/i18n/runtime";
+import { useMemo } from "react";
+import { initReactI18next, useTranslation } from "react-i18next";
+
+i18next.use(initReactI18next);
+initI18next();
+
+export { currentLocale, i18next, setLocale } from "@{{projectName}}/i18n/runtime";
+
+/** Date, number, currency and list formatters for the active locale. */
+export function useFormat() {
+  const { i18n } = useTranslation();
+  const resolved = i18n.resolvedLanguage ?? "";
+  const locale = isLocale(resolved) ? resolved : sourceLocale;
+  return useMemo(() => createFormatters(locale), [locale]);
+}
+`],
+  ["i18n/surface/i18next/nuxt/app/composables/use-format.ts.hbs", `// Vue composable glue (D4): reactive \`Intl\` formatters for the active locale.
+import { createFormatters } from "@{{projectName}}/i18n";
+import { currentLocale, i18next } from "@{{projectName}}/i18n/runtime";
+import type { Locale } from "@{{projectName}}/i18n";
+import { computed, onScopeDispose, ref } from "vue";
+
+export function useFormat() {
+  const locale = ref<Locale>(currentLocale());
+  const sync = () => {
+    locale.value = currentLocale();
+  };
+  i18next.on("languageChanged", sync);
+  onScopeDispose(() => {
+    i18next.off("languageChanged", sync);
+  });
+  return computed(() => createFormatters(locale.value));
+}
+`],
+  ["i18n/surface/i18next/nuxt/app/pages/i18n-demo.vue.hbs", `<script setup lang="ts">
+import { isLocale, locales } from "@{{projectName}}/i18n";
+import { currentLocale, setLocale } from "@{{projectName}}/i18n/runtime";
+import { useTranslation } from "i18next-vue";
+import { computed, onUnmounted, ref } from "vue";
+import { useFormat } from "~/composables/use-format";
+
+const { t, i18next } = useTranslation();
+const locale = ref(currentLocale());
+const syncLocale = () => {
+  locale.value = currentLocale();
+};
+i18next.on("languageChanged", syncLocale);
+onUnmounted(() => {
+  i18next.off("languageChanged", syncLocale);
+});
+
+const formatters = useFormat();
+const languageName = computed(() => formatters.value.displayName(locale.value) ?? locale.value);
+const count = 2;
+
+function changeLocale(option: string) {
+  if (isLocale(option)) void setLocale(option);
+}
+</script>
+
+<template>
+  <main class="container mx-auto max-w-2xl space-y-4 px-4 py-10">
+    <h1 class="text-2xl font-semibold">\\{{ t("i18n demo") }}</h1>
+    <p>\\{{ t("Hello, \\{{name}}!", { name: "Ada" }) }}</p>
+    <p>\\{{ t("You have \\{{count}} new message", { count }) }}</p>
+    <dl class="grid grid-cols-2 gap-2 text-sm">
+      <dt class="text-muted-foreground">\\{{ t("Language") }}</dt>
+      <dd>\\{{ languageName }}</dd>
+      <dt class="text-muted-foreground">\\{{ t("Current locale: \\{{locale}}", { locale }) }}</dt>
+      <dd>
+        \\{{ formatters.date(new Date("2026-10-14T12:00:00Z")) }} ·
+        \\{{ formatters.currency(42.5, "EUR") }}
+      </dd>
+    </dl>
+    <div class="flex flex-wrap gap-2">
+      <button
+        v-for="option in locales"
+        :key="option"
+        type="button"
+        class="rounded-md border px-3 py-1 text-sm"
+        @click="changeLocale(option)"
+      >
+        \\{{ option }}
+      </button>
+    </div>
+  </main>
+</template>
+`],
+  ["i18n/surface/i18next/nuxt/app/plugins/i18n.ts.hbs", `// Registers the shared i18next instance with the i18next-vue plugin. Templates
+// get \`$t\`; components can use \`useTranslation()\` from \`i18next-vue\`.
+import { initI18next } from "@{{projectName}}/i18n/runtime";
+import I18NextVue from "i18next-vue";
+
+export default defineNuxtPlugin((nuxtApp) => {
+  nuxtApp.vueApp.use(I18NextVue, { i18next: initI18next() });
+});
+`],
+  ["i18n/surface/i18next/opentui-core/src/i18n-demo.ts.hbs", `import { createFormatters, negotiateLocale } from "@{{projectName}}/i18n";
+import { createI18next } from "@{{projectName}}/i18n/runtime";
+import type { Locale } from "@{{projectName}}/i18n";
+
+/** Demo payload for the TUI host: the shared messages and formatters. */
+export function renderI18nDemo(locale: Locale = negotiateLocale({ system: process.env.LANG })) {
+  const t = createI18next(locale).getFixedT(locale);
+  const format = createFormatters(locale);
+  return {
+    locale,
+    heading: t("i18n demo"),
+    greeting: t("Hello, \\{{name}}!", { name: "Ada" }),
+    plural: t("You have \\{{count}} new message", { count: 2 }),
+    language: format.displayName(locale) ?? locale,
+    date: format.date(new Date("2026-10-14T12:00:00Z")),
+    currency: format.currency(42.5, "EUR"),
+  };
+}
+`],
+  ["i18n/surface/i18next/opentui-core/src/i18n.ts.hbs", `// OpenTUI (core) glue for i18next: the shared instance plus a
+// \`translate\` helper for the terminal UI.
+import { initI18next } from "@{{projectName}}/i18n/runtime";
+import type { TOptions } from "i18next";
+
+const i18next = initI18next();
+
+export const translate = (id: string, options?: TOptions): string =>
+  i18next.t(id, options);
+
+export { i18next, setLocale } from "@{{projectName}}/i18n/runtime";
+`],
+  ["i18n/surface/i18next/opentui-react/src/i18n-demo.ts.hbs", `import { createFormatters, negotiateLocale } from "@{{projectName}}/i18n";
+import { createI18next } from "@{{projectName}}/i18n/runtime";
+import type { Locale } from "@{{projectName}}/i18n";
+
+/** Demo payload for the TUI host: the shared messages and formatters. */
+export function renderI18nDemo(locale: Locale = negotiateLocale({ system: process.env.LANG })) {
+  const t = createI18next(locale).getFixedT(locale);
+  const format = createFormatters(locale);
+  return {
+    locale,
+    heading: t("i18n demo"),
+    greeting: t("Hello, \\{{name}}!", { name: "Ada" }),
+    plural: t("You have \\{{count}} new message", { count: 2 }),
+    language: format.displayName(locale) ?? locale,
+    date: format.date(new Date("2026-10-14T12:00:00Z")),
+    currency: format.currency(42.5, "EUR"),
+  };
+}
+`],
+  ["i18n/surface/i18next/opentui-react/src/i18n.ts.hbs", `// OpenTUI (React) glue for i18next: registers the shared instance with
+// react-i18next. Import from any entrypoint that renders React.
+import { createFormatters, isLocale, sourceLocale } from "@{{projectName}}/i18n";
+import { i18next, initI18next } from "@{{projectName}}/i18n/runtime";
+import { useMemo } from "react";
+import { initReactI18next, useTranslation } from "react-i18next";
+
+i18next.use(initReactI18next);
+initI18next();
+
+export { i18next, setLocale } from "@{{projectName}}/i18n/runtime";
+
+/** Date, number and currency formatters for the active locale. */
+export function useFormat() {
+  const { i18n } = useTranslation();
+  const resolved = i18n.resolvedLanguage ?? "";
+  const locale = isLocale(resolved) ? resolved : sourceLocale;
+  return useMemo(() => createFormatters(locale), [locale]);
+}
+`],
+  ["i18n/surface/i18next/opentui-solid/src/i18n-demo.ts.hbs", `import { createFormatters, negotiateLocale } from "@{{projectName}}/i18n";
+import { createI18next } from "@{{projectName}}/i18n/runtime";
+import type { Locale } from "@{{projectName}}/i18n";
+
+/** Demo payload for the TUI host: the shared messages and formatters. */
+export function renderI18nDemo(locale: Locale = negotiateLocale({ system: process.env.LANG })) {
+  const t = createI18next(locale).getFixedT(locale);
+  const format = createFormatters(locale);
+  return {
+    locale,
+    heading: t("i18n demo"),
+    greeting: t("Hello, \\{{name}}!", { name: "Ada" }),
+    plural: t("You have \\{{count}} new message", { count: 2 }),
+    language: format.displayName(locale) ?? locale,
+    date: format.date(new Date("2026-10-14T12:00:00Z")),
+    currency: format.currency(42.5, "EUR"),
+  };
+}
+`],
+  ["i18n/surface/i18next/opentui-solid/src/lib/i18n.tsx.hbs", `// OpenTUI (Solid) glue for i18next: the shipped Solid primitive (locale
+// signal, reactive translator, locale switcher).
+import { isLocale, sourceLocale } from "@{{projectName}}/i18n";
+import { initI18next, setLocale as applyLocale } from "@{{projectName}}/i18n/runtime";
+import type { Locale } from "@{{projectName}}/i18n";
+import type { TOptions } from "i18next";
+import { createSignal } from "solid-js";
+
+const i18next = initI18next();
+
+function resolvedLocale(): Locale {
+  const resolved = i18next.resolvedLanguage ?? "";
+  return isLocale(resolved) ? resolved : sourceLocale;
+}
+
+const [locale, setLocaleSignal] = createSignal<Locale>(resolvedLocale());
+
+i18next.on("languageChanged", () => {
+  setLocaleSignal(resolvedLocale());
+});
+
+export function createI18n() {
+  return {
+    locale,
+    translate: (id: string, options?: TOptions) => i18next.getFixedT(locale())(id, options),
+    changeLocale: (next: Locale) => applyLocale(next),
+  };
+}
+`],
+  ["i18n/surface/i18next/react-router/src/i18n.ts.hbs", `"use client";
+
+// Registers the i18next runtime (packages/i18n) with react-i18next. Import
+// this module from any component that uses \`useTranslation\`.
+import { createFormatters, isLocale, sourceLocale } from "@{{projectName}}/i18n";
+import { i18next, initI18next } from "@{{projectName}}/i18n/runtime";
+import { useMemo } from "react";
+import { initReactI18next, useTranslation } from "react-i18next";
+
+i18next.use(initReactI18next);
+initI18next();
+
+export { currentLocale, i18next, setLocale } from "@{{projectName}}/i18n/runtime";
+
+/** Date, number, currency and list formatters for the active locale. */
+export function useFormat() {
+  const { i18n } = useTranslation();
+  const resolved = i18n.resolvedLanguage ?? "";
+  const locale = isLocale(resolved) ? resolved : sourceLocale;
+  return useMemo(() => createFormatters(locale), [locale]);
+}
+`],
+  ["i18n/surface/i18next/react-router/src/routes/i18n-demo.tsx.hbs", `import { isLocale, locales, sourceLocale } from "@{{projectName}}/i18n";
+import { useTranslation } from "react-i18next";
+
+import { setLocale, useFormat } from "@/i18n";
+
+export function meta() {
+  return [{ title: "i18n demo" }];
+}
+
+export default function I18nDemo() {
+  const { t, i18n } = useTranslation();
+  const resolved = i18n.resolvedLanguage ?? "";
+  const locale = isLocale(resolved) ? resolved : sourceLocale;
+  const formatters = useFormat();
+  const count = 2;
+
+  return (
+    <main className="container mx-auto max-w-2xl space-y-4 px-4 py-10">
+      <h1 className="text-2xl font-semibold">{t("i18n demo")}</h1>
+      <p>{t("Hello, \\{{name}}!", { name: "Ada" })}</p>
+      <p>{t("You have \\{{count}} new message", { count })}</p>
+      <dl className="grid grid-cols-2 gap-2 text-sm">
+        <dt className="text-muted-foreground">{t("Language")}</dt>
+        <dd>{formatters.displayName(locale) ?? locale}</dd>
+        <dt className="text-muted-foreground">
+          {t("Current locale: \\{{locale}}", { locale })}
+        </dt>
+        <dd>
+          {formatters.date(new Date("2026-10-14T12:00:00Z"))} ·{" "}
+          {formatters.currency(42.5, "EUR")}
+        </dd>
+      </dl>
+      <div className="flex flex-wrap gap-2">
+        {locales.map((option) => (
+          <button
+            key={option}
+            type="button"
+            className="rounded-md border px-3 py-1 text-sm"
+            onClick={() => void setLocale(option)}
+          >
+            {option}
+          </button>
+        ))}
+      </div>
+    </main>
+  );
+}
+`],
+  ["i18n/surface/i18next/server/src/i18n-demo.ts.hbs", `import type { Locale } from "@{{projectName}}/i18n";
+
+import { createRequestI18n } from "./i18n";
+
+/** Demo payload for the shared formatters and messages; the routing lane can
+ * serve it from a \`/i18n-demo\` route. */
+export function renderI18nDemo(locale?: Locale) {
+  const { locale: active, t, format } = createRequestI18n(locale);
+  return {
+    locale: active,
+    heading: t("i18n demo"),
+    greeting: t("Hello, \\{{name}}!", { name: "Ada" }),
+    plural: t("You have \\{{count}} new message", { count: 2 }),
+    language: format.displayName(active) ?? active,
+    date: format.date(new Date("2026-10-14T12:00:00Z")),
+    currency: format.currency(42.5, "EUR"),
+  };
+}
+`],
+  ["i18n/surface/i18next/server/src/i18n.ts.hbs", `// Server glue for i18next: a request-scoped translator. The locale middleware
+// (routing lane) wraps requests in \`runWithLocale\`; \`getRequestLocale()\` reads
+// the negotiated locale back synchronously.
+import { createFormatters } from "@{{projectName}}/i18n";
+import { createI18next } from "@{{projectName}}/i18n/runtime";
+import { getRequestLocale } from "@{{projectName}}/i18n/server";
+import type { Locale } from "@{{projectName}}/i18n";
+
+export function createRequestI18n(locale: Locale = getRequestLocale()) {
+  const instance = createI18next(locale);
+  return {
+    locale,
+    t: instance.getFixedT(locale),
+    format: createFormatters(locale),
+  };
+}
+`],
+  ["i18n/surface/i18next/solid/src/lib/i18n.tsx.hbs", `// Solid primitive glue for i18next (shipped with the adapter): a factory that
+// returns a locale signal, a reactive translator and a locale switcher.
+import { createFormatters, isLocale, sourceLocale } from "@{{projectName}}/i18n";
+import { initI18next, setLocale as applyLocale } from "@{{projectName}}/i18n/runtime";
+import type { Locale } from "@{{projectName}}/i18n";
+import type { TOptions } from "i18next";
+import { createMemo, createSignal } from "solid-js";
+
+const i18next = initI18next();
+
+function resolvedLocale(): Locale {
+  const resolved = i18next.resolvedLanguage ?? "";
+  return isLocale(resolved) ? resolved : sourceLocale;
+}
+
+const [locale, setLocaleSignal] = createSignal<Locale>(resolvedLocale());
+
+i18next.on("languageChanged", () => {
+  setLocaleSignal(resolvedLocale());
+});
+
+export function createI18n() {
+  return {
+    locale,
+    translate: (id: string, options?: TOptions) => i18next.getFixedT(locale())(id, options),
+    /** Date, number, currency and list formatters for the active locale. */
+    format: createMemo(() => createFormatters(locale())),
+    changeLocale: (next: Locale) => applyLocale(next),
+  };
+}
+`],
+  ["i18n/surface/i18next/solid/src/routes/i18n-demo.tsx.hbs", `import { locales } from "@{{projectName}}/i18n";
+import { For } from "solid-js";
+
+import { createI18n } from "~/lib/i18n";
+
+export default function I18nDemo() {
+  const { locale, translate, format, changeLocale } = createI18n();
+  const count = 2;
+
+  return (
+    <main class="container mx-auto max-w-2xl space-y-4 px-4 py-10">
+      <h1 class="text-2xl font-semibold">{translate("i18n demo")}</h1>
+      <p>{translate("Hello, \\{{name}}!", { name: "Ada" })}</p>
+      <p>{translate("You have \\{{count}} new message", { count })}</p>
+      <dl class="grid grid-cols-2 gap-2 text-sm">
+        <dt class="text-muted-foreground">{translate("Language")}</dt>
+        <dd>{format().displayName(locale()) ?? locale()}</dd>
+        <dt class="text-muted-foreground">
+          {translate("Current locale: \\{{locale}}", { locale: locale() })}
+        </dt>
+        <dd>
+          {format().date(new Date("2026-10-14T12:00:00Z"))} ·{" "}
+          {format().currency(42.5, "EUR")}
+        </dd>
+      </dl>
+      <div class="flex flex-wrap gap-2">
+        <For each={[...locales]}>
+          {(option) => (
+            <button
+              type="button"
+              class="rounded-md border px-3 py-1 text-sm"
+              onClick={() => void changeLocale(option)}
+            >
+              {option}
+            </button>
+          )}
+        </For>
+      </div>
+    </main>
+  );
+}
+`],
+  ["i18n/surface/i18next/svelte/src/lib/i18n.ts.hbs", `// Svelte store glue for i18next (shipped with the adapter): the shared
+// instance plus a \`locale\` store that components subscribe to with \`$locale\`.
+import { createFormatters, isLocale, sourceLocale } from "@{{projectName}}/i18n";
+import { initI18next, setLocale } from "@{{projectName}}/i18n/runtime";
+import type { Locale } from "@{{projectName}}/i18n";
+import { derived, writable } from "svelte/store";
+
+const i18next = initI18next();
+
+function resolvedLocale(): Locale {
+  const resolved = i18next.resolvedLanguage ?? "";
+  return isLocale(resolved) ? resolved : sourceLocale;
+}
+
+export const locale = writable<Locale>(resolvedLocale());
+
+i18next.on("languageChanged", () => {
+  locale.set(resolvedLocale());
+});
+
+/** Date, number, currency and list formatters (\`$format\` in components). */
+export const format = derived(locale, ($locale) => createFormatters($locale));
+
+export function changeLocale(next: Locale) {
+  return setLocale(next);
+}
+
+export { i18next };
+`],
+  ["i18n/surface/i18next/svelte/src/routes/i18n-demo/+page.svelte.hbs", `<script lang="ts">
+  import { locales } from "@{{projectName}}/i18n";
+  import { changeLocale, format, i18next, locale } from "#lib/i18n.ts";
+
+  const t = $derived(i18next.getFixedT($locale));
+  const formatters = $format;
+  const count = 2;
+</script>
+
+<main class="container mx-auto max-w-2xl space-y-4 px-4 py-10">
+  <h1 class="text-2xl font-semibold">{t("i18n demo")}</h1>
+  <p>{t("Hello, \\{{name}}!", { name: "Ada" })}</p>
+  <p>{t("You have \\{{count}} new message", { count })}</p>
+  <dl class="grid grid-cols-2 gap-2 text-sm">
+    <dt class="text-muted-foreground">{t("Language")}</dt>
+    <dd>{formatters.displayName($locale) ?? $locale}</dd>
+    <dt class="text-muted-foreground">{t("Current locale: \\{{locale}}", { locale: $locale })}</dt>
+    <dd>
+      {formatters.date(new Date("2026-10-14T12:00:00Z"))} · {formatters.currency(42.5, "EUR")}
+    </dd>
+  </dl>
+  <div class="flex flex-wrap gap-2">
+    {#each locales as option (option)}
+      <button
+        type="button"
+        class="rounded-md border px-3 py-1 text-sm"
+        onclick={() => void changeLocale(option)}
+      >
+        {option}
+      </button>
+    {/each}
+  </div>
+</main>
+`],
+  ["i18n/surface/i18next/tanstack-router/src/i18n.ts.hbs", `"use client";
+
+// Registers the i18next runtime (packages/i18n) with react-i18next. Import
+// this module from any component that uses \`useTranslation\`.
+import { createFormatters, isLocale, sourceLocale } from "@{{projectName}}/i18n";
+import { i18next, initI18next } from "@{{projectName}}/i18n/runtime";
+import { useMemo } from "react";
+import { initReactI18next, useTranslation } from "react-i18next";
+
+i18next.use(initReactI18next);
+initI18next();
+
+export { currentLocale, i18next, setLocale } from "@{{projectName}}/i18n/runtime";
+
+/** Date, number, currency and list formatters for the active locale. */
+export function useFormat() {
+  const { i18n } = useTranslation();
+  const resolved = i18n.resolvedLanguage ?? "";
+  const locale = isLocale(resolved) ? resolved : sourceLocale;
+  return useMemo(() => createFormatters(locale), [locale]);
+}
+`],
+  ["i18n/surface/i18next/tanstack-router/src/routes/i18n-demo.tsx.hbs", `import { createFileRoute } from "@tanstack/react-router";
+import { isLocale, locales, sourceLocale } from "@{{projectName}}/i18n";
+import { useTranslation } from "react-i18next";
+
+import { setLocale, useFormat } from "@/i18n";
+
+export const Route = createFileRoute("/i18n-demo")({
+  component: I18nDemo,
+});
+
+function I18nDemo() {
+  const { t, i18n } = useTranslation();
+  const resolved = i18n.resolvedLanguage ?? "";
+  const locale = isLocale(resolved) ? resolved : sourceLocale;
+  const formatters = useFormat();
+  const count = 2;
+
+  return (
+    <main className="container mx-auto max-w-2xl space-y-4 px-4 py-10">
+      <h1 className="text-2xl font-semibold">{t("i18n demo")}</h1>
+      <p>{t("Hello, \\{{name}}!", { name: "Ada" })}</p>
+      <p>{t("You have \\{{count}} new message", { count })}</p>
+      <dl className="grid grid-cols-2 gap-2 text-sm">
+        <dt className="text-muted-foreground">{t("Language")}</dt>
+        <dd>{formatters.displayName(locale) ?? locale}</dd>
+        <dt className="text-muted-foreground">
+          {t("Current locale: \\{{locale}}", { locale })}
+        </dt>
+        <dd>
+          {formatters.date(new Date("2026-10-14T12:00:00Z"))} ·{" "}
+          {formatters.currency(42.5, "EUR")}
+        </dd>
+      </dl>
+      <div className="flex flex-wrap gap-2">
+        {locales.map((option) => (
+          <button
+            key={option}
+            type="button"
+            className="rounded-md border px-3 py-1 text-sm"
+            onClick={() => void setLocale(option)}
+          >
+            {option}
+          </button>
+        ))}
+      </div>
+    </main>
+  );
+}
+`],
+  ["i18n/surface/i18next/tanstack-start/src/i18n.ts.hbs", `"use client";
+
+// Registers the i18next runtime (packages/i18n) with react-i18next. Import
+// this module from any component that uses \`useTranslation\`.
+import { createFormatters, isLocale, sourceLocale } from "@{{projectName}}/i18n";
+import { i18next, initI18next } from "@{{projectName}}/i18n/runtime";
+import { useMemo } from "react";
+import { initReactI18next, useTranslation } from "react-i18next";
+
+i18next.use(initReactI18next);
+initI18next();
+
+export { currentLocale, i18next, setLocale } from "@{{projectName}}/i18n/runtime";
+
+/** Date, number, currency and list formatters for the active locale. */
+export function useFormat() {
+  const { i18n } = useTranslation();
+  const resolved = i18n.resolvedLanguage ?? "";
+  const locale = isLocale(resolved) ? resolved : sourceLocale;
+  return useMemo(() => createFormatters(locale), [locale]);
+}
+`],
+  ["i18n/surface/i18next/tanstack-start/src/routes/i18n-demo.tsx.hbs", `import { createFileRoute } from "@tanstack/react-router";
+import { isLocale, locales, sourceLocale } from "@{{projectName}}/i18n";
+import { useTranslation } from "react-i18next";
+
+import { setLocale, useFormat } from "@/i18n";
+
+export const Route = createFileRoute("/i18n-demo")({
+  component: I18nDemo,
+});
+
+function I18nDemo() {
+  const { t, i18n } = useTranslation();
+  const resolved = i18n.resolvedLanguage ?? "";
+  const locale = isLocale(resolved) ? resolved : sourceLocale;
+  const formatters = useFormat();
+  const count = 2;
+
+  return (
+    <main className="container mx-auto max-w-2xl space-y-4 px-4 py-10">
+      <h1 className="text-2xl font-semibold">{t("i18n demo")}</h1>
+      <p>{t("Hello, \\{{name}}!", { name: "Ada" })}</p>
+      <p>{t("You have \\{{count}} new message", { count })}</p>
+      <dl className="grid grid-cols-2 gap-2 text-sm">
+        <dt className="text-muted-foreground">{t("Language")}</dt>
+        <dd>{formatters.displayName(locale) ?? locale}</dd>
+        <dt className="text-muted-foreground">
+          {t("Current locale: \\{{locale}}", { locale })}
+        </dt>
+        <dd>
+          {formatters.date(new Date("2026-10-14T12:00:00Z"))} ·{" "}
+          {formatters.currency(42.5, "EUR")}
+        </dd>
+      </dl>
+      <div className="flex flex-wrap gap-2">
+        {locales.map((option) => (
+          <button
+            key={option}
+            type="button"
+            className="rounded-md border px-3 py-1 text-sm"
+            onClick={() => void setLocale(option)}
+          >
+            {option}
+          </button>
+        ))}
+      </div>
+    </main>
+  );
+}
+`],
+  ["i18n/surface/i18next/wxt-react/lib/i18n-demo.ts.hbs", `import { createFormatters, negotiateLocale } from "@{{projectName}}/i18n";
+import { createI18next } from "@{{projectName}}/i18n/runtime";
+import type { Locale } from "@{{projectName}}/i18n";
+
+/** Demo payload for extension entrypoints: the shared messages and formatters. */
+export function renderI18nDemo(locale: Locale = negotiateLocale()) {
+  const t = createI18next(locale).getFixedT(locale);
+  const format = createFormatters(locale);
+  return {
+    locale,
+    heading: t("i18n demo"),
+    greeting: t("Hello, \\{{name}}!", { name: "Ada" }),
+    plural: t("You have \\{{count}} new message", { count: 2 }),
+    language: format.displayName(locale) ?? locale,
+    date: format.date(new Date("2026-10-14T12:00:00Z")),
+    currency: format.currency(42.5, "EUR"),
+  };
+}
+`],
+  ["i18n/surface/i18next/wxt-react/lib/i18n.ts.hbs", `// WXT (React) glue for i18next: registers the shared instance with
+// react-i18next. Import from any entrypoint that renders React.
+import { createFormatters, isLocale, sourceLocale } from "@{{projectName}}/i18n";
+import { i18next, initI18next } from "@{{projectName}}/i18n/runtime";
+import { useMemo } from "react";
+import { initReactI18next, useTranslation } from "react-i18next";
+
+i18next.use(initReactI18next);
+initI18next();
+
+export { i18next, setLocale } from "@{{projectName}}/i18n/runtime";
+
+/** Date, number and currency formatters for the active locale. */
+export function useFormat() {
+  const { i18n } = useTranslation();
+  const resolved = i18n.resolvedLanguage ?? "";
+  const locale = isLocale(resolved) ? resolved : sourceLocale;
+  return useMemo(() => createFormatters(locale), [locale]);
+}
+`],
+  ["i18n/surface/i18next/wxt-solid/lib/i18n-demo.ts.hbs", `import { createFormatters, negotiateLocale } from "@{{projectName}}/i18n";
+import { createI18next } from "@{{projectName}}/i18n/runtime";
+import type { Locale } from "@{{projectName}}/i18n";
+
+/** Demo payload for extension entrypoints: the shared messages and formatters. */
+export function renderI18nDemo(locale: Locale = negotiateLocale()) {
+  const t = createI18next(locale).getFixedT(locale);
+  const format = createFormatters(locale);
+  return {
+    locale,
+    heading: t("i18n demo"),
+    greeting: t("Hello, \\{{name}}!", { name: "Ada" }),
+    plural: t("You have \\{{count}} new message", { count: 2 }),
+    language: format.displayName(locale) ?? locale,
+    date: format.date(new Date("2026-10-14T12:00:00Z")),
+    currency: format.currency(42.5, "EUR"),
+  };
+}
+`],
+  ["i18n/surface/i18next/wxt-solid/lib/i18n.tsx.hbs", `// Solid primitive glue for i18next (shipped with the adapter): a factory that
+// returns a locale signal, a reactive translator and a locale switcher.
+import { createFormatters, isLocale, sourceLocale } from "@{{projectName}}/i18n";
+import { initI18next, setLocale as applyLocale } from "@{{projectName}}/i18n/runtime";
+import type { Locale } from "@{{projectName}}/i18n";
+import type { TOptions } from "i18next";
+import { createMemo, createSignal } from "solid-js";
+
+const i18next = initI18next();
+
+function resolvedLocale(): Locale {
+  const resolved = i18next.resolvedLanguage ?? "";
+  return isLocale(resolved) ? resolved : sourceLocale;
+}
+
+const [locale, setLocaleSignal] = createSignal<Locale>(resolvedLocale());
+
+i18next.on("languageChanged", () => {
+  setLocaleSignal(resolvedLocale());
+});
+
+export function createI18n() {
+  return {
+    locale,
+    translate: (id: string, options?: TOptions) => i18next.getFixedT(locale())(id, options),
+    /** Date, number, currency and list formatters for the active locale. */
+    format: createMemo(() => createFormatters(locale())),
+    changeLocale: (next: Locale) => applyLocale(next),
+  };
+}
+`],
+  ["i18n/surface/i18next/wxt-svelte/lib/i18n-demo.ts.hbs", `import { createFormatters, negotiateLocale } from "@{{projectName}}/i18n";
+import { createI18next } from "@{{projectName}}/i18n/runtime";
+import type { Locale } from "@{{projectName}}/i18n";
+
+/** Demo payload for extension entrypoints: the shared messages and formatters. */
+export function renderI18nDemo(locale: Locale = negotiateLocale()) {
+  const t = createI18next(locale).getFixedT(locale);
+  const format = createFormatters(locale);
+  return {
+    locale,
+    heading: t("i18n demo"),
+    greeting: t("Hello, \\{{name}}!", { name: "Ada" }),
+    plural: t("You have \\{{count}} new message", { count: 2 }),
+    language: format.displayName(locale) ?? locale,
+    date: format.date(new Date("2026-10-14T12:00:00Z")),
+    currency: format.currency(42.5, "EUR"),
+  };
+}
+`],
+  ["i18n/surface/i18next/wxt-svelte/lib/i18n.ts.hbs", `// WXT (Svelte) glue for i18next: the shipped store (locale + translator).
+import { isLocale, sourceLocale } from "@{{projectName}}/i18n";
+import { initI18next, setLocale } from "@{{projectName}}/i18n/runtime";
+import type { Locale } from "@{{projectName}}/i18n";
+import { writable } from "svelte/store";
+
+const i18next = initI18next();
+
+function resolvedLocale(): Locale {
+  const resolved = i18next.resolvedLanguage ?? "";
+  return isLocale(resolved) ? resolved : sourceLocale;
+}
+
+export const locale = writable<Locale>(resolvedLocale());
+
+i18next.on("languageChanged", () => {
+  locale.set(resolvedLocale());
+});
+
+export function changeLocale(next: Locale) {
+  return setLocale(next);
+}
+
+export { i18next };
+`],
+  ["i18n/surface/i18next/wxt-vanilla/lib/i18n-demo.ts.hbs", `import { createFormatters, negotiateLocale } from "@{{projectName}}/i18n";
+import { createI18next } from "@{{projectName}}/i18n/runtime";
+import type { Locale } from "@{{projectName}}/i18n";
+
+/** Demo payload for extension entrypoints: the shared messages and formatters. */
+export function renderI18nDemo(locale: Locale = negotiateLocale()) {
+  const t = createI18next(locale).getFixedT(locale);
+  const format = createFormatters(locale);
+  return {
+    locale,
+    heading: t("i18n demo"),
+    greeting: t("Hello, \\{{name}}!", { name: "Ada" }),
+    plural: t("You have \\{{count}} new message", { count: 2 }),
+    language: format.displayName(locale) ?? locale,
+    date: format.date(new Date("2026-10-14T12:00:00Z")),
+    currency: format.currency(42.5, "EUR"),
+  };
+}
+`],
+  ["i18n/surface/i18next/wxt-vanilla/lib/i18n.ts.hbs", `// WXT (vanilla) glue for i18next: the shared instance plus a
+// \`translate\` helper for extension pages and content scripts.
+import { initI18next } from "@{{projectName}}/i18n/runtime";
+import type { TOptions } from "i18next";
+
+const i18next = initI18next();
+
+export const translate = (id: string, options?: TOptions): string =>
+  i18next.t(id, options);
+
+export { i18next, setLocale } from "@{{projectName}}/i18n/runtime";
+`],
+  ["i18n/surface/i18next/wxt-vue/lib/i18n-demo.ts.hbs", `import { createFormatters, negotiateLocale } from "@{{projectName}}/i18n";
+import { createI18next } from "@{{projectName}}/i18n/runtime";
+import type { Locale } from "@{{projectName}}/i18n";
+
+/** Demo payload for extension entrypoints: the shared messages and formatters. */
+export function renderI18nDemo(locale: Locale = negotiateLocale()) {
+  const t = createI18next(locale).getFixedT(locale);
+  const format = createFormatters(locale);
+  return {
+    locale,
+    heading: t("i18n demo"),
+    greeting: t("Hello, \\{{name}}!", { name: "Ada" }),
+    plural: t("You have \\{{count}} new message", { count: 2 }),
+    language: format.displayName(locale) ?? locale,
+    date: format.date(new Date("2026-10-14T12:00:00Z")),
+    currency: format.currency(42.5, "EUR"),
+  };
+}
+`],
+  ["i18n/surface/i18next/wxt-vue/lib/i18n.ts.hbs", `// WXT (Vue) glue for i18next: installs the i18next-vue plugin on the
+// extension's Vue app.
+import { initI18next } from "@{{projectName}}/i18n/runtime";
+import I18NextVue from "i18next-vue";
+import type { App } from "vue";
+
+export function installI18n(app: App) {
+  app.use(I18NextVue, { i18next: initI18next() });
 }
 `],
   ["i18n/surface/lingui/astro/src/components/I18nDemo.astro.hbs", `---
@@ -42600,4 +44372,4 @@ export default function Success() {
 `]
 ]);
 
-export const TEMPLATE_COUNT = 672;
+export const TEMPLATE_COUNT = 722;
