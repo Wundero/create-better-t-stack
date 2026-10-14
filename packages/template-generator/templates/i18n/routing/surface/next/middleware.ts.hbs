@@ -36,6 +36,8 @@ export function middleware(request: NextRequest): NextResponse {
 
   const headers = new Headers(request.headers);
   headers.set(LOCALE_HEADER, locale);
+  // Lets the root layout render hreflang links for the public URL.
+  headers.set("x-pathname", pathname);
 
   let response: NextResponse;
   if (routingStrategy === "prefix" && localeFromPathname(pathname)) {
