@@ -4,6 +4,7 @@ import type { VirtualFileSystem } from "../core/virtual-fs";
 import { processI18nIntegrationTemplates } from "../processors/i18n/integrations";
 import { processI18nRoutingTemplates } from "../processors/i18n/routing";
 import { processI18nRustTemplates } from "../processors/i18n/rust";
+import { processI18nSkillMirror } from "./i18n-skill";
 import { processTemplatesFromPrefix, type TemplateData } from "./utils";
 
 /**
@@ -66,7 +67,12 @@ export async function processI18nTemplates(
   processI18nIntegrationTemplates(vfs, templates, config);
   processI18nRustTemplates(vfs, templates, config);
 
+  // Decision (design D8, spec gates only `i18n-translate`): `i18n-adopt` shares
+  // the single `translateSkill` toggle. Both skills are the agent-driven
+  // translation surface, so `--no-i18n-skill` opts out of both and the user
+  // keeps one knob.
   if (config.i18nOptions?.translateSkill ?? true) {
     processTemplatesFromPrefix(vfs, templates, "i18n/skill", ".agents/skills", config);
+    processI18nSkillMirror(vfs, templates, config);
   }
 }
