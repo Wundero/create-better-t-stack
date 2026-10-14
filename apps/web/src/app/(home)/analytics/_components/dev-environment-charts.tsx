@@ -133,6 +133,16 @@ export function DevToolsSection({ data }: { data: AggregatedAnalyticsData }) {
         ) : null}
       </div>
 
+      {data.i18nDistribution.length > 0 ? (
+        <PreferenceChartCard
+          title="Internationalization"
+          description="How often each i18n library was selected, including none."
+          data={data.i18nDistribution}
+          colorKey="chart5"
+          columnCount={2}
+        />
+      ) : null}
+
       {hasDeploymentOptions ? (
         <div className="grid gap-4 xl:grid-cols-2">
           {webDeployOptions.length > 0 ? (
