@@ -1,0 +1,52 @@
+"use client";
+
+import { createFormatters, isLocale } from "@{{projectName}}/i18n";
+
+import * as m from "../paraglide/messages.js";
+import { getLocale, locales, setLocale } from "../paraglide/runtime.js";
+
+/**
+ * i18n demo: translated heading, interpolation, plural, currency, date and a
+ * locale switcher. Date and currency always come from the shared
+ * `createFormatters` bundle, never from the i18n library.
+ */
+export function I18nDemo() {
+  const locale = getLocale();
+  const formatters = createFormatters(locale);
+
+  return (
+    <section className="rounded-lg border p-4">
+      <h2 className="mb-2 font-medium">{m.i18n_demo_heading()}</h2>
+      <p className="text-sm text-muted-foreground">
+        {m.i18n_demo_interpolation({ name: "Better T Stack" })}
+      </p>
+      <p className="text-sm text-muted-foreground">{m.i18n_demo_plural({ count: 3 })}</p>
+      <dl className="mt-3 grid gap-1 text-sm">
+        <div className="flex gap-2">
+          <dt className="text-muted-foreground">{m.i18n_demo_currency_label()}</dt>
+          <dd>{formatters.currency(19.99, "EUR")}</dd>
+        </div>
+        <div className="flex gap-2">
+          <dt className="text-muted-foreground">{m.i18n_demo_date_label()}</dt>
+          <dd>{formatters.date(new Date("2024-05-01T00:00:00Z"))}</dd>
+        </div>
+      </dl>
+      <label className="mt-3 flex items-center gap-2 text-sm">
+        <span className="text-muted-foreground">{formatters.displayName(locale)}</span>
+        <select
+          className="rounded border bg-transparent px-2 py-1"
+          value={locale}
+          onChange={(event) => {
+            if (isLocale(event.target.value)) void setLocale(event.target.value);
+          }}
+        >
+          {locales.map((available) => (
+            <option key={available} value={available}>
+              {formatters.displayName(available) ?? available}
+            </option>
+          ))}
+        </select>
+      </label>
+    </section>
+  );
+}

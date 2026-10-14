@@ -1,0 +1,48 @@
+/**
+ * `i18n:compile`
+ *
+ * Compiles `project.inlang` with the Paraglide CLI and writes the shared
+ * output to `src/paraglide` (see `project.inlang/paraglide.config.mjs`).
+ *
+ * Vite apps also compile their own output through `paraglideVitePlugin`.
+ * Hosts without a Vite pipeline — server, native, opentui, electrobun — import
+ * the output produced here from `@{{projectName}}/i18n`.
+ */
+
+import { spawnSync } from "node:child_process";
+
+import { resolveFromScript } from "../src/catalogs";
+
+const packageRoot = resolveFromScript(import.meta.url);
+
+export function runCompile(): number {
+  const bunx = process.platform === "win32" ? "bunx.cmd" : "bunx";
+  const result = spawnSync(
+    bunx,
+    ["@inlang/paraglide-js", "compile", "--project", "./project.inlang"],
+    { cwd: packageRoot, stdio: "inherit" },
+  );
+
+  if (result.error) {
+    console.error(`i18n:compile failed to start the Paraglide CLI: ${result.error.message}`);
+    return 1;
+  }
+
+  return result.status ?? 1;
+}
+
+if (import.meta.main) {
+  const compileExitCode = runCompile();
+{{#if (includes addons "tauri")}}
+  // The Tauri crate consumes the normalized catalog; keep it in sync with
+  // every compile (design D7).
+  if (compileExitCode === 0) {
+    const { runExport } = await import("./export");
+    process.exitCode = await runExport();
+  } else {
+    process.exitCode = compileExitCode;
+  }
+{{else}}
+  process.exitCode = compileExitCode;
+{{/if}}
+}
