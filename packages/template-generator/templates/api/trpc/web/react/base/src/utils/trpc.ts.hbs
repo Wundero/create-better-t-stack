@@ -4,6 +4,9 @@ import { createTRPCClient, httpBatchLink } from '@trpc/client';
 import { createTRPCOptionsProxy } from '@trpc/tanstack-react-query';
 import type { AppRouter } from "@{{projectName}}/api/routers/index";
 import { toast } from 'sonner';
+{{#if (and i18n (ne i18n "none"))}}
+import { localeFetch, localeInit } from "@{{projectName}}/i18n/client";
+{{/if}}
 {{#unless (eq backend "self")}}
 
 {{> getServerUrl}}
@@ -39,6 +42,9 @@ const trpcClient = createTRPCClient<AppRouter>({
 			url: `${process.env.NEXT_PUBLIC_SERVER_URL!.replace(/\/$/, "")}/trpc`,
 {{/if}}
 {{/if}}
+{{#if (and i18n (ne i18n "none") (ne auth "better-auth"))}}
+			fetch: localeFetch,
+{{/if}}
 {{#if (eq auth "clerk")}}
 			headers: async () => {
 				if (typeof window !== "undefined") {
@@ -55,10 +61,10 @@ const trpcClient = createTRPCClient<AppRouter>({
 {{/if}}
 {{#if (eq auth "better-auth")}}
 			fetch(url, options) {
-				return fetch(url, {
+				return fetch(url, localeInit({
 					...options,
 					credentials: "include",
-				});
+				}));
 			},
 {{/if}}
 		}),
@@ -84,6 +90,9 @@ import { createTRPCClient, httpBatchLink } from "@trpc/client";
 import { createTRPCOptionsProxy } from "@trpc/tanstack-react-query";
 import { toast } from "sonner";
 import { ENV } from "../env{{#if (eq webDeploy "cloudflare")}}.public{{/if}}";
+{{#if (and i18n (ne i18n "none"))}}
+import { localeFetch, localeInit } from "@{{projectName}}/i18n/client";
+{{/if}}
 {{#if (eq auth "clerk")}}
 import { getClerkAuthToken } from "@/utils/clerk-auth";
 {{/if}}
@@ -113,6 +122,9 @@ export const trpcClient = createTRPCClient<AppRouter>({
 {{else}}
 			url: `${ENV.VITE_SERVER_URL.replace(/\/$/, "")}/trpc`,
 {{/if}}
+{{#if (and i18n (ne i18n "none") (ne auth "better-auth"))}}
+			fetch: localeFetch,
+{{/if}}
 {{#if (eq auth "clerk")}}
 			headers: async () => {
 				const token = await getClerkAuthToken();
@@ -121,10 +133,10 @@ export const trpcClient = createTRPCClient<AppRouter>({
 {{/if}}
 {{#if (eq auth "better-auth")}}
 			fetch(url, options) {
-				return fetch(url, {
+				return fetch(url, localeInit({
 					...options,
 					credentials: "include",
-				});
+				}));
 			},
 {{/if}}
 		}),

@@ -1,0 +1,14 @@
+import { hreflangLinks } from "@{{projectName}}/i18n/routing";
+
+/** D6 SEO: `<link rel="alternate" hreflang>` for the current page. */
+export default defineNuxtPlugin(() => {
+  const url = useRequestURL();
+
+  useHead({
+    link: hreflangLinks(url.pathname, url.origin).map(({ hreflang, href }) => ({
+      rel: "alternate",
+      hreflang,
+      href,
+    })),
+  });
+});

@@ -4,6 +4,9 @@ import { createTanstackQueryUtils } from "@orpc/tanstack-query";
 import { QueryCache, QueryClient } from "@tanstack/react-query";
 import type { AppRouterClient } from "@{{projectName}}/api/routers/index";
 import { ENV } from "../src/env";
+{{#if (and i18n (ne i18n "none"))}}
+import { localeHeader } from "@{{projectName}}/i18n/client";
+{{/if}}
 {{#if (eq auth "better-auth")}}
 import { authClient } from "@/lib/auth-client";
 import { Platform } from "react-native";
@@ -51,23 +54,26 @@ export const link = new RPCLink({
 	},
 	async headers() {
 		if (Platform.OS === "web") {
-			return {};
+			return localeHeader();
 		}
 		const headers = new Map<string, string>();
 		const cookies = await authClient.getCookie();
 		if (cookies) {
 			headers.set("Cookie", cookies);
 		}
-		return Object.fromEntries(headers);
+		return { ...localeHeader(), ...Object.fromEntries(headers) };
 	},
 {{else if (eq auth "clerk")}}
 	headers: async () => {
 		const token = await getClerkAuthToken();
-		return token ? { Authorization: `Bearer ${token}` } : {};
+		return { ...localeHeader(), ...(token ? { Authorization: `Bearer ${token}` } : {}) };
 	},
 	fetch: expoFetch,
 {{else}}
 	fetch: expoFetch,
+{{#if (and i18n (ne i18n "none"))}}
+	headers: () => localeHeader(),
+{{/if}}
 {{/if}}
 });
 

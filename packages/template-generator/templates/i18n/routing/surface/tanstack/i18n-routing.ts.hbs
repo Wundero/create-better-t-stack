@@ -1,0 +1,31 @@
+{{#if (eq i18n "paraglide")}}
+import { deLocalizeUrl, localizeUrl } from "./paraglide/runtime.js";
+{{else}}
+import { sourceLocale } from "@{{projectName}}/i18n/config";
+import { localeFromPathname, localizeHref, stripLocalePrefix } from "@{{projectName}}/i18n/routing";
+{{/if}}
+
+/**
+ * TanStack Router URL rewriting (D6): the router owns URL localization, so
+ * matching sees the internal path (`/about`) while the address bar keeps the
+ * localized one (`/fr/about`). Wired into the router in `router.tsx`.
+ */
+export const i18nRewrite = {
+{{#if (eq i18n "paraglide")}}
+  input: ({ url }: { url: URL }): URL => deLocalizeUrl(url),
+  output: ({ url }: { url: URL }): URL => localizeUrl(url),
+{{else}}
+  input: ({ url }: { url: URL }): URL => {
+    const next = new URL(url);
+    next.pathname = stripLocalePrefix(url.pathname);
+    return next;
+  },
+  output: ({ url }: { url: URL }): URL => {
+    const current =
+      typeof window === "undefined" ? undefined : localeFromPathname(window.location.pathname);
+    const next = new URL(url);
+    next.pathname = localizeHref(url.pathname, current ?? sourceLocale);
+    return next;
+  },
+{{/if}}
+};

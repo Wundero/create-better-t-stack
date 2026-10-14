@@ -12,6 +12,7 @@ import type { VirtualFileSystem } from "../core/virtual-fs";
 import { getDbScriptSupport } from "../utils/db-scripts";
 import { isDatabaseConsumedByDocker } from "../utils/docker-database";
 import { hasI18n } from "../utils/i18n";
+import { sharedRegistrableParent } from "./i18n/routing";
 
 function getDesktopStaticBuildNote(frontend: ProjectConfig["frontend"]): string {
   const staticBuildFrontends = new Map([
@@ -414,10 +415,13 @@ function describeI18nRouting(config: ProjectConfig): string {
   }
 
   if (routing?.strategy === "domain") {
-    const domains = Object.entries(routing.domains ?? {})
-      .map(([locale, host]) => `\`${locale}\` → \`${host}\``)
-      .join(", ");
-    return `Locale routing: **domain**. Each locale maps to its own host${domains ? ` (${domains})` : ""}.`;
+    const entries = Object.entries(routing.domains ?? {});
+    const domains = entries.map(([locale, host]) => `\`${locale}\` → \`${host}\``).join(", ");
+    const parent = sharedRegistrableParent(entries.map(([, host]) => host));
+    const session = parent
+      ? `Better Auth shares one session across the domains through \`advanced.crossSubDomainCookies\` (\`${parent}\`).`
+      : "Each domain keeps its own Better Auth session; users sign in separately per domain.";
+    return `Locale routing: **domain**. Each locale maps to its own host${domains ? ` (${domains})` : ""}. ${session} Register the OAuth callback URL for every domain (\`https://<host>/api/auth/callback/<provider>\`). For local preview, append \`?locale=fr\` on \`localhost\` (or use \`<locale>.<app>.localhost\` with portless).`;
   }
 
   return "Locale routing: **cookie**. The locale is negotiated from the `x-app-locale` header, the `locale` cookie, `Accept-Language`, then the stored or system locale.";

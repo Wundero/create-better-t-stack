@@ -3,6 +3,9 @@ import type { AppRouterClient } from "@{{projectName}}/api/routers/index";
 import { createORPCClient } from '@orpc/client'
 import { RPCLink } from '@orpc/client/fetch'
 import { createTanstackQueryUtils } from "@orpc/tanstack-query";
+{{#if (and i18n (ne i18n "none"))}}
+import { localeHeader, localeInit } from "@{{projectName}}/i18n/client";
+{{/if}}
 
 {{> getServerUrlSpaces}}
 
@@ -16,13 +19,16 @@ export default defineNuxtPlugin(() => {
 
   const rpcLink = new RPCLink({
     url: rpcUrl,
-    headers: import.meta.server ? useRequestHeaders(["cookie"]) : {},
+    headers: () => ({
+      ...localeHeader(),
+      ...(import.meta.server ? useRequestHeaders(["cookie"]) : {}),
+    }),
     {{#if (eq auth "better-auth")}}
     fetch(url, options) {
-        return fetch(url, {
+        return fetch(url, localeInit({
         ...options,
         credentials: "include",
-        });
+        }));
     },
     {{/if}}
   })
