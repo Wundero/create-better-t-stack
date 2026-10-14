@@ -60,10 +60,10 @@ Surface order for each library: next → tanstack-start → server (incl. nitro)
 
 For each library, the subtasks are: runtime, catalogs, the extract/compile/pending/apply/check/export scripts, surface glue for every non-unsupported surface, the demo, and the ICU export round-trip test.
 
-- [ ] 5.1 Lingui, including the Bun preload macro plugin for Bun hosts and the custom Rust extractor hook.
-- [ ] 5.2 Paraglide, including `outdir` and ignore patterns per app, and CLI compile for non-Vite surfaces.
-- [ ] 5.3 i18next, with natural-language keys, the extractor, and the Svelte/Solid glue we ship.
-- [ ] 5.4 wuchale (experimental), with its AI translation disabled.
+- [x] 5.1 Lingui, including the Bun preload macro plugin for Bun hosts and the custom Rust extractor hook.
+- [x] 5.2 Paraglide, including `outdir` and ignore patterns per app, and CLI compile for non-Vite surfaces.
+- [x] 5.3 i18next, with natural-language keys, the extractor, and the Svelte/Solid glue we ship.
+- [x] 5.4 wuchale (experimental), with its AI translation disabled.
 
 ## 6. Locale Negotiation and Routing
 

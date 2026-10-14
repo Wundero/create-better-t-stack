@@ -100,6 +100,17 @@ Orchestrator decisions and follow-ups applied after review: (1) D1's i18n routin
 
 Deferred / non-blocking: `check-test-types` remains red from the pre-existing L1 fallout (test fixtures without the now-required `i18n`); generated `bts.jsonc` always writes `i18n` (pair with the schema-version bump in the Migration Plan); the shared package's scripts hardcode `bun` (settle with L9); `prefixDefaultLocale` has no CLI/reproduce flag (design gap for D1).
 
+**L5a–L5d (libraries) — merged into `wt/i18n`** (lane commits `e0ebf962`, `c292add4`, `9f751cef`, `ae683f48` plus fixes). Tasks 5.1–5.4 done. Reviews: L5a/L5b/L5d PASS; L5c FAIL → fixed → re-reviewed PASS. Gate after each merge: `--bun check` pass; `packages/types` 45/45; `packages/template-generator` 104/104 (cumulative); `apps/web` 87/87; `apps/cli` 924 pass / 2 toolchain-preflight fails. `templates.generated.ts` regenerated and committed after each merge.
+
+Orchestrator shared fixes: `packages/i18n` added to the catalog hoist (`post-process/catalogs.ts`); seeded `@lingui/format-po`, `@lingui/extractor-vue`, `@babel/core` in `dependencyVersionMap`; the `@<project>/config` devDep note was judged won't-fix (no package in this codebase declares it — workspace hoisting is the convention).
+
+Deferred to later lanes (non-blocking):
+- **WXT/OpenTUI surface glue cannot be create-path templated** — `wxt init` / `create-tui` run after generation and reject a non-empty app dir. Needs a CLI post-step (`apps/cli/src/helpers/addons/{wxt-setup.ts,tui-setup.ts}`) or L10 Add-Path to re-emit `i18n/surface/<library>/<surface>/**` from the embedded templates and register the plugin/preload. Affects the curated cases `opentui(react) + lingui` and `react-router + wxt(vanilla) + paraglide`.
+- **Server/electrobun/opentui/wxt demos are importable but not route-mounted** — L6/L10 must anchor-insert (the D10 `nitro + i18next` case depends on it).
+- **wuchale `next` cell** is `native` in the matrix but wuchale ships no Next bundler plugin (source transform needs `wuchale --modify`); L11 must soften the cell or wire the modify step.
+- `i18n:compile` chains `i18n:export` only when Tauri is selected — L8 owns the final hook.
+- Paraglide's `paraglide.config.mjs` strategy/`urlPatterns` are co-owned with L6's routing.
+
 ## Goals / Non-Goals
 
 **Goals**
