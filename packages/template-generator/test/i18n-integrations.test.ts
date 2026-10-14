@@ -236,6 +236,24 @@ describe("better-auth-i18n", () => {
     ).toBeUndefined();
   });
 
+  test("adds the locale field to the Prisma MySQL schema", () => {
+    const prismaStub =
+      "model User {\n  id            String    @id\n  image         String?   @db.Text\n  createdAt     DateTime  @default(now())\n}\n";
+    const vfs = withFiles({
+      "packages/auth/package.json": JSON.stringify({ name: "@demo/auth" }),
+      "packages/auth/src/index.ts": AUTH_SERVER_STUB,
+      "packages/db/prisma/schema/auth.prisma": prismaStub,
+    });
+    run(vfs, baseConfig({ auth: "better-auth" }));
+
+    expect(vfs.readFile("packages/db/prisma/schema/auth.prisma")).toBe(
+      prismaStub.replace(
+        "  image         String?   @db.Text\n",
+        "  image         String?   @db.Text\n  locale String?\n",
+      ),
+    );
+  });
+
   test("warns for locales without a built-in translation", () => {
     const warn = spyOn(console, "warn").mockImplementation(() => {});
     const vfs = withFiles(files);
@@ -292,6 +310,18 @@ describe("clerk-localizations", () => {
     expect(vfs.readFile("apps/web/src/app/layout.tsx")).toBe(CLERK_LAYOUT_STUB);
     expect(vfs.exists("apps/web/src/components/clerk-localization-provider.tsx")).toBe(false);
     expect(vfs.exists("packages/i18n/src/integrations/clerk-client.ts")).toBe(false);
+  });
+
+  test("patches providers from the derived surfaces, not the frontend list", () => {
+    const vfs = withFiles({
+      "packages/i18n/package.json": JSON.stringify({ name: "@demo/i18n" }),
+      "apps/web/src/root.tsx": CLERK_LAYOUT_STUB,
+    });
+    run(vfs, baseConfig({ auth: "clerk", frontend: ["svelte"] }));
+
+    expect(vfs.readFile("apps/web/src/root.tsx")).toBe(CLERK_LAYOUT_STUB);
+    expect(vfs.exists("apps/web/src/components/clerk-localization-provider.tsx")).toBe(false);
+    expect(vfs.exists("packages/i18n/src/integrations/clerk-client.ts")).toBe(true);
   });
 });
 
@@ -450,28 +480,40 @@ describe("fumadocs-i18n", () => {
 });
 
 describe("pwa-manifest-lang", () => {
-  test("sets lang and dir on the Next manifest", () => {
+  const frOptions = {
+    sourceLocale: "fr",
+    locales: ["en", "fr"],
+    routing: { strategy: "cookie" as const, prefixDefaultLocale: false },
+    translateSkill: true,
+  };
+
+  test("sets lang and the shared direction helper on the Next manifest", () => {
     const vfs = withFiles({
       "apps/web/src/app/manifest.ts":
         'import type { MetadataRoute } from "next";\n\nexport default function manifest(): MetadataRoute.Manifest {\n\treturn {\n\t\tname: "demo",\n\t};\n}\n',
     });
     run(
       vfs,
-      baseConfig({
-        addons: ["turborepo", "pwa"],
-        frontend: ["next"],
-        i18nOptions: {
-          sourceLocale: "fr",
-          locales: ["en", "fr"],
-          routing: { strategy: "cookie", prefixDefaultLocale: false },
-          translateSkill: true,
-        },
-      }),
+      baseConfig({ addons: ["turborepo", "pwa"], frontend: ["next"], i18nOptions: frOptions }),
     );
 
     const manifest = vfs.readFile("apps/web/src/app/manifest.ts") ?? "";
+    expect(manifest).toContain('import { getTextDirection } from "@demo/i18n/config";');
     expect(manifest).toContain('lang: "fr"');
-    expect(manifest).toContain('dir: "ltr"');
+    expect(manifest).toContain('dir: getTextDirection("fr")');
+  });
+
+  test("injects lang into the static site.webmanifest at a unique anchor", () => {
+    const stub = '{\n\t"name": "demo",\n\t"short_name": "demo",\n\t"icons": [],\n}\n';
+    const vfs = withFiles({ "apps/web/public/favicon/site.webmanifest": stub });
+    run(
+      vfs,
+      baseConfig({ addons: ["turborepo", "pwa"], frontend: ["next"], i18nOptions: frOptions }),
+    );
+
+    expect(vfs.readFile("apps/web/public/favicon/site.webmanifest")).toBe(
+      '{\n\t"name": "demo",\n\t"lang": "fr",\n\t"short_name": "demo",\n\t"icons": [],\n}\n',
+    );
   });
 
   test("adds nothing without the pwa addon", () => {
@@ -565,6 +607,35 @@ describe("expo-localization", () => {
     const pkg = vfs.readJson<{ dependencies?: Record<string, string> }>("apps/native/package.json");
     expect(pkg?.dependencies?.["expo-localization"]).toBeDefined();
     expect(pkg?.dependencies?.["@formatjs/intl-locale"]).toBeDefined();
+  });
+
+  test("initializes the paraglide native demo from the device locale", () => {
+    const demoStub = [
+      'import { getLocale, locales, m, setLocale } from "@demo/i18n/runtime";',
+      'import { Pressable, StyleSheet, Text, View } from "react-native";',
+      "",
+      "export function I18nDemo() {",
+      "  const locale = getLocale();",
+      "  return <View />;",
+      "}",
+      "",
+    ].join("\n");
+    const vfs = withFiles({
+      "apps/native/package.json": JSON.stringify({ name: "native" }),
+      "apps/native/components/i18n-demo.tsx": demoStub,
+    });
+    run(vfs, baseConfig({ frontend: ["native-bare"], i18n: "paraglide" }));
+
+    const demo = vfs.readFile("apps/native/components/i18n-demo.tsx") ?? "";
+    expect(demo).toContain('import { overwriteGetLocale } from "@demo/i18n/runtime";');
+    expect(demo).toContain('import { getDeviceLocaleTag } from "@/lib/device-locale";');
+    expect(demo).toContain('import { negotiateLocale } from "@demo/i18n/config";');
+    expect(demo).toContain(
+      "overwriteGetLocale(() => negotiateLocale({ system: getDeviceLocaleTag() }));",
+    );
+    expect(demo.indexOf("overwriteGetLocale(() =>")).toBeLessThan(
+      demo.indexOf("export function I18nDemo()"),
+    );
   });
 
   test("adds nothing without a native surface", () => {

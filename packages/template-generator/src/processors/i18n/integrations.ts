@@ -1,6 +1,9 @@
 import {
   getI18nIntegrations,
+  getI18nSurfaces,
+  I18nOptionsSchema,
   type I18nIntegrationId,
+  type I18nSurface,
   type ProjectConfig,
 } from "@better-t-stack/types";
 
@@ -13,7 +16,8 @@ import { addPackageDependency, type AvailableDependencies } from "../../utils/ad
  *
  * Every handler is keyed by an `I18nIntegrationId` from
  * `packages/types/src/i18n.ts` and runs only when that entry's `when()` holds —
- * `getI18nIntegrations` stays the single source of truth. Integrations owned by
+ * `getI18nIntegrations` stays the single source of truth, and surfaces are
+ * always derived through `getI18nSurfaces`. Integrations owned by
  * other lanes (`turnstile-language`, `payments-checkout-locale`,
  * `shadcn-direction`, `react-email-locale`, `server-locale-middleware`,
  * `tauri-rust-i18n`, `lingui-bun-preload`) have no handler here: they live on
@@ -27,7 +31,8 @@ import { addPackageDependency, type AvailableDependencies } from "../../utils/ad
  *   missing or duplicated anchor is skipped instead of editing the wrong place.
  */
 
-const DEFAULT_LOCALES = ["en", "es", "fr"] as const;
+/** Schema defaults (L1 owns them); never re-encode locales or routing here. */
+const DEFAULT_I18N_OPTIONS = I18nOptionsSchema.parse({});
 
 /** `@better-auth/i18n` built-in translations (language subtags). */
 const BETTER_AUTH_LOCALES = [
@@ -141,11 +146,20 @@ interface IntegrationContext {
 
 function localesOf(config: ProjectConfig): string[] {
   const configured = config.i18nOptions?.locales;
-  return configured && configured.length > 0 ? [...configured] : [...DEFAULT_LOCALES];
+  return configured && configured.length > 0 ? [...configured] : [...DEFAULT_I18N_OPTIONS.locales];
 }
 
 function sourceLocaleOf(config: ProjectConfig): string {
-  return config.i18nOptions?.sourceLocale ?? "en";
+  return config.i18nOptions?.sourceLocale ?? DEFAULT_I18N_OPTIONS.sourceLocale;
+}
+
+function surfacesOf(config: ProjectConfig): I18nSurface[] {
+  return getI18nSurfaces(config);
+}
+
+function hasAnySurface(config: ProjectConfig, surfaces: readonly I18nSurface[]): boolean {
+  const present = surfacesOf(config);
+  return surfaces.some((surface) => present.includes(surface));
 }
 
 function languageOf(tag: string): string {
@@ -207,6 +221,13 @@ function insertAfterOnce(content: string, anchor: string, addition: string): str
   return content.slice(0, index + anchor.length) + addition + content.slice(index + anchor.length);
 }
 
+function insertBeforeOnce(content: string, anchor: string, addition: string): string | undefined {
+  const index = content.indexOf(anchor);
+  if (index === -1) return undefined;
+  if (content.indexOf(anchor, index + anchor.length) !== -1) return undefined;
+  return content.slice(0, index) + addition + content.slice(index);
+}
+
 function replaceOnce(content: string, anchor: string, replacement: string): string | undefined {
   const index = content.indexOf(anchor);
   if (index === -1) return undefined;
@@ -239,29 +260,6 @@ function countOccurrences(content: string, needle: string): number {
     index = content.indexOf(needle, index + needle.length);
   }
   return count;
-}
-
-/** Text direction for the source locale, mirroring the shared config helper. */
-function textDirection(locale: string): "ltr" | "rtl" {
-  const rtlLanguages = new Set([
-    "ar",
-    "arc",
-    "ckb",
-    "dv",
-    "fa",
-    "he",
-    "khw",
-    "ks",
-    "ku",
-    "mzn",
-    "nqo",
-    "ps",
-    "sd",
-    "ug",
-    "ur",
-    "yi",
-  ]);
-  return rtlLanguages.has(languageOf(locale)) ? "rtl" : "ltr";
 }
 
 function languageLabel(locale: string): string {
@@ -328,7 +326,8 @@ function betterAuthPluginSnippet(config: ProjectConfig): string {
     '        detection: ["callback", "session", "cookie", "header"],',
     "        localeCookie: LOCALE_COOKIE,",
     '        userLocaleField: "locale",',
-    "        getLocale: (ctx) => ctx.headers?.get(LOCALE_HEADER) ?? null,",
+    "        getLocale: (ctx) =>",
+    "          ctx.headers?.get(LOCALE_HEADER) ?? ctx.request?.headers.get(LOCALE_HEADER) ?? null,",
     "      }),",
   ].join("\n");
 }
@@ -403,7 +402,7 @@ function patchBetterAuthSchema(vfs: VirtualFileSystem): void {
   });
 
   patchFile(vfs, "packages/db/prisma/schema/auth.prisma", (content) => {
-    return content.replace(/^(\s*)image\s+String\?$/m, (line, indent: string) => {
+    return content.replace(/^(\s*)image\s+String\?(?:\s+@db\.Text)?$/m, (line, indent: string) => {
       return `${line}\n${indent}locale String?`;
     });
   });
@@ -432,13 +431,14 @@ function processBetterAuth(ctx: IntegrationContext): void {
 
 // --- clerk-localizations -----------------------------------------------------
 
-const CLERK_PROVIDER_FILES = [
+const CLERK_WEB_PROVIDER_FILES = [
   "apps/web/src/app/layout.tsx",
   "apps/web/src/routes/__root.tsx",
   "apps/web/src/root.tsx",
   "apps/web/src/main.tsx",
-  "apps/native/app/_layout.tsx",
 ] as const;
+
+const CLERK_NATIVE_PROVIDER_FILES = ["apps/native/app/_layout.tsx"] as const;
 
 interface ClerkProviderPatch {
   readonly wrapperImport: string;
@@ -514,26 +514,35 @@ function processClerk(ctx: IntegrationContext): void {
   const webPatch: ClerkProviderPatch = {
     wrapperImport: "@/components/clerk-localization-provider",
   };
-  for (const file of CLERK_PROVIDER_FILES) {
-    patchFile(vfs, file, (content) => patchClerkProviderFile(content, webPatch));
+  if (hasWebReactSurface(config)) {
+    for (const file of CLERK_WEB_PROVIDER_FILES) {
+      patchFile(vfs, file, (content) => patchClerkProviderFile(content, webPatch));
+    }
+  }
+  if (hasNativeSurface(config)) {
+    for (const file of CLERK_NATIVE_PROVIDER_FILES) {
+      patchFile(vfs, file, (content) => patchClerkProviderFile(content, webPatch));
+    }
   }
 }
 
 // --- zod-locales -------------------------------------------------------------
 
-const WEB_REACT_FRONTENDS = ["next", "tanstack-start", "tanstack-router", "react-router"] as const;
-const NATIVE_FRONTENDS = ["native-bare", "native-uniwind", "native-unistyles"] as const;
+const WEB_REACT_SURFACES = [
+  "next",
+  "tanstack-start",
+  "tanstack-router",
+  "react-router",
+] as const satisfies readonly I18nSurface[];
+
+const NATIVE_SURFACES = ["native"] as const satisfies readonly I18nSurface[];
 
 function hasWebReactSurface(config: ProjectConfig): boolean {
-  return config.frontend.some((frontend) =>
-    (WEB_REACT_FRONTENDS as readonly string[]).includes(frontend),
-  );
+  return hasAnySurface(config, WEB_REACT_SURFACES);
 }
 
 function hasNativeSurface(config: ProjectConfig): boolean {
-  return config.frontend.some((frontend) =>
-    (NATIVE_FRONTENDS as readonly string[]).includes(frontend),
-  );
+  return hasAnySurface(config, NATIVE_SURFACES);
 }
 
 function wireZodIntoRuntime(vfs: VirtualFileSystem, config: ProjectConfig): void {
@@ -761,6 +770,9 @@ function astroI18nSnippet(config: ProjectConfig): string {
   if (strategy === "prefix") {
     lines.push(`    routing: { prefixDefaultLocale: ${prefixDefault ? "true" : "false"} },`);
   }
+  // Astro `i18n.domains` (locale → absolute URL) belongs here once
+  // `getI18nRoutingSupport` stops blocking `domain` for astro's static/SPA
+  // surfaces (L6 merge).
   lines.push("  },");
   return lines.join("\n");
 }
@@ -831,22 +843,19 @@ function processFumadocs(ctx: IntegrationContext): void {
 function processPwaManifestLang(ctx: IntegrationContext): void {
   const { vfs, config } = ctx;
   const source = sourceLocaleOf(config);
-  const dir = textDirection(source);
+  const i18nConfigImport = `import { getTextDirection } from "@${config.projectName}/i18n/config";`;
 
-  patchFile(vfs, "apps/web/src/app/manifest.ts", (content) =>
-    insertAfterOnce(
-      content,
+  patchFile(vfs, "apps/web/src/app/manifest.ts", (content) => {
+    const withImport = appendAfterLastImport(content, i18nConfigImport);
+    return insertAfterOnce(
+      withImport,
       "\treturn {",
-      `\n\t\tlang: ${JSON.stringify(source)},\n\t\tdir: ${JSON.stringify(dir)},`,
-    ),
-  );
+      `\n\t\tlang: ${JSON.stringify(source)},\n\t\tdir: getTextDirection(${JSON.stringify(source)}),`,
+    );
+  });
 
   patchFile(vfs, "apps/web/public/favicon/site.webmanifest", (content) =>
-    insertAfterOnce(
-      content,
-      "{",
-      `\n\t"lang": ${JSON.stringify(source)},\n\t"dir": ${JSON.stringify(dir)},`,
-    ),
+    insertBeforeOnce(content, '"short_name"', `"lang": ${JSON.stringify(source)},\n\t`),
   );
 
   patchFile(vfs, "apps/web/index.html", (content) =>
@@ -1006,6 +1015,26 @@ function patchNativeDeviceLocale(vfs: VirtualFileSystem, config: ProjectConfig):
       "initI18next(negotiateLocale({ system: getDeviceLocaleTag() }));",
     );
   });
+
+  if (config.i18n === "paraglide") {
+    patchFile(vfs, "apps/native/components/i18n-demo.tsx", (content) => {
+      const withImports = appendAfterLastImport(
+        appendAfterLastImport(
+          appendAfterLastImport(
+            content,
+            `import { overwriteGetLocale } from "@${config.projectName}/i18n/runtime";`,
+          ),
+          deviceImport,
+        ),
+        `import { negotiateLocale } from "@${config.projectName}/i18n/config";`,
+      );
+      return insertBeforeOnce(
+        withImports,
+        "export function I18nDemo() {",
+        "overwriteGetLocale(() => negotiateLocale({ system: getDeviceLocaleTag() }));\n\n",
+      );
+    });
+  }
 }
 
 function processExpo(ctx: IntegrationContext): void {
