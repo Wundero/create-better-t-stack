@@ -1,16 +1,17 @@
 /**
- * WXT i18n demo.
+ * OpenTUI i18n demo.
  *
- * The extension is scaffolded by `wxt init` at setup time and wired by the
- * i18n post-step, so this module is framework-agnostic: explicit IDs instead
- * of macros, and `createFormatters` for dates and numbers (D4). Import it from
- * a popup, options page or content script entrypoint.
+ * The TUI app is scaffolded by `create-tui` at setup time and wired by the
+ * i18n post-step. The Bun preload (`packages/i18n/bun-preload.ts`) transforms
+ * macros in host code; this module uses explicit IDs instead so it also runs
+ * from a plain `bun run` without a reload. `createFormatters` owns dates and
+ * numbers (D4).
  */
 import { isLocale, sourceLocale } from "@{{projectName}}/i18n/config";
 import { createFormatters } from "@{{projectName}}/i18n/format";
 import { setupI18n } from "@{{projectName}}/i18n/runtime";
 
-export interface ExtensionI18nDemo {
+export interface TuiI18nDemo {
   locale: string;
   heading: string;
   unread: string;
@@ -18,7 +19,7 @@ export interface ExtensionI18nDemo {
   date: string;
 }
 
-export async function renderI18nDemo(locale?: string): Promise<ExtensionI18nDemo> {
+export async function renderI18nDemo(locale?: string): Promise<TuiI18nDemo> {
   const resolved = locale !== undefined && isLocale(locale) ? locale : sourceLocale;
   const i18n = await setupI18n(resolved);
   const format = createFormatters(resolved);

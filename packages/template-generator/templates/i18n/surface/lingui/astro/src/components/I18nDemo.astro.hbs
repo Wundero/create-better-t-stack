@@ -1,8 +1,8 @@
 ---
 import { msg } from "@lingui/core/macro";
-import { LOCALE_COOKIE, isLocale, locales } from "@{{projectName}}/i18n/config";
+import { LOCALE_COOKIE, locales, negotiateLocale } from "@{{projectName}}/i18n/config";
 import { createFormatters } from "@{{projectName}}/i18n/format";
-import { i18n, initializeLocale } from "@{{projectName}}/i18n/runtime";
+import { setupI18n } from "@{{projectName}}/i18n/runtime";
 
 /**
  * i18n demo: translated heading, interpolation, plural, currency, date and a
@@ -15,11 +15,14 @@ import { i18n, initializeLocale } from "@{{projectName}}/i18n/runtime";
 const name = "Ada";
 const count = 3;
 
-const locale = await initializeLocale({
+// One instance per render: SSR requests with different locales must not share
+// the process-global `i18n` instance (D4).
+const locale = negotiateLocale({
   cookie: Astro.cookies.get(LOCALE_COOKIE)?.value,
   header: Astro.request.headers.get("x-app-locale") ?? undefined,
   acceptLanguage: Astro.request.headers.get("accept-language") ?? undefined,
 });
+const i18n = await setupI18n(locale);
 const formatters = createFormatters(locale);
 
 const heading = i18n._(msg`Internationalization`);

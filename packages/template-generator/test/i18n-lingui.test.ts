@@ -282,9 +282,15 @@ describe("getLinguiDeps on native", () => {
       "apps/native/metro.config.js": [
         'const { withVarlockMetroConfig } = require("@varlock/expo-integration/metro-config");',
         'const { getDefaultConfig } = require("expo/metro-config");',
+        'const { withUniwindConfig } = require("uniwind/metro");',
+        'const { wrapWithReanimatedMetroConfig } = require("react-native-reanimated/metro-config");',
         "const config = getDefaultConfig(__dirname);",
         "",
-        "module.exports = withVarlockMetroConfig(config);",
+        "const uniwindConfig = withUniwindConfig(wrapWithReanimatedMetroConfig(config), {",
+        '  cssEntryFile: "./global.css",',
+        "});",
+        "",
+        "module.exports = withVarlockMetroConfig(uniwindConfig);",
         "",
       ].join("\n"),
       "apps/native/babel.config.js": [
@@ -301,6 +307,14 @@ describe("getLinguiDeps on native", () => {
     const metro = vfs.readFile("apps/native/metro.config.js") ?? "";
     expect(metro).toContain("@lingui/metro-transformer/expo");
     expect(metro).toContain('"po", "pot"');
+    // Uniwind/reanimated wrappers snapshot `config`, so the patch must land
+    // before them (reviewer finding 2).
+    expect(metro.indexOf("babelTransformerPath")).toBeLessThan(
+      metro.indexOf("withUniwindConfig(wrapWithReanimatedMetroConfig"),
+    );
+    expect(metro.indexOf("babelTransformerPath")).toBeGreaterThan(
+      metro.indexOf("const config = getDefaultConfig(__dirname);"),
+    );
 
     const babel = vfs.readFile("apps/native/babel.config.js") ?? "";
     expect(babel).toContain('"@lingui/babel-plugin-lingui-macro"');

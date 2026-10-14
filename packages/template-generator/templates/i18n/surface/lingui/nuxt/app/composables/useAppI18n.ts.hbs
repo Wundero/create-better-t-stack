@@ -1,17 +1,21 @@
 import { computed, getCurrentScope, onScopeDispose, ref } from "vue";
 import { createFormatters } from "@{{projectName}}/i18n/format";
-import { i18n, onLocaleChange } from "@{{projectName}}/i18n/runtime";
+import { i18n as sharedI18n, onLocaleChange, type I18n } from "@{{projectName}}/i18n/runtime";
 import type { Locale } from "@{{projectName}}/i18n/config";
 
 /**
- * Vue composable over the shared runtime. Lingui has no Vue binding, so the
- * message descriptors live in `.ts` files (transformed by `@lingui/vite-plugin`)
- * and components call `i18n.t(...)` / `i18n._(...)` with them.
+ * Vue composable over the runtime instance for the current request. Lingui has
+ * no Vue binding, so the message descriptors live in `.ts` files (transformed
+ * by `@lingui/vite-plugin`) and components call `i18n.t(...)` / `i18n._(...)`
+ * with them.
  *
- * `locale` and `formatters` are reactive: switching the locale re-renders any
- * template that reads them.
+ * The Nuxt plugin provides a request-scoped instance on SSR and the shared one
+ * on the client. `locale` and `formatters` are reactive: switching the locale
+ * re-renders any template that reads them.
  */
 export function useAppI18n() {
+  const nuxtApp = useNuxtApp();
+  const i18n = (nuxtApp as unknown as { $i18n?: I18n }).$i18n ?? sharedI18n;
   const locale = ref(i18n.locale) as { value: Locale };
 
   const unsubscribe = onLocaleChange((next) => {

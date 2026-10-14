@@ -388,14 +388,15 @@ function patchAstroConfig(vfs: VirtualFileSystem): void {
 
 function patchNativeConfig(vfs: VirtualFileSystem): void {
   patch(vfs, "apps/native/metro.config.js", (content) => {
+    // Mutate `config` right after it is created: some variants pass it through
+    // withUniwindConfig/withReanimatedMetroConfig wrappers, which snapshot it.
     const addition = [
       "// @lingui/metro-transformer compiles `messages.po` imports on the fly.",
       'config.transformer = { ...config.transformer, babelTransformerPath: require.resolve("@lingui/metro-transformer/expo") };',
       'config.resolver = { ...config.resolver, sourceExts: [...config.resolver.sourceExts, "po", "pot"] };',
       "",
-      "",
     ].join("\n");
-    return insertBeforeOnce(content, "module.exports = withVarlockMetroConfig", addition);
+    return insertAfterOnce(content, "const config = getDefaultConfig(__dirname);", `\n${addition}`);
   });
 
   patch(vfs, "apps/native/babel.config.js", (content) => {
