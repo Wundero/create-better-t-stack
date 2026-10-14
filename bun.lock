@@ -196,6 +196,9 @@
       },
     },
   },
+  "patchedDependencies": {
+    "@opennextjs/cloudflare@1.20.9": "patches/@opennextjs%2Fcloudflare@1.20.9.patch",
+  },
   "overrides": {
     "mdast-util-to-markdown": "2.1.2",
   },
