@@ -72,7 +72,7 @@ export interface CheckResult {
 
 /** Root of the generated `@<project>/i18n` package (this file lives in `scripts/lib`). */
 export function packageRoot(): string {
-  return dirname(dirname(dirname(import.meta.dir)));
+  return dirname(dirname(import.meta.dir));
 }
 
 export function catalogPath(root: string, locale: string, namespace = DEFAULT_NAMESPACE): string {

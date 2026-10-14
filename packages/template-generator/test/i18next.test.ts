@@ -1,7 +1,8 @@
 import { describe, expect, test } from "bun:test";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { pathToFileURL } from "node:url";
 
 import type { ProjectConfig } from "@better-t-stack/types";
 
@@ -9,6 +10,7 @@ import { loadTemplates } from "../src/core/template-reader";
 import { VirtualFileSystem } from "../src/core/virtual-fs";
 import { getI18nextDeps } from "../src/processors/i18n/i18next";
 import { processI18nTemplates } from "../src/template-handlers/i18n";
+import { dependencyVersionMap } from "../src/utils/add-deps";
 import {
   applyTranslations,
   checkCatalogs,
@@ -78,8 +80,8 @@ describe("getI18nextDeps", () => {
     getI18nextDeps(vfs, baseConfig());
 
     const pkg = readPackage(vfs, I18N_PACKAGE);
-    expect(pkg.dependencies?.["i18next"]).toBe("26.4.4");
-    expect(pkg.devDependencies?.["i18next-cli"]).toBe("1.75.3");
+    expect(pkg.dependencies?.["i18next"]).toBe(dependencyVersionMap.i18next);
+    expect(pkg.devDependencies?.["i18next-cli"]).toBe(dependencyVersionMap["i18next-cli"]);
     expect(pkg.devDependencies?.["@demo/config"]).toBe("workspace:*");
   });
 
@@ -88,11 +90,13 @@ describe("getI18nextDeps", () => {
     getI18nextDeps(vfs, baseConfig({ frontend: ["next"], backend: "hono" }));
 
     const web = readPackage(vfs, WEB);
-    expect(web.dependencies?.["i18next"]).toBe("26.4.4");
-    expect(web.dependencies?.["react-i18next"]).toBe("17.0.16");
+    expect(web.dependencies?.["i18next"]).toBe(dependencyVersionMap.i18next);
+    expect(web.dependencies?.["react-i18next"]).toBe(dependencyVersionMap["react-i18next"]);
+    expect(web.dependencies?.["@demo/i18n"]).toBe("workspace:*");
 
     const server = readPackage(vfs, SERVER);
-    expect(server.dependencies?.["i18next"]).toBe("26.4.4");
+    expect(server.dependencies?.["@demo/i18n"]).toBe("workspace:*");
+    expect(server.dependencies?.["i18next"]).toBe(dependencyVersionMap.i18next);
     expect(server.dependencies?.["react-i18next"]).toBeUndefined();
   });
 
@@ -101,23 +105,23 @@ describe("getI18nextDeps", () => {
     getI18nextDeps(vfs, baseConfig({ frontend: ["nuxt"] }));
 
     const web = readPackage(vfs, WEB);
-    expect(web.dependencies?.["i18next-vue"]).toBe("5.4.0");
+    expect(web.dependencies?.["i18next-vue"]).toBe(dependencyVersionMap["i18next-vue"]);
     expect(web.dependencies?.["react-i18next"]).toBeUndefined();
-    expect(web.dependencies?.["i18next"]).toBe("26.4.4");
+    expect(web.dependencies?.["i18next"]).toBe(dependencyVersionMap.i18next);
   });
 
   test("ships the framework glue without extra adapters for svelte and solid", () => {
     const vfs = vfsWithPackages([I18N_PACKAGE, WEB]);
     getI18nextDeps(vfs, baseConfig({ frontend: ["svelte"] }));
     const svelteWeb = readPackage(vfs, WEB);
-    expect(svelteWeb.dependencies?.["i18next"]).toBe("26.4.4");
+    expect(svelteWeb.dependencies?.["i18next"]).toBe(dependencyVersionMap.i18next);
     expect(svelteWeb.dependencies?.["react-i18next"]).toBeUndefined();
     expect(svelteWeb.dependencies?.["i18next-vue"]).toBeUndefined();
 
     const solidVfs = vfsWithPackages([I18N_PACKAGE, WEB]);
     getI18nextDeps(solidVfs, baseConfig({ frontend: ["solid"] }));
     const solidWeb = readPackage(solidVfs, WEB);
-    expect(solidWeb.dependencies?.["i18next"]).toBe("26.4.4");
+    expect(solidWeb.dependencies?.["i18next"]).toBe(dependencyVersionMap.i18next);
     expect(solidWeb.dependencies?.["react-i18next"]).toBeUndefined();
   });
 
@@ -125,8 +129,10 @@ describe("getI18nextDeps", () => {
     const vfs = vfsWithPackages([I18N_PACKAGE, WEB, NATIVE, DESKTOP]);
     getI18nextDeps(vfs, baseConfig({ frontend: ["native-uniwind"], addons: ["electrobun"] }));
 
-    expect(readPackage(vfs, NATIVE).dependencies?.["react-i18next"]).toBe("17.0.16");
-    expect(readPackage(vfs, DESKTOP).dependencies?.["i18next"]).toBe("26.4.4");
+    expect(readPackage(vfs, NATIVE).dependencies?.["react-i18next"]).toBe(
+      dependencyVersionMap["react-i18next"],
+    );
+    expect(readPackage(vfs, DESKTOP).dependencies?.["i18next"]).toBe(dependencyVersionMap.i18next);
   });
 
   test("leaves untouched when another library is selected", () => {
@@ -278,6 +284,51 @@ describe("i18next templates", () => {
     );
     const tuiGlue = tuiVfs.readFile("apps/tui/src/i18n.ts") ?? "";
     expect(tuiGlue).toContain("initReactI18next");
+  });
+
+  test("emitted TypeScript surfaces parse (no stray braces)", async () => {
+    const templates = await loadTemplates("i18n");
+    const demos = {
+      next: "apps/web/src/app/i18n-demo/page.tsx",
+      "tanstack-start": "apps/web/src/routes/i18n-demo.tsx",
+      "tanstack-router": "apps/web/src/routes/i18n-demo.tsx",
+      "react-router": "apps/web/src/routes/i18n-demo.tsx",
+      solid: "apps/web/src/routes/i18n-demo.tsx",
+    } satisfies Record<string, string>;
+    const transpiler = new Bun.Transpiler({ loader: "tsx" });
+
+    for (const [frontend, demoPath] of Object.entries(demos)) {
+      const vfs = new VirtualFileSystem();
+      await processI18nTemplates(vfs, templates, baseConfig({ frontend: [frontend] }));
+      const demo = vfs.readFile(demoPath);
+      expect(demo).toBeDefined();
+      expect(() => transpiler.transformSync(demo ?? "")).not.toThrow();
+    }
+  });
+
+  test("packageRoot resolves the emitted scripts/lib layout", async () => {
+    const templates = await loadTemplates("i18n");
+    const vfs = new VirtualFileSystem();
+    await processI18nTemplates(vfs, templates, baseConfig());
+
+    const root = mkdtempSync(join(tmpdir(), "i18next-package-root-"));
+    try {
+      const libDir = join(root, "packages", "i18n", "scripts", "lib");
+      mkdirSync(libDir, { recursive: true });
+      const catalogsSource = vfs.readFile("packages/i18n/scripts/lib/catalogs.ts");
+      const icuSource = vfs.readFile("packages/i18n/scripts/lib/icu.ts");
+      expect(catalogsSource).toBeDefined();
+      expect(icuSource).toBeDefined();
+      writeFileSync(join(libDir, "catalogs.ts"), catalogsSource ?? "");
+      writeFileSync(join(libDir, "icu.ts"), icuSource ?? "");
+
+      const emitted = (await import(pathToFileURL(join(libDir, "catalogs.ts")).href)) as {
+        packageRoot: () => string;
+      };
+      expect(emitted.packageRoot()).toBe(join(root, "packages", "i18n"));
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
   });
 });
 

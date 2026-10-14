@@ -112,7 +112,12 @@ export function getI18nextDeps(vfs: VirtualFileSystem, config: ProjectConfig): v
   }
 
   for (const [packagePath, dependencies] of wired) {
-    addPackageDependency({ vfs, packagePath, dependencies: [...dependencies] });
+    addPackageDependency({
+      vfs,
+      packagePath,
+      dependencies: [...dependencies],
+      customDependencies: { [`@${config.projectName}/i18n`]: workspaceVersion(config) },
+    });
   }
 
   writeCatalogs(vfs, config);
