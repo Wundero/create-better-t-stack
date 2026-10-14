@@ -105,6 +105,7 @@ Deferred / non-blocking: `check-test-types` remains red from the pre-existing L1
 Orchestrator shared fixes: `packages/i18n` added to the catalog hoist (`post-process/catalogs.ts`); seeded `@lingui/format-po`, `@lingui/extractor-vue`, `@babel/core` in `dependencyVersionMap`; the `@<project>/config` devDep note was judged won't-fix (no package in this codebase declares it — workspace hoisting is the convention).
 
 Deferred to later lanes (non-blocking):
+
 - **WXT/OpenTUI surface glue cannot be create-path templated** — `wxt init` / `create-tui` run after generation and reject a non-empty app dir. Needs a CLI post-step (`apps/cli/src/helpers/addons/{wxt-setup.ts,tui-setup.ts}`) or L10 Add-Path to re-emit `i18n/surface/<library>/<surface>/**` from the embedded templates and register the plugin/preload. Affects the curated cases `opentui(react) + lingui` and `react-router + wxt(vanilla) + paraglide`.
 - **Server/electrobun/opentui/wxt demos are importable but not route-mounted** — L6/L10 must anchor-insert (the D10 `nitro + i18next` case depends on it).
 - **wuchale `next` cell** is `native` in the matrix but wuchale ships no Next bundler plugin (source transform needs `wuchale --modify`); L11 must soften the cell or wire the modify step.
