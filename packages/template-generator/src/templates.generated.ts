@@ -36286,6 +36286,1214 @@ export { m } from "./paraglide/messages.js";
 export * from "./paraglide/runtime.js";
 export { paraglideMiddleware } from "./paraglide/server.js";
 `],
+  ["i18n/lib/wuchale/_gitignore", `# wuchale build output (compiled catalogs, proxies, generated loaders)
+locales/.wuchale/
+
+# normalized export used by the Rust host
+dist/
+`],
+  ["i18n/lib/wuchale/scripts/apply.ts.hbs", `/**
+ * \`i18n:apply <file>\` — validate translated items and write them into the
+ * \`.po\` catalogs. Placeholder sets must match the source; rejected items keep
+ * their catalog entry pending.
+ *
+ * Input: the \`i18n:pending\` report with a \`translation\` (or \`translations\` for
+ * plurals) added to each item, e.g.
+ * \`{ "items": [{ "id": "Welcome", "locale": "fr", "translation": "Bienvenue" }] }\`
+ */
+
+import { readFile } from "node:fs/promises";
+
+import {
+  findItem,
+  readCatalogs,
+  resolvePackageRoot,
+  setTranslation,
+  validatePlaceholders,
+  writeCatalogFile,
+  type ApplyOutcome,
+  type CatalogRead,
+} from "./catalog";
+
+interface ApplyEntry {
+  id?: string;
+  locale?: string;
+  context?: string | null;
+  translation?: string;
+  translations?: string[];
+}
+
+interface ApplyInput {
+  items?: ApplyEntry[];
+}
+
+function translationForms(entry: ApplyEntry): string[] | undefined {
+  if (entry.translations !== undefined) return entry.translations;
+  if (entry.translation !== undefined) return [entry.translation];
+  return undefined;
+}
+
+const file = process.argv[2];
+if (!file) {
+  console.error("Usage: bun run i18n:apply <file>");
+  process.exit(1);
+}
+
+const payload = JSON.parse(await readFile(file, "utf8")) as ApplyInput;
+const entries = payload.items ?? [];
+
+const packageRoot = resolvePackageRoot(import.meta.url);
+const catalogs = await readCatalogs(packageRoot);
+const byLocale = new Map<string, CatalogRead[]>();
+for (const read of catalogs) {
+  const group = byLocale.get(read.source.locale) ?? [];
+  group.push(read);
+  byLocale.set(read.source.locale, group);
+}
+
+const outcome: ApplyOutcome = { applied: 0, rejected: [] };
+const touched = new Set<CatalogRead>();
+
+for (const entry of entries) {
+  const forms = translationForms(entry);
+  if (entry.id === undefined || entry.locale === undefined || forms === undefined) {
+    outcome.rejected.push({
+      id: entry.id ?? "<missing id>",
+      locale: entry.locale ?? "<missing locale>",
+      error: "each item needs an id, a locale and a translation (or translations)",
+    });
+    continue;
+  }
+
+  let matched = false;
+  for (const read of byLocale.get(entry.locale) ?? []) {
+    const item = findItem(read.catalog, entry.id, entry.context);
+    if (!item) continue;
+    matched = true;
+
+    // The same message can live in several adapters' catalogs; update them all.
+    const error = validatePlaceholders(item, forms);
+    if (error !== null) {
+      outcome.rejected.push({ id: entry.id, locale: entry.locale, error });
+      continue;
+    }
+
+    setTranslation(item, forms);
+    touched.add(read);
+    outcome.applied += 1;
+  }
+
+  if (!matched) {
+    outcome.rejected.push({
+      id: entry.id,
+      locale: entry.locale,
+      error: "no catalog entry with this id",
+    });
+  }
+}
+
+for (const read of touched) {
+  await writeCatalogFile(read.source.path, read.catalog);
+}
+
+console.log(JSON.stringify(outcome, null, 2));
+process.exit(outcome.rejected.length > 0 ? 1 : 0);
+`],
+  ["i18n/lib/wuchale/scripts/catalog.ts", `/**
+ * Shared helpers for the wuchale uniform scripts
+ * (\`i18n:extract | compile | pending | apply | check | export\`).
+ *
+ * Everything here is pure or filesystem-only: the CLI entrypoints add argv
+ * handling and JSON output. Catalogs are the per-adapter \`.po\` files wuchale
+ * writes into \`packages/i18n/locales\`.
+ */
+
+import { spawnSync } from "node:child_process";
+import { mkdir, readFile, readdir, writeFile } from "node:fs/promises";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+
+import { isUntranslated, parsePo, serializePo, type PoCatalog, type PoItem } from "./po";
+
+export const WUCHALE_LIBRARY = "wuchale";
+
+export interface CatalogSource {
+  readonly adapter: string;
+  readonly locale: string;
+  readonly path: string;
+}
+
+export interface CatalogRead {
+  readonly source: CatalogSource;
+  readonly catalog: PoCatalog;
+}
+
+export interface PendingItem {
+  readonly id: string;
+  readonly locale: string;
+  readonly source: string;
+  readonly context: string | null;
+  readonly comments: string[];
+  readonly references: string[];
+  readonly placeholders: string[];
+  readonly status: "pending" | "obsolete";
+}
+
+export interface PendingReport {
+  readonly library: typeof WUCHALE_LIBRARY;
+  readonly sourceLocale: string;
+  readonly items: PendingItem[];
+}
+
+export interface NormalizedMessage {
+  readonly source: string;
+  readonly context: string | null;
+  readonly translations: Record<string, string>;
+}
+
+export interface NormalizedCatalog {
+  readonly sourceLocale: string;
+  readonly locales: string[];
+  readonly messages: Record<string, NormalizedMessage>;
+}
+
+export type IcuResult =
+  | { readonly isOk: true; readonly message: string }
+  | { readonly isOk: false; readonly error: string };
+
+export type ExportResult =
+  | { readonly isOk: true; readonly catalog: NormalizedCatalog }
+  | { readonly isOk: false; readonly errors: string[] };
+
+/** \`packages/i18n\` root, resolved from a script in \`packages/i18n/scripts\`. */
+export function resolvePackageRoot(importMetaUrl: string): string {
+  return fileURLToPath(new URL("..", importMetaUrl));
+}
+
+export function catalogsDir(packageRoot: string): string {
+  return join(packageRoot, "locales");
+}
+
+export function parseCatalogFileName(fileName: string): { adapter: string; locale: string } | null {
+  const base = fileName.endsWith(".po") ? fileName.slice(0, -3) : null;
+  if (base === null) return null;
+  const separator = base.lastIndexOf(".");
+  if (separator <= 0) return null;
+  const adapter = base.slice(0, separator);
+  const locale = base.slice(separator + 1);
+  return locale.length > 0 ? { adapter, locale } : null;
+}
+
+export async function listCatalogSources(packageRoot: string): Promise<CatalogSource[]> {
+  const dir = catalogsDir(packageRoot);
+  let entries: string[];
+  try {
+    entries = await readdir(dir);
+  } catch {
+    return [];
+  }
+  const sources: CatalogSource[] = [];
+  for (const entry of entries.sort()) {
+    const parsed = parseCatalogFileName(entry);
+    if (!parsed) continue;
+    sources.push({ adapter: parsed.adapter, locale: parsed.locale, path: join(dir, entry) });
+  }
+  return sources;
+}
+
+export async function readCatalogs(packageRoot: string): Promise<CatalogRead[]> {
+  const catalogs: CatalogRead[] = [];
+  for (const source of await listCatalogSources(packageRoot)) {
+    const content = await readFile(source.path, "utf8");
+    catalogs.push({ source, catalog: parsePo(content) });
+  }
+  return catalogs;
+}
+
+export async function writeCatalogFile(path: string, catalog: PoCatalog): Promise<void> {
+  await writeFile(path, serializePo(catalog), "utf8");
+}
+
+export const PLURAL_ORDER: readonly Intl.LDMLPluralRule[] = [
+  "zero",
+  "one",
+  "two",
+  "few",
+  "many",
+  "other",
+];
+
+/** CLDR plural categories for a locale, in wuchale's candidate order. */
+export function pluralCategories(locale: string): Intl.LDMLPluralRule[] {
+  const categories = [...new Intl.PluralRules(locale).resolvedOptions().pluralCategories];
+  categories.sort((first, second) => PLURAL_ORDER.indexOf(first) - PLURAL_ORDER.indexOf(second));
+  return categories;
+}
+
+const PLACEHOLDER = /\\{(\\d+)\\}/g;
+
+export function messagePlaceholders(text: string): string[] {
+  const found = new Set<string>();
+  for (const match of text.matchAll(PLACEHOLDER)) {
+    if (match[1] !== undefined) found.add(match[1]);
+  }
+  return [...found].sort((first, second) => Number(first) - Number(second));
+}
+
+/** The source forms of an item: \`[msgid]\` or \`[msgid, msgid_plural]\`. */
+export function sourceForms(item: PoItem): string[] {
+  return item.pluralId === null ? [item.id] : [item.id, item.pluralId];
+}
+
+/**
+ * Validates that every translated form keeps exactly the source placeholders.
+ * Returns an error message for the first mismatch, or \`null\` when the
+ * translation is well formed.
+ */
+export function validatePlaceholders(item: PoItem, forms: readonly string[]): string | null {
+  const expected = sourceForms(item);
+  if (forms.length === 0) return \`"\${item.id}" has no translation forms\`;
+  for (const [index, form] of forms.entries()) {
+    const source = expected[index % expected.length] ?? expected[0] ?? "";
+    const actualPlaceholders = messagePlaceholders(form);
+    const expectedPlaceholders = messagePlaceholders(source);
+    const missing = expectedPlaceholders.filter((value) => !actualPlaceholders.includes(value));
+    const extra = actualPlaceholders.filter((value) => !expectedPlaceholders.includes(value));
+    if (missing.length > 0 || extra.length > 0) {
+      const details = [
+        missing.length > 0 ? \`missing {\${missing.join("}, {")}}\` : null,
+        extra.length > 0 ? \`unexpected {\${extra.join("}, {")}}\` : null,
+      ]
+        .filter(Boolean)
+        .join(", ");
+      return \`"\${item.id}" form \${index} placeholder mismatch: \${details}\`;
+    }
+  }
+  return null;
+}
+
+/** A stable id for the normalized export: context-qualified source text. */
+export function normalizeMessageId(item: PoItem): string {
+  return item.context === null ? item.id : \`\${item.context}|\${item.id}\`;
+}
+
+function balancedBraces(text: string): string | null {
+  const withoutPlaceholders = text.replace(PLACEHOLDER, "");
+  let depth = 0;
+  for (const char of withoutPlaceholders) {
+    if (char === "{") depth += 1;
+    else if (char === "}") {
+      depth -= 1;
+      if (depth < 0) return "unbalanced brace";
+    }
+  }
+  return depth === 0 ? null : "unbalanced brace";
+}
+
+/**
+ * Converts a wuchale catalog item to the ICU subset used by \`i18n:export\`:
+ * positional arguments, \`plural\` with \`#\`, \`select\` and nesting. Wuchale
+ * already writes positional \`{n}\` placeholders, so the conversion keeps them
+ * as ICU arguments; a plural item becomes one \`{count, plural, ...}\` message
+ * whose categories follow the locale's CLDR order.
+ */
+export function toIcuMessage(item: PoItem, forms: readonly string[], locale: string): IcuResult {
+  if (item.pluralId === null) {
+    const message = forms[0] ?? item.id;
+    const error = balancedBraces(message);
+    return error === null ? { isOk: true, message } : { isOk: false, error };
+  }
+
+  const categories = pluralCategories(locale);
+  const parts: string[] = [];
+  for (const [index, category] of categories.entries()) {
+    const form = forms[index] ?? forms[forms.length - 1] ?? item.id;
+    const error = balancedBraces(form);
+    if (error !== null) return { isOk: false, error };
+    parts.push(\`\${category} {\${form}}\`);
+  }
+
+  return { isOk: true, message: \`{count, plural, \${parts.join(" ")}}\` };
+}
+
+/** Pending items for one locale, or for every non-source locale. */
+export function collectPendingItems(
+  catalogs: readonly CatalogRead[],
+  sourceLocale: string,
+  targetLocale: string | null,
+): PendingItem[] {
+  const items: PendingItem[] = [];
+  for (const read of catalogs) {
+    if (read.source.locale === sourceLocale) continue;
+    if (targetLocale !== null && read.source.locale !== targetLocale) continue;
+    for (const item of read.catalog.items) {
+      if (item.id.length === 0 && item.pluralId === null) continue;
+      if (!isUntranslated(item.translations) && !item.obsolete) continue;
+      items.push({
+        id: normalizeMessageId(item),
+        locale: read.source.locale,
+        source: sourceForms(item).join(" || "),
+        context: item.context,
+        comments: [...item.comments, ...item.extracted],
+        references: [...item.references],
+        placeholders: messagePlaceholders(sourceForms(item).join(" ")),
+        status: item.obsolete ? "obsolete" : "pending",
+      });
+    }
+  }
+  return items;
+}
+
+export interface ApplyPayloadItem {
+  readonly id: string;
+  readonly locale: string;
+  readonly context?: string | null;
+  readonly translation?: string;
+  readonly translations?: string[];
+}
+
+export interface ApplyOutcome {
+  readonly applied: number;
+  readonly rejected: { id: string; locale: string; error: string }[];
+}
+
+export function findItem(
+  catalog: PoCatalog,
+  id: string,
+  context: string | null | undefined,
+): PoItem | undefined {
+  return catalog.items.find(
+    (item) =>
+      normalizeMessageId(item) === id && (context === undefined || item.context === context),
+  );
+}
+
+/**
+ * Applies one validated translation set to a parsed catalog. Validation must
+ * run first; this only mutates the in-memory item.
+ */
+export function setTranslation(item: PoItem, forms: readonly string[]): void {
+  item.translations = [...forms];
+  item.obsolete = false;
+}
+
+export interface NormalizeOptions {
+  readonly locales: readonly string[];
+  readonly sourceLocale: string;
+}
+
+/**
+ * Builds the D7 normalized catalog from every parsed per-adapter catalog.
+ * Fails with the offending message id when a message is outside the ICU
+ * subset.
+ */
+export function buildNormalizedCatalog(
+  catalogs: readonly CatalogRead[],
+  options: NormalizeOptions,
+): ExportResult {
+  const errors: string[] = [];
+  const messages = new Map<
+    string,
+    { source: string; context: string | null; translations: Map<string, string> }
+  >();
+  const sourceByKey = new Map<string, PoItem>();
+
+  for (const read of catalogs) {
+    for (const item of read.catalog.items) {
+      if (item.id.length === 0 && item.pluralId === null) continue;
+      const id = normalizeMessageId(item);
+      const existingSource = sourceByKey.get(id);
+      if (existingSource === undefined) {
+        sourceByKey.set(id, item);
+      } else if (sourceForms(existingSource).join(" ") !== sourceForms(item).join(" ")) {
+        errors.push(\`"\${id}" has conflicting source text across adapters\`);
+        continue;
+      }
+
+      const entry = messages.get(id) ?? {
+        source: sourceForms(item).join(" || "),
+        context: item.context,
+        translations: new Map<string, string>(),
+      };
+      messages.set(id, entry);
+
+      const forms = isUntranslated(item.translations) ? sourceForms(item) : item.translations;
+      const locale = read.source.locale;
+      const converted = toIcuMessage(item, forms, locale);
+      if (!converted.isOk) {
+        errors.push(\`"\${id}" (\${locale}): \${converted.error}\`);
+        continue;
+      }
+      if (!entry.translations.has(locale)) {
+        entry.translations.set(locale, converted.message);
+      }
+    }
+  }
+
+  if (errors.length > 0) return { isOk: false, errors };
+
+  const normalizedMessages: Record<string, NormalizedMessage> = {};
+  for (const [id, entry] of messages) {
+    const translations: Record<string, string> = {};
+    for (const locale of options.locales) {
+      const message =
+        entry.translations.get(locale) ?? entry.translations.get(options.sourceLocale);
+      if (message !== undefined) translations[locale] = message;
+    }
+    normalizedMessages[id] = { source: entry.source, context: entry.context, translations };
+  }
+
+  return {
+    isOk: true,
+    catalog: {
+      sourceLocale: options.sourceLocale,
+      locales: [...options.locales],
+      messages: normalizedMessages,
+    },
+  };
+}
+
+/**
+ * Resolves \`wuchale/dist/cli/index.js\` from this package's dependencies. The
+ * published bin has a Node shebang, and Node cannot import a \`.ts\` config
+ * without a loader — the scripts always run the CLI with the Bun binary that
+ * is already running them.
+ */
+function resolveWuchaleCli(): string | null {
+  try {
+    const entry = fileURLToPath(import.meta.resolve("wuchale"));
+    return join(dirname(entry), "cli", "index.js");
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Runs the wuchale CLI from \`packages/i18n\`. \`import.meta.resolve\` finds the
+ * locally installed \`wuchale\`, so no registry lookup or PATH shim is involved.
+ */
+export function runWuchaleCli(packageRoot: string, args: readonly string[]): number {
+  const cli = resolveWuchaleCli();
+  if (cli === null) {
+    console.error("wuchale is not installed. Run your package manager install first.");
+    return 1;
+  }
+
+  const result = spawnSync(process.execPath, [cli, "--config", "wuchale.config.mjs", ...args], {
+    cwd: packageRoot,
+    stdio: "inherit",
+    env: process.env,
+  });
+  if (result.error) {
+    console.error(\`Failed to run the wuchale CLI: \${result.error.message}\`);
+    return 1;
+  }
+  return result.status ?? 1;
+}
+
+export async function ensureDir(filePath: string): Promise<void> {
+  await mkdir(dirname(filePath), { recursive: true });
+}
+`],
+  ["i18n/lib/wuchale/scripts/check.ts.hbs", `/**
+ * \`i18n:check\` — fail on missing or invalid catalog entries. Set
+ * \`I18N_CHECK_ALLOW_MISSING=1\` to allow untranslated messages during
+ * development; structurally invalid entries always fail.
+ */
+
+import { sourceLocale } from "../src/config";
+import { isUntranslated } from "./po";
+import {
+  pluralCategories,
+  readCatalogs,
+  resolvePackageRoot,
+  validatePlaceholders,
+} from "./catalog";
+
+interface CheckError {
+  id: string;
+  locale: string;
+  kind: "missing" | "invalid";
+  error: string;
+}
+
+const allowMissing = process.env.I18N_CHECK_ALLOW_MISSING === "1";
+const packageRoot = resolvePackageRoot(import.meta.url);
+const catalogs = await readCatalogs(packageRoot);
+const errors: CheckError[] = [];
+
+for (const read of catalogs) {
+  if (read.source.locale === sourceLocale) continue;
+  for (const item of read.catalog.items) {
+    if (item.id.length === 0 && item.pluralId === null) continue;
+    const id = item.id;
+
+    if (isUntranslated(item.translations)) {
+      if (!allowMissing) {
+        errors.push({ id, locale: read.source.locale, kind: "missing", error: "untranslated" });
+      }
+      continue;
+    }
+
+    const placeholderError = validatePlaceholders(item, item.translations);
+    if (placeholderError !== null) {
+      errors.push({ id, locale: read.source.locale, kind: "invalid", error: placeholderError });
+      continue;
+    }
+
+    if (item.pluralId !== null) {
+      const expectedForms = pluralCategories(read.source.locale).length;
+      if (item.translations.length !== expectedForms) {
+        errors.push({
+          id,
+          locale: read.source.locale,
+          kind: "invalid",
+          error: \`expected \${expectedForms} plural forms, found \${item.translations.length}\`,
+        });
+      }
+    }
+  }
+}
+
+console.log(
+  JSON.stringify({ library: "wuchale", ok: errors.length === 0, errors }, null, 2),
+);
+process.exit(errors.length > 0 ? 1 : 0);
+`],
+  ["i18n/lib/wuchale/scripts/compile.ts.hbs", `/**
+ * \`i18n:compile\` — run the wuchale CLI to extract and compile the catalogs
+ * the app runtimes load, then refresh the normalized export in \`dist/catalog.json\`
+ * (design D7). Runs before \`dev\` and \`build\` through the root scripts.
+ */
+
+import { resolvePackageRoot, runWuchaleCli } from "./catalog";
+import { writeNormalizedCatalog } from "./export";
+
+const packageRoot = resolvePackageRoot(import.meta.url);
+
+const extractStatus = runWuchaleCli(packageRoot, []);
+if (extractStatus !== 0) process.exit(extractStatus);
+
+process.exit(await writeNormalizedCatalog(packageRoot));
+`],
+  ["i18n/lib/wuchale/scripts/export.ts.hbs", `/**
+ * \`i18n:export\` — write the normalized catalog (\`dist/catalog.json\`) shared
+ * with the Rust side, converting every message to the ICU subset
+ * (arguments, \`plural\` with \`#\`, \`select\`, nesting).
+ */
+
+import { mkdir, writeFile } from "node:fs/promises";
+import { join } from "node:path";
+
+import { locales, sourceLocale } from "../src/config";
+import { buildNormalizedCatalog, readCatalogs, resolvePackageRoot } from "./catalog";
+
+export async function writeNormalizedCatalog(packageRoot: string): Promise<number> {
+  const catalogs = await readCatalogs(packageRoot);
+  const result = buildNormalizedCatalog(catalogs, { locales, sourceLocale });
+
+  if (!result.isOk) {
+    for (const error of result.errors) console.error(\`i18n:export: \${error}\`);
+    return 1;
+  }
+
+  const outputPath = join(packageRoot, "dist", "catalog.json");
+  await mkdir(join(packageRoot, "dist"), { recursive: true });
+  await writeFile(outputPath, \`\${JSON.stringify(result.catalog, null, 2)}\\n\`, "utf8");
+  console.log(
+    \`i18n:export: wrote \${Object.keys(result.catalog.messages).length} messages to \${outputPath}\`,
+  );
+  return 0;
+}
+
+if (import.meta.main) {
+  process.exit(await writeNormalizedCatalog(resolvePackageRoot(import.meta.url)));
+}
+`],
+  ["i18n/lib/wuchale/scripts/extract.ts.hbs", `/**
+ * \`i18n:extract\` — scan every wuchale adapter for messages and write them to
+ * the per-adapter \`locales/<adapter>.<locale>.po\` catalogs. The wuchale CLI
+ * also refreshes the loader/proxy modules in \`locales/\`. AI translation is
+ * disabled (no \`ai\` config), so this only extracts and merges.
+ */
+
+import { resolvePackageRoot, runWuchaleCli } from "./catalog";
+
+const packageRoot = resolvePackageRoot(import.meta.url);
+process.exit(runWuchaleCli(packageRoot, []));
+`],
+  ["i18n/lib/wuchale/scripts/pending.ts.hbs", `/**
+ * \`i18n:pending --locale <locale> | --all [--limit N]\` — list untranslated
+ * items as the library-independent JSON contract consumed by the
+ * \`i18n-translate\` skill.
+ */
+
+import { locales, sourceLocale } from "../src/config";
+import {
+  collectPendingItems,
+  readCatalogs,
+  resolvePackageRoot,
+  type PendingReport,
+} from "./catalog";
+
+function argumentValue(name: string): string | undefined {
+  const index = process.argv.indexOf(name);
+  return index === -1 ? undefined : process.argv[index + 1];
+}
+
+const packageRoot = resolvePackageRoot(import.meta.url);
+const all = process.argv.includes("--all");
+const requestedLocale = argumentValue("--locale");
+const limitValue = argumentValue("--limit");
+const limit = limitValue === undefined ? undefined : Number.parseInt(limitValue, 10);
+
+if (!all && requestedLocale === undefined) {
+  console.error("Usage: bun run i18n:pending --locale <locale> | --all [--limit N]");
+  process.exit(1);
+}
+
+if (requestedLocale !== undefined && !locales.some((value) => value === requestedLocale)) {
+  console.error(\`Unknown locale "\${requestedLocale}". Configured locales: \${locales.join(", ")}.\`);
+  process.exit(1);
+}
+
+const catalogs = await readCatalogs(packageRoot);
+const items = collectPendingItems(catalogs, sourceLocale, all ? null : (requestedLocale ?? null));
+const limited = limit === undefined || Number.isNaN(limit) ? items : items.slice(0, limit);
+
+const report: PendingReport = { library: "wuchale", sourceLocale, items: limited };
+console.log(JSON.stringify(report, null, 2));
+`],
+  ["i18n/lib/wuchale/scripts/po.ts", `/**
+ * Minimal Gettext \`.po\` reader/writer for the wuchale script contract.
+ *
+ * Handles the subset wuchale writes: header entries, singular and plural
+ * messages, contexts, translator/extracted comments, references, flags and
+ * obsolete entries with \`#~\`. It is intentionally dependency-free so the
+ * generated \`@<project>/i18n\` package does not need \`pofile\` at runtime.
+ */
+
+export interface PoItem {
+  comments: string[];
+  extracted: string[];
+  references: string[];
+  flags: string[];
+  context: string | null;
+  id: string;
+  pluralId: string | null;
+  translations: string[];
+  obsolete: boolean;
+}
+
+export interface PoCatalog {
+  /** Verbatim header lines (comments + the empty \`msgid\`/\`msgstr\` entry). */
+  headers: string[];
+  items: PoItem[];
+}
+
+const COMMENT_PREFIXES = ["#.", "#:", "#,", "#"] as const;
+
+const ESCAPES = new Map<string, string>([
+  ["\\\\", "\\\\"],
+  ['"', '"'],
+  ["n", "\\n"],
+  ["t", "\\t"],
+  ["r", "\\r"],
+]);
+
+function unquote(value: string): string {
+  try {
+    return JSON.parse(value) as string;
+  } catch {
+    const inner = value.startsWith('"') && value.endsWith('"') ? value.slice(1, -1) : value;
+    return inner.replace(
+      /\\\\(["\\\\ntr])/g,
+      (_match: string, char: string) => ESCAPES.get(char) ?? char,
+    );
+  }
+}
+
+export function quotePo(value: string): string {
+  return JSON.stringify(value);
+}
+
+function createItem(): PoItem {
+  return {
+    comments: [],
+    extracted: [],
+    references: [],
+    flags: [],
+    context: null,
+    id: "",
+    pluralId: null,
+    translations: [],
+    obsolete: false,
+  };
+}
+
+interface PendingField {
+  key: "msgctxt" | "msgid" | "msgid_plural" | "msgstr";
+  index: number;
+  value: string;
+}
+
+function flushField(item: PoItem, field: PendingField | null): void {
+  if (!field) return;
+  if (field.key === "msgctxt") item.context = field.value;
+  else if (field.key === "msgid") item.id = field.value;
+  else if (field.key === "msgid_plural") item.pluralId = field.value;
+  else item.translations[field.index] = field.value;
+}
+
+function parseBlock(block: string[]): PoItem {
+  const item = createItem();
+  let field: PendingField | null = null;
+
+  for (const rawLine of block) {
+    const trimmed = rawLine.trim();
+    if (trimmed.length === 0) continue;
+
+    if (trimmed.startsWith('"')) {
+      if (!field) continue;
+      field.value += unquote(trimmed);
+      continue;
+    }
+
+    const obsolete = trimmed.startsWith("#~");
+    const line = obsolete ? trimmed.slice(2).trimStart() : trimmed;
+
+    if (line.startsWith("#")) {
+      flushField(item, field);
+      field = null;
+      item.obsolete = item.obsolete || obsolete;
+      parseComment(item, line);
+      continue;
+    }
+
+    const match = /^(msgctxt|msgid_plural|msgid|msgstr)(?:\\[(\\d+)\\])?\\s+(".*")\\s*$/.exec(line);
+    if (!match) {
+      flushField(item, field);
+      field = null;
+      continue;
+    }
+
+    flushField(item, field);
+    field = {
+      key: match[1] as PendingField["key"],
+      index: match[2] ? Number.parseInt(match[2], 10) : 0,
+      value: match[3] ? unquote(match[3]) : "",
+    };
+  }
+
+  flushField(item, field);
+  return item;
+}
+
+function parseComment(item: PoItem, line: string): void {
+  if (line.startsWith("#.")) {
+    item.extracted.push(line.slice(2).trim());
+    return;
+  }
+  if (line.startsWith("#:")) {
+    item.references.push(...line.slice(2).trim().split(/\\s+/).filter(Boolean));
+    return;
+  }
+  if (line.startsWith("#,")) {
+    item.flags.push(...line.slice(2).trim().split(/\\s+/).filter(Boolean));
+    return;
+  }
+  if (line.startsWith("#~|")) return;
+  item.comments.push(line.startsWith("#") ? line.slice(1).trim() : line);
+}
+
+const FIELD_PATTERN = /^(#~\\s+)?(msgctxt|msgid_plural|msgid|msgstr)(?:\\[\\d+\\])?\\s/;
+
+export function parsePo(content: string): PoCatalog {
+  const catalog: PoCatalog = { headers: [], items: [] };
+  const lines = content.replace(/^\\uFEFF/, "").split(/\\r?\\n/);
+  let block: string[] = [];
+  let blockHasField = false;
+  let headerSeen = false;
+
+  const consume = (): void => {
+    if (block.length === 0) return;
+    const raw = block;
+    const item = parseBlock(raw);
+    block = [];
+    blockHasField = false;
+    if (item.id === "" && item.context === null && item.pluralId === null) {
+      if (!headerSeen) {
+        headerSeen = true;
+        catalog.headers = [...raw];
+      }
+      return;
+    }
+    catalog.items.push(item);
+  };
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (trimmed.length === 0) {
+      consume();
+      continue;
+    }
+    const isComment = COMMENT_PREFIXES.some((prefix) => trimmed.startsWith(prefix));
+    if (isComment && blockHasField) {
+      consume();
+    }
+    block.push(line);
+    if (FIELD_PATTERN.test(trimmed)) blockHasField = true;
+  }
+  consume();
+
+  return catalog;
+}
+
+export function isUntranslated(translations: readonly string[]): boolean {
+  return translations.every((value) => value.length === 0);
+}
+
+export function serializePo(catalog: PoCatalog): string {
+  const lines: string[] = [];
+  if (catalog.headers.length > 0) {
+    lines.push(...catalog.headers, "");
+  }
+
+  for (const item of catalog.items) {
+    const prefix = item.obsolete ? "#~ " : "";
+    for (const comment of item.comments) lines.push(\`# \${comment}\`.trimEnd());
+    for (const comment of item.extracted) lines.push(\`#. \${comment}\`.trimEnd());
+    if (item.references.length > 0) lines.push(\`#: \${item.references.join(" ")}\`);
+    if (item.flags.length > 0) lines.push(\`#, \${item.flags.join(", ")}\`);
+    if (item.context !== null) lines.push(\`\${prefix}msgctxt \${quotePo(item.context)}\`);
+    lines.push(\`\${prefix}msgid \${quotePo(item.id)}\`);
+    if (item.pluralId !== null) {
+      lines.push(\`\${prefix}msgid_plural \${quotePo(item.pluralId)}\`);
+      item.translations.forEach((translation, index) => {
+        lines.push(\`\${prefix}msgstr[\${index}] \${quotePo(translation)}\`);
+      });
+    } else {
+      lines.push(\`\${prefix}msgstr \${quotePo(item.translations[0] ?? "")}\`);
+    }
+    lines.push("");
+  }
+
+  return \`\${lines.join("\\n").trimEnd()}\\n\`;
+}
+`],
+  ["i18n/lib/wuchale/src/runtime.ts", `/**
+ * wuchale runtime re-exports and the \`plural()\` code pattern.
+ *
+ * Surface glue imports \`loadLocale\` from here; wuchale's compiler injects its
+ * own runtime imports into transformed components. The shared \`Intl\`
+ * formatters (\`createFormatters\`) stay library-independent — never format
+ * dates or numbers through wuchale.
+ */
+
+import { sourceLocale } from "./config";
+
+export { commitLocale, loadLocale, loadLocaleSync, registerLoaders } from "wuchale/load-utils";
+export type { CatalogModule, Runtime } from "wuchale/runtime";
+
+const CATEGORY_ORDER: readonly Intl.LDMLPluralRule[] = [
+  "zero",
+  "one",
+  "two",
+  "few",
+  "many",
+  "other",
+];
+
+const categoryIndicesByLocale = new Map<string, ReadonlyMap<Intl.LDMLPluralRule, number>>();
+
+/** CLDR category → candidate index, matching wuchale's generated \`plural.js\`. */
+function categoryIndices(locale: string): ReadonlyMap<Intl.LDMLPluralRule, number> {
+  const cached = categoryIndicesByLocale.get(locale);
+  if (cached !== undefined) return cached;
+
+  const categories = [...new Intl.PluralRules(locale).resolvedOptions().pluralCategories];
+  categories.sort(
+    (first, second) => CATEGORY_ORDER.indexOf(first) - CATEGORY_ORDER.indexOf(second),
+  );
+  const indices = new Map(categories.map((category, index) => [category, index]));
+  categoryIndicesByLocale.set(locale, indices);
+  return indices;
+}
+
+/**
+ * The \`plural(count, ["one item", "# items"])\` code pattern wuchale looks for.
+ * The compiler replaces the candidate array with the compiled catalog for the
+ * active locale and appends \`_w_runtime_.l\` as the locale argument, so this
+ * only selects the candidate and substitutes \`#\`.
+ */
+export function plural(
+  count: number,
+  candidates: readonly string[],
+  locale: string = sourceLocale,
+): string {
+  const category = new Intl.PluralRules(locale).select(count);
+  const index = categoryIndices(locale).get(category) ?? 0;
+  const candidate = candidates[index] ?? candidates[candidates.length - 1] ?? "";
+  return candidate.replace("#", String(count));
+}
+`],
+  ["i18n/lib/wuchale/wuchale.config.mjs.hbs", `// wuchale configuration for @{{projectName}}/i18n (experimental).
+//
+// \`i18n:extract\` / \`i18n:compile\` run the \`wuchale\` CLI against this file.
+// Every adapter scopes its extraction to one app and stores its catalogs as
+// \`locales/<adapter>.<locale>.po\`. The \`locales/.wuchale\` directory and the
+// generated loader/proxy modules are build output.
+//
+// AI translation is intentionally disabled: there is no \`ai\` entry, so the CLI
+// never calls a translation provider. Translation runs through the uniform
+// agent contract: \`i18n:pending\` -> \`i18n:apply\` -> \`i18n:check\`.
+{{#if (or (includes frontend "next") (includes frontend "tanstack-start") (includes frontend "tanstack-router") (includes frontend "react-router") (includes frontend "solid") (eq emailRenderer "react-email") (and (includes addons "opentui") (eq addonOptions.opentui.template "react")) (and (includes addons "opentui") (eq addonOptions.opentui.template "solid")) (and (includes addons "wxt") (not addonOptions.wxt.template)) (and (includes addons "wxt") (eq addonOptions.wxt.template "react")) (and (includes addons "wxt") (eq addonOptions.wxt.template "solid")))}}
+import { adapter as jsx } from "@wuchale/jsx";
+{{/if}}
+{{#if (or (includes frontend "svelte") (and (includes addons "wxt") (eq addonOptions.wxt.template "svelte")))}}
+import { adapter as svelte } from "@wuchale/svelte";
+{{/if}}
+{{#if (includes frontend "astro")}}
+import { adapter as astro } from "@wuchale/astro";
+{{/if}}
+{{#if (or (eq backend "hono") (eq backend "express") (eq backend "fastify") (eq backend "elysia") (eq backend "nitro") (includes addons "electrobun") (and (includes addons "opentui") (not (eq addonOptions.opentui.template "react")) (not (eq addonOptions.opentui.template "solid"))) (and (includes addons "wxt") (eq addonOptions.wxt.template "vanilla")))}}
+import { adapter as vanilla } from "wuchale/adapter-vanilla";
+{{/if}}
+import { defineConfig, pofile } from "wuchale";
+
+export default defineConfig({
+  locales: [
+{{#if i18nOptions.locales}}
+{{#each i18nOptions.locales}}    "{{this}}",
+{{/each}}
+{{else}}
+    "en",
+    "es",
+    "fr",
+{{/if}}
+  ],
+  localesDir: "./locales",
+  adapters: {
+    // One adapter per app; each writes \`locales/<key>.<locale>.po\`.
+{{#if (or (includes frontend "next") (includes frontend "tanstack-start") (includes frontend "tanstack-router") (includes frontend "react-router"))}}
+    web: jsx({
+      loader: "react",
+      files: {
+        include: ["../../apps/web/src/**/*.{js,ts,jsx,tsx}"],
+        ignore: ["**/*.d.ts"],
+      },
+      localesDir: "../../apps/web/src/locales",
+      storage: pofile({ location: "locales/web.{locale}.po" }),
+    }),
+{{else if (includes frontend "svelte")}}
+    web: svelte({
+      loader: "sveltekit",
+      files: {
+        include: ["../../apps/web/src/**/*.svelte", "../../apps/web/src/**/*.svelte.{js,ts}"],
+        ignore: ["**/*.d.ts"],
+      },
+      localesDir: "../../apps/web/src/locales",
+      storage: pofile({ location: "locales/web.{locale}.po" }),
+    }),
+{{else if (includes frontend "solid")}}
+    web: jsx({
+      loader: "solidjs",
+      variant: "solidjs",
+      files: {
+        include: ["../../apps/web/src/**/*.{js,ts,jsx,tsx}"],
+        ignore: ["**/*.d.ts"],
+      },
+      localesDir: "../../apps/web/src/locales",
+      storage: pofile({ location: "locales/web.{locale}.po" }),
+    }),
+{{else if (includes frontend "astro")}}
+    web: astro({
+      files: {
+        include: ["../../apps/web/src/**/*.astro"],
+      },
+      localesDir: "../../apps/web/src/locales",
+      storage: pofile({ location: "locales/web.{locale}.po" }),
+    }),
+{{/if}}
+{{#if (or (eq backend "hono") (eq backend "express") (eq backend "fastify") (eq backend "elysia") (eq backend "nitro"))}}
+    server: vanilla({
+      loader: "server",
+      files: {
+        include: ["../../apps/server/src/**/*.{js,ts}"],
+        ignore: ["**/*.d.ts"],
+      },
+      localesDir: "../../apps/server/src/locales",
+      storage: pofile({ location: "locales/server.{locale}.po" }),
+    }),
+{{/if}}
+{{#if (eq emailRenderer "react-email")}}
+    email: jsx({
+      loader: "react",
+      files: {
+        include: ["../../packages/email/src/**/*.{ts,tsx}"],
+        ignore: ["**/*.d.ts"],
+      },
+      localesDir: "../../packages/email/src/locales",
+      storage: pofile({ location: "locales/email.{locale}.po" }),
+    }),
+{{/if}}
+{{#if (includes addons "electrobun")}}
+    desktop: vanilla({
+      loader: "server",
+      files: {
+        include: ["../../apps/desktop/src/**/*.{js,ts}"],
+        ignore: ["**/*.d.ts"],
+      },
+      localesDir: "../../apps/desktop/src/locales",
+      storage: pofile({ location: "locales/desktop.{locale}.po" }),
+    }),
+{{/if}}
+{{#if (includes addons "opentui")}}
+{{#if (eq addonOptions.opentui.template "react")}}
+    tui: jsx({
+      loader: "react",
+      files: {
+        include: ["../../apps/tui/src/**/*.{js,ts,jsx,tsx}"],
+        ignore: ["**/*.d.ts"],
+      },
+      localesDir: "../../apps/tui/src/locales",
+      storage: pofile({ location: "locales/tui.{locale}.po" }),
+    }),
+{{else if (eq addonOptions.opentui.template "solid")}}
+    tui: jsx({
+      loader: "solidjs",
+      variant: "solidjs",
+      files: {
+        include: ["../../apps/tui/src/**/*.{js,ts,jsx,tsx}"],
+        ignore: ["**/*.d.ts"],
+      },
+      localesDir: "../../apps/tui/src/locales",
+      storage: pofile({ location: "locales/tui.{locale}.po" }),
+    }),
+{{else}}
+    tui: vanilla({
+      loader: "server",
+      files: {
+        include: ["../../apps/tui/src/**/*.{js,ts}"],
+        ignore: ["**/*.d.ts"],
+      },
+      localesDir: "../../apps/tui/src/locales",
+      storage: pofile({ location: "locales/tui.{locale}.po" }),
+    }),
+{{/if}}
+{{/if}}
+{{#if (includes addons "wxt")}}
+{{#if (eq addonOptions.wxt.template "svelte")}}
+    extension: svelte({
+      loader: "svelte",
+      files: {
+        include: [
+          "../../apps/extension/entrypoints/**/*.svelte",
+          "../../apps/extension/components/**/*.svelte",
+          "../../apps/extension/src/**/*.svelte",
+        ],
+        ignore: ["**/*.d.ts"],
+      },
+      localesDir: "../../apps/extension/src/locales",
+      storage: pofile({ location: "locales/extension.{locale}.po" }),
+    }),
+{{else if (eq addonOptions.wxt.template "vanilla")}}
+    extension: vanilla({
+      loader: "vite",
+      files: {
+        include: [
+          "../../apps/extension/entrypoints/**/*.{js,ts}",
+          "../../apps/extension/components/**/*.{js,ts}",
+          "../../apps/extension/src/**/*.{js,ts}",
+        ],
+        ignore: ["**/*.d.ts"],
+      },
+      localesDir: "../../apps/extension/src/locales",
+      storage: pofile({ location: "locales/extension.{locale}.po" }),
+    }),
+{{else}}
+    extension: jsx({
+      loader: "{{#if (eq addonOptions.wxt.template "solid")}}solidjs{{else}}react{{/if}}",
+      variant: "{{#if (eq addonOptions.wxt.template "solid")}}solidjs{{else}}default{{/if}}",
+      files: {
+        include: [
+          "../../apps/extension/entrypoints/**/*.{js,ts,jsx,tsx}",
+          "../../apps/extension/components/**/*.{js,ts,jsx,tsx}",
+          "../../apps/extension/src/**/*.{js,ts,jsx,tsx}",
+        ],
+        ignore: ["**/*.d.ts"],
+      },
+      localesDir: "../../apps/extension/src/locales",
+      storage: pofile({ location: "locales/extension.{locale}.po" }),
+    }),
+{{/if}}
+{{/if}}
+  },
+});
+`],
+  ["i18n/lib/wuchale/WUCHALE.md.hbs", `# wuchale (experimental)
+
+\`@{{projectName}}/i18n\` uses [wuchale](https://wuchale.dev) for messages. Wuchale
+is **compile-time i18n**: you write natural strings and the bundler plugin
+transforms them into runtime lookups. There are no \`t()\` calls and no keys to
+invent.
+
+## How it works here
+
+- Config: \`wuchale.config.mjs\` — one adapter per app, each scoped to that app's
+  sources with \`files\` globs.
+- Catalogs: \`locales/<adapter>.<locale>.po\` (\`web\`, \`server\`, \`desktop\`, \`tui\`,
+  \`extension\`, \`email\`). The source locale stores the source strings; translate
+  the other locales.
+- Build output: each adapter writes its compiled catalogs, proxies and
+  \`<adapter>.loader.*\` modules into the app's own \`src/locales\` directory, so
+  the loader resolves the app's framework dependencies. Those directories are
+  gitignored and rebuilt by \`i18n:extract\` / \`i18n:compile\`.
+- Dates, numbers, currency and lists always go through
+  \`createFormatters(locale)\` from \`@{{projectName}}/i18n\`, never through
+  wuchale.
+
+## Scripts
+
+| Script | What it does |
+| --- | --- |
+| \`i18n:extract\` | Runs the wuchale CLI: extracts strings, refreshes the \`.po\` catalogs and the per-app loaders. |
+| \`i18n:compile\` | \`i18n:extract\` plus the normalized \`dist/catalog.json\` export; runs before \`dev\` and \`build\`. |
+| \`i18n:pending --locale <l> \\| --all [--limit N]\` | Lists untranslated items as JSON. |
+| \`i18n:apply <file>\` | Validates placeholders and writes translations back. |
+| \`i18n:check\` | Fails on missing or invalid entries; \`I18N_CHECK_ALLOW_MISSING=1\` allows missing ones. |
+| \`i18n:export\` | Writes the normalized ICU catalog to \`dist/catalog.json\`. |
+
+## AI translation is disabled
+
+The config deliberately has **no \`ai\` entry**, so wuchale never calls a
+translation provider. Translate with the \`i18n-translate\` skill through
+\`i18n:pending\` -> \`i18n:apply\` -> \`i18n:check\`.
+
+## Surface notes
+
+- **Vite frontends** (TanStack Start/Router, React Router, Solid, SvelteKit):
+  \`wuchale/vite\` is already wired into \`apps/web/vite.config.ts\`.
+- **Astro:** the \`@wuchale/astro/integration\` is wired into
+  \`apps/web/astro.config.mjs\`.
+- **Next.js, server, Electrobun, OpenTUI and WXT** have no bundler plugin.
+  Extraction works through \`i18n:extract\`; to transform sources for a build
+  without a plugin, run \`bunx wuchale --modify <adapter>\` on a clean working
+  tree (the command overwrites source files in place).
+- **Unsupported surfaces:** Nuxt and WXT Vue have no wuchale adapter, and Expo
+  (native) and Tauri's Rust host have no wuchale counterpart — the compatibility
+  matrix blocks those combinations with that reason.
+- **Partial surfaces:** \`react-email\` (server render path) and the OpenTUI
+  React/Solid reconcilers ship glue but are unverified; the compatibility matrix
+  reports them as warnings.
+
+## Adding a locale
+
+1. Add the tag to \`locales\` in \`src/config.ts\` (and to \`locales\` in
+   \`wuchale.config.mjs\` when it is not the default list).
+2. Run \`bun run i18n:extract\` — wuchale creates \`locales/<adapter>.<locale>.po\`.
+3. Translate through the scripts above.
+`],
   ["i18n/shared/GLOSSARY.md.hbs", `# Translation Glossary
 
 The \`i18n-translate\` skill reads this file before translating anything. Keep it
@@ -38610,6 +39818,753 @@ export function useFormat(): Formatters {
   return createFormatters(getLocale());
 }
 `],
+  ["i18n/surface/wuchale/astro/src/locales/_gitignore", `*
+`],
+  ["i18n/surface/wuchale/astro/src/pages/i18n-demo.astro.hbs", `---
+import Layout from "../layouts/Layout.astro";
+
+import {
+  createFormatters,
+  LOCALE_COOKIE,
+  locales,
+  negotiateLocale,
+  type Locale,
+} from "@{{projectName}}/i18n";
+import { loadLocale, plural } from "@{{projectName}}/i18n/runtime";
+
+const requested = Astro.url.searchParams.get("locale") ?? undefined;
+const locale: Locale = negotiateLocale({
+  cookie: Astro.cookies.get(LOCALE_COOKIE)?.value,
+  header: Astro.request.headers.get("x-app-locale") ?? undefined,
+  acceptLanguage: Astro.request.headers.get("accept-language") ?? undefined,
+  stored: requested !== undefined && locales.some((value) => value === requested) ? requested : undefined,
+});
+const formatters = createFormatters(locale);
+const itemCount = 3;
+---
+
+<Layout title="i18n demo">
+  <section class="container mx-auto max-w-2xl px-4 py-6">
+    <h1 class="text-2xl font-semibold text-white">Welcome</h1>
+    <p>Hello {formatters.displayName(locale) ?? locale}!</p>
+    <p>{plural(itemCount, ["# item", "# items"])}</p>
+    <p>{formatters.currency(1299.5, "EUR")}</p>
+    <p>{formatters.date(new Date("2026-10-14T12:00:00Z"))}</p>
+    <div class="flex gap-2">
+      {locales.map((next) => (
+        <a href={\`\${Astro.url.pathname}?locale=\${next}\`} data-locale={next}>
+          {next}
+        </a>
+      ))}
+    </div>
+  </section>
+</Layout>
+
+<script>
+  import { sourceLocale } from "@{{projectName}}/i18n";
+  import { loadLocale } from "@{{projectName}}/i18n/runtime";
+
+  const requested = new URLSearchParams(window.location.search).get("locale");
+  if (requested !== null) {
+    document.cookie = \`locale=\${requested}; path=/\`;
+  }
+  void loadLocale(requested ?? sourceLocale);
+</script>
+`],
+  ["i18n/surface/wuchale/electrobun-host/src/bun/i18n.ts.hbs", `/**
+ * Electrobun (Bun host) glue: the desktop main process keeps the locale,
+ * negotiates it from \`LANG\`/\`LC_ALL\` and exposes the shared formatters.
+ */
+
+import { createFormatters, negotiateLocale, type Locale } from "@{{projectName}}/i18n";
+
+let currentLocale: Locale = negotiateLocale({
+  system: process.env.LC_ALL ?? process.env.LANG,
+});
+
+export function setDesktopLocale(locale: Locale): Locale {
+  currentLocale = locale;
+  return currentLocale;
+}
+
+export function getDesktopLocale(): Locale {
+  return currentLocale;
+}
+
+export function createDesktopDemo() {
+  const formatters = createFormatters(currentLocale);
+  return {
+    locale: currentLocale,
+    heading: "Welcome",
+    greeting: \`Hello \${formatters.displayName(currentLocale) ?? currentLocale}!\`,
+    price: formatters.currency(1299.5, "EUR"),
+    date: formatters.date(new Date("2026-10-14T12:00:00Z")),
+  };
+}
+`],
+  ["i18n/surface/wuchale/electrobun-host/src/locales/_gitignore", `*
+`],
+  ["i18n/surface/wuchale/email/src/i18n.ts.hbs", `/**
+ * Email i18n glue (partial: wuchale's React Email render path is unverified by
+ * the compatibility matrix). Templates take the recipient's locale, use the
+ * shared \`Intl\` formatters and rely on the \`email\` adapter for extracted
+ * strings.
+ */
+
+import { createFormatters, type Locale } from "@{{projectName}}/i18n";
+
+export interface EmailI18n {
+  readonly locale: Locale;
+  readonly formatters: ReturnType<typeof createFormatters>;
+}
+
+export function createEmailI18n(locale: Locale): EmailI18n {
+  return { locale, formatters: createFormatters(locale) };
+}
+`],
+  ["i18n/surface/wuchale/email/src/locales/_gitignore", `*
+`],
+  ["i18n/surface/wuchale/next/src/app/i18n-demo/page.tsx.hbs", `"use client";
+
+import { useEffect, useState } from "react";
+
+import {
+  createFormatters,
+  LOCALE_COOKIE,
+  locales,
+  negotiateLocale,
+  type Locale,
+} from "@{{projectName}}/i18n";
+import { loadLocale, plural } from "@{{projectName}}/i18n/runtime";
+
+function initialLocale(): Locale {
+  if (typeof window === "undefined") return negotiateLocale();
+  // @wc-ignore
+  const stored = window.localStorage.getItem(LOCALE_COOKIE) ?? undefined;
+  return negotiateLocale({ stored, system: window.navigator.language });
+}
+
+export default function I18nDemoPage() {
+  const [locale, setLocale] = useState<Locale>(initialLocale);
+
+  useEffect(() => {
+    // @wc-ignore
+    window.localStorage.setItem(LOCALE_COOKIE, locale);
+    void loadLocale(locale);
+  }, [locale]);
+
+  const { currency, date, displayName } = createFormatters(locale);
+  const itemCount = 3;
+
+  return (
+    <section className="mx-auto flex max-w-2xl flex-col gap-3 p-6">
+      <h1 className="text-2xl font-semibold">Welcome</h1>
+      <p>Hello {displayName(locale) ?? locale}!</p>
+      <p>{plural(itemCount, ["# item", "# items"])}</p>
+      <p>{currency(1299.5, "EUR")}</p>
+      <p>{date(new Date("2026-10-14T12:00:00Z"))}</p>
+      <div className="flex gap-2">
+        {locales.map((next) => (
+          <button key={next} type="button" onClick={() => setLocale(next)}>
+            {next}
+          </button>
+        ))}
+      </div>
+    </section>
+  );
+}
+`],
+  ["i18n/surface/wuchale/next/src/locales/_gitignore", `*
+`],
+  ["i18n/surface/wuchale/opentui-core/src/i18n-demo.ts.hbs", `/**
+ * OpenTUI glue: locale-aware demo lines rendered by the TUI, using the shared
+ * \`Intl\` formatters and the wuchale \`plural()\` pattern.
+ */
+
+import { createFormatters, negotiateLocale, type Locale } from "@{{projectName}}/i18n";
+import { plural } from "@{{projectName}}/i18n/runtime";
+
+export function createTuiDemoLines(
+  locale: Locale = negotiateLocale({ system: process.env.LC_ALL ?? process.env.LANG }),
+): string[] {
+  const formatters = createFormatters(locale);
+  const itemCount = 3;
+  return [
+    "Welcome",
+    \`Hello \${formatters.displayName(locale) ?? locale}!\`,
+    plural(itemCount, ["# item", "# items"]),
+    formatters.currency(1299.5, "EUR"),
+    formatters.date(new Date("2026-10-14T12:00:00Z")),
+  ];
+}
+`],
+  ["i18n/surface/wuchale/opentui-core/src/locales/_gitignore", `*
+`],
+  ["i18n/surface/wuchale/opentui-react/src/i18n-demo.ts.hbs", `/**
+ * OpenTUI + React glue: a hook that tracks the locale and returns the demo
+ * lines. Unverified with the OpenTUI reconciler (partial support).
+ */
+
+import { useEffect, useState } from "react";
+
+import { createFormatters, negotiateLocale, type Locale } from "@{{projectName}}/i18n";
+import { loadLocale, plural } from "@{{projectName}}/i18n/runtime";
+
+export interface TuiI18nDemo {
+  readonly locale: Locale;
+  setLocale: (next: Locale) => void;
+  readonly lines: string[];
+}
+
+export function useTuiI18n(locale: Locale = negotiateLocale({ system: process.env.LC_ALL ?? process.env.LANG })): TuiI18nDemo {
+  const [current, setLocale] = useState<Locale>(locale);
+
+  useEffect(() => {
+    void loadLocale(current);
+  }, [current]);
+
+  const formatters = createFormatters(current);
+  const itemCount = 3;
+  return {
+    locale: current,
+    setLocale,
+    lines: [
+      "Welcome",
+      \`Hello \${formatters.displayName(current) ?? current}!\`,
+      plural(itemCount, ["# item", "# items"]),
+      formatters.currency(1299.5, "EUR"),
+      formatters.date(new Date("2026-10-14T12:00:00Z")),
+    ],
+  };
+}
+`],
+  ["i18n/surface/wuchale/opentui-react/src/locales/_gitignore", `*
+`],
+  ["i18n/surface/wuchale/opentui-solid/src/i18n-demo.ts.hbs", `/**
+ * OpenTUI + Solid glue: a signal-based locale store and the demo lines.
+ * Unverified with the OpenTUI reconciler (partial support).
+ */
+
+import { createEffect, createSignal, type Accessor, type Setter } from "solid-js";
+
+import { createFormatters, negotiateLocale, type Locale } from "@{{projectName}}/i18n";
+import { loadLocale, plural } from "@{{projectName}}/i18n/runtime";
+
+export interface TuiI18nDemo {
+  readonly locale: Accessor<Locale>;
+  readonly setLocale: Setter<Locale>;
+  readonly lines: Accessor<string[]>;
+}
+
+export function createTuiI18n(locale: Locale = negotiateLocale({ system: process.env.LC_ALL ?? process.env.LANG })): TuiI18nDemo {
+  const [current, setLocale] = createSignal<Locale>(locale);
+
+  createEffect(
+    () => current(),
+    (value) => {
+      void loadLocale(value);
+    },
+  );
+
+  const lines = (): string[] => {
+    const value = current();
+    const formatters = createFormatters(value);
+    const itemCount = 3;
+    return [
+      "Welcome",
+      \`Hello \${formatters.displayName(value) ?? value}!\`,
+      plural(itemCount, ["# item", "# items"]),
+      formatters.currency(1299.5, "EUR"),
+      formatters.date(new Date("2026-10-14T12:00:00Z")),
+    ];
+  };
+
+  return { locale: current, setLocale, lines };
+}
+`],
+  ["i18n/surface/wuchale/opentui-solid/src/locales/_gitignore", `*
+`],
+  ["i18n/surface/wuchale/react-router/src/locales/_gitignore", `*
+`],
+  ["i18n/surface/wuchale/react-router/src/routes/i18n-demo.tsx.hbs", `import { useEffect, useState } from "react";
+
+import {
+  createFormatters,
+  LOCALE_COOKIE,
+  locales,
+  negotiateLocale,
+  type Locale,
+} from "@{{projectName}}/i18n";
+import { loadLocale, plural } from "@{{projectName}}/i18n/runtime";
+
+function initialLocale(): Locale {
+  if (typeof window === "undefined") return negotiateLocale();
+  // @wc-ignore
+  const stored = window.localStorage.getItem(LOCALE_COOKIE) ?? undefined;
+  return negotiateLocale({ stored, system: window.navigator.language });
+}
+
+export default function I18nDemoRoute() {
+  const [locale, setLocale] = useState<Locale>(initialLocale);
+
+  useEffect(() => {
+    // @wc-ignore
+    window.localStorage.setItem(LOCALE_COOKIE, locale);
+    void loadLocale(locale);
+  }, [locale]);
+
+  const { currency, date, displayName } = createFormatters(locale);
+  const itemCount = 3;
+
+  return (
+    <section className="mx-auto flex max-w-2xl flex-col gap-3 p-6">
+      <h1 className="text-2xl font-semibold">Welcome</h1>
+      <p>Hello {displayName(locale) ?? locale}!</p>
+      <p>{plural(itemCount, ["# item", "# items"])}</p>
+      <p>{currency(1299.5, "EUR")}</p>
+      <p>{date(new Date("2026-10-14T12:00:00Z"))}</p>
+      <div className="flex gap-2">
+        {locales.map((next) => (
+          <button key={next} type="button" onClick={() => setLocale(next)}>
+            {next}
+          </button>
+        ))}
+      </div>
+    </section>
+  );
+}
+`],
+  ["i18n/surface/wuchale/server/src/i18n-demo.ts.hbs", `/**
+ * Server-side wuchale glue.
+ *
+ * Strings inside function scope are extracted by the \`server\` (vanilla)
+ * adapter on \`i18n:compile\`; request-scoped locale comes from the shared
+ * \`runWithLocale\` storage. This module exposes a locale-aware payload for
+ * server routes and background jobs.
+ */
+
+import { createFormatters, negotiateLocale, type Locale } from "@{{projectName}}/i18n";
+import { runWithLocale } from "@{{projectName}}/i18n/server";
+
+export interface I18nDemoPayload {
+  readonly locale: Locale;
+  readonly heading: string;
+  readonly greeting: string;
+  readonly price: string;
+  readonly date: string;
+}
+
+export function createI18nDemoPayload(locale: Locale = negotiateLocale()): I18nDemoPayload {
+  const formatters = createFormatters(locale);
+  return runWithLocale(locale, () => ({
+    locale,
+    heading: "Welcome",
+    greeting: \`Hello \${formatters.displayName(locale) ?? locale}!\`,
+    price: formatters.currency(1299.5, "EUR"),
+    date: formatters.date(new Date("2026-10-14T12:00:00Z")),
+  }));
+}
+`],
+  ["i18n/surface/wuchale/server/src/locales/_gitignore", `*
+`],
+  ["i18n/surface/wuchale/solid/src/locales/_gitignore", `*
+`],
+  ["i18n/surface/wuchale/solid/src/routes/i18n-demo.tsx.hbs", `import { createEffect, createSignal, For } from "solid-js";
+
+import {
+  createFormatters,
+  LOCALE_COOKIE,
+  locales,
+  negotiateLocale,
+  type Locale,
+} from "@{{projectName}}/i18n";
+import { loadLocale, plural } from "@{{projectName}}/i18n/runtime";
+
+function initialLocale(): Locale {
+  if (typeof window === "undefined") return negotiateLocale();
+  // @wc-ignore
+  const stored = window.localStorage.getItem(LOCALE_COOKIE) ?? undefined;
+  return negotiateLocale({ stored, system: window.navigator.language });
+}
+
+export default function I18nDemo() {
+  const [locale, setLocale] = createSignal<Locale>(initialLocale());
+
+  createEffect(
+    () => locale(),
+    (current) => {
+      // @wc-ignore
+      window.localStorage.setItem(LOCALE_COOKIE, current);
+      void loadLocale(current);
+    },
+  );
+
+  const formatters = () => createFormatters(locale());
+  const itemCount = 3;
+
+  return (
+    <section class="mx-auto flex max-w-2xl flex-col gap-3 p-6">
+      <h1 class="text-2xl font-semibold">Welcome</h1>
+      <p>Hello {formatters().displayName(locale()) ?? locale()}!</p>
+      <p>{plural(itemCount, ["# item", "# items"])}</p>
+      <p>{formatters().currency(1299.5, "EUR")}</p>
+      <p>{formatters().date(new Date("2026-10-14T12:00:00Z"))}</p>
+      <div class="flex gap-2">
+        <For each={locales}>
+          {(next) => (
+            <button type="button" onClick={() => setLocale(next)}>
+              {next}
+            </button>
+          )}
+        </For>
+      </div>
+    </section>
+  );
+}
+`],
+  ["i18n/surface/wuchale/svelte/src/locales/_gitignore", `*
+`],
+  ["i18n/surface/wuchale/svelte/src/routes/i18n-demo/+page.svelte.hbs", `<script lang="ts">
+  import {
+    createFormatters,
+    LOCALE_COOKIE,
+    locales,
+    negotiateLocale,
+    type Locale,
+  } from "@{{projectName}}/i18n";
+  import { loadLocale, plural } from "@{{projectName}}/i18n/runtime";
+
+  function initialLocale(): Locale {
+    if (typeof localStorage === "undefined") return negotiateLocale();
+    // @wc-ignore
+    const stored = localStorage.getItem(LOCALE_COOKIE) ?? undefined;
+    return negotiateLocale({ stored, system: navigator.language });
+  }
+
+  let locale: Locale = $state(initialLocale());
+  const formatters = $derived(createFormatters(locale));
+  const itemCount = 3;
+
+  $effect(() => {
+    // @wc-ignore
+    localStorage.setItem(LOCALE_COOKIE, locale);
+    void loadLocale(locale);
+  });
+</script>
+
+<section class="mx-auto flex max-w-2xl flex-col gap-3 p-6">
+  <h1 class="text-2xl font-semibold">Welcome</h1>
+  <p>Hello {formatters.displayName(locale) ?? locale}!</p>
+  <p>{plural(itemCount, ["# item", "# items"])}</p>
+  <p>{formatters.currency(1299.5, "EUR")}</p>
+  <p>{formatters.date(new Date("2026-10-14T12:00:00Z"))}</p>
+  <div class="flex gap-2">
+    {#each locales as next}
+      <button type="button" onclick={() => (locale = next)}>{next}</button>
+    {/each}
+  </div>
+</section>
+`],
+  ["i18n/surface/wuchale/tanstack-router/src/locales/_gitignore", `*
+`],
+  ["i18n/surface/wuchale/tanstack-router/src/routes/i18n-demo.tsx.hbs", `import { useEffect, useState } from "react";
+import { createFileRoute } from "@tanstack/react-router";
+
+import {
+  createFormatters,
+  LOCALE_COOKIE,
+  locales,
+  negotiateLocale,
+  type Locale,
+} from "@{{projectName}}/i18n";
+import { loadLocale, plural } from "@{{projectName}}/i18n/runtime";
+
+function initialLocale(): Locale {
+  if (typeof window === "undefined") return negotiateLocale();
+  // @wc-ignore
+  const stored = window.localStorage.getItem(LOCALE_COOKIE) ?? undefined;
+  return negotiateLocale({ stored, system: window.navigator.language });
+}
+
+function I18nDemo() {
+  const [locale, setLocale] = useState<Locale>(initialLocale);
+
+  useEffect(() => {
+    // @wc-ignore
+    window.localStorage.setItem(LOCALE_COOKIE, locale);
+    void loadLocale(locale);
+  }, [locale]);
+
+  const { currency, date, displayName } = createFormatters(locale);
+  const itemCount = 3;
+
+  return (
+    <section className="mx-auto flex max-w-2xl flex-col gap-3 p-6">
+      <h1 className="text-2xl font-semibold">Welcome</h1>
+      <p>Hello {displayName(locale) ?? locale}!</p>
+      <p>{plural(itemCount, ["# item", "# items"])}</p>
+      <p>{currency(1299.5, "EUR")}</p>
+      <p>{date(new Date("2026-10-14T12:00:00Z"))}</p>
+      <div className="flex gap-2">
+        {locales.map((next) => (
+          <button key={next} type="button" onClick={() => setLocale(next)}>
+            {next}
+          </button>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+export const Route = createFileRoute("/i18n-demo")({
+  component: I18nDemo,
+});
+`],
+  ["i18n/surface/wuchale/tanstack-start/src/locales/_gitignore", `*
+`],
+  ["i18n/surface/wuchale/tanstack-start/src/routes/i18n-demo.tsx.hbs", `import { useEffect, useState } from "react";
+import { createFileRoute } from "@tanstack/react-router";
+
+import {
+  createFormatters,
+  LOCALE_COOKIE,
+  locales,
+  negotiateLocale,
+  type Locale,
+} from "@{{projectName}}/i18n";
+import { loadLocale, plural } from "@{{projectName}}/i18n/runtime";
+
+function initialLocale(): Locale {
+  if (typeof window === "undefined") return negotiateLocale();
+  // @wc-ignore
+  const stored = window.localStorage.getItem(LOCALE_COOKIE) ?? undefined;
+  return negotiateLocale({ stored, system: window.navigator.language });
+}
+
+function I18nDemo() {
+  const [locale, setLocale] = useState<Locale>(initialLocale);
+
+  useEffect(() => {
+    // @wc-ignore
+    window.localStorage.setItem(LOCALE_COOKIE, locale);
+    void loadLocale(locale);
+  }, [locale]);
+
+  const { currency, date, displayName } = createFormatters(locale);
+  const itemCount = 3;
+
+  return (
+    <section className="mx-auto flex max-w-2xl flex-col gap-3 p-6">
+      <h1 className="text-2xl font-semibold">Welcome</h1>
+      <p>Hello {displayName(locale) ?? locale}!</p>
+      <p>{plural(itemCount, ["# item", "# items"])}</p>
+      <p>{currency(1299.5, "EUR")}</p>
+      <p>{date(new Date("2026-10-14T12:00:00Z"))}</p>
+      <div className="flex gap-2">
+        {locales.map((next) => (
+          <button key={next} type="button" onClick={() => setLocale(next)}>
+            {next}
+          </button>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+export const Route = createFileRoute("/i18n-demo")({
+  component: I18nDemo,
+});
+`],
+  ["i18n/surface/wuchale/wxt-react/src/i18n-demo.tsx.hbs", `/**
+ * WXT + React popup demo: translated heading, interpolation, plural, currency,
+ * date and a locale switcher.
+ */
+
+import { useEffect, useState } from "react";
+
+import {
+  createFormatters,
+  LOCALE_COOKIE,
+  locales,
+  negotiateLocale,
+  type Locale,
+} from "@{{projectName}}/i18n";
+import { loadLocale, plural } from "@{{projectName}}/i18n/runtime";
+
+function initialLocale(): Locale {
+  // @wc-ignore
+  const stored = localStorage.getItem(LOCALE_COOKIE) ?? undefined;
+  return negotiateLocale({ stored, system: navigator.language });
+}
+
+export function I18nPopup() {
+  const [locale, setLocale] = useState<Locale>(initialLocale);
+
+  useEffect(() => {
+    // @wc-ignore
+    localStorage.setItem(LOCALE_COOKIE, locale);
+    void loadLocale(locale);
+  }, [locale]);
+
+  const { currency, date, displayName } = createFormatters(locale);
+  const itemCount = 3;
+
+  return (
+    <section className="flex flex-col gap-3 p-4">
+      <h1 className="text-xl font-semibold">Welcome</h1>
+      <p>Hello {displayName(locale) ?? locale}!</p>
+      <p>{plural(itemCount, ["# item", "# items"])}</p>
+      <p>{currency(1299.5, "EUR")}</p>
+      <p>{date(new Date("2026-10-14T12:00:00Z"))}</p>
+      <div className="flex gap-2">
+        {locales.map((next) => (
+          <button key={next} type="button" onClick={() => setLocale(next)}>
+            {next}
+          </button>
+        ))}
+      </div>
+    </section>
+  );
+}
+`],
+  ["i18n/surface/wuchale/wxt-react/src/locales/_gitignore", `*
+`],
+  ["i18n/surface/wuchale/wxt-solid/src/i18n-demo.tsx.hbs", `/**
+ * WXT + Solid popup demo: translated heading, interpolation, plural, currency,
+ * date and a locale switcher.
+ */
+
+import { createEffect, createSignal, For } from "solid-js";
+
+import {
+  createFormatters,
+  LOCALE_COOKIE,
+  locales,
+  negotiateLocale,
+  type Locale,
+} from "@{{projectName}}/i18n";
+import { loadLocale, plural } from "@{{projectName}}/i18n/runtime";
+
+function initialLocale(): Locale {
+  // @wc-ignore
+  const stored = localStorage.getItem(LOCALE_COOKIE) ?? undefined;
+  return negotiateLocale({ stored, system: navigator.language });
+}
+
+export function I18nPopup() {
+  const [locale, setLocale] = createSignal<Locale>(initialLocale());
+
+  createEffect(
+    () => locale(),
+    (current) => {
+      // @wc-ignore
+      localStorage.setItem(LOCALE_COOKIE, current);
+      void loadLocale(current);
+    },
+  );
+
+  const formatters = () => createFormatters(locale());
+  const itemCount = 3;
+
+  return (
+    <section class="flex flex-col gap-3 p-4">
+      <h1 class="text-xl font-semibold">Welcome</h1>
+      <p>Hello {formatters().displayName(locale()) ?? locale()}!</p>
+      <p>{plural(itemCount, ["# item", "# items"])}</p>
+      <p>{formatters().currency(1299.5, "EUR")}</p>
+      <p>{formatters().date(new Date("2026-10-14T12:00:00Z"))}</p>
+      <div class="flex gap-2">
+        <For each={locales}>
+          {(next) => (
+            <button type="button" onClick={() => setLocale(next)}>
+              {next}
+            </button>
+          )}
+        </For>
+      </div>
+    </section>
+  );
+}
+`],
+  ["i18n/surface/wuchale/wxt-solid/src/locales/_gitignore", `*
+`],
+  ["i18n/surface/wuchale/wxt-svelte/src/i18n-demo.svelte.hbs", `<script lang="ts">
+  import {
+    createFormatters,
+    LOCALE_COOKIE,
+    locales,
+    negotiateLocale,
+    type Locale,
+  } from "@{{projectName}}/i18n";
+  import { loadLocale, plural } from "@{{projectName}}/i18n/runtime";
+
+  function initialLocale(): Locale {
+    // @wc-ignore
+    const stored = localStorage.getItem(LOCALE_COOKIE) ?? undefined;
+    return negotiateLocale({ stored, system: navigator.language });
+  }
+
+  let locale: Locale = $state(initialLocale());
+  const formatters = $derived(createFormatters(locale));
+  const itemCount = 3;
+
+  $effect(() => {
+    // @wc-ignore
+    localStorage.setItem(LOCALE_COOKIE, locale);
+    void loadLocale(locale);
+  });
+</script>
+
+<section class="flex flex-col gap-3 p-4">
+  <h1 class="text-xl font-semibold">Welcome</h1>
+  <p>Hello {formatters.displayName(locale) ?? locale}!</p>
+  <p>{plural(itemCount, ["# item", "# items"])}</p>
+  <p>{formatters.currency(1299.5, "EUR")}</p>
+  <p>{formatters.date(new Date("2026-10-14T12:00:00Z"))}</p>
+  <div class="flex gap-2">
+    {#each locales as next}
+      <button type="button" onclick={() => (locale = next)}>{next}</button>
+    {/each}
+  </div>
+</section>
+`],
+  ["i18n/surface/wuchale/wxt-svelte/src/locales/_gitignore", `*
+`],
+  ["i18n/surface/wuchale/wxt-vanilla/src/i18n-demo.ts.hbs", `/**
+ * WXT (vanilla) glue: locale-aware strings for extension UI and the
+ * \`@wxt-dev/i18n\` manifest integration. Locale selection is shared with the
+ * popup; \`storage.local\` persistence is wired by the \`wxt-i18n\` integration.
+ */
+
+import { createFormatters, LOCALE_COOKIE, negotiateLocale, type Locale } from "@{{projectName}}/i18n";
+import { loadLocale, plural } from "@{{projectName}}/i18n/runtime";
+
+export function initialExtensionLocale(): Locale {
+  // @wc-ignore
+  const stored = localStorage.getItem(LOCALE_COOKIE) ?? undefined;
+  return negotiateLocale({ stored, system: navigator.language });
+}
+
+export async function setExtensionLocale(locale: Locale): Promise<void> {
+  // @wc-ignore
+  localStorage.setItem(LOCALE_COOKIE, locale);
+  await loadLocale(locale);
+}
+
+export function createExtensionDemoLines(locale: Locale = initialExtensionLocale()): string[] {
+  const formatters = createFormatters(locale);
+  const itemCount = 3;
+  return [
+    "Welcome",
+    \`Hello \${formatters.displayName(locale) ?? locale}!\`,
+    plural(itemCount, ["# item", "# items"]),
+    formatters.currency(1299.5, "EUR"),
+    formatters.date(new Date("2026-10-14T12:00:00Z")),
+  ];
+}
+`],
+  ["i18n/surface/wuchale/wxt-vanilla/src/locales/_gitignore", `*
+`],
   ["packages/config/package.json.hbs", `{
   "name": "@{{projectName}}/config",
   "version": "0.0.0",
@@ -40645,4 +42600,4 @@ export default function Success() {
 `]
 ]);
 
-export const TEMPLATE_COUNT = 626;
+export const TEMPLATE_COUNT = 672;
