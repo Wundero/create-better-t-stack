@@ -162,16 +162,24 @@ function wireWebConfig(vfs: VirtualFileSystem, webApp: ParaglideWebApp): void {
 
   switch (webApp.surface) {
     case "next":
-      wireNextConfig(vfs, "apps/web/next.config.ts", project);
+      wireNextConfig(vfs, { path: "apps/web/next.config.ts", project });
       return;
     case "nuxt":
-      wireNuxtConfig(vfs, "apps/web/nuxt.config.ts", project, webApp.outdir);
+      wireNuxtConfig(vfs, {
+        path: "apps/web/nuxt.config.ts",
+        project,
+        outdir: webApp.outdir,
+      });
       return;
     case "astro":
-      wireAstroConfig(vfs, "apps/web/astro.config.mjs", project, webApp.outdir);
+      wireAstroConfig(vfs, {
+        path: "apps/web/astro.config.mjs",
+        project,
+        outdir: webApp.outdir,
+      });
       return;
     default:
-      wireViteConfig(vfs, "apps/web/vite.config.ts", project, webApp.outdir);
+      wireViteConfig(vfs, { path: "apps/web/vite.config.ts", project, outdir: webApp.outdir });
   }
 }
 

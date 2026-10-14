@@ -90,23 +90,25 @@ function addToPlugins(object: ObjectLiteralExpression, pluginCall: string): void
   }
 }
 
+/** Where an app registers the Paraglide compiler. */
+export interface ParaglideConfigTarget {
+  readonly path: string;
+  readonly project: string;
+  readonly outdir: string;
+}
+
 /** Adds `paraglideVitePlugin` to the `plugins` array of a Vite config. */
-export function wireViteConfig(
-  vfs: VirtualFileSystem,
-  path: string,
-  project: string,
-  outdir: string,
-): void {
-  const content = vfs.readFile(path);
+export function wireViteConfig(vfs: VirtualFileSystem, target: ParaglideConfigTarget): void {
+  const content = vfs.readFile(target.path);
   if (content === undefined || content.includes("paraglideVitePlugin")) return;
 
-  const sourceFile = createSourceFile(path, content);
+  const sourceFile = createSourceFile(target.path, content);
   const configObject = findConfigObject(sourceFile);
   if (!configObject) return;
 
   ensureParaglideImport(sourceFile, "paraglideVitePlugin");
-  addToPlugins(configObject, paraglideViteCall(project, outdir));
-  vfs.writeFile(path, sourceFile.getFullText());
+  addToPlugins(configObject, paraglideViteCall(target.project, target.outdir));
+  vfs.writeFile(target.path, sourceFile.getFullText());
 }
 
 function addToVitePlugins(object: ObjectLiteralExpression, pluginCall: string): void {
@@ -128,40 +130,33 @@ function addToVitePlugins(object: ObjectLiteralExpression, pluginCall: string): 
 }
 
 /** Adds `paraglideVitePlugin` to `vite.plugins` in `nuxt.config.ts`. */
-export function wireNuxtConfig(
-  vfs: VirtualFileSystem,
-  path: string,
-  project: string,
-  outdir: string,
-): void {
-  const content = vfs.readFile(path);
+export function wireNuxtConfig(vfs: VirtualFileSystem, target: ParaglideConfigTarget): void {
+  const content = vfs.readFile(target.path);
   if (content === undefined || content.includes("paraglideVitePlugin")) return;
 
-  const sourceFile = createSourceFile(path, content);
+  const sourceFile = createSourceFile(target.path, content);
   const configObject = findConfigObject(sourceFile);
   if (!configObject) return;
 
   ensureParaglideImport(sourceFile, "paraglideVitePlugin");
-  addToVitePlugins(configObject, paraglideViteCall(project, outdir));
-  vfs.writeFile(path, sourceFile.getFullText());
+  addToVitePlugins(configObject, paraglideViteCall(target.project, target.outdir));
+  vfs.writeFile(target.path, sourceFile.getFullText());
 }
 
 /** Adds `paraglideVitePlugin` to `vite.plugins` in `astro.config.mjs`. */
-export function wireAstroConfig(
-  vfs: VirtualFileSystem,
-  path: string,
-  project: string,
-  outdir: string,
-): void {
-  wireNuxtConfig(vfs, path, project, outdir);
+export function wireAstroConfig(vfs: VirtualFileSystem, target: ParaglideConfigTarget): void {
+  wireNuxtConfig(vfs, target);
 }
 
 /** Wraps `nextConfig` with the Paraglide webpack plugin. */
-export function wireNextConfig(vfs: VirtualFileSystem, path: string, project: string): void {
-  const content = vfs.readFile(path);
+export function wireNextConfig(
+  vfs: VirtualFileSystem,
+  target: Pick<ParaglideConfigTarget, "path" | "project">,
+): void {
+  const content = vfs.readFile(target.path);
   if (content === undefined || content.includes("paraglideWebpackPlugin")) return;
 
-  const sourceFile = createSourceFile(path, content);
+  const sourceFile = createSourceFile(target.path, content);
   const configObject = findConfigObject(sourceFile);
   if (!configObject) return;
 
@@ -171,12 +166,12 @@ export function wireNextConfig(vfs: VirtualFileSystem, path: string, project: st
     name: "webpack",
     parameters: [{ name: "config" }],
     statements: [
-      `config.plugins.push(paraglideWebpackPlugin({\n  project: ${JSON.stringify(project)},\n  outdir: ${JSON.stringify(outdir)},\n}));`,
+      `config.plugins.push(paraglideWebpackPlugin({\n  project: ${JSON.stringify(target.project)},\n  outdir: ${JSON.stringify(outdir)},\n}));`,
       "return config;",
     ],
   });
 
-  vfs.writeFile(path, sourceFile.getFullText());
+  vfs.writeFile(target.path, sourceFile.getFullText());
 }
 
 /**
