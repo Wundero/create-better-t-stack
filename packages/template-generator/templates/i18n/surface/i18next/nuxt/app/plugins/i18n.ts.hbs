@@ -1,0 +1,8 @@
+// Registers the shared i18next instance with the i18next-vue plugin. Templates
+// get `$t`; components can use `useTranslation()` from `i18next-vue`.
+import { initI18next } from "@{{projectName}}/i18n/runtime";
+import I18NextVue from "i18next-vue";
+
+export default defineNuxtPlugin((nuxtApp) => {
+  nuxtApp.vueApp.use(I18NextVue, { i18next: initI18next() });
+});

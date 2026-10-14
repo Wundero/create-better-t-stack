@@ -1,0 +1,45 @@
+import { defineConfig } from "i18next-cli";
+
+/**
+ * Extractor configuration for the shared catalogs.
+ *
+ * Natural-language keys with separators disabled: the extractor reads
+ * `t("Save changes")` as one flat key and writes `locales/<locale>/common.json`.
+ * Run `bun run i18n:extract` from the project root or `packages/i18n`.
+ */
+export default defineConfig({
+  locales: [
+{{#if i18nOptions.locales}}
+{{#each i18nOptions.locales}}
+    "{{this}}",
+{{/each}}
+{{else}}
+    "en",
+    "es",
+    "fr",
+{{/if}}
+  ],
+  extract: {
+    input: [
+      "../../apps/**/*.{ts,tsx,js,jsx,vue,svelte,astro}",
+      "../../packages/**/*.{ts,tsx,js,jsx}",
+    ],
+    ignore: [
+      "../../packages/i18n/**",
+      "**/node_modules/**",
+      "**/dist/**",
+      "**/.next/**",
+      "**/.nuxt/**",
+      "**/.svelte-kit/**",
+      "**/.expo/**",
+      "**/.output/**",
+      "**/routeTree.gen.ts",
+    ],
+    output: "locales/\{{language}}/\{{namespace}}.json",
+    defaultNS: "common",
+    keySeparator: false,
+    nsSeparator: false,
+    removeUnusedKeys: true,
+    sort: false,
+  },
+});

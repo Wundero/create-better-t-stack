@@ -1,0 +1,18 @@
+// Registers the shared i18next runtime with react-i18next for React Native.
+import { createFormatters, isLocale, sourceLocale } from "@{{projectName}}/i18n";
+import { i18next, initI18next } from "@{{projectName}}/i18n/runtime";
+import { useMemo } from "react";
+import { initReactI18next, useTranslation } from "react-i18next";
+
+i18next.use(initReactI18next);
+initI18next();
+
+export { currentLocale, i18next, setLocale } from "@{{projectName}}/i18n/runtime";
+
+/** Date, number and currency formatters for the active locale. */
+export function useFormat() {
+  const { i18n } = useTranslation();
+  const resolved = i18n.resolvedLanguage ?? "";
+  const locale = isLocale(resolved) ? resolved : sourceLocale;
+  return useMemo(() => createFormatters(locale), [locale]);
+}
