@@ -585,6 +585,51 @@ describe("routing generation", () => {
     );
     expect(router.readFile("apps/web/src/main.tsx") ?? "").toContain("rewrite: i18nRewrite");
     expect(router.exists("apps/web/src/i18n-routing.ts")).toBe(true);
+    expect(router.exists("apps/web/src/i18n-link.ts")).toBe(false);
+    expect(vfs.exists("apps/web/src/i18n-link.ts")).toBe(false);
+  });
+
+  test("clerk middleware survives the react-router and tanstack-start wiring", async () => {
+    const reactRouter = await generateVfs(
+      baseConfig({
+        frontend: ["react-router"],
+        backend: "none",
+        api: "none",
+        auth: "clerk",
+        i18n: "lingui",
+        i18nOptions: {
+          sourceLocale: "en",
+          locales: ["en", "fr"],
+          routing: { strategy: "prefix", prefixDefaultLocale: false },
+          translateSkill: true,
+        },
+      }),
+    );
+    const root = reactRouter.readFile("apps/web/src/root.tsx") ?? "";
+    expect(root).toContain(
+      "export const middleware: Route.MiddlewareFunction[] = [i18nMiddleware, clerkMiddleware()];",
+    );
+    expect(root).toContain('import { i18nMiddleware } from "./i18n-middleware";');
+    expect((root.match(/export const middleware/g) ?? []).length).toBe(1);
+
+    const tanstackStart = await generateVfs(
+      baseConfig({
+        frontend: ["tanstack-start"],
+        auth: "clerk",
+        i18n: "lingui",
+        i18nOptions: {
+          sourceLocale: "en",
+          locales: ["en", "fr"],
+          routing: { strategy: "prefix", prefixDefaultLocale: false },
+          translateSkill: true,
+        },
+      }),
+    );
+    const start = tanstackStart.readFile("apps/web/src/start.ts") ?? "";
+    expect(start).toContain("requestMiddleware: [i18nRequestMiddleware, clerkMiddleware()]");
+    expect(start).toContain('import { i18nRequestMiddleware } from "./i18n-middleware";');
+    expect(tanstackStart.exists("apps/web/src/i18n-middleware.ts")).toBe(true);
+    expect(tanstackStart.exists("apps/web/src/i18n-link.ts")).toBe(false);
   });
 
   test("prefix routing wraps React Router file routes and root middleware", async () => {

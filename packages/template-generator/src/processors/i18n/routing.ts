@@ -114,6 +114,8 @@ const WEB_FRONTENDS = [
   "astro",
 ] as const;
 
+const LINK_WIRED_FRONTENDS = ["next", "react-router", "svelte", "solid", "astro"] as const;
+
 function emitSurfaceRoutingTemplates(
   vfs: VirtualFileSystem,
   templates: TemplateData,
@@ -125,13 +127,17 @@ function emitSurfaceRoutingTemplates(
 
   if (!WEB_FRONTENDS.some((frontend) => frontends.includes(frontend))) return;
 
-  processSingleTemplate(
-    vfs,
-    templates,
-    "i18n/routing/surface/web/i18n-link.ts",
-    `${webSrc}/i18n-link.ts`,
-    config,
-  );
+  // Only surfaces whose headers render `<a>`/`<Link>` hrefs use the helper;
+  // TanStack links stay canonical and localize through the router rewrite.
+  if (LINK_WIRED_FRONTENDS.some((frontend) => frontends.includes(frontend))) {
+    processSingleTemplate(
+      vfs,
+      templates,
+      "i18n/routing/surface/web/i18n-link.ts",
+      `${webSrc}/i18n-link.ts`,
+      config,
+    );
+  }
 
   if (frontends.includes("next")) {
     processSingleTemplate(
@@ -181,13 +187,19 @@ function emitSurfaceRoutingTemplates(
   }
 
   if (frontends.includes("tanstack-start")) {
-    processSingleTemplate(
-      vfs,
-      templates,
-      "i18n/routing/surface/tanstack-start/start.ts",
-      `${webSrc}/start.ts`,
-      config,
-    );
+    const startPath = `${webSrc}/start.ts`;
+    const existingStart = vfs.readFile(startPath);
+    if (existingStart === undefined) {
+      processSingleTemplate(
+        vfs,
+        templates,
+        "i18n/routing/surface/tanstack-start/start.ts",
+        startPath,
+        config,
+      );
+    } else {
+      mergeTanstackStartMiddleware(vfs, startPath, existingStart);
+    }
     processSingleTemplate(
       vfs,
       templates,
@@ -256,8 +268,9 @@ export function processI18nRouting(vfs: VirtualFileSystem, config: ProjectConfig
   addLocaleCorsOrigins(vfs, config);
 }
 
-/** Applies anchored insertions and replacements to a generated file; leaves it
- * untouched when any anchor is missing or ambiguous (D9 single-match rule). */
+/** Applies insertions that require a unique anchor plus optional replacements
+ * (skipped when absent, applied to every match) to a generated file; leaves it
+ * untouched when a required anchor is missing or ambiguous (D9 rule). */
 function editGeneratedFile(
   vfs: VirtualFileSystem,
   path: string,
@@ -393,6 +406,31 @@ function wireTanstackRewrite(vfs: VirtualFileSystem, config: ProjectConfig): voi
   }
 }
 
+/**
+ * Clerk's TanStack Start template (`auth/clerk/web/react/tanstack-start`) owns
+ * `src/start.ts` and its `requestMiddleware` array. The i18n middleware is
+ * anchored into that array instead of overwriting the file.
+ */
+function mergeTanstackStartMiddleware(vfs: VirtualFileSystem, path: string, content: string): void {
+  if (content.includes("i18nRequestMiddleware")) return;
+
+  const withImport = insertBeforeOnce(
+    content,
+    "export const startInstance",
+    'import { i18nRequestMiddleware } from "./i18n-middleware";\n\n',
+  );
+  if (withImport === undefined) return;
+
+  const merged = replaceOnce(
+    withImport,
+    "requestMiddleware: [",
+    "requestMiddleware: [i18nRequestMiddleware, ",
+  );
+  if (merged === undefined) return;
+
+  vfs.writeFile(path, merged);
+}
+
 /** React Router exposes middleware through the root route module. */
 function wireReactRouterMiddleware(vfs: VirtualFileSystem, config: ProjectConfig): void {
   if (!config.frontend.includes("react-router")) return;
@@ -400,6 +438,22 @@ function wireReactRouterMiddleware(vfs: VirtualFileSystem, config: ProjectConfig
   const path = "apps/web/src/root.tsx";
   const content = vfs.readFile(path);
   if (content === undefined || content.includes("i18nMiddleware")) return;
+
+  const exportPrefix = "export const middleware: Route.MiddlewareFunction[] = [";
+  const merged = replaceOnce(content, exportPrefix, `${exportPrefix}i18nMiddleware, `);
+  if (merged !== undefined) {
+    const withImport = insertAfterOnce(
+      merged,
+      'import type { Route } from "./+types/root";',
+      '\nimport { i18nMiddleware } from "./i18n-middleware";',
+    );
+    if (withImport !== undefined) vfs.writeFile(path, withImport);
+    return;
+  }
+
+  // An unrecognized middleware export shape: leave the file untouched rather
+  // than emit a duplicate export.
+  if (content.includes("export const middleware")) return;
 
   vfs.writeFile(
     path,
