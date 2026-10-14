@@ -1,0 +1,15 @@
+/**
+ * `i18n:compile` — run the wuchale CLI to extract and compile the catalogs
+ * the app runtimes load, then refresh the normalized export in `dist/catalog.json`
+ * (design D7). Runs before `dev` and `build` through the root scripts.
+ */
+
+import { resolvePackageRoot, runWuchaleCli } from "./catalog";
+import { writeNormalizedCatalog } from "./export";
+
+const packageRoot = resolvePackageRoot(import.meta.url);
+
+const extractStatus = runWuchaleCli(packageRoot, []);
+if (extractStatus !== 0) process.exit(extractStatus);
+
+process.exit(await writeNormalizedCatalog(packageRoot));

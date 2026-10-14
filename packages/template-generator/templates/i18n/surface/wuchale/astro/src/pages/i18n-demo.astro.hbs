@@ -1,0 +1,51 @@
+---
+import Layout from "../layouts/Layout.astro";
+
+import {
+  createFormatters,
+  LOCALE_COOKIE,
+  locales,
+  negotiateLocale,
+  sourceLocale,
+  type Locale,
+} from "@{{projectName}}/i18n";
+import { loadLocale, plural } from "@{{projectName}}/i18n/runtime";
+
+const requested = Astro.url.searchParams.get("locale") ?? undefined;
+const locale: Locale = negotiateLocale({
+  cookie: Astro.cookies.get(LOCALE_COOKIE)?.value,
+  header: Astro.request.headers.get("x-app-locale") ?? undefined,
+  acceptLanguage: Astro.request.headers.get("accept-language") ?? undefined,
+  stored: requested !== undefined && locales.some((value) => value === requested) ? requested : undefined,
+});
+const formatters = createFormatters(locale);
+const itemCount = 3;
+---
+
+<Layout title="i18n demo">
+  <section class="container mx-auto max-w-2xl px-4 py-6">
+    <h1 class="text-2xl font-semibold text-white">Welcome</h1>
+    <p>Hello {formatters.displayName(locale) ?? locale}!</p>
+    <p>{plural(itemCount, ["# item", "# items"])}</p>
+    <p>{formatters.currency(1299.5, "EUR")}</p>
+    <p>{formatters.date(new Date("2026-10-14T12:00:00Z"))}</p>
+    <div class="flex gap-2">
+      {locales.map((next) => (
+        <a href={`${Astro.url.pathname}?locale=${next}`} data-locale={next}>
+          {next}
+        </a>
+      ))}
+    </div>
+  </section>
+</Layout>
+
+<script>
+  import { sourceLocale } from "@{{projectName}}/i18n";
+  import { loadLocale } from "@{{projectName}}/i18n/runtime";
+
+  const requested = new URLSearchParams(window.location.search).get("locale");
+  if (requested !== null) {
+    document.cookie = `locale=${requested}; path=/`;
+  }
+  void loadLocale(requested ?? sourceLocale);
+</script>

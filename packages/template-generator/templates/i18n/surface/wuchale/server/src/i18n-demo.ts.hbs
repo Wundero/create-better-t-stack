@@ -1,0 +1,30 @@
+/**
+ * Server-side wuchale glue.
+ *
+ * Strings inside function scope are extracted by the `server` (vanilla)
+ * adapter on `i18n:compile`; request-scoped locale comes from the shared
+ * `runWithLocale` storage. This module exposes a locale-aware payload for
+ * server routes and background jobs.
+ */
+
+import { createFormatters, negotiateLocale, type Locale } from "@{{projectName}}/i18n";
+import { runWithLocale } from "@{{projectName}}/i18n/server";
+
+export interface I18nDemoPayload {
+  readonly locale: Locale;
+  readonly heading: string;
+  readonly greeting: string;
+  readonly price: string;
+  readonly date: string;
+}
+
+export function createI18nDemoPayload(locale: Locale = negotiateLocale()): I18nDemoPayload {
+  const formatters = createFormatters(locale);
+  return runWithLocale(locale, () => ({
+    locale,
+    heading: "Welcome",
+    greeting: `Hello ${formatters.displayName(locale) ?? locale}!`,
+    price: formatters.currency(1299.5, "EUR"),
+    date: formatters.date(new Date("2026-10-14T12:00:00Z")),
+  }));
+}

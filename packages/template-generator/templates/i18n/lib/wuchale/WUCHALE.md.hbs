@@ -1,0 +1,59 @@
+# wuchale (experimental)
+
+`@{{projectName}}/i18n` uses [wuchale](https://wuchale.dev) for messages. Wuchale
+is **compile-time i18n**: you write natural strings and the bundler plugin
+transforms them into runtime lookups. There are no `t()` calls and no keys to
+invent.
+
+## How it works here
+
+- Config: `wuchale.config.mjs` — one adapter per app, each scoped to that app's
+  sources with `files` globs.
+- Catalogs: `locales/<adapter>.<locale>.po` (`web`, `server`, `desktop`, `tui`,
+  `extension`, `email`). The source locale stores the source strings; translate
+  the other locales.
+- Build output: each adapter writes its compiled catalogs, proxies and
+  `<adapter>.loader.*` modules into the app's own `src/locales` directory, so
+  the loader resolves the app's framework dependencies. Those directories are
+  gitignored and rebuilt by `i18n:extract` / `i18n:compile`.
+- Dates, numbers, currency and lists always go through
+  `createFormatters(locale)` from `@{{projectName}}/i18n`, never through
+  wuchale.
+
+## Scripts
+
+| Script | What it does |
+| --- | --- |
+| `i18n:extract` | Runs the wuchale CLI: extracts strings, refreshes the `.po` catalogs and the per-app loaders. |
+| `i18n:compile` | `i18n:extract` plus the normalized `dist/catalog.json` export; runs before `dev` and `build`. |
+| `i18n:pending --locale <l> \| --all [--limit N]` | Lists untranslated items as JSON. |
+| `i18n:apply <file>` | Validates placeholders and writes translations back. |
+| `i18n:check` | Fails on missing or invalid entries; `I18N_CHECK_ALLOW_MISSING=1` allows missing ones. |
+| `i18n:export` | Writes the normalized ICU catalog to `dist/catalog.json`. |
+
+## AI translation is disabled
+
+The config deliberately has **no `ai` entry**, so wuchale never calls a
+translation provider. Translate with the `i18n-translate` skill through
+`i18n:pending` -> `i18n:apply` -> `i18n:check`.
+
+## Surface notes
+
+- **Vite frontends** (TanStack Start/Router, React Router, Solid, SvelteKit):
+  `wuchale/vite` is already wired into `apps/web/vite.config.ts`.
+- **Astro:** the `@wuchale/astro/integration` is wired into
+  `apps/web/astro.config.mjs`.
+- **Next.js, server, Electrobun, OpenTUI and WXT** have no bundler plugin.
+  Extraction works through `i18n:extract`; to transform sources for a build
+  without a plugin, run `bunx wuchale --modify <adapter>` on a clean working
+  tree (the command overwrites source files in place).
+- **Unsupported surfaces:** Nuxt and WXT Vue have no wuchale adapter; Expo
+  (native), Tauri's Rust host and `react-email` are unsupported or unverified —
+  the compatibility matrix blocks combinations it cannot support.
+
+## Adding a locale
+
+1. Add the tag to `locales` in `src/config.ts` (and to `locales` in
+   `wuchale.config.mjs` when it is not the default list).
+2. Run `bun run i18n:extract` — wuchale creates `locales/<adapter>.<locale>.po`.
+3. Translate through the scripts above.
