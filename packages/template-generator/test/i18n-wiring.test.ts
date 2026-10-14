@@ -138,8 +138,8 @@ describe("i18n template handling", () => {
   const templates = new Map<string, string>([
     ["i18n/shared/GLOSSARY.md", "glossary"],
     ["i18n/lib/lingui/scripts/extract.ts", "extract"],
-    ["i18n/surface/next/src/demo.tsx", "next-demo"],
-    ["i18n/surface/native/App.tsx", "native-demo"],
+    ["i18n/surface/lingui/next/src/demo.tsx", "next-demo"],
+    ["i18n/surface/lingui/native/App.tsx", "native-demo"],
     ["i18n/skill/i18n-translate/SKILL.md", "skill"],
   ]);
 

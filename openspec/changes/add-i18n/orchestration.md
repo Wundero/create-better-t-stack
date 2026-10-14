@@ -79,7 +79,7 @@ L0 recon ─► L1 types ─┬─► L2 cli ───────────�
 
 L4 must create the per-library and per-concern processor files as **empty stubs** registered in `processors/i18n-deps.ts`. That lets later lanes fill only their own file.
 
-**Template layout contract (L4 handler).** `template-handlers/i18n.ts` emits by prefix: `i18n/shared/**` and `i18n/lib/<library>/**` → `packages/i18n`; `i18n/surface/<surface>/**` and `i18n/routing/<surface>/**` → that surface's app directory; `i18n/rust/**` → `packages/i18n`. So library scripts live at `templates/i18n/lib/<library>/scripts/**` and land at `packages/i18n/scripts/**`. Per-concern template emission is exposed as stub functions (`processI18nIntegrationTemplates`, `processI18nRustTemplates`) in the concern processor files.
+**Template layout contract (L4 handler).** `template-handlers/i18n.ts` emits by prefix: `i18n/shared/**` → `packages/i18n`; `i18n/lib/<library>/**` → `packages/i18n`; `i18n/surface/<library>/<surface>/**` → that surface's app directory; `i18n/rust/**` → `packages/i18n`. So library scripts live at `templates/i18n/lib/<library>/scripts/**` and land at `packages/i18n/scripts/**`. Per-concern template emission is exposed as stub functions (`processI18nIntegrationTemplates`, `processI18nRustTemplates`) in the concern processor files.
 
 ## Checkpoints ⛔
 

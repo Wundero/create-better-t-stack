@@ -37,7 +37,7 @@ const SURFACE_DESTINATIONS = {
 
 /**
  * i18n templates. Every lane owns its own template namespace:
- * `i18n/shared` (L4), `i18n/lib/<library>` and `i18n/surface/<surface>`
+ * `i18n/shared` (L4), `i18n/lib/<library>` and `i18n/surface/<library>/<surface>`
  * (L5a–L5d), `i18n/routing` and `i18n/integrations` and `i18n/rust`
  * (L6–L8), and `i18n/skill` (L9).
  */
@@ -56,7 +56,7 @@ export async function processI18nTemplates(
     processTemplatesFromPrefix(
       vfs,
       templates,
-      `i18n/surface/${surface}`,
+      `i18n/surface/${library}/${surface}`,
       SURFACE_DESTINATIONS[surface],
       config,
     );
