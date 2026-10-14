@@ -35117,6 +35117,1175 @@ export function onLocaleChange(listener: (locale: Locale) => void): () => void {
   };
 }
 `],
+  ["i18n/lib/paraglide/messages/en.json.hbs", `{
+  "$schema": "https://inlang.com/schema/inlang-message-format",
+  "i18n_demo_heading": "Internationalization demo",
+  "i18n_demo_interpolation": "Hello {name}, your stack is ready.",
+  "i18n_demo_plural": "{count, plural, one {# message translated} other {# messages translated}}",
+  "i18n_demo_currency_label": "Estimated monthly cost",
+  "i18n_demo_date_label": "Generated on"
+}
+`],
+  ["i18n/lib/paraglide/messages/es.json.hbs", `{
+  "$schema": "https://inlang.com/schema/inlang-message-format",
+  "i18n_demo_heading": "Demostración de internacionalización",
+  "i18n_demo_interpolation": "Hola {name}, tu stack está listo.",
+  "i18n_demo_plural": "{count, plural, one {# mensaje traducido} other {# mensajes traducidos}}",
+  "i18n_demo_currency_label": "Coste mensual estimado",
+  "i18n_demo_date_label": "Generado el"
+}
+`],
+  ["i18n/lib/paraglide/messages/fr.json.hbs", `{
+  "$schema": "https://inlang.com/schema/inlang-message-format",
+  "i18n_demo_heading": "Démonstration d'internationalisation",
+  "i18n_demo_interpolation": "Bonjour {name}, votre stack est prêt.",
+  "i18n_demo_plural": "{count, plural, one {# message traduit} other {# messages traduits}}",
+  "i18n_demo_currency_label": "Coût mensuel estimé",
+  "i18n_demo_date_label": "Généré le"
+}
+`],
+  ["i18n/lib/paraglide/project.inlang/paraglide.config.mjs.hbs", `/**
+ * Paraglide compiler options shared by the CLI (\`i18n:compile\`) and every
+ * bundler plugin. App configs only pass \`project\` and a per-app \`outdir\`;
+ * everything else is defined here once.
+ *
+ * The \`strategy\` order mirrors the shared locale negotiation in
+ * \`packages/i18n/src/config.ts\`: the routing source first (when the project
+ * uses prefix or domain routing), then the \`locale\` cookie, then the
+ * browser/device language, then the base locale.
+ */
+export default {
+{{#if (eq i18nOptions.routing.strategy "prefix")}}
+  strategy: ["url", "cookie", "baseLocale"],
+{{else if (eq i18nOptions.routing.strategy "domain")}}
+  strategy: ["url", "cookie", "baseLocale"],
+{{else}}
+  strategy: ["cookie", "preferredLanguage", "baseLocale"],
+{{/if}}
+  // Matches LOCALE_COOKIE in packages/i18n/src/config.ts.
+  cookieName: "locale",
+  localStorageKey: "locale",
+  emitGitIgnore: true,
+  emitTsDeclarations: true,
+{{#if (eq i18nOptions.routing.strategy "prefix")}}
+{{#if i18nOptions.routing.prefixDefaultLocale}}
+  // Every locale, including the base locale, gets a URL prefix.
+  urlPatterns: [
+    {
+      pattern: "/:path(.*)?",
+      localized: [
+{{#each i18nOptions.locales}}
+        ["{{this}}", "/{{this}}/:path(.*)?"],
+{{/each}}
+      ],
+    },
+  ],
+{{/if}}
+{{/if}}
+{{#if (eq i18nOptions.routing.strategy "domain")}}
+  // Locale → host map. Locales without a host keep an unprefixed path.
+  urlPatterns: [
+    {
+      pattern: "/:path(.*)?",
+      localized: [
+{{#each i18nOptions.locales}}
+        ["{{this}}", "{{#if (lookup ../i18nOptions.routing.domains this)}}https://{{lookup ../i18nOptions.routing.domains this}}/:path(.*)?{{else}}/:path(.*)?{{/if}}"],
+{{/each}}
+      ],
+    },
+  ],
+{{/if}}
+};
+`],
+  ["i18n/lib/paraglide/project.inlang/settings.json.hbs", `{
+  "$schema": "https://inlang.com/schema/project-settings",
+  "baseLocale": {{#if i18nOptions.sourceLocale}}"{{i18nOptions.sourceLocale}}"{{else}}"en"{{/if}},
+  "locales": [
+{{#if i18nOptions.locales}}
+{{#each i18nOptions.locales}}
+    "{{this}}"{{#unless @last}},{{/unless}}
+{{/each}}
+{{else}}
+    "en",
+    "es",
+    "fr"
+{{/if}}
+  ],
+  "modules": [
+    "https://cdn.jsdelivr.net/npm/@inlang/plugin-message-format@4.5.0/dist/index.js",
+    "https://cdn.jsdelivr.net/npm/@inlang/m-function-matcher@2.3.0/dist/index.js"
+  ],
+  "plugin.inlang.messageFormat": {
+    "pathPattern": "./messages/{locale}.json"
+  }
+}
+`],
+  ["i18n/lib/paraglide/scripts/apply.ts", `/**
+ * \`i18n:apply <file>\`
+ *
+ * Writes translated messages into the catalogs after validating them against
+ * the source catalog:
+ *
+ *   {
+ *     "items": [
+ *       { "id": "i18n_demo_heading", "locale": "fr", "translation": "..." }
+ *     ]
+ *   }
+ *
+ * Each item must reference an existing source message ID and keep the source's
+ * placeholders and ICU argument sets. Invalid items are rejected individually;
+ * valid items are still written. The process exits non-zero when anything was
+ * rejected.
+ */
+
+import {
+  catalogPath,
+  loadCatalogs,
+  readCatalog,
+  readJsonFile,
+  resolveFromScript,
+  writeCatalog,
+} from "../src/catalogs";
+import { compareMessages } from "../src/icu";
+
+interface ApplyItem {
+  readonly id: string;
+  readonly locale: string;
+  readonly translation: string;
+}
+
+interface RejectedItem {
+  readonly id: string;
+  readonly locale: string;
+  readonly reason: string;
+}
+
+export async function runApply(argv: readonly string[] = process.argv.slice(2)): Promise<number> {
+  const file = argv[0];
+  if (!file) {
+    console.error("Usage: i18n:apply <file>");
+    return 1;
+  }
+
+  let payload: { items?: ApplyItem[] };
+  try {
+    payload = (await readJsonFile(file)) as { items?: ApplyItem[] };
+  } catch (error) {
+    console.error(error instanceof Error ? error.message : String(error));
+    return 1;
+  }
+
+  const rawItems = payload.items;
+  if (!Array.isArray(rawItems) || rawItems.length === 0) {
+    console.error("The apply file must contain a non-empty \`items\` array.");
+    return 1;
+  }
+
+  const packageRoot = resolveFromScript(import.meta.url);
+  const { sourceLocale, locales, source } = await loadCatalogs(packageRoot);
+
+  const pending = new Map<string, Map<string, string>>();
+  const rejected: RejectedItem[] = [];
+  let applied = 0;
+
+  for (const item of rawItems) {
+    if (!item || !item.id || !item.locale || !item.translation) {
+      rejected.push({
+        id: item?.id ?? "?",
+        locale: item?.locale ?? "?",
+        reason: "items need non-empty id, locale and translation strings",
+      });
+      continue;
+    }
+
+    if (!locales.includes(item.locale)) {
+      rejected.push({
+        id: item.id,
+        locale: item.locale,
+        reason: \`"\${item.locale}" is not one of the configured locales\`,
+      });
+      continue;
+    }
+    if (item.locale === sourceLocale) {
+      rejected.push({
+        id: item.id,
+        locale: item.locale,
+        reason: "the source locale is edited in the catalogs directly",
+      });
+      continue;
+    }
+
+    const sourceMessage = source[item.id];
+    if (sourceMessage === undefined) {
+      rejected.push({
+        id: item.id,
+        locale: item.locale,
+        reason: "the message ID is not in the source catalog",
+      });
+      continue;
+    }
+
+    const comparison = compareMessages(sourceMessage, item.translation);
+    if (!comparison.ok) {
+      rejected.push({ id: item.id, locale: item.locale, reason: comparison.error });
+      continue;
+    }
+
+    let localeUpdates = pending.get(item.locale);
+    if (!localeUpdates) {
+      localeUpdates = new Map();
+      pending.set(item.locale, localeUpdates);
+    }
+    localeUpdates.set(item.id, item.translation);
+    applied += 1;
+  }
+
+  for (const [locale, updates] of pending) {
+    const filePath = catalogPath(packageRoot, locale);
+    const catalog = await readCatalog(filePath);
+    for (const [id, translation] of updates) {
+      catalog[id] = translation;
+    }
+    await writeCatalog(filePath, catalog);
+  }
+
+  console.log(JSON.stringify({ library: "paraglide", applied, rejected }, null, 2));
+  return rejected.length === 0 ? 0 : 1;
+}
+
+if (import.meta.main) {
+  try {
+    process.exitCode = await runApply();
+  } catch (error) {
+    console.error(\`i18n:apply failed: \${error instanceof Error ? error.message : String(error)}\`);
+    process.exitCode = 1;
+  }
+}
+`],
+  ["i18n/lib/paraglide/scripts/check.ts", `/**
+ * \`i18n:check\`
+ *
+ * Fails when a catalog is missing, invalid, or has untranslated messages:
+ *
+ *   - every message must stay inside the ICU subset the Rust runtime
+ *     understands (see \`src/icu.ts\`);
+ *   - every translation must keep the source placeholders and argument sets;
+ *   - every source message needs an entry in each target catalog unless
+ *     \`I18N_CHECK_ALLOW_MISSING=1\` relaxes missing entries for development.
+ *
+ * Prints a JSON report and exits 1 when the check fails.
+ */
+
+import { access } from "node:fs/promises";
+
+import { catalogPath, loadSettings, readCatalog, resolveFromScript } from "../src/catalogs";
+import { compareMessages, parseMessage } from "../src/icu";
+
+interface Problem {
+  readonly locale: string;
+  readonly id: string;
+  readonly kind: "catalog" | "missing" | "invalid" | "unknown";
+  readonly reason: string;
+}
+
+async function exists(filePath: string): Promise<boolean> {
+  try {
+    await access(filePath);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export async function runCheck(): Promise<number> {
+  const packageRoot = resolveFromScript(import.meta.url);
+  const allowMissing = process.env.I18N_CHECK_ALLOW_MISSING === "1";
+  const settings = await loadSettings(packageRoot);
+  const problems: Problem[] = [];
+
+  const catalogs = new Map<string, Record<string, string>>();
+  for (const locale of settings.locales) {
+    const filePath = catalogPath(packageRoot, locale);
+    if (!(await exists(filePath))) {
+      problems.push({
+        locale,
+        id: "*",
+        kind: "catalog",
+        reason: \`messages/\${locale}.json is missing; run \\\`i18n:extract\\\`\`,
+      });
+      continue;
+    }
+    try {
+      catalogs.set(locale, await readCatalog(filePath));
+    } catch (error) {
+      problems.push({
+        locale,
+        id: "*",
+        kind: "catalog",
+        reason: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+
+  const source = catalogs.get(settings.baseLocale) ?? {};
+  for (const [id, message] of Object.entries(source)) {
+    const parsed = parseMessage(message);
+    if (!parsed.ok) {
+      problems.push({ locale: settings.baseLocale, id, kind: "invalid", reason: parsed.error });
+    }
+  }
+
+  for (const locale of settings.locales) {
+    if (locale === settings.baseLocale) continue;
+    const catalog = catalogs.get(locale);
+    if (!catalog) continue;
+
+    for (const [id, sourceMessage] of Object.entries(source)) {
+      const translation = catalog[id];
+      if (translation === undefined || translation === "") {
+        problems.push({
+          locale,
+          id,
+          kind: "missing",
+          reason: translation === undefined ? "no translation yet" : "translation is empty",
+        });
+        continue;
+      }
+
+      const comparison = compareMessages(sourceMessage, translation);
+      if (!comparison.ok) {
+        problems.push({ locale, id, kind: "invalid", reason: comparison.error });
+      }
+    }
+
+    for (const id of Object.keys(catalog)) {
+      if (source[id] === undefined) {
+        problems.push({
+          locale,
+          id,
+          kind: "unknown",
+          reason: "the message ID is not in the source catalog",
+        });
+      }
+    }
+  }
+
+  const blocking = problems.filter((problem) => problem.kind !== "missing" || !allowMissing);
+
+  console.log(
+    JSON.stringify(
+      {
+        library: "paraglide",
+        ok: blocking.length === 0,
+        allowMissing,
+        problems,
+      },
+      null,
+      2,
+    ),
+  );
+
+  return blocking.length === 0 ? 0 : 1;
+}
+
+if (import.meta.main) {
+  try {
+    process.exitCode = await runCheck();
+  } catch (error) {
+    console.error(\`i18n:check failed: \${error instanceof Error ? error.message : String(error)}\`);
+    process.exitCode = 1;
+  }
+}
+`],
+  ["i18n/lib/paraglide/scripts/compile.ts.hbs", `/**
+ * \`i18n:compile\`
+ *
+ * Compiles \`project.inlang\` with the Paraglide CLI and writes the shared
+ * output to \`src/paraglide\` (see \`project.inlang/paraglide.config.mjs\`).
+ *
+ * Vite apps also compile their own output through \`paraglideVitePlugin\`.
+ * Hosts without a Vite pipeline — server, native, opentui, electrobun — import
+ * the output produced here from \`@{{projectName}}/i18n\`.
+ */
+
+import { spawnSync } from "node:child_process";
+
+import { resolveFromScript } from "../src/catalogs";
+
+const packageRoot = resolveFromScript(import.meta.url);
+
+export function runCompile(): number {
+  const bunx = process.platform === "win32" ? "bunx.cmd" : "bunx";
+  const result = spawnSync(
+    bunx,
+    ["@inlang/paraglide-js", "compile", "--project", "./project.inlang"],
+    { cwd: packageRoot, stdio: "inherit" },
+  );
+
+  if (result.error) {
+    console.error(\`i18n:compile failed to start the Paraglide CLI: \${result.error.message}\`);
+    return 1;
+  }
+
+  return result.status ?? 1;
+}
+
+if (import.meta.main) {
+  const compileExitCode = runCompile();
+{{#if (includes addons "tauri")}}
+  // The Tauri crate consumes the normalized catalog; keep it in sync with
+  // every compile (design D7).
+  if (compileExitCode === 0) {
+    const { runExport } = await import("./export");
+    process.exitCode = await runExport();
+  } else {
+    process.exitCode = compileExitCode;
+  }
+{{else}}
+  process.exitCode = compileExitCode;
+{{/if}}
+}
+`],
+  ["i18n/lib/paraglide/scripts/export.ts", `/**
+ * \`i18n:export\`
+ *
+ * Writes the normalized catalog the Rust i18n crate consumes (design D7):
+ *
+ *   packages/i18n/dist/catalog.json
+ *   {
+ *     "sourceLocale": "en",
+ *     "locales": ["en", "fr"],
+ *     "messages": {
+ *       "<id>": {
+ *         "source": "…",
+ *         "context": null,
+ *         "translations": { "en": "<ICU>", "fr": "<ICU>" }
+ *       }
+ *     }
+ *   }
+ *
+ * Message IDs are the Paraglide keys. Every message must stay inside the ICU
+ * subset in \`src/icu.ts\`; anything else fails with the message ID instead of
+ * writing a catalog the Rust runtime cannot render. A locale without a
+ * translation fails the export unless \`I18N_EXPORT_ALLOW_MISSING=1\` is set,
+ * which omits that locale from the message instead.
+ */
+
+import { mkdir, writeFile } from "node:fs/promises";
+import path from "node:path";
+
+import { loadCatalogs, resolveFromScript } from "../src/catalogs";
+import { compareMessages, parseMessage } from "../src/icu";
+
+interface NormalizedMessage {
+  readonly source: string;
+  readonly context: null;
+  readonly translations: Record<string, string>;
+}
+
+interface NormalizedCatalog {
+  readonly sourceLocale: string;
+  readonly locales: readonly string[];
+  readonly messages: Record<string, NormalizedMessage>;
+}
+
+export async function runExport(): Promise<number> {
+  const packageRoot = resolveFromScript(import.meta.url);
+  const allowMissing = process.env.I18N_EXPORT_ALLOW_MISSING === "1";
+
+  try {
+    const { sourceLocale, locales, source, catalogs } = await loadCatalogs(packageRoot);
+    const messages: Record<string, NormalizedMessage> = {};
+    const skipped: string[] = [];
+
+    for (const id of Object.keys(source).sort()) {
+      const sourceMessage = source[id] as string;
+      const parsedSource = parseMessage(sourceMessage);
+      if (!parsedSource.ok) {
+        throw new Error(\`cannot export "\${id}": \${parsedSource.error}\`);
+      }
+
+      const translations: Record<string, string> = {};
+      for (const locale of locales) {
+        const translated = catalogs.get(locale)?.[id];
+        if (translated === undefined || translated === "") {
+          if (locale === sourceLocale) {
+            throw new Error(\`cannot export "\${id}": the source catalog has no message\`);
+          }
+          if (!allowMissing) {
+            throw new Error(
+              \`cannot export "\${id}": no \${locale} translation yet (set I18N_EXPORT_ALLOW_MISSING=1 to skip it)\`,
+            );
+          }
+          skipped.push(\`\${id} (\${locale})\`);
+          continue;
+        }
+
+        const comparison = compareMessages(sourceMessage, translated);
+        if (!comparison.ok) {
+          throw new Error(\`cannot export "\${id}" for \${locale}: \${comparison.error}\`);
+        }
+        translations[locale] = translated;
+      }
+
+      messages[id] = { source: sourceMessage, context: null, translations };
+    }
+
+    const catalog: NormalizedCatalog = { sourceLocale, locales, messages };
+    const outputDirectory = path.join(packageRoot, "dist");
+    const outputPath = path.join(outputDirectory, "catalog.json");
+
+    await mkdir(outputDirectory, { recursive: true });
+    await writeFile(outputPath, \`\${JSON.stringify(catalog, null, 2)}\\n\`, "utf8");
+
+    if (skipped.length > 0) {
+      console.warn(\`i18n:export skipped \${skipped.length} untranslated message(s):\`);
+      for (const entry of skipped) console.warn(\`  - \${entry}\`);
+    }
+
+    console.log(
+      JSON.stringify(
+        {
+          library: "paraglide",
+          output: path.relative(packageRoot, outputPath),
+          sourceLocale,
+          locales,
+          messages: Object.keys(messages).length,
+          skipped: skipped.length,
+        },
+        null,
+        2,
+      ),
+    );
+
+    return 0;
+  } catch (error) {
+    console.error(\`i18n:export failed: \${error instanceof Error ? error.message : String(error)}\`);
+    return 1;
+  }
+}
+
+if (import.meta.main) {
+  process.exitCode = await runExport();
+}
+`],
+  ["i18n/lib/paraglide/scripts/extract.ts", `/**
+ * \`i18n:extract\`
+ *
+ * Paraglide message IDs are authored, not extracted: every key in
+ * \`messages/{sourceLocale}.json\` is the message ID. This script therefore
+ * never rewrites the source catalog. It keeps the uniform script contract:
+ *
+ *   1. validates \`project.inlang/settings.json\`;
+ *   2. creates an empty \`messages/{locale}.json\` for every configured locale
+ *      that does not have one yet (add-locales relies on this);
+ *   3. prints a JSON summary.
+ */
+
+import { access, writeFile } from "node:fs/promises";
+
+import { catalogPath, loadSettings, resolveFromScript } from "../src/catalogs";
+
+async function exists(filePath: string): Promise<boolean> {
+  try {
+    await access(filePath);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export async function runExtract(): Promise<number> {
+  const packageRoot = resolveFromScript(import.meta.url);
+  const settings = await loadSettings(packageRoot);
+
+  const created: string[] = [];
+  const existing: string[] = [];
+
+  for (const locale of settings.locales) {
+    const filePath = catalogPath(packageRoot, locale);
+    if (await exists(filePath)) {
+      existing.push(locale);
+      continue;
+    }
+
+    await writeFile(
+      filePath,
+      \`\${JSON.stringify({ $schema: "https://inlang.com/schema/inlang-message-format" }, null, 2)}\\n\`,
+      "utf8",
+    );
+    created.push(locale);
+  }
+
+  console.log(
+    JSON.stringify(
+      {
+        library: "paraglide",
+        extracted: 0,
+        note: "Message IDs are authored in messages/*.json; there is nothing to extract.",
+        created,
+        existing,
+      },
+      null,
+      2,
+    ),
+  );
+
+  return 0;
+}
+
+if (import.meta.main) {
+  try {
+    process.exitCode = await runExtract();
+  } catch (error) {
+    console.error(\`i18n:extract failed: \${error instanceof Error ? error.message : String(error)}\`);
+    process.exitCode = 1;
+  }
+}
+`],
+  ["i18n/lib/paraglide/scripts/pending.ts", `/**
+ * \`i18n:pending --locale <locale> | --all [--limit N]\`
+ *
+ * Emits the uniform pending-items contract for the Paraglide catalogs:
+ *
+ *   {
+ *     "library": "paraglide",
+ *     "sourceLocale": "en",
+ *     "items": [
+ *       { id, locale, source, context, comments, references, placeholders, status }
+ *     ]
+ *   }
+ *
+ * An item is pending when the target catalog has no entry for the message ID
+ * (\`missing\`) or an empty one (\`empty\`). The \`i18n-translate\` skill consumes
+ * exactly this output and writes batches back through \`i18n:apply\`.
+ */
+
+import { loadCatalogs, resolveFromScript } from "../src/catalogs";
+import { extractArgumentNames } from "../src/icu";
+
+interface PendingItem {
+  readonly id: string;
+  readonly locale: string;
+  readonly source: string;
+  readonly context: null;
+  readonly comments: readonly string[];
+  readonly references: readonly string[];
+  readonly placeholders: readonly string[];
+  readonly status: "missing" | "empty";
+}
+
+interface PendingOptions {
+  readonly locale?: string;
+  readonly all: boolean;
+  readonly limit?: number;
+}
+
+function parseArguments(argv: readonly string[]): PendingOptions {
+  let locale: string | undefined;
+  let all = false;
+  let limit: number | undefined;
+
+  for (let index = 0; index < argv.length; index += 1) {
+    const argument = argv[index];
+    if (argument === "--all") {
+      all = true;
+    } else if (argument === "--locale") {
+      locale = argv[index + 1];
+      index += 1;
+    } else if (argument === "--limit") {
+      limit = Number.parseInt(argv[index + 1] ?? "", 10);
+      index += 1;
+    }
+  }
+
+  return { locale, all: all || locale === undefined, limit };
+}
+
+export async function runPending(argv: readonly string[] = process.argv.slice(2)): Promise<number> {
+  const options = parseArguments(argv);
+  if (options.limit !== undefined && (!Number.isFinite(options.limit) || options.limit < 0)) {
+    console.error("\`--limit\` expects a non-negative number.");
+    return 1;
+  }
+
+  const packageRoot = resolveFromScript(import.meta.url);
+  const { sourceLocale, locales, source, catalogs } = await loadCatalogs(packageRoot);
+
+  const targets = options.locale ? [options.locale] : [...locales];
+  for (const target of targets) {
+    if (!locales.includes(target)) {
+      console.error(\`"\${target}" is not one of the configured locales: \${locales.join(", ")}.\`);
+      return 1;
+    }
+  }
+
+  const items: PendingItem[] = [];
+  for (const locale of targets) {
+    if (locale === sourceLocale) continue;
+    const catalog = catalogs.get(locale);
+    if (!catalog) continue;
+
+    for (const [id, sourceMessage] of Object.entries(source)) {
+      const translation = catalog[id];
+      const status = translation === undefined ? "missing" : translation === "" ? "empty" : null;
+      if (!status) continue;
+
+      items.push({
+        id,
+        locale,
+        source: sourceMessage,
+        context: null,
+        comments: [],
+        references: [],
+        placeholders: extractArgumentNames(sourceMessage),
+        status,
+      });
+    }
+  }
+
+  const limited = options.limit === undefined ? items : items.slice(0, options.limit);
+
+  console.log(JSON.stringify({ library: "paraglide", sourceLocale, items: limited }, null, 2));
+
+  return 0;
+}
+
+if (import.meta.main) {
+  try {
+    process.exitCode = await runPending();
+  } catch (error) {
+    console.error(\`i18n:pending failed: \${error instanceof Error ? error.message : String(error)}\`);
+    process.exitCode = 1;
+  }
+}
+`],
+  ["i18n/lib/paraglide/src/catalogs.ts", `/**
+ * Catalog helpers shared by the \`i18n:*\` scripts.
+ *
+ * Catalogs are the inlang message format: \`messages/{locale}.json\`, one flat
+ * object per locale. \`project.inlang/settings.json\` is the source of truth for
+ * the locale list.
+ */
+
+import { readFile, writeFile } from "node:fs/promises";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+export type JsonValue =
+  | string
+  | number
+  | boolean
+  | null
+  | JsonValue[]
+  | { [key: string]: JsonValue };
+
+export interface ProjectSettings {
+  readonly baseLocale: string;
+  readonly locales: readonly string[];
+}
+
+export type Catalog = Record<string, string>;
+
+export interface LoadedCatalogs {
+  readonly settings: ProjectSettings;
+  readonly sourceLocale: string;
+  readonly locales: readonly string[];
+  /** Source-locale messages, keyed by message ID. */
+  readonly source: Catalog;
+  /** Every locale, including the source locale, keyed by message ID. */
+  readonly catalogs: ReadonlyMap<string, Catalog>;
+}
+
+interface ParsedSettings {
+  baseLocale?: string;
+  locales?: string[];
+}
+
+/** Resolves a path relative to the package root from a \`scripts/*.ts\` URL. */
+export function resolveFromScript(scriptUrl: string, ...segments: string[]): string {
+  const scriptDirectory = path.dirname(fileURLToPath(scriptUrl));
+  return path.join(scriptDirectory, "..", ...segments);
+}
+
+export function settingsPath(packageRoot: string): string {
+  return path.join(packageRoot, "project.inlang", "settings.json");
+}
+
+export function messagesDirectory(packageRoot: string): string {
+  return path.join(packageRoot, "messages");
+}
+
+export function catalogPath(packageRoot: string, locale: string): string {
+  return path.join(messagesDirectory(packageRoot), \`\${locale}.json\`);
+}
+
+export async function readJsonFile(filePath: string): Promise<JsonValue> {
+  let content: string;
+  try {
+    content = await readFile(filePath, "utf8");
+  } catch {
+    throw new Error(\`Missing file: \${filePath}\`);
+  }
+
+  try {
+    return JSON.parse(content) as JsonValue;
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error);
+    throw new Error(\`Invalid JSON in \${filePath}: \${reason}\`);
+  }
+}
+
+export async function loadSettings(packageRoot: string): Promise<ProjectSettings> {
+  const raw = await readJsonFile(settingsPath(packageRoot));
+  const settings = raw as ParsedSettings;
+
+  if (settings.baseLocale === undefined || !Array.isArray(settings.locales)) {
+    throw new Error(\`\${settingsPath(packageRoot)} must define "baseLocale" and "locales"\`);
+  }
+  if (!settings.locales.includes(settings.baseLocale)) {
+    throw new Error(\`"\${settings.baseLocale}" must be one of the configured locales\`);
+  }
+
+  return { baseLocale: settings.baseLocale, locales: settings.locales };
+}
+
+/** Reads one catalog. Ignores the \`$schema\` hint inlang writes. */
+export async function readCatalog(filePath: string): Promise<Catalog> {
+  const raw = await readJsonFile(filePath);
+  if (Array.isArray(raw)) {
+    throw new Error(\`\${filePath} must be a JSON object of message ID → message\`);
+  }
+
+  const parsed = raw as Record<string, string>;
+  const catalog: Catalog = {};
+  for (const [id, message] of Object.entries(parsed)) {
+    if (id === "$schema") continue;
+    catalog[id] = message;
+  }
+  return catalog;
+}
+
+/** Writes a catalog with sorted, stable IDs and a \`$schema\` hint. */
+export async function writeCatalog(filePath: string, catalog: Catalog): Promise<void> {
+  const sorted: Catalog = { $schema: "https://inlang.com/schema/inlang-message-format" };
+  for (const id of Object.keys(catalog).sort()) {
+    sorted[id] = catalog[id] as string;
+  }
+  await writeFile(filePath, \`\${JSON.stringify(sorted, null, 2)}\\n\`, "utf8");
+}
+
+export async function loadCatalogs(packageRoot: string): Promise<LoadedCatalogs> {
+  const settings = await loadSettings(packageRoot);
+  const catalogs = new Map<string, Catalog>();
+  const missing: string[] = [];
+
+  for (const locale of settings.locales) {
+    const filePath = catalogPath(packageRoot, locale);
+    try {
+      catalogs.set(locale, await readCatalog(filePath));
+    } catch {
+      missing.push(locale);
+    }
+  }
+
+  if (missing.length > 0) {
+    throw new Error(
+      \`Missing catalog(s) for \${missing.join(", ")}. Run \\\`i18n:extract\\\` to create them.\`,
+    );
+  }
+
+  const source = catalogs.get(settings.baseLocale);
+  if (!source) {
+    throw new Error(\`Missing catalog for the source locale "\${settings.baseLocale}".\`);
+  }
+
+  return {
+    settings,
+    sourceLocale: settings.baseLocale,
+    locales: settings.locales,
+    source,
+    catalogs,
+  };
+}
+`],
+  ["i18n/lib/paraglide/src/icu.ts", `/**
+ * ICU MessageFormat subset used by \`i18n:pending\`, \`i18n:apply\`, \`i18n:check\`
+ * and \`i18n:export\`.
+ *
+ * The supported subset is the one the Rust side can evaluate (design D7):
+ * arguments (\`{name}\`), \`plural\` and \`selectordinal\` with \`#\`, \`select\`, and
+ * arbitrarily nested messages. Anything else — \`number\`, \`date\`, \`time\` and
+ * markup — fails validation instead of silently producing a message the Rust
+ * runtime cannot render.
+ */
+
+export type IcuArgumentType = "argument" | "plural" | "selectordinal" | "select";
+
+export interface IcuArgument {
+  readonly name: string;
+  readonly type: IcuArgumentType;
+  /** Selector keys (\`select\`) or plural categories (\`plural\`, \`selectordinal\`). */
+  readonly options: readonly string[];
+}
+
+export type IcuParseResult =
+  | { readonly ok: true; readonly arguments: readonly IcuArgument[] }
+  | { readonly ok: false; readonly error: string };
+
+export type IcuComparison = { readonly ok: true } | { readonly ok: false; readonly error: string };
+
+const ARGUMENT_NAME = /^[A-Za-z0-9_]+$/;
+const PLURAL_CATEGORIES = new Set(["zero", "one", "two", "few", "many", "other"]);
+const EXACT_SELECTOR = /^=[0-9]+$/;
+
+class IcuError extends Error {}
+
+interface ParseState {
+  readonly message: string;
+  index: number;
+  readonly arguments: Map<string, IcuArgument>;
+}
+
+function parseMessageInto(state: ParseState, allowPound: boolean): void {
+  const { message } = state;
+
+  while (state.index < message.length) {
+    const character = message.charAt(state.index);
+
+    if (character === "}") return;
+
+    if (character === "#") {
+      if (!allowPound) throw new IcuError("\`#\` is only valid inside plural or selectordinal");
+      state.index += 1;
+      continue;
+    }
+
+    if (character === "{") {
+      state.index += 1;
+      parseArgument(state);
+      continue;
+    }
+
+    state.index += 1;
+  }
+}
+
+function readUntil(state: ParseState, terminators: readonly string[]): string {
+  const start = state.index;
+
+  while (state.index < state.message.length) {
+    if (terminators.includes(state.message.charAt(state.index))) break;
+    state.index += 1;
+  }
+
+  return state.message.slice(start, state.index);
+}
+
+function record(state: ParseState, argument: IcuArgument): void {
+  const existing = state.arguments.get(argument.name);
+  if (existing && existing.type !== argument.type) {
+    throw new IcuError(
+      \`argument "\${argument.name}" is used as both \${existing.type} and \${argument.type}\`,
+    );
+  }
+  state.arguments.set(argument.name, argument);
+}
+
+function parseSelectors(state: ParseState, argumentName: string, type: IcuArgumentType): string[] {
+  const options: string[] = [];
+
+  while (true) {
+    while (state.index < state.message.length && /\\s/.test(state.message.charAt(state.index))) {
+      state.index += 1;
+    }
+
+    if (state.message.charAt(state.index) === "}") {
+      state.index += 1;
+      break;
+    }
+
+    const key = readUntil(state, ["{", "}"]).trim();
+    if (state.message.charAt(state.index) !== "{" || key.length === 0) {
+      throw new IcuError(\`selector "\${key}" in {\${argumentName}, \${type}} has no message body\`);
+    }
+
+    state.index += 1;
+    parseMessageInto(state, type !== "select");
+    if (state.message.charAt(state.index) !== "}") {
+      throw new IcuError(\`unbalanced braces in {\${argumentName}, \${type}}\`);
+    }
+    state.index += 1;
+    options.push(key);
+  }
+
+  if (options.length === 0) {
+    throw new IcuError(\`{\${argumentName}, \${type}} has no selectors\`);
+  }
+  return options;
+}
+
+function validateSelectors(
+  argumentName: string,
+  type: IcuArgumentType,
+  options: readonly string[],
+): void {
+  if (type === "select") return;
+
+  for (const option of options) {
+    if (!PLURAL_CATEGORIES.has(option) && !EXACT_SELECTOR.test(option)) {
+      throw new IcuError(\`"\${option}" is not a plural category for {\${argumentName}, \${type}}\`);
+    }
+  }
+  if (!options.includes("other")) {
+    throw new IcuError(\`{\${argumentName}, \${type}} is missing the "other" selector\`);
+  }
+}
+
+function assertArgumentName(name: string): void {
+  if (!ARGUMENT_NAME.test(name)) {
+    throw new IcuError(\`"\${name}" is not a valid argument name\`);
+  }
+}
+
+function parseArgument(state: ParseState): void {
+  const name = readUntil(state, [",", "}"]).trim();
+
+  if (state.message.charAt(state.index) === "}") {
+    state.index += 1;
+    assertArgumentName(name);
+    record(state, { name, type: "argument", options: [] });
+    return;
+  }
+
+  state.index += 1;
+  const type = readUntil(state, [",", "}"]).trim();
+  assertArgumentName(name);
+
+  if (type !== "plural" && type !== "selectordinal" && type !== "select") {
+    throw new IcuError(\`{\${name}, \${type}} is outside the supported ICU subset\`);
+  }
+  if (state.message.charAt(state.index) !== ",") {
+    throw new IcuError(\`{\${name}, \${type}} is missing its selectors\`);
+  }
+  state.index += 1;
+
+  const options = parseSelectors(state, name, type);
+  validateSelectors(name, type, options);
+  record(state, { name, type, options });
+}
+
+/** Parses one message and rejects anything outside the supported ICU subset. */
+export function parseMessage(message: string): IcuParseResult {
+  const state: ParseState = { message, index: 0, arguments: new Map() };
+
+  try {
+    parseMessageInto(state, false);
+    if (state.index < message.length) {
+      throw new IcuError("unbalanced \`}\`");
+    }
+  } catch (error) {
+    if (error instanceof IcuError) return { ok: false, error: error.message };
+    throw error;
+  }
+
+  return { ok: true, arguments: [...state.arguments.values()] };
+}
+
+/** Sorted argument names, used as the \`placeholders\` field of pending items. */
+export function extractArgumentNames(message: string): string[] {
+  const parsed = parseMessage(message);
+  if (!parsed.ok) return [];
+  return parsed.arguments.map((argument) => argument.name).sort();
+}
+
+function selectorSetsMatch(source: IcuArgument, translation: IcuArgument): IcuComparison {
+  if (source.type === "select") {
+    const expected = [...source.options].sort();
+    const actual = [...translation.options].sort();
+    if (expected.join(",") !== actual.join(",")) {
+      return {
+        ok: false,
+        error: \`selector set for "\${source.name}" must stay [\${expected.join(", ")}], got [\${actual.join(", ")}]\`,
+      };
+    }
+    return { ok: true };
+  }
+
+  const exactSelectors = source.options.filter((option) => EXACT_SELECTOR.test(option));
+  for (const selector of exactSelectors) {
+    if (!translation.options.includes(selector)) {
+      return { ok: false, error: \`translation for "\${source.name}" is missing \${selector}\` };
+    }
+  }
+  if (!translation.options.includes("other")) {
+    return { ok: false, error: \`translation for "\${source.name}" is missing the "other" selector\` };
+  }
+  return { ok: true };
+}
+
+/**
+ * Validates that a translation keeps the source's placeholder and ICU argument
+ * sets: the same argument names, the same argument types, the same \`select\`
+ * selector sets and the same exact-match plural selectors.
+ */
+export function compareMessages(source: string, translation: string): IcuComparison {
+  const parsedSource = parseMessage(source);
+  if (!parsedSource.ok) {
+    return { ok: false, error: \`source message is invalid: \${parsedSource.error}\` };
+  }
+
+  const parsedTranslation = parseMessage(translation);
+  if (!parsedTranslation.ok) {
+    return { ok: false, error: \`translation is invalid: \${parsedTranslation.error}\` };
+  }
+
+  const translated = new Map(
+    parsedTranslation.arguments.map((argument) => [argument.name, argument]),
+  );
+
+  for (const sourceArgument of parsedSource.arguments) {
+    const translationArgument = translated.get(sourceArgument.name);
+    if (!translationArgument) {
+      return { ok: false, error: \`translation is missing the argument "\${sourceArgument.name}"\` };
+    }
+    if (translationArgument.type !== sourceArgument.type) {
+      return {
+        ok: false,
+        error: \`argument "\${sourceArgument.name}" must stay a \${sourceArgument.type}\`,
+      };
+    }
+    if (sourceArgument.type !== "argument") {
+      const selectors = selectorSetsMatch(sourceArgument, translationArgument);
+      if (!selectors.ok) return selectors;
+    }
+    translated.delete(sourceArgument.name);
+  }
+
+  const extra = [...translated.keys()];
+  if (extra.length > 0) {
+    return { ok: false, error: \`translation adds the unknown argument(s) \${extra.join(", ")}\` };
+  }
+
+  return { ok: true };
+}
+`],
+  ["i18n/lib/paraglide/src/runtime.ts.hbs", `/**
+ * Paraglide runtime for \`@{{projectName}}/i18n\`.
+ *
+ * Vite-based apps compile their own messages through \`paraglideVitePlugin\`
+ * and import the generated modules directly. Hosts without a Vite pipeline
+ * (server, native, desktop, tui) import the compiled output from here;
+ * \`i18n:compile\` writes it into \`./paraglide\` before dev, build and
+ * check-types run.
+ *
+ * Message IDs are authored keys: \`m.i18n_demo_heading()\`.
+ */
+
+export { m } from "./paraglide/messages.js";
+export * from "./paraglide/runtime.js";
+export { paraglideMiddleware } from "./paraglide/server.js";
+`],
   ["i18n/shared/GLOSSARY.md.hbs", `# Translation Glossary
 
 The \`i18n-translate\` skill reads this file before translating anything. Keep it
@@ -36752,6 +37921,693 @@ export async function renderI18nDemo(locale?: string): Promise<ExtensionI18nDemo
     currency: format.currency(42.5, "EUR"),
     date: format.date(new Date()),
   };
+}
+`],
+  ["i18n/surface/paraglide/astro/src/components/I18nDemo.astro.hbs", `---
+import { createFormatters, isLocale } from "@{{projectName}}/i18n";
+
+import * as m from "../paraglide/messages.js";
+import { getLocale, locales, setLocale } from "../paraglide/runtime.js";
+
+/**
+ * i18n demo: translated heading, interpolation, plural, currency, date and a
+ * locale switcher. Date and currency always come from the shared
+ * \`createFormatters\` bundle, never from the i18n library.
+ */
+const locale = getLocale();
+const formatters = createFormatters(locale);
+---
+
+<section class="rounded-lg border border-neutral-700 p-4">
+  <h2 class="mb-2 font-medium text-white">{m.i18n_demo_heading()}</h2>
+  <p class="text-sm text-neutral-400">{m.i18n_demo_interpolation({ name: "Better T Stack" })}</p>
+  <p class="text-sm text-neutral-400">{m.i18n_demo_plural({ count: 3 })}</p>
+  <dl class="mt-3 grid gap-1 text-sm">
+    <div class="flex gap-2">
+      <dt class="text-neutral-400">{m.i18n_demo_currency_label()}</dt>
+      <dd class="text-white">{formatters.currency(19.99, "EUR")}</dd>
+    </div>
+    <div class="flex gap-2">
+      <dt class="text-neutral-400">{m.i18n_demo_date_label()}</dt>
+      <dd class="text-white">{formatters.date(new Date("2024-05-01T00:00:00Z"))}</dd>
+    </div>
+  </dl>
+  <label class="mt-3 flex items-center gap-2 text-sm">
+    <span class="text-neutral-400">{formatters.displayName(locale)}</span>
+    <select id="i18n-demo-locale" class="rounded border border-neutral-700 bg-transparent px-2 py-1 text-white">
+      {locales.map((available) => (
+        <option value={available} selected={available === locale}>
+          {formatters.displayName(available) ?? available}
+        </option>
+      ))}
+    </select>
+  </label>
+</section>
+
+<script>
+  import { isLocale } from "@{{projectName}}/i18n";
+
+  import { setLocale } from "../paraglide/runtime.js";
+
+  const select = document.querySelector<HTMLSelectElement>("#i18n-demo-locale");
+  select?.addEventListener("change", () => {
+    if (select && isLocale(select.value)) void setLocale(select.value);
+  });
+</script>
+`],
+  ["i18n/surface/paraglide/electrobun-host/src/bun/i18n-demo.ts.hbs", `import { createFormatters, negotiateLocale } from "@{{projectName}}/i18n";
+import { m } from "@{{projectName}}/i18n/runtime";
+import type { Locale } from "@{{projectName}}/i18n/runtime";
+
+/**
+ * i18n demo for the Electrobun host (the Bun main process). The host has no
+ * request, so the locale is negotiated from \`LC_ALL\`/\`LANG\` and can be
+ * overridden by the webview through the host bridge.
+ *
+ * Date and currency always come from the shared \`createFormatters\` bundle.
+ */
+export function hostLocale(): Locale {
+  return negotiateLocale({ system: process.env.LC_ALL ?? process.env.LANG });
+}
+
+export interface I18nDemoPayload {
+  readonly locale: Locale;
+  readonly heading: string;
+  readonly interpolation: string;
+  readonly plural: string;
+  readonly currency: string;
+  readonly date: string;
+}
+
+export function renderI18nDemo(locale: Locale = hostLocale()): I18nDemoPayload {
+  const formatters = createFormatters(locale);
+
+  return {
+    locale,
+    heading: m.i18n_demo_heading({}, { locale }),
+    interpolation: m.i18n_demo_interpolation({ name: "Better T Stack" }, { locale }),
+    plural: m.i18n_demo_plural({ count: 3 }, { locale }),
+    currency: formatters.currency(19.99, "EUR"),
+    date: formatters.date(new Date("2024-05-01T00:00:00Z")),
+  };
+}
+`],
+  ["i18n/surface/paraglide/native/components/i18n-demo.tsx.hbs", `import { getLocale, locales, m, setLocale } from "@{{projectName}}/i18n/runtime";
+import { useFormat } from "@/hooks/use-format";
+import { Pressable, StyleSheet, Text, View } from "react-native";
+
+/**
+ * i18n demo: translated heading, interpolation, plural, currency, date and a
+ * locale switcher. Date and currency always come from the shared
+ * \`createFormatters\` bundle, never from the i18n library.
+ *
+ * Hosts that own their storage persist the locale through
+ * \`overwriteGetLocale\`/\`overwriteSetLocale\` from \`@{{projectName}}/i18n/runtime\`
+ * so \`setLocale\` writes to the template's storage.
+ */
+export function I18nDemo() {
+  const locale = getLocale();
+  const formatters = useFormat();
+
+  return (
+    <View style={styles.card}>
+      <Text style={styles.heading}>{m.i18n_demo_heading()}</Text>
+      <Text style={styles.body}>{m.i18n_demo_interpolation({ name: "Better T Stack" })}</Text>
+      <Text style={styles.body}>{m.i18n_demo_plural({ count: 3 })}</Text>
+      <View style={styles.row}>
+        <Text style={styles.label}>{m.i18n_demo_currency_label()}</Text>
+        <Text style={styles.value}>{formatters.currency(19.99, "EUR")}</Text>
+      </View>
+      <View style={styles.row}>
+        <Text style={styles.label}>{m.i18n_demo_date_label()}</Text>
+        <Text style={styles.value}>{formatters.date(new Date("2024-05-01T00:00:00Z"))}</Text>
+      </View>
+      <View style={styles.locales}>
+        {locales.map((available) => (
+          <Pressable
+            key={available}
+            onPress={() => void setLocale(available)}
+            style={[styles.localeButton, available === locale && styles.localeButtonActive]}
+          >
+            <Text style={styles.localeLabel}>{formatters.displayName(available) ?? available}</Text>
+          </Pressable>
+        ))}
+      </View>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  card: {
+    borderWidth: 1,
+    borderColor: "#52525b",
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    gap: 4,
+  },
+  heading: {
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  body: {
+    fontSize: 14,
+    opacity: 0.8,
+  },
+  row: {
+    marginTop: 8,
+    flexDirection: "row",
+    gap: 8,
+  },
+  label: {
+    fontSize: 13,
+    opacity: 0.6,
+  },
+  value: {
+    fontSize: 13,
+  },
+  locales: {
+    marginTop: 12,
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  localeButton: {
+    borderWidth: 1,
+    borderColor: "#52525b",
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+  },
+  localeButtonActive: {
+    borderColor: "#10b981",
+  },
+  localeLabel: {
+    fontSize: 13,
+  },
+});
+`],
+  ["i18n/surface/paraglide/native/hooks/use-format.ts.hbs", `import { createFormatters, type Formatters } from "@{{projectName}}/i18n";
+import { getLocale } from "@{{projectName}}/i18n/runtime";
+
+/**
+ * Per-surface formatter glue (design D4). Formatters are memoized per locale
+ * by the shared package; switching locales reloads the document.
+ */
+export function useFormat(): Formatters {
+  return createFormatters(getLocale());
+}
+`],
+  ["i18n/surface/paraglide/next/src/components/i18n-demo.tsx.hbs", `"use client";
+
+import { isLocale } from "@{{projectName}}/i18n";
+
+import { useFormat } from "../hooks/use-format";
+
+import * as m from "../paraglide/messages.js";
+import { getLocale, locales, setLocale } from "../paraglide/runtime.js";
+
+/**
+ * i18n demo: translated heading, interpolation, plural, currency, date and a
+ * locale switcher. Date and currency always come from the shared
+ * \`createFormatters\` bundle, never from the i18n library.
+ */
+export function I18nDemo() {
+  const locale = getLocale();
+  const formatters = useFormat();
+
+  return (
+    <section className="rounded-lg border p-4">
+      <h2 className="mb-2 font-medium">{m.i18n_demo_heading()}</h2>
+      <p className="text-sm text-muted-foreground">
+        {m.i18n_demo_interpolation({ name: "Better T Stack" })}
+      </p>
+      <p className="text-sm text-muted-foreground">{m.i18n_demo_plural({ count: 3 })}</p>
+      <dl className="mt-3 grid gap-1 text-sm">
+        <div className="flex gap-2">
+          <dt className="text-muted-foreground">{m.i18n_demo_currency_label()}</dt>
+          <dd>{formatters.currency(19.99, "EUR")}</dd>
+        </div>
+        <div className="flex gap-2">
+          <dt className="text-muted-foreground">{m.i18n_demo_date_label()}</dt>
+          <dd>{formatters.date(new Date("2024-05-01T00:00:00Z"))}</dd>
+        </div>
+      </dl>
+      <label className="mt-3 flex items-center gap-2 text-sm">
+        <span className="text-muted-foreground">{formatters.displayName(locale)}</span>
+        <select
+          className="rounded border bg-transparent px-2 py-1"
+          value={locale}
+          onChange={(event) => {
+            if (isLocale(event.target.value)) void setLocale(event.target.value);
+          }}
+        >
+          {locales.map((available) => (
+            <option key={available} value={available}>
+              {formatters.displayName(available) ?? available}
+            </option>
+          ))}
+        </select>
+      </label>
+    </section>
+  );
+}
+`],
+  ["i18n/surface/paraglide/next/src/hooks/use-format.ts.hbs", `import { createFormatters, type Formatters } from "@{{projectName}}/i18n";
+
+import { getLocale } from "../paraglide/runtime.js";
+
+/**
+ * Per-surface formatter glue (design D4). Formatters are memoized per locale
+ * by the shared package; switching locales reloads the document.
+ */
+export function useFormat(): Formatters {
+  return createFormatters(getLocale());
+}
+`],
+  ["i18n/surface/paraglide/nuxt/app/components/I18nDemo.vue.hbs", `<script setup lang="ts">
+import { isLocale } from "@{{projectName}}/i18n";
+
+import * as m from "../paraglide/messages.js";
+import { getLocale, locales, setLocale } from "../paraglide/runtime.js";
+
+/**
+ * i18n demo: translated heading, interpolation, plural, currency, date and a
+ * locale switcher. Date and currency always come from the shared
+ * \`createFormatters\` bundle, never from the i18n library.
+ */
+const locale = getLocale();
+const formatters = useFormat();
+
+function onLocaleChange(event: Event) {
+  const target = event.currentTarget;
+  if (target instanceof HTMLSelectElement && isLocale(target.value)) {
+    void setLocale(target.value);
+  }
+}
+</script>
+
+<template>
+  <UCard>
+    <template #header>
+      <div class="font-medium">\\{{ m.i18n_demo_heading() }}</div>
+    </template>
+    <p class="text-sm text-muted">\\{{ m.i18n_demo_interpolation({ name: "Better T Stack" }) }}</p>
+    <p class="mt-1 text-sm text-muted">\\{{ m.i18n_demo_plural({ count: 3 }) }}</p>
+    <dl class="mt-3 grid gap-1 text-sm">
+      <div class="flex gap-2">
+        <dt class="text-muted">\\{{ m.i18n_demo_currency_label() }}</dt>
+        <dd>\\{{ formatters.currency(19.99, "EUR") }}</dd>
+      </div>
+      <div class="flex gap-2">
+        <dt class="text-muted">\\{{ m.i18n_demo_date_label() }}</dt>
+        <dd>\\{{ formatters.date(new Date("2024-05-01T00:00:00Z")) }}</dd>
+      </div>
+    </dl>
+    <label class="mt-3 flex items-center gap-2 text-sm">
+      <span class="text-muted">\\{{ formatters.displayName(locale) }}</span>
+      <select
+        class="rounded border bg-transparent px-2 py-1"
+        :value="locale"
+        @change="onLocaleChange"
+      >
+        <option v-for="available in locales" :key="available" :value="available">
+          \\{{ formatters.displayName(available) ?? available }}
+        </option>
+      </select>
+    </label>
+  </UCard>
+</template>
+`],
+  ["i18n/surface/paraglide/nuxt/app/composables/useFormat.ts.hbs", `import { createFormatters, type Formatters } from "@{{projectName}}/i18n";
+
+import { getLocale } from "../paraglide/runtime.js";
+
+/**
+ * Per-surface formatter glue (design D4). Formatters are memoized per locale
+ * by the shared package; switching locales reloads the document.
+ */
+export function useFormat(): Formatters {
+  return createFormatters(getLocale());
+}
+`],
+  ["i18n/surface/paraglide/react-router/src/components/i18n-demo.tsx.hbs", `import { isLocale } from "@{{projectName}}/i18n";
+
+import { useFormat } from "../hooks/use-format";
+
+import * as m from "../paraglide/messages.js";
+import { getLocale, locales, setLocale } from "../paraglide/runtime.js";
+
+/**
+ * i18n demo: translated heading, interpolation, plural, currency, date and a
+ * locale switcher. Date and currency always come from the shared
+ * \`createFormatters\` bundle, never from the i18n library.
+ */
+export function I18nDemo() {
+  const locale = getLocale();
+  const formatters = useFormat();
+
+  return (
+    <section className="rounded-lg border p-4">
+      <h2 className="mb-2 font-medium">{m.i18n_demo_heading()}</h2>
+      <p className="text-sm text-muted-foreground">
+        {m.i18n_demo_interpolation({ name: "Better T Stack" })}
+      </p>
+      <p className="text-sm text-muted-foreground">{m.i18n_demo_plural({ count: 3 })}</p>
+      <dl className="mt-3 grid gap-1 text-sm">
+        <div className="flex gap-2">
+          <dt className="text-muted-foreground">{m.i18n_demo_currency_label()}</dt>
+          <dd>{formatters.currency(19.99, "EUR")}</dd>
+        </div>
+        <div className="flex gap-2">
+          <dt className="text-muted-foreground">{m.i18n_demo_date_label()}</dt>
+          <dd>{formatters.date(new Date("2024-05-01T00:00:00Z"))}</dd>
+        </div>
+      </dl>
+      <label className="mt-3 flex items-center gap-2 text-sm">
+        <span className="text-muted-foreground">{formatters.displayName(locale)}</span>
+        <select
+          className="rounded border bg-transparent px-2 py-1"
+          value={locale}
+          onChange={(event) => {
+            if (isLocale(event.target.value)) void setLocale(event.target.value);
+          }}
+        >
+          {locales.map((available) => (
+            <option key={available} value={available}>
+              {formatters.displayName(available) ?? available}
+            </option>
+          ))}
+        </select>
+      </label>
+    </section>
+  );
+}
+`],
+  ["i18n/surface/paraglide/react-router/src/hooks/use-format.ts.hbs", `import { createFormatters, type Formatters } from "@{{projectName}}/i18n";
+
+import { getLocale } from "../paraglide/runtime.js";
+
+/**
+ * Per-surface formatter glue (design D4). Formatters are memoized per locale
+ * by the shared package; switching locales reloads the document.
+ */
+export function useFormat(): Formatters {
+  return createFormatters(getLocale());
+}
+`],
+  ["i18n/surface/paraglide/server/src/utils/i18n-demo.ts.hbs", `import { createFormatters, getRequestLocale } from "@{{projectName}}/i18n";
+import { m } from "@{{projectName}}/i18n/runtime";
+import type { Locale } from "@{{projectName}}/i18n/runtime";
+
+export interface I18nDemoPayload {
+  readonly locale: Locale;
+  readonly heading: string;
+  readonly interpolation: string;
+  readonly plural: string;
+  readonly currency: string;
+  readonly date: string;
+}
+
+/**
+ * i18n demo for the server surface. The locale comes from the request-scoped
+ * storage the server middleware fills (\`getRequestLocale\`); date and currency
+ * always come from the shared \`createFormatters\` bundle.
+ *
+ * Mount it with \`app.get("/i18n-demo", (c) => c.json(renderI18nDemo()))\` or the
+ * equivalent for the selected backend.
+ */
+export function renderI18nDemo(locale: Locale = getRequestLocale()): I18nDemoPayload {
+  const formatters = createFormatters(locale);
+
+  return {
+    locale,
+    heading: m.i18n_demo_heading({}, { locale }),
+    interpolation: m.i18n_demo_interpolation({ name: "Better T Stack" }, { locale }),
+    plural: m.i18n_demo_plural({ count: 3 }, { locale }),
+    currency: formatters.currency(19.99, "EUR"),
+    date: formatters.date(new Date("2024-05-01T00:00:00Z")),
+  };
+}
+`],
+  ["i18n/surface/paraglide/solid/src/components/i18n-demo.tsx.hbs", `import { isLocale } from "@{{projectName}}/i18n";
+
+import { useFormat } from "~/hooks/use-format";
+import * as m from "~/paraglide/messages.js";
+import { getLocale, locales, setLocale } from "~/paraglide/runtime.js";
+
+/**
+ * i18n demo: translated heading, interpolation, plural, currency, date and a
+ * locale switcher. Date and currency always come from the shared
+ * \`createFormatters\` bundle, never from the i18n library.
+ */
+export function I18nDemo() {
+  const locale = getLocale();
+  const formatters = useFormat();
+
+  return (
+    <section class="rounded-lg border p-4">
+      <h2 class="mb-2 font-medium">{m.i18n_demo_heading()}</h2>
+      <p class="text-sm text-muted-foreground">
+        {m.i18n_demo_interpolation({ name: "Better T Stack" })}
+      </p>
+      <p class="text-sm text-muted-foreground">{m.i18n_demo_plural({ count: 3 })}</p>
+      <dl class="mt-3 grid gap-1 text-sm">
+        <div class="flex gap-2">
+          <dt class="text-muted-foreground">{m.i18n_demo_currency_label()}</dt>
+          <dd>{formatters().currency(19.99, "EUR")}</dd>
+        </div>
+        <div class="flex gap-2">
+          <dt class="text-muted-foreground">{m.i18n_demo_date_label()}</dt>
+          <dd>{formatters().date(new Date("2024-05-01T00:00:00Z"))}</dd>
+        </div>
+      </dl>
+      <label class="mt-3 flex items-center gap-2 text-sm">
+        <span class="text-muted-foreground">{formatters().displayName(locale)}</span>
+        <select
+          class="rounded border bg-transparent px-2 py-1"
+          value={locale}
+          onChange={(event) => {
+            if (isLocale(event.target.value)) void setLocale(event.target.value);
+          }}
+        >
+          {locales.map((available) => (
+            <option key={available} value={available}>
+              {formatters().displayName(available) ?? available}
+            </option>
+          ))}
+        </select>
+      </label>
+    </section>
+  );
+}
+`],
+  ["i18n/surface/paraglide/solid/src/hooks/use-format.ts.hbs", `import { createFormatters, type Formatters } from "@{{projectName}}/i18n";
+import { createMemo, type Accessor } from "solid-js";
+
+import { getLocale } from "~/paraglide/runtime.js";
+
+/**
+ * Per-surface formatter glue (design D4): a memoized formatter bundle for the
+ * current locale. Switching locales reloads the document.
+ */
+export function useFormat(): Accessor<Formatters> {
+  return createMemo(() => createFormatters(getLocale()));
+}
+`],
+  ["i18n/surface/paraglide/svelte/src/lib/components/i18n-demo.svelte.hbs", `<script lang="ts">
+	import { isLocale } from "@{{projectName}}/i18n";
+	import { useFormat } from "$lib/use-format.svelte";
+
+	import * as m from "../../paraglide/messages.js";
+	import { getLocale, locales, setLocale } from "../../paraglide/runtime.js";
+
+	/**
+	 * i18n demo: translated heading, interpolation, plural, currency, date and a
+	 * locale switcher. Date and currency always come from the shared
+	 * \`createFormatters\` bundle, never from the i18n library.
+	 */
+	const locale = getLocale();
+	const format = useFormat();
+
+	function onLocaleChange(event: Event) {
+		const target = event.currentTarget;
+		if (target instanceof HTMLSelectElement && isLocale(target.value)) {
+			void setLocale(target.value);
+		}
+	}
+</script>
+
+<section class="rounded-lg border p-4">
+	<h2 class="mb-2 font-medium">{m.i18n_demo_heading()}</h2>
+	<p class="text-muted-foreground text-sm">{m.i18n_demo_interpolation({ name: "Better T Stack" })}</p>
+	<p class="text-muted-foreground text-sm">{m.i18n_demo_plural({ count: 3 })}</p>
+	<dl class="mt-3 grid gap-1 text-sm">
+		<div class="flex gap-2">
+			<dt class="text-muted-foreground">{m.i18n_demo_currency_label()}</dt>
+			<dd>{format.current.currency(19.99, "EUR")}</dd>
+		</div>
+		<div class="flex gap-2">
+			<dt class="text-muted-foreground">{m.i18n_demo_date_label()}</dt>
+			<dd>{format.current.date(new Date("2024-05-01T00:00:00Z"))}</dd>
+		</div>
+	</dl>
+	<label class="mt-3 flex items-center gap-2 text-sm">
+		<span class="text-muted-foreground">{format.current.displayName(locale)}</span>
+		<select class="rounded border bg-transparent px-2 py-1" value={locale} onchange={onLocaleChange}>
+			{#each locales as available (available)}
+				<option value={available}>{format.current.displayName(available) ?? available}</option>
+			{/each}
+		</select>
+	</label>
+</section>
+`],
+  ["i18n/surface/paraglide/svelte/src/lib/use-format.svelte.ts.hbs", `import { createFormatters, type Formatters } from "@{{projectName}}/i18n";
+
+import { getLocale } from "../paraglide/runtime.js";
+
+/**
+ * Per-surface formatter glue (design D4): a \`$derived\` formatter bundle for
+ * the current locale. Read it as \`useFormat().current\`.
+ */
+export function useFormat(): { readonly current: Formatters } {
+  const formatters = $derived(createFormatters(getLocale()));
+
+  return {
+    get current() {
+      return formatters;
+    },
+  };
+}
+`],
+  ["i18n/surface/paraglide/tanstack-router/src/components/i18n-demo.tsx.hbs", `import { isLocale } from "@{{projectName}}/i18n";
+
+import { useFormat } from "../hooks/use-format";
+
+import * as m from "../paraglide/messages.js";
+import { getLocale, locales, setLocale } from "../paraglide/runtime.js";
+
+/**
+ * i18n demo: translated heading, interpolation, plural, currency, date and a
+ * locale switcher. Date and currency always come from the shared
+ * \`createFormatters\` bundle, never from the i18n library.
+ */
+export function I18nDemo() {
+  const locale = getLocale();
+  const formatters = useFormat();
+
+  return (
+    <section className="rounded-lg border p-4">
+      <h2 className="mb-2 font-medium">{m.i18n_demo_heading()}</h2>
+      <p className="text-sm text-muted-foreground">
+        {m.i18n_demo_interpolation({ name: "Better T Stack" })}
+      </p>
+      <p className="text-sm text-muted-foreground">{m.i18n_demo_plural({ count: 3 })}</p>
+      <dl className="mt-3 grid gap-1 text-sm">
+        <div className="flex gap-2">
+          <dt className="text-muted-foreground">{m.i18n_demo_currency_label()}</dt>
+          <dd>{formatters.currency(19.99, "EUR")}</dd>
+        </div>
+        <div className="flex gap-2">
+          <dt className="text-muted-foreground">{m.i18n_demo_date_label()}</dt>
+          <dd>{formatters.date(new Date("2024-05-01T00:00:00Z"))}</dd>
+        </div>
+      </dl>
+      <label className="mt-3 flex items-center gap-2 text-sm">
+        <span className="text-muted-foreground">{formatters.displayName(locale)}</span>
+        <select
+          className="rounded border bg-transparent px-2 py-1"
+          value={locale}
+          onChange={(event) => {
+            if (isLocale(event.target.value)) void setLocale(event.target.value);
+          }}
+        >
+          {locales.map((available) => (
+            <option key={available} value={available}>
+              {formatters.displayName(available) ?? available}
+            </option>
+          ))}
+        </select>
+      </label>
+    </section>
+  );
+}
+`],
+  ["i18n/surface/paraglide/tanstack-router/src/hooks/use-format.ts.hbs", `import { createFormatters, type Formatters } from "@{{projectName}}/i18n";
+
+import { getLocale } from "../paraglide/runtime.js";
+
+/**
+ * Per-surface formatter glue (design D4). Formatters are memoized per locale
+ * by the shared package; switching locales reloads the document.
+ */
+export function useFormat(): Formatters {
+  return createFormatters(getLocale());
+}
+`],
+  ["i18n/surface/paraglide/tanstack-start/src/components/i18n-demo.tsx.hbs", `import { isLocale } from "@{{projectName}}/i18n";
+
+import { useFormat } from "../hooks/use-format";
+
+import * as m from "../paraglide/messages.js";
+import { getLocale, locales, setLocale } from "../paraglide/runtime.js";
+
+/**
+ * i18n demo: translated heading, interpolation, plural, currency, date and a
+ * locale switcher. Date and currency always come from the shared
+ * \`createFormatters\` bundle, never from the i18n library.
+ */
+export function I18nDemo() {
+  const locale = getLocale();
+  const formatters = useFormat();
+
+  return (
+    <section className="rounded-lg border p-4">
+      <h2 className="mb-2 font-medium">{m.i18n_demo_heading()}</h2>
+      <p className="text-sm text-muted-foreground">
+        {m.i18n_demo_interpolation({ name: "Better T Stack" })}
+      </p>
+      <p className="text-sm text-muted-foreground">{m.i18n_demo_plural({ count: 3 })}</p>
+      <dl className="mt-3 grid gap-1 text-sm">
+        <div className="flex gap-2">
+          <dt className="text-muted-foreground">{m.i18n_demo_currency_label()}</dt>
+          <dd>{formatters.currency(19.99, "EUR")}</dd>
+        </div>
+        <div className="flex gap-2">
+          <dt className="text-muted-foreground">{m.i18n_demo_date_label()}</dt>
+          <dd>{formatters.date(new Date("2024-05-01T00:00:00Z"))}</dd>
+        </div>
+      </dl>
+      <label className="mt-3 flex items-center gap-2 text-sm">
+        <span className="text-muted-foreground">{formatters.displayName(locale)}</span>
+        <select
+          className="rounded border bg-transparent px-2 py-1"
+          value={locale}
+          onChange={(event) => {
+            if (isLocale(event.target.value)) void setLocale(event.target.value);
+          }}
+        >
+          {locales.map((available) => (
+            <option key={available} value={available}>
+              {formatters.displayName(available) ?? available}
+            </option>
+          ))}
+        </select>
+      </label>
+    </section>
+  );
+}
+`],
+  ["i18n/surface/paraglide/tanstack-start/src/hooks/use-format.ts.hbs", `import { createFormatters, type Formatters } from "@{{projectName}}/i18n";
+
+import { getLocale } from "../paraglide/runtime.js";
+
+/**
+ * Per-surface formatter glue (design D4). Formatters are memoized per locale
+ * by the shared package; switching locales reloads the document.
+ */
+export function useFormat(): Formatters {
+  return createFormatters(getLocale());
 }
 `],
   ["packages/config/package.json.hbs", `{
@@ -38789,4 +40645,4 @@ export default function Success() {
 `]
 ]);
 
-export const TEMPLATE_COUNT = 593;
+export const TEMPLATE_COUNT = 626;
