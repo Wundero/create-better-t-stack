@@ -35,6 +35,9 @@ import {
   ExamplesSchema,
   type Frontend,
   FrontendSchema,
+  I18nRoutingStrategySchema,
+  I18nOptionsSchema,
+  I18nSchema,
   type InitResult,
   type ORM,
   ORMSchema,
@@ -82,6 +85,8 @@ export const SchemaNameSchema = z
     "api",
     "auth",
     "payments",
+    "i18n",
+    "i18nOptions",
     "webDeploy",
     "serverDeploy",
     "directoryConflict",
@@ -162,6 +167,19 @@ export const router = os.router({
           orm: ORMSchema.optional(),
           auth: AuthSchema.optional(),
           payments: PaymentsSchema.optional(),
+          i18n: I18nSchema.optional(),
+          i18nOptions: I18nOptionsSchema.optional(),
+          i18nLocales: z
+            .string()
+            .optional()
+            .describe("Comma-separated locales; the first entry is the source locale"),
+          i18nSourceLocale: z.string().optional().describe("Canonical BCP-47 source locale"),
+          i18nRouting: I18nRoutingStrategySchema.optional(),
+          i18nDomain: z
+            .array(z.string())
+            .optional()
+            .describe("Locale to host mapping, repeatable (fr=fr.example.com)"),
+          i18nSkill: z.boolean().optional().describe("Generate the i18n-translate agent skill"),
           frontend: z.array(FrontendSchema).optional(),
           addons: z.array(AddonsSchema).optional(),
           examples: z.array(ExamplesSchema).optional(),
@@ -485,6 +503,8 @@ export async function createVirtual(
     examples: virtualOptions.examples || [],
     auth: virtualOptions.auth || "none",
     payments: virtualOptions.payments || "none",
+    i18n: virtualOptions.i18n || "none",
+    i18nOptions: virtualOptions.i18nOptions,
     git: virtualOptions.git ?? false,
     packageManager: virtualOptions.packageManager || "bun",
     install: false,
