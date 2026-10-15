@@ -238,6 +238,7 @@ describe("shadcn persistence", () => {
         examples: ["none"],
         auth: "none",
         payments: "none",
+        i18n: "none",
         packageManager: "bun",
         dbSetup: "none",
         api: "trpc",

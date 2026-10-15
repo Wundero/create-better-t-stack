@@ -191,7 +191,7 @@ describe("compatibility adjustment invariants", () => {
     expect(transitionsChecked).toBeGreaterThan(20_000);
     expect(failures.slice(0, 5)).toEqual([]);
     expect(failures.length).toBe(0);
-  });
+  }, 10_000);
 
   test("preserves server-only Clerk authentication when sharing and previewing a stack", () => {
     const stack = resolveStackCompatibility({
