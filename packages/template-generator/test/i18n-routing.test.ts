@@ -402,6 +402,57 @@ describe("routing generation", () => {
     expect(client).toContain("customFetchImpl: localeFetch");
   });
 
+  test("omits locale helpers from better-auth clients when i18n is none", async () => {
+    const localeWiring = ["localeFetch", "localeInit", "localeHeader", "i18n/client"];
+
+    const trpc = await generateVfs(baseConfig({ api: "trpc", auth: "better-auth", i18n: "none" }));
+    const trpcFile = trpc.readFile("apps/web/src/utils/trpc.ts") ?? "";
+    const authClient = trpc.readFile("apps/web/src/lib/auth-client.ts") ?? "";
+    for (const helper of localeWiring) {
+      expect(trpcFile).not.toContain(helper);
+      expect(authClient).not.toContain(helper);
+    }
+    // The Better Auth wrapper still forwards credentials, just without a locale.
+    expect(trpcFile).toContain('credentials: "include"');
+
+    const orpc = await generateVfs(baseConfig({ api: "orpc", auth: "better-auth", i18n: "none" }));
+    const orpcFile = orpc.readFile("apps/web/src/utils/orpc.ts") ?? "";
+    for (const helper of localeWiring) expect(orpcFile).not.toContain(helper);
+    expect(orpcFile).toContain('credentials: "include"');
+
+    const native = await generateVfs(
+      baseConfig({
+        frontend: ["native-uniwind"],
+        api: "orpc",
+        auth: "better-auth",
+        i18n: "none",
+      }),
+    );
+    const nativeFile = native.readFile("apps/native/utils/orpc.ts") ?? "";
+    for (const helper of localeWiring) expect(nativeFile).not.toContain(helper);
+  });
+
+  test("imports only the locale helper a better-auth client actually uses", async () => {
+    const trpc = await generateVfs(
+      baseConfig({ api: "trpc", auth: "better-auth", i18n: "lingui" }),
+    );
+    const trpcFile = trpc.readFile("apps/web/src/utils/trpc.ts") ?? "";
+    expect(trpcFile).toContain("localeInit(");
+    expect(trpcFile).toContain('from "@demo/i18n/client"');
+    // localeInit covers Better Auth, so localeFetch must not be imported (TS6133).
+    expect(trpcFile).not.toContain("localeFetch");
+
+    const orpc = await generateVfs(
+      baseConfig({ api: "orpc", auth: "better-auth", i18n: "lingui" }),
+    );
+    const orpcFile = orpc.readFile("apps/web/src/utils/orpc.ts") ?? "";
+    expect(orpcFile).toContain("localeInit(");
+    expect(orpcFile).not.toContain("localeFetch");
+
+    const none = await generateVfs(baseConfig({ api: "trpc", auth: "none", i18n: "lingui" }));
+    expect(none.readFile("apps/web/src/utils/trpc.ts") ?? "").toContain("fetch: localeFetch");
+  });
+
   test("emits and registers the server middleware per backend", async () => {
     const hono = await generateVfs(baseConfig({ backend: "hono" }));
     expect(hono.exists("apps/server/src/middleware/locale.ts")).toBe(true);

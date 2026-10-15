@@ -66,17 +66,28 @@ function languageSubtag(tag: string): string {
   return language;
 }
 
+/** `Intl.Locale#getTextInfo` is newer than some generated `lib` targets; read it structurally. */
+interface LocaleWithTextInfo {
+  getTextInfo?(): { readonly direction?: string };
+}
+
+function readTextDirection(locale: string): TextDirection | undefined {
+  try {
+    const direction = (new Intl.Locale(locale) as LocaleWithTextInfo).getTextInfo?.().direction;
+    return direction === "rtl" || direction === "ltr" ? direction : undefined;
+  } catch {
+    // Invalid tag or a runtime without getTextInfo: use the fallback table.
+    return undefined;
+  }
+}
+
 /**
  * Text direction for a locale. Uses `Intl.Locale#getTextInfo` when the runtime
  * provides it and falls back to the RTL language table otherwise (Hermes).
  */
 export function getTextDirection(locale: string): TextDirection {
-  try {
-    const { direction } = new Intl.Locale(locale).getTextInfo();
-    if (direction === "rtl" || direction === "ltr") return direction;
-  } catch {
-    // Invalid tag or a runtime without getTextInfo: use the fallback table.
-  }
+  const direction = readTextDirection(locale);
+  if (direction) return direction;
   return RTL_LANGUAGE_CODES.has(languageSubtag(locale)) ? "rtl" : "ltr";
 }
 

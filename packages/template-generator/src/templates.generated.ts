@@ -1765,8 +1765,11 @@ export const DELETE = handleRequest;`],
 import { createORPCClient } from "@orpc/client";
 import { RPCLink } from "@orpc/client/fetch";
 import { createTanstackQueryUtils } from "@orpc/tanstack-query";
-{{#if (and i18n (ne i18n "none"))}}
-import { localeFetch, localeInit } from "@{{projectName}}/i18n/client";
+{{#if (and i18n (ne i18n "none") (ne auth "better-auth"))}}
+import { localeFetch } from "@{{projectName}}/i18n/client";
+{{/if}}
+{{#if (and i18n (ne i18n "none") (eq auth "better-auth"))}}
+import { localeInit } from "@{{projectName}}/i18n/client";
 {{/if}}
 
 export default defineNuxtPlugin(() => {
@@ -1776,12 +1779,21 @@ export default defineNuxtPlugin(() => {
     fetch: localeFetch,
     {{/if}}
     {{#if (eq auth "better-auth")}}
+{{#if (and i18n (ne i18n "none"))}}
     fetch(url, options) {
         return fetch(url, localeInit({
         ...options,
         credentials: "include",
         }));
     },
+{{else}}
+    fetch(url, options) {
+        return fetch(url, {
+        ...options,
+        credentials: "include",
+        });
+    },
+{{/if}}
     {{/if}}
   });
 
@@ -2169,20 +2181,30 @@ export const link = new RPCLink({
 		});
 	},
 	async headers() {
+{{#if (and i18n (ne i18n "none"))}}
 		if (Platform.OS === "web") {
 			return localeHeader();
 		}
+{{/if}}
 		const headers = new Map<string, string>();
 		const cookies = await authClient.getCookie();
 		if (cookies) {
 			headers.set("Cookie", cookies);
 		}
+{{#if (and i18n (ne i18n "none"))}}
 		return { ...localeHeader(), ...Object.fromEntries(headers) };
+{{else}}
+		return Object.fromEntries(headers);
+{{/if}}
 	},
 {{else if (eq auth "clerk")}}
 	headers: async () => {
 		const token = await getClerkAuthToken();
+{{#if (and i18n (ne i18n "none"))}}
 		return { ...localeHeader(), ...(token ? { Authorization: \`Bearer \${token}\` } : {}) };
+{{else}}
+		return token ? { Authorization: \`Bearer \${token}\` } : {};
+{{/if}}
 	},
 	fetch: expoFetch,
 {{else}}
@@ -2378,8 +2400,11 @@ export type AppRouter = typeof appRouter;
 
 import { createORPCClient } from "@orpc/client";
 import { RPCLink } from "@orpc/client/fetch";
-{{#if (and i18n (ne i18n "none"))}}
-import { localeFetch, localeInit } from "@{{projectName}}/i18n/client";
+{{#if (and i18n (ne i18n "none") (or (eq backend "self") (ne auth "better-auth")))}}
+import { localeFetch } from "@{{projectName}}/i18n/client";
+{{/if}}
+{{#if (and i18n (ne i18n "none") (ne backend "self") (eq auth "better-auth"))}}
+import { localeInit } from "@{{projectName}}/i18n/client";
 {{/if}}
 
 {{#if (eq backend "self")}}
@@ -2405,12 +2430,21 @@ export const link = new RPCLink({
   fetch: localeFetch,
 {{/if}}
 {{#if (eq auth "better-auth")}}
+{{#if (and i18n (ne i18n "none"))}}
   fetch(url, options) {
     return fetch(url, localeInit({
       ...options,
       credentials: "include",
     }));
   },
+{{else}}
+  fetch(url, options) {
+    return fetch(url, {
+      ...options,
+      credentials: "include",
+    });
+  },
+{{/if}}
 {{/if}}
 });
 {{/if}}
@@ -2423,7 +2457,10 @@ import { createORPCClient } from '@orpc/client'
 import { RPCLink } from '@orpc/client/fetch'
 import { createTanstackQueryUtils } from "@orpc/tanstack-query";
 {{#if (and i18n (ne i18n "none"))}}
-import { localeHeader, localeInit } from "@{{projectName}}/i18n/client";
+import { localeHeader } from "@{{projectName}}/i18n/client";
+{{/if}}
+{{#if (and i18n (ne i18n "none") (eq auth "better-auth"))}}
+import { localeInit } from "@{{projectName}}/i18n/client";
 {{/if}}
 
 {{> getServerUrlSpaces}}
@@ -2439,16 +2476,27 @@ export default defineNuxtPlugin(() => {
   const rpcLink = new RPCLink({
     url: rpcUrl,
     headers: () => ({
+{{#if (and i18n (ne i18n "none"))}}
       ...localeHeader(),
+{{/if}}
       ...(import.meta.server ? useRequestHeaders(["cookie"]) : {}),
     }),
     {{#if (eq auth "better-auth")}}
+{{#if (and i18n (ne i18n "none"))}}
     fetch(url, options) {
         return fetch(url, localeInit({
         ...options,
         credentials: "include",
         }));
     },
+{{else}}
+    fetch(url, options) {
+        return fetch(url, {
+        ...options,
+        credentials: "include",
+        });
+    },
+{{/if}}
     {{/if}}
   })
 
@@ -2521,8 +2569,11 @@ import { RPCLink } from "@orpc/client/fetch";
 import { createTanstackQueryUtils } from "@orpc/tanstack-query";
 import { QueryCache, QueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-{{#if (and i18n (ne i18n "none"))}}
-import { localeFetch, localeInit } from "@{{projectName}}/i18n/client";
+{{#if (and i18n (ne i18n "none") (ne auth "better-auth"))}}
+import { localeFetch } from "@{{projectName}}/i18n/client";
+{{/if}}
+{{#if (and i18n (ne i18n "none") (eq auth "better-auth"))}}
+import { localeInit } from "@{{projectName}}/i18n/client";
 {{/if}}
 {{#if (and (includes frontend "tanstack-start") (eq backend "self"))}}
 import { createRouterClient } from "@orpc/server";
@@ -2591,12 +2642,21 @@ const getORPCClient = createIsomorphicFn()
 			fetch: localeFetch,
 {{/if}}
 {{#if (eq auth "better-auth")}}
+{{#if (and i18n (ne i18n "none"))}}
 			fetch(url, options) {
 				return fetch(url, localeInit({
 					...options,
 					credentials: "include",
 				}));
 			},
+{{else}}
+			fetch(url, options) {
+				return fetch(url, {
+					...options,
+					credentials: "include",
+				});
+			},
+{{/if}}
 {{/if}}
 		});
 
@@ -2621,12 +2681,21 @@ const link = new RPCLink({
 	},
 {{/if}}
 {{#if (eq auth "better-auth")}}
+{{#if (and i18n (ne i18n "none"))}}
 	fetch(url, options) {
 		return fetch(url, localeInit({
 			...options,
 			credentials: "include",
 		}));
 	},
+{{else}}
+	fetch(url, options) {
+		return fetch(url, {
+			...options,
+			credentials: "include",
+		});
+	},
+{{/if}}
 {{/if}}
 });
 
@@ -2671,12 +2740,21 @@ export const link = new RPCLink({
 	},
 {{/if}}
 {{#if (eq auth "better-auth")}}
+{{#if (and i18n (ne i18n "none"))}}
 	fetch(url, options) {
 		return fetch(url, localeInit({
 			...options,
 			credentials: "include",
 		}));
 	},
+{{else}}
+	fetch(url, options) {
+		return fetch(url, {
+			...options,
+			credentials: "include",
+		});
+	},
+{{/if}}
 {{#if (includes frontend "next")}}
 	headers: async () => {
 		if (typeof window !== "undefined") {
@@ -2703,8 +2781,11 @@ import { QueryCache, QueryClient } from "@tanstack/solid-query";
 import { getRequestEvent } from "@solidjs/web";
 {{/unless}}
 import type { AppRouterClient } from "@{{projectName}}/api/routers/index";
-{{#if (and i18n (ne i18n "none"))}}
-import { localeFetch, localeInit } from "@{{projectName}}/i18n/client";
+{{#if (and i18n (ne i18n "none") (ne auth "better-auth"))}}
+import { localeFetch } from "@{{projectName}}/i18n/client";
+{{/if}}
+{{#if (and i18n (ne i18n "none") (eq auth "better-auth"))}}
+import { localeInit } from "@{{projectName}}/i18n/client";
 {{/if}}
 {{#unless (eq backend "self")}}
 import { ENV } from "../env{{#if (eq webDeploy "cloudflare")}}.public{{/if}}";
@@ -2731,12 +2812,21 @@ const link = new RPCLink({
 	fetch: localeFetch,
 {{/if}}
 {{#if (eq auth "better-auth")}}
+{{#if (and i18n (ne i18n "none"))}}
 	fetch(url, options) {
 		return fetch(url, localeInit({
 			...options,
 			credentials: "include",
 		}));
 	},
+{{else}}
+	fetch(url, options) {
+		return fetch(url, {
+			...options,
+			credentials: "include",
+		});
+	},
+{{/if}}
 {{/if}}
 });
 {{else}}
@@ -2753,12 +2843,21 @@ const link = new RPCLink({
 	fetch: localeFetch,
 {{/if}}
 {{#if (eq auth "better-auth")}}
+{{#if (and i18n (ne i18n "none"))}}
 	fetch(url, options) {
 		return fetch(url, localeInit({
 			...options,
 			credentials: "include",
 		}));
 	},
+{{else}}
+	fetch(url, options) {
+		return fetch(url, {
+			...options,
+			credentials: "include",
+		});
+	},
+{{/if}}
 {{/if}}
 });
 {{/if}}
@@ -2785,8 +2884,11 @@ import { RPCLink } from "@orpc/client/fetch";
 import { createTanstackQueryUtils } from "@orpc/tanstack-query";
 import { QueryCache, QueryClient } from "@tanstack/svelte-query";
 import type { AppRouterClient } from "@{{projectName}}/api/routers/index";
-{{#if (and i18n (ne i18n "none"))}}
-import { localeFetch, localeInit } from "@{{projectName}}/i18n/client";
+{{#if (and i18n (ne i18n "none") (ne auth "better-auth"))}}
+import { localeFetch } from "@{{projectName}}/i18n/client";
+{{/if}}
+{{#if (and i18n (ne i18n "none") (eq auth "better-auth"))}}
+import { localeInit } from "@{{projectName}}/i18n/client";
 {{/if}}
 
 export const queryClient = new QueryClient({
@@ -2821,12 +2923,21 @@ export const link = new RPCLink({
 	fetch: localeFetch,
 	{{/if}}
 	{{#if (eq auth "better-auth")}}
+{{#if (and i18n (ne i18n "none"))}}
 	fetch(url, options) {
 		return fetch(url, localeInit({
 			...options,
 			credentials: "include",
 		}));
 	},
+{{else}}
+	fetch(url, options) {
+		return fetch(url, {
+			...options,
+			credentials: "include",
+		});
+	},
+{{/if}}
 	{{/if}}
 });
 
@@ -3251,20 +3362,30 @@ const trpcClient = createTRPCClient<AppRouter>({
 					});
 				},
 			async headers() {
+{{#if (and i18n (ne i18n "none"))}}
 				if (Platform.OS === "web") {
 					return localeHeader();
 				}
+{{/if}}
 				const headers = new Map<string, string>();
 				const cookies = await authClient.getCookie();
 				if (cookies) {
 					headers.set("Cookie", cookies);
 				}
+{{#if (and i18n (ne i18n "none"))}}
 				return { ...localeHeader(), ...Object.fromEntries(headers) };
+{{else}}
+				return Object.fromEntries(headers);
+{{/if}}
 			},
 {{else if (eq auth "clerk")}}
 			headers: async function () {
 				const token = await getClerkAuthToken();
+{{#if (and i18n (ne i18n "none"))}}
 				return { ...localeHeader(), ...(token ? { Authorization: \`Bearer \${token}\` } : {}) };
+{{else}}
+				return token ? { Authorization: \`Bearer \${token}\` } : {};
+{{/if}}
 			},
 {{/if}}
 		}),
@@ -3458,8 +3579,11 @@ import { createTRPCClient, httpBatchLink } from '@trpc/client';
 import { createTRPCOptionsProxy } from '@trpc/tanstack-react-query';
 import type { AppRouter } from "@{{projectName}}/api/routers/index";
 import { toast } from 'sonner';
-{{#if (and i18n (ne i18n "none"))}}
-import { localeFetch, localeInit } from "@{{projectName}}/i18n/client";
+{{#if (and i18n (ne i18n "none") (ne auth "better-auth"))}}
+import { localeFetch } from "@{{projectName}}/i18n/client";
+{{/if}}
+{{#if (and i18n (ne i18n "none") (eq auth "better-auth"))}}
+import { localeInit } from "@{{projectName}}/i18n/client";
 {{/if}}
 {{#unless (eq backend "self")}}
 
@@ -3514,12 +3638,21 @@ const trpcClient = createTRPCClient<AppRouter>({
 			},
 {{/if}}
 {{#if (eq auth "better-auth")}}
+{{#if (and i18n (ne i18n "none"))}}
 			fetch(url, options) {
 				return fetch(url, localeInit({
 					...options,
 					credentials: "include",
 				}));
 			},
+{{else}}
+			fetch(url, options) {
+				return fetch(url, {
+					...options,
+					credentials: "include",
+				});
+			},
+{{/if}}
 {{/if}}
 		}),
 	],
@@ -3544,8 +3677,11 @@ import { createTRPCClient, httpBatchLink } from "@trpc/client";
 import { createTRPCOptionsProxy } from "@trpc/tanstack-react-query";
 import { toast } from "sonner";
 import { ENV } from "../env{{#if (eq webDeploy "cloudflare")}}.public{{/if}}";
-{{#if (and i18n (ne i18n "none"))}}
-import { localeFetch, localeInit } from "@{{projectName}}/i18n/client";
+{{#if (and i18n (ne i18n "none") (ne auth "better-auth"))}}
+import { localeFetch } from "@{{projectName}}/i18n/client";
+{{/if}}
+{{#if (and i18n (ne i18n "none") (eq auth "better-auth"))}}
+import { localeInit } from "@{{projectName}}/i18n/client";
 {{/if}}
 {{#if (eq auth "clerk")}}
 import { getClerkAuthToken } from "@/utils/clerk-auth";
@@ -3586,12 +3722,21 @@ export const trpcClient = createTRPCClient<AppRouter>({
 			},
 {{/if}}
 {{#if (eq auth "better-auth")}}
+{{#if (and i18n (ne i18n "none"))}}
 			fetch(url, options) {
 				return fetch(url, localeInit({
 					...options,
 					credentials: "include",
 				}));
 			},
+{{else}}
+			fetch(url, options) {
+				return fetch(url, {
+					...options,
+					credentials: "include",
+				});
+			},
+{{/if}}
 {{/if}}
 		}),
 	],
@@ -33670,8 +33815,11 @@ import { TRPCProvider } from "./utils/trpc";
 {{#unless (eq backend "self")}}
 import { ENV } from "./env{{#if (eq webDeploy "cloudflare")}}.public{{/if}}";
 {{/unless}}
-{{#if (and i18n (ne i18n "none") (eq api "trpc"))}}
-import { localeFetch, localeInit } from "@{{projectName}}/i18n/client";
+{{#if (and i18n (ne i18n "none") (eq api "trpc") (ne auth "better-auth"))}}
+import { localeFetch } from "@{{projectName}}/i18n/client";
+{{/if}}
+{{#if (and i18n (ne i18n "none") (eq api "trpc") (eq auth "better-auth"))}}
+import { localeInit } from "@{{projectName}}/i18n/client";
 {{/if}}
 {{#if (eq auth "clerk")}}
 import { getClerkAuthToken } from "@/utils/clerk-auth";
@@ -33760,12 +33908,21 @@ const trpcClient = createTRPCClient<AppRouter>({
 			},
 {{/if}}
 {{#if (eq auth "better-auth")}}
+{{#if (and i18n (ne i18n "none"))}}
 			fetch(url, options) {
 				return fetch(url, localeInit({
 					...options,
 					credentials: "include",
 				}));
 			},
+{{else}}
+			fetch(url, options) {
+				return fetch(url, {
+					...options,
+					credentials: "include",
+				});
+			},
+{{/if}}
 {{/if}}
 		}),
 	],
@@ -35557,7 +35714,7 @@ const configuredLocales = new Set<string>();
  * \`z.config\` must stay untouched — translate issues at the boundary instead).
  */
 export async function applyZodLocale(locale: string): Promise<boolean> {
-  if (typeof window === "undefined") return false;
+  if ((globalThis as { window?: unknown }).window === undefined) return false;
   const exportName = zodLocaleExportName(locale);
   if (exportName === undefined) return false;
   if (configuredLocales.has(exportName)) return true;
@@ -38068,7 +38225,7 @@ export default {
   ],
   "modules": [
     "https://cdn.jsdelivr.net/npm/@inlang/plugin-message-format@4.5.0/dist/index.js",
-    "https://cdn.jsdelivr.net/npm/@inlang/m-function-matcher@2.3.0/dist/index.js"
+    "https://cdn.jsdelivr.net/npm/@inlang/plugin-m-function-matcher@2.3.4/dist/index.js"
   ],
   "plugin.inlang.messageFormat": {
     "pathPattern": "./messages/{locale}.json"
@@ -41874,17 +42031,28 @@ function languageSubtag(tag: string): string {
   return language;
 }
 
+/** \`Intl.Locale#getTextInfo\` is newer than some generated \`lib\` targets; read it structurally. */
+interface LocaleWithTextInfo {
+  getTextInfo?(): { readonly direction?: string };
+}
+
+function readTextDirection(locale: string): TextDirection | undefined {
+  try {
+    const direction = (new Intl.Locale(locale) as LocaleWithTextInfo).getTextInfo?.().direction;
+    return direction === "rtl" || direction === "ltr" ? direction : undefined;
+  } catch {
+    // Invalid tag or a runtime without getTextInfo: use the fallback table.
+    return undefined;
+  }
+}
+
 /**
  * Text direction for a locale. Uses \`Intl.Locale#getTextInfo\` when the runtime
  * provides it and falls back to the RTL language table otherwise (Hermes).
  */
 export function getTextDirection(locale: string): TextDirection {
-  try {
-    const { direction } = new Intl.Locale(locale).getTextInfo();
-    if (direction === "rtl" || direction === "ltr") return direction;
-  } catch {
-    // Invalid tag or a runtime without getTextInfo: use the fallback table.
-  }
+  const direction = readTextDirection(locale);
+  if (direction) return direction;
   return RTL_LANGUAGE_CODES.has(languageSubtag(locale)) ? "rtl" : "ltr";
 }
 
@@ -45322,7 +45490,7 @@ export function useFormat(): Accessor<Formatters> {
 `],
   ["i18n/surface/paraglide/svelte/src/lib/components/i18n-demo.svelte.hbs", `<script lang="ts">
 	import { isLocale } from "@{{projectName}}/i18n";
-	import { useFormat } from "$lib/use-format.svelte";
+	import { useFormat } from "$lib/use-format.svelte.js";
 
 	import * as m from "../../paraglide/messages.js";
 	import { getLocale, locales, setLocale } from "../../paraglide/runtime.js";
