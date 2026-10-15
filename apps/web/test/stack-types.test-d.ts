@@ -10,7 +10,7 @@ import {
 
 import { DEFAULT_STACK, TECH_OPTIONS } from "../src/lib/constant";
 import { getStackBackend } from "../src/lib/stack-model";
-import { StackStateSchema, StackUpdateSchema } from "../src/lib/stack-schema";
+import { StackStateSchema, StackUpdateSchema, stackStateToConfig } from "../src/lib/stack-schema";
 import type { StackState, StackOptionId } from "../src/lib/types";
 
 // Compiled by the website typecheck; invalid examples must never run.
@@ -22,6 +22,9 @@ export function checkStackTypeContracts(stack: StackState) {
   supportsRuntimeBackend(runtime, backend);
   validateAddonCompatibility("pwa", frontends);
   const option: StackOptionId<"runtime" | "addons"> = "pwa";
+  const portlessOption: StackOptionId<"portless"> = "true";
+  const portlessState: "true" | "false" = parsed.portless;
+  const portlessConfig: boolean | undefined = stackStateToConfig(stack).portless;
 
   // @ts-expect-error Misspelled runtime IDs cannot enter shared compatibility logic.
   supportsRuntimeBackend("bunn", "hono");
@@ -37,10 +40,12 @@ export function checkStackTypeContracts(stack: StackState) {
   TECH_OPTIONS.runtime.push({ ...TECH_OPTIONS.runtime[0], id: option });
   // @ts-expect-error Domain state must reject arbitrary frontend strings.
   const invalidStack: StackState = { ...DEFAULT_STACK, webFrontend: ["nexxt"] };
+  // @ts-expect-error Portless builder state is a string boolean, not a boolean.
+  stack.portless = true;
   // @ts-expect-error Incompatible results require an explanation.
   const invalidResult: AddonCompatibility = { isCompatible: false };
   const update = StackUpdateSchema.parse({ runtime });
   // @ts-expect-error Partial updates must preserve domain unions too.
   update.runtime = "bunn";
-  return { invalidStack, invalidResult };
+  return { invalidStack, invalidResult, portlessOption, portlessState, portlessConfig };
 }

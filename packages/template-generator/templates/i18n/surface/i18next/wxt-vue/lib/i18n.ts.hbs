@@ -1,0 +1,9 @@
+// WXT (Vue) glue for i18next: installs the i18next-vue plugin on the
+// extension's Vue app.
+import { initI18next } from "@{{projectName}}/i18n/runtime";
+import I18NextVue from "i18next-vue";
+import type { App } from "vue";
+
+export function installI18n(app: App) {
+  app.use(I18NextVue, { i18next: initI18next() });
+}

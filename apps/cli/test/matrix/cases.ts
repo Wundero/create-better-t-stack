@@ -1,4 +1,10 @@
-import type { DatabaseSetup, Examples, Frontend, ProjectConfig } from "../../src/types";
+import type {
+  DatabaseSetup,
+  Examples,
+  Frontend,
+  I18nOptions,
+  ProjectConfig,
+} from "../../src/types";
 import { evaluateMatrixConfig, type MatrixOracleResult } from "./oracle";
 
 export const MATRIX_DATABASES = ["none", "sqlite", "postgres", "mysql", "mongodb"] as const;
@@ -93,11 +99,16 @@ type MatrixConfigInput = Pick<
   | "api"
   | "auth"
   | "payments"
+  | "emailRenderer"
+  | "emailDeploy"
   | "dbSetup"
   | "webDeploy"
   | "serverDeploy"
   | "examples"
->;
+> & {
+  i18n: ProjectConfig["i18n"];
+  i18nOptions?: I18nOptions;
+};
 
 const BASE_VALID_CONFIG: MatrixConfigInput = {
   database: "sqlite",
@@ -108,10 +119,13 @@ const BASE_VALID_CONFIG: MatrixConfigInput = {
   api: "trpc",
   auth: "none",
   payments: "none",
+  emailRenderer: "none",
+  emailDeploy: "none",
   dbSetup: "none",
   webDeploy: "none",
   serverDeploy: "none",
   examples: [],
+  i18n: "none",
 };
 
 export function createMatrixConfig(overrides: Partial<MatrixConfigInput> = {}): ProjectConfig {
@@ -120,7 +134,7 @@ export function createMatrixConfig(overrides: Partial<MatrixConfigInput> = {}): 
     ...overrides,
   };
 
-  return {
+  const projectConfig: ProjectConfig = {
     projectName: "matrix-app",
     projectDir: "/virtual/matrix-app",
     relativePath: "matrix-app",
@@ -133,6 +147,9 @@ export function createMatrixConfig(overrides: Partial<MatrixConfigInput> = {}): 
     examples: [...config.examples],
     auth: config.auth,
     payments: config.payments,
+    emailRenderer: config.emailRenderer,
+    emailDeploy: config.emailDeploy,
+    i18n: config.i18n,
     git: false,
     packageManager: "bun",
     install: false,
@@ -141,6 +158,8 @@ export function createMatrixConfig(overrides: Partial<MatrixConfigInput> = {}): 
     webDeploy: config.webDeploy,
     serverDeploy: config.serverDeploy,
   };
+  if (config.i18nOptions !== undefined) projectConfig.i18nOptions = config.i18nOptions;
+  return projectConfig;
 }
 
 function createMatrixCase(index: number, config: ProjectConfig): MatrixCase {
@@ -215,6 +234,8 @@ function compactConfigKey(config: ProjectConfig) {
     api: config.api,
     auth: config.auth,
     payments: config.payments,
+    i18n: config.i18n,
+    i18nOptions: config.i18nOptions,
     dbSetup: config.dbSetup,
     webDeploy: config.webDeploy,
     serverDeploy: config.serverDeploy,
@@ -257,6 +278,8 @@ function getCompatibleDatabaseSetup(dbSetup: DatabaseSetup): Partial<MatrixConfi
       };
     case "docker":
       return { database: "postgres", orm: "drizzle" };
+    case "aurora":
+      return { database: "postgres", orm: "drizzle", serverDeploy: "aws", runtime: "bun" };
     case "none":
       return {};
   }
@@ -418,6 +441,44 @@ export function createSmokeMatrixCases(): MatrixCase[] {
       serverDeploy: "cloudflare",
     });
   }
+
+  // Matrix Smoke i18n rows (design D10): one React fullstack library case and
+  // one server-rendered case on the domain-routing gate.
+  pushUnique(configs, seen, {
+    frontend: ["next"],
+    backend: "hono",
+    runtime: "bun",
+    database: "sqlite",
+    orm: "drizzle",
+    api: "trpc",
+    auth: "better-auth",
+    i18n: "lingui",
+    i18nOptions: {
+      sourceLocale: "en",
+      locales: ["en", "fr"],
+      routing: { strategy: "cookie", prefixDefaultLocale: false },
+      translateSkill: true,
+    },
+  });
+  pushUnique(configs, seen, {
+    frontend: ["nuxt"],
+    backend: "hono",
+    runtime: "bun",
+    database: "none",
+    orm: "none",
+    api: "orpc",
+    i18n: "i18next",
+    i18nOptions: {
+      sourceLocale: "en",
+      locales: ["en", "fr"],
+      routing: {
+        strategy: "domain",
+        prefixDefaultLocale: false,
+        domains: { en: "example.test", fr: "fr.example.test" },
+      },
+      translateSkill: true,
+    },
+  });
 
   return configs.map((config, index) => createMatrixCase(index, config));
 }

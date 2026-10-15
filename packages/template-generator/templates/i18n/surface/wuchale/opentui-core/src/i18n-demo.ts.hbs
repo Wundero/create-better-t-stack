@@ -1,0 +1,21 @@
+/**
+ * OpenTUI glue: locale-aware demo lines rendered by the TUI, using the shared
+ * `Intl` formatters and the wuchale `plural()` pattern.
+ */
+
+import { createFormatters, negotiateLocale, type Locale } from "@{{projectName}}/i18n";
+import { plural } from "@{{projectName}}/i18n/runtime";
+
+export function createTuiDemoLines(
+  locale: Locale = negotiateLocale({ system: process.env.LC_ALL ?? process.env.LANG }),
+): string[] {
+  const formatters = createFormatters(locale);
+  const itemCount = 3;
+  return [
+    "Welcome",
+    `Hello ${formatters.displayName(locale) ?? locale}!`,
+    plural(itemCount, ["# item", "# items"]),
+    formatters.currency(1299.5, "EUR"),
+    formatters.date(new Date("2026-10-14T12:00:00Z")),
+  ];
+}

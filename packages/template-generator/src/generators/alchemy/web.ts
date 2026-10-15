@@ -1,9 +1,12 @@
 import {
+  awsWebEnvEntries,
   prismaWebEnvEntries,
+  selfAwsWebEnvEntries,
   selfCloudflareWebEnvEntries,
   splitCloudflareWebEnvEntries,
 } from "./env";
 import {
+  getAwsWebsiteFramework,
   getPrismaWebsiteFramework,
   assertNever,
   type AlchemyDeploymentPlan,
@@ -332,6 +335,221 @@ function writePrismaWeb(writer: AlchemyWriter, plan: AlchemyDeploymentPlan): voi
   writer.writeLine(websiteFramework ? "});" : "}));");
 }
 
+interface AwsWebsiteOptions {
+  declaration: string;
+  entries: readonly string[];
+  includeDatabaseEnv: boolean;
+}
+
+function writeAwsWebsite(
+  writer: AlchemyWriter,
+  awsFramework: string,
+  options: AwsWebsiteOptions,
+): void {
+  writeObject(
+    writer,
+    `${options.declaration}AWS.Website.${awsFramework}("web", {`,
+    () => {
+      writer.writeLine('rootDir: "../../apps/web",');
+      if (awsFramework === "Vite") {
+        writer.writeLine("spa: true,");
+        return;
+      }
+      writeObject(
+        writer,
+        "env: {",
+        () => {
+          if (options.includeDatabaseEnv) writer.writeLine("...resolvedDatabaseEnv,");
+          writeLines(writer, options.entries);
+        },
+        "},",
+      );
+    },
+    "});",
+  );
+}
+
+function writeAwsSelfWeb(
+  writer: AlchemyWriter,
+  plan: AlchemyDeploymentPlan,
+  awsFramework: string,
+  framework: DeployedWebFramework,
+): void {
+  const includeDatabaseEnv = plan.hasAlchemyManagedDatabase;
+  const includeObservabilityEnv = plan.hasAxiomWebRuntime;
+  const entries = selfAwsWebEnvEntries(plan, framework);
+
+  if (!includeDatabaseEnv && !includeObservabilityEnv) {
+    writeAwsWebsite(writer, awsFramework, {
+      declaration: "export const web = ",
+      entries,
+      includeDatabaseEnv: false,
+    });
+    return;
+  }
+
+  writer.writeLine("export const web = Effect.gen(function* () {");
+  writer.indent(() => {
+    if (includeDatabaseEnv) writer.writeLine("const resolvedDatabaseEnv = yield* databaseEnv;");
+    if (includeObservabilityEnv) {
+      writer.writeLine("const resolvedObservabilityEnv = yield* observabilityEnv;");
+    }
+    writeAwsWebsite(writer, awsFramework, {
+      declaration: "return yield* ",
+      entries,
+      includeDatabaseEnv,
+    });
+  });
+  writer.writeLine("});");
+}
+
+interface AwsSolidWebOptions {
+  includeDatabaseEnv: boolean;
+  entries: readonly string[];
+}
+
+function writeAwsSolidBuildAndServer(
+  writer: AlchemyWriter,
+  plan: AlchemyDeploymentPlan,
+  options: AwsSolidWebOptions,
+): void {
+  const { includeDatabaseEnv, entries } = options;
+  writeObject(
+    writer,
+    'const webBuild = yield* Command.Build("web-build", {',
+    () => {
+      writer.writeLine(`command: "${plan.config.packageManager} run build",`);
+      writer.writeLine('cwd: "../../apps/web",');
+      writer.writeLine('outdir: ".output",');
+      writer.writeLine("memo: false,");
+    },
+    "});",
+  );
+  writer.blankLine();
+  writeObject(
+    writer,
+    'const webServer = yield* AWS.Lambda.Function("web-server", {',
+    () => {
+      writer.writeLine("main: Output.interpolate`${webBuild.outdir}/server/index.mjs`,");
+      writer.writeLine('handler: "handler",');
+      writer.writeLine("bundle: false,");
+      writer.writeLine('runtime: "nodejs24.x",');
+      writer.writeLine("timeout: Duration.seconds(30),");
+      writeObject(
+        writer,
+        "functionUrl: {",
+        () => {
+          writer.writeLine('authType: "NONE",');
+          writer.writeLine('invokeMode: "RESPONSE_STREAM",');
+        },
+        "},",
+      );
+      if (includeDatabaseEnv || entries.length > 0) {
+        writeObject(
+          writer,
+          "env: {",
+          () => {
+            if (includeDatabaseEnv) writer.writeLine("...resolvedDatabaseEnv,");
+            writeLines(writer, entries);
+          },
+          "},",
+        );
+      }
+    },
+    "});",
+  );
+}
+
+function writeAwsSolidSite(writer: AlchemyWriter): void {
+  writer.writeLine("return yield* AWS.Website.makeKvSite(");
+  writer.indent(() => {
+    writer.writeLine('"web",');
+    writeObject(
+      writer,
+      "{",
+      () => writer.writeLine("path: Output.interpolate`${webBuild.outdir}/public`,"),
+      "},",
+    );
+    writeObject(
+      writer,
+      "{",
+      () => {
+        writeObject(
+          writer,
+          "serverHost: Output.map((url) => {",
+          () => {
+            writer.writeLine(
+              'if (!url) throw new Error("The Solid web server did not produce a Function URL.");',
+            );
+            writer.writeLine("return new URL(url).hostname;");
+          },
+          "})(webServer.functionUrl),",
+        );
+      },
+      "},",
+    );
+  });
+  writer.writeLine(");");
+}
+
+function writeAwsSolidWeb(
+  writer: AlchemyWriter,
+  plan: AlchemyDeploymentPlan,
+  topology: "self" | "split",
+): void {
+  const includeDatabaseEnv = topology === "self" && plan.hasAlchemyManagedDatabase;
+  const includeObservabilityEnv = plan.hasAxiomWebRuntime;
+  const entries =
+    topology === "self" ? selfAwsWebEnvEntries(plan, "solid") : awsWebEnvEntries(plan, "solid");
+  const declaration = topology === "self" ? "export const web = " : "const webWorker = yield* ";
+
+  writer.writeLine(`${declaration}Effect.gen(function* () {`);
+  writer.indent(() => {
+    if (includeDatabaseEnv) writer.writeLine("const resolvedDatabaseEnv = yield* databaseEnv;");
+    if (includeObservabilityEnv) {
+      writer.writeLine("const resolvedObservabilityEnv = yield* observabilityEnv;");
+    }
+    writeAwsSolidBuildAndServer(writer, plan, { includeDatabaseEnv, entries });
+    writer.blankLine();
+    writeAwsSolidSite(writer);
+  });
+  writer.writeLine("});");
+}
+
+function writeAwsWeb(
+  writer: AlchemyWriter,
+  plan: AlchemyDeploymentPlan,
+  topology: "self" | "split",
+): void {
+  if (plan.web.target !== "aws") return;
+  const { framework } = plan.web;
+
+  if (framework === "solid") {
+    writeAwsSolidWeb(writer, plan, topology);
+    return;
+  }
+
+  const awsFramework = getAwsWebsiteFramework(plan.config);
+
+  if (!awsFramework) {
+    throw new Error(`AWS web deployment does not support frontend: ${framework}`);
+  }
+
+  if (topology === "self") {
+    writeAwsSelfWeb(writer, plan, awsFramework, framework);
+    return;
+  }
+
+  if (plan.hasAxiomWebRuntime) {
+    writer.writeLine("const resolvedObservabilityEnv = yield* observabilityEnv;");
+  }
+  writeAwsWebsite(writer, awsFramework, {
+    declaration: "const webWorker = yield* ",
+    entries: awsWebEnvEntries(plan, framework),
+    includeDatabaseEnv: false,
+  });
+}
+
 export function writeExportedWebResource(writer: AlchemyWriter, plan: AlchemyDeploymentPlan): void {
   if (plan.web.target === "prisma") {
     writePrismaWeb(writer, plan);
@@ -342,12 +560,17 @@ export function writeExportedWebResource(writer: AlchemyWriter, plan: AlchemyDep
     writer.blankLine();
     writer.writeLine("export type WebEnv = Cloudflare.InferEnv<typeof web>;");
   }
+  if (plan.web.target === "aws" && plan.web.topology === "self") {
+    writeAwsWeb(writer, plan, "self");
+  }
 }
 
 export function writeStackWebResource(writer: AlchemyWriter, plan: AlchemyDeploymentPlan): void {
   if (plan.web.target === "none") return;
   if (plan.web.target === "cloudflare" && plan.web.topology === "split") {
     writeCloudflareWeb(writer, plan, plan.web.framework, "split");
+  } else if (plan.web.target === "aws" && plan.web.topology === "split") {
+    writeAwsWeb(writer, plan, "split");
   } else {
     writer.writeLine("const webWorker = yield* web;");
   }

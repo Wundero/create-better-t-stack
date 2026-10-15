@@ -1,0 +1,25 @@
+import { createEffect, type JSX } from "solid-js";
+import { I18nProvider as LinguiI18nProvider } from "@lingui/solid";
+
+import { LOCALE_COOKIE } from "@{{projectName}}/i18n/config";
+import { i18n, initializeLocale } from "@{{projectName}}/i18n/runtime";
+
+/**
+ * Surface glue: activates the negotiated locale (stored choice → browser
+ * preference → source locale) and provides the shared `i18n` instance to the
+ * `@lingui/solid` macros. Wrap the app root with it once.
+ */
+export function I18nProvider(props: { children: JSX.Element }) {
+  createEffect(() => {
+    const stored =
+      typeof window === "undefined" ? undefined : window.localStorage.getItem(LOCALE_COOKIE);
+    void initializeLocale({
+      stored: stored ?? undefined,
+      acceptLanguage: typeof navigator === "undefined" ? undefined : navigator.languages.join(","),
+    }).then((locale) => {
+      if (typeof document !== "undefined") document.documentElement.lang = locale;
+    });
+  });
+
+  return <LinguiI18nProvider i18n={i18n}>{props.children}</LinguiI18nProvider>;
+}

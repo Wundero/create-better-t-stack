@@ -26,6 +26,7 @@ import {
   validateAddonsAgainstFrontends,
   validateApiFrontendCompatibility,
   validateExamplesCompatibility,
+  validateEmailDeployCompatibility,
   validatePaymentsCompatibility,
   validateSelfBackendCompatibility,
   validateDockerServerDeploy,
@@ -33,18 +34,37 @@ import {
   validateServerDeployRequiresBackend,
   validateVercelServerDeploy,
   validatePrismaServerDeploy,
+  validateAwsServerDeploy,
+  validateLambdaRuntime,
   validatePrismaWebDeploy,
+  validateAwsWebDeploy,
   validatePrismaWebDeployDesktopAddons,
+  validateAuroraDatabaseSetup,
   validateCloudflareWebDeployKnownIssues,
   validateWebDeployRequiresWebFrontend,
   validateWorkersCompatibility,
+  validatePortlessCompatibility,
+  validateTurnstileCompatibility,
 } from "./compatibility-rules";
-import { ValidationError } from "./errors";
+import { CLIError, ValidationError } from "./errors";
+import { validateI18nConfig } from "./i18n-cli";
+import { hasReactWebFrontend, isValidShadcnPresetValue } from "./shadcn";
 
 type ValidationResult = Result<void, ValidationError>;
+type ConfigValidationResult = Result<void, ValidationError | CLIError>;
 
 function validationErr(message: string): ValidationResult {
   return Result.err(new ValidationError({ message }));
+}
+
+function turnstileDeployError(config: Partial<ProjectConfig>): ValidationResult | undefined {
+  if (!config.addons?.includes("turnstile")) return undefined;
+  const turnstile = validateTurnstileCompatibility({
+    webDeploy: config.webDeploy,
+    serverDeploy: config.serverDeploy,
+    backend: config.backend,
+  });
+  return turnstile.isCompatible ? undefined : validationErr(turnstile.reason);
 }
 
 function hasResolvedWorkersD1Target(config: Partial<ProjectConfig>) {
@@ -149,6 +169,10 @@ export function validateDatabaseSetup(
       errorMessage:
         "PlanetScale setup requires PostgreSQL or MySQL database. Please use '--database postgres' or '--database mysql' or choose a different setup.",
     },
+    aurora: {
+      errorMessage:
+        "AWS Aurora setup requires PostgreSQL or MySQL database. Please use '--database postgres' or '--database mysql' or choose a different setup.",
+    },
     "mongodb-atlas": {
       errorMessage:
         "MongoDB Atlas setup requires MongoDB database. Please use '--database mongodb' or choose a different setup.",
@@ -216,6 +240,12 @@ export function validateDatabaseProvisioningMode(config: Partial<ProjectConfig>)
     );
   }
 
+  if (config.dbSetup === "aurora" && config.dbSetupOptions?.mode === "auto") {
+    return validationErr(
+      "AWS Aurora does not support automatic database setup. Use dbSetupOptions.mode 'alchemy' or 'manual'.",
+    );
+  }
+
   if (config.dbSetupOptions?.mode !== "alchemy") return Result.ok(undefined);
 
   const { backend, dbSetup, webDeploy, serverDeploy } = config;
@@ -232,6 +262,31 @@ export function validateDatabaseProvisioningMode(config: Partial<ProjectConfig>)
   ) {
     return validationErr(
       "Alchemy database provisioning requires Neon, PlanetScale, or Prisma Postgres and an Alchemy deployment target for the app that consumes the database.",
+    );
+  }
+
+  return Result.ok(undefined);
+}
+
+export function validateShadcn(config: Partial<ProjectConfig>): ValidationResult {
+  const shadcn = config.shadcn;
+  if (!shadcn) return Result.ok(undefined);
+
+  if (!shadcn.preset) {
+    return validationErr(
+      "shadcn theming requires a preset. Provide '--shadcn-preset <code|name|url>' or omit shadcn options.",
+    );
+  }
+
+  if (!isValidShadcnPresetValue(shadcn.preset)) {
+    return validationErr(
+      `Invalid shadcn preset "${shadcn.preset}". Use a preset code, a named preset, or a preset URL.`,
+    );
+  }
+
+  if (config.frontend !== undefined && !hasReactWebFrontend(config.frontend)) {
+    return validationErr(
+      "shadcn theming requires a React web frontend (next, tanstack-start, tanstack-router, or react-router).",
     );
   }
 
@@ -426,7 +481,7 @@ export function validateFullConfig(
   config: Partial<ProjectConfig>,
   providedFlags: Set<string>,
   options: CLIInput,
-): ValidationResult {
+): ConfigValidationResult {
   return Result.gen(function* () {
     yield* validateDatabaseOrmAuth(config, providedFlags);
     yield* validateDatabaseSetup(config, providedFlags);
@@ -439,13 +494,19 @@ export function validateFullConfig(
 
     yield* validateFrontendConstraints(config, providedFlags);
 
+    yield* validateShadcn(config);
+
     yield* validateApiConstraints(config, options);
 
     yield* validateServerDeployRequiresBackend(config.serverDeploy, config.backend);
     yield* validateDockerServerDeploy(config.serverDeploy, config.backend, config.runtime);
     yield* validateVercelServerDeploy(config.serverDeploy, config.backend, config.runtime);
     yield* validatePrismaServerDeploy(config.serverDeploy, config.backend, config.runtime);
+    yield* validateAwsServerDeploy(config.serverDeploy, config.backend, config.runtime);
+    yield* validateLambdaRuntime(config.runtime, config.serverDeploy, config.backend);
     yield* validatePrismaWebDeploy(config.webDeploy, config.frontend);
+    yield* validateAwsWebDeploy(config.webDeploy, config.frontend);
+    yield* validateAuroraDatabaseSetup(config);
     yield* validateCloudflareWebDeployKnownIssues(config);
     yield* validateDockerWebDeployDesktopAddons(
       config.webDeploy,
@@ -483,8 +544,13 @@ export function validateFullConfig(
         config.backend,
         config.runtime,
       );
+
+      const turnstileError = turnstileDeployError(config);
+      if (turnstileError) yield* turnstileError;
       config.addons = [...new Set(config.addons)];
     }
+
+    yield* validatePortlessCompatibility(config);
 
     yield* validateExamplesCompatibility(
       config.examples ?? [],
@@ -501,11 +567,16 @@ export function validateFullConfig(
       config.frontend ?? [],
     );
 
+    yield* validateEmailDeployCompatibility(config);
+    yield* validateI18nConfig(config);
+
     return Result.ok(undefined);
   });
 }
 
-export function validateConfigForProgrammaticUse(config: Partial<ProjectConfig>): ValidationResult {
+export function validateConfigForProgrammaticUse(
+  config: Partial<ProjectConfig>,
+): ConfigValidationResult {
   return Result.gen(function* () {
     yield* validateDatabaseOrmAuth(config);
 
@@ -522,6 +593,8 @@ export function validateConfigForProgrammaticUse(config: Partial<ProjectConfig>)
       config.frontend,
     );
 
+    yield* validateEmailDeployCompatibility(config);
+
     if (config.addons && config.addons.length > 0) {
       yield* validateAddonsAgainstFrontends(
         config.addons,
@@ -530,7 +603,12 @@ export function validateConfigForProgrammaticUse(config: Partial<ProjectConfig>)
         config.backend,
         config.runtime,
       );
+
+      const turnstileError = turnstileDeployError(config);
+      if (turnstileError) yield* turnstileError;
     }
+
+    yield* validatePortlessCompatibility(config);
 
     yield* validateExamplesCompatibility(
       config.examples ?? [],
@@ -539,6 +617,8 @@ export function validateConfigForProgrammaticUse(config: Partial<ProjectConfig>)
       config.frontend ?? [],
       config.api,
     );
+
+    yield* validateI18nConfig(config);
 
     return Result.ok(undefined);
   });

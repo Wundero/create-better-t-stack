@@ -1,12 +1,12 @@
 "use client";
 
+import { useTheme } from "@wrksz/themes/client";
 import { usePathname } from "fumadocs-core/framework";
 import Link from "fumadocs-core/link";
 import { SidebarCollapseTrigger, SidebarTrigger } from "fumadocs-ui/layouts/notebook/slots/sidebar";
 import { type LinkItemType, LinkItem, resolveLinkItems } from "fumadocs-ui/layouts/shared";
 import { FullSearchTrigger, SearchTrigger } from "fumadocs-ui/layouts/shared/slots/search-trigger";
 import { Menu, Moon, PanelLeft, Sun, X } from "lucide-react";
-import { useTheme } from "next-themes";
 import { type ComponentProps, type ReactNode, useEffect, useState } from "react";
 
 import { baseOptions } from "@/app/layout.config";

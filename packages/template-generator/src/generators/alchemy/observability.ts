@@ -71,8 +71,11 @@ export function writeObservabilityResources(
   const hasCloudflareRuntime =
     (plan.server.target === "cloudflare" && plan.hasAxiomServerRuntime) ||
     (plan.web.target === "cloudflare" && plan.hasAxiomWebRuntime);
+  const hasAwsRuntime =
+    (plan.server.target === "aws" && plan.hasAxiomServerRuntime) ||
+    (plan.web.target === "aws" && plan.hasAxiomWebRuntime);
 
-  if (hasPrismaRuntime || hasCloudflareRuntime) {
+  if (hasPrismaRuntime || hasCloudflareRuntime || hasAwsRuntime) {
     writer.blankLine();
     writer.writeLine(
       "export const observabilityEnv = observability.pipe(Effect.map(({ runtimeEnv }) => runtimeEnv));",

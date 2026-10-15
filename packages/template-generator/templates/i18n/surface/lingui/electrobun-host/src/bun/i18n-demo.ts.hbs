@@ -1,0 +1,24 @@
+/**
+ * Bun main-process i18n demo for the Electrobun host.
+ *
+ * The Bun preload (`packages/i18n/bun-preload.ts`, registered in
+ * `apps/desktop/bunfig.toml`) transforms macros in host code; this demo uses
+ * explicit IDs instead so it also runs from a plain `bun run` without reload.
+ * Formatting comes from the shared `createFormatters`, never from Lingui (D4).
+ */
+import { isLocale, sourceLocale } from "@{{projectName}}/i18n/config";
+import { createFormatters } from "@{{projectName}}/i18n/format";
+import { setupI18n } from "@{{projectName}}/i18n/runtime";
+
+export async function printI18nDemo(locale?: string): Promise<void> {
+  const resolved = locale !== undefined && isLocale(locale) ? locale : sourceLocale;
+  const i18n = await setupI18n(resolved);
+  const format = createFormatters(resolved);
+
+  console.log(i18n._(/** i18n */ { id: "desktop.heading", message: "Desktop internationalization" }));
+  console.log(
+    i18n._(/** i18n */ { id: "desktop.unread", message: "{count, plural, one {# unread message} other {# unread messages}}", values: { count: 3 } }),
+  );
+  console.log(format.currency(42.5, "EUR"));
+  console.log(format.date(new Date()));
+}

@@ -1,7 +1,21 @@
+import { ALL_PAYMENT_IDS, getPaymentProvider } from "@better-t-stack/types";
+import type { I18nOptions } from "@better-t-stack/types";
+
 import type { StackState, TechOptions, TechCategory, StackOptionId } from "./types";
 export type { StackState } from "./types";
 
 export const ICON_BASE_URL = "https://r2.better-t-stack.dev/icons";
+
+type I18nOptionsDefaults = Omit<I18nOptions, "routing"> & {
+  routing: NonNullable<I18nOptions["routing"]>;
+};
+
+export const DEFAULT_I18N_OPTIONS: I18nOptionsDefaults = {
+  sourceLocale: "en",
+  locales: ["en", "es", "fr"],
+  routing: { strategy: "cookie", prefixDefaultLocale: false },
+  translateSkill: true,
+};
 
 export const TECH_OPTIONS: TechOptions = {
   api: [
@@ -161,6 +175,13 @@ export const TECH_OPTIONS: TechOptions = {
       description: "Serverless runtime for the edge",
       icon: `${ICON_BASE_URL}/workers.svg`,
       color: "from-orange-400 to-orange-600",
+    },
+    {
+      id: "lambda",
+      name: "AWS Lambda",
+      description: "Serverless functions on AWS",
+      icon: "/icon/lambda.svg",
+      color: "from-amber-500 to-orange-600",
     },
     {
       id: "none",
@@ -392,6 +413,13 @@ export const TECH_OPTIONS: TechOptions = {
       color: "from-blue-500 to-blue-700",
     },
     {
+      id: "aurora",
+      name: "AWS Aurora",
+      description: "Managed Aurora Serverless Postgres or MySQL on AWS",
+      icon: "/icon/aurora.svg",
+      color: "from-amber-500 to-orange-600",
+    },
+    {
       id: "none",
       name: "Basic Setup",
       description: "No cloud DB integration",
@@ -414,6 +442,13 @@ export const TECH_OPTIONS: TechOptions = {
       description: "Deploy with Prisma using Alchemy",
       icon: `${ICON_BASE_URL}/prisma.svg`,
       color: "from-indigo-400 to-indigo-600",
+    },
+    {
+      id: "aws",
+      name: "AWS",
+      description: "Deploy to AWS using Alchemy",
+      icon: "/icon/aws.svg",
+      color: "from-amber-500 to-orange-600",
     },
     {
       id: "docker",
@@ -453,6 +488,13 @@ export const TECH_OPTIONS: TechOptions = {
       description: "Deploy with Prisma using Alchemy",
       icon: `${ICON_BASE_URL}/prisma.svg`,
       color: "from-indigo-400 to-indigo-600",
+    },
+    {
+      id: "aws",
+      name: "AWS",
+      description: "Deploy to AWS using Alchemy",
+      icon: "/icon/aws.svg",
+      color: "from-amber-500 to-orange-600",
     },
     {
       id: "docker",
@@ -502,19 +544,72 @@ export const TECH_OPTIONS: TechOptions = {
       color: "from-red-400 to-red-600",
     },
   ],
-  payments: [
+  payments: ALL_PAYMENT_IDS.map((id) => {
+    if (id === "none") {
+      return {
+        id,
+        name: "No Payments",
+        description: "Skip payments integration",
+        icon: "",
+        color: "from-gray-400 to-gray-600",
+        default: true,
+      };
+    }
+    const meta = getPaymentProvider(id);
+    return {
+      id,
+      name: meta.label,
+      description: meta.description,
+      icon:
+        meta.iconSlug === ""
+          ? ""
+          : meta.iconSlug.startsWith("/")
+            ? meta.iconSlug
+            : `${ICON_BASE_URL}/${meta.iconSlug}.svg`,
+      color: meta.color,
+      className: meta.iconClassName,
+      default: false,
+    };
+  }),
+  emailRenderer: [
     {
-      id: "polar",
-      name: "Polar",
-      description: "Turn your software into a business. 6 lines of code.",
-      icon: `${ICON_BASE_URL}/polar.svg`,
-      color: "from-purple-400 to-purple-600",
+      id: "react-email",
+      name: "React Email",
+      description: "Render emails with React Email",
+      icon: "/icon/react.svg",
+      color: "from-slate-400 to-slate-600",
       default: false,
     },
     {
       id: "none",
-      name: "No Payments",
-      description: "Skip payments integration",
+      name: "None",
+      description: "Skip email rendering",
+      icon: "",
+      color: "from-gray-400 to-gray-600",
+      default: true,
+    },
+  ],
+  emailDeploy: [
+    {
+      id: "cloudflare",
+      name: "Cloudflare",
+      description: "Cloudflare Email Sending via Alchemy",
+      icon: `${ICON_BASE_URL}/workers.svg`,
+      color: "from-orange-400 to-orange-600",
+      default: false,
+    },
+    {
+      id: "ses",
+      name: "SES",
+      description: "SES on AWS via Alchemy",
+      icon: "/icon/ses.svg",
+      color: "from-amber-400 to-amber-600",
+      default: false,
+    },
+    {
+      id: "none",
+      name: "None",
+      description: "None",
       icon: "",
       color: "from-gray-400 to-gray-600",
       default: true,
@@ -550,7 +645,9 @@ export const TECH_OPTIONS: TechOptions = {
       id: "pwa",
       name: "PWA (Progressive Web App)",
       description: "Make your app installable and work offline",
-      icon: "",
+      icon: "/icon/phone.svg",
+      className: "invert-0 dark:invert",
+
       color: "from-blue-500 to-blue-700",
       default: false,
     },
@@ -566,7 +663,7 @@ export const TECH_OPTIONS: TechOptions = {
       id: "electrobun",
       name: "Electrobun",
       description: "Bundle static web apps in a lightweight desktop shell",
-      icon: "",
+      icon: `${ICON_BASE_URL}/bun.svg`,
       color: "from-orange-500 to-orange-700",
       default: false,
     },
@@ -590,7 +687,7 @@ export const TECH_OPTIONS: TechOptions = {
       id: "lefthook",
       name: "Lefthook",
       description: "Fast and powerful Git hooks manager",
-      icon: "",
+      icon: "/icon/lefthook.svg",
       color: "from-red-500 to-red-700",
       default: false,
     },
@@ -598,7 +695,9 @@ export const TECH_OPTIONS: TechOptions = {
       id: "husky",
       name: "Husky",
       description: "Modern native Git hooks made easy",
-      icon: "",
+      icon: "/icon/husky.svg",
+      className: "invert-0 dark:invert",
+
       color: "from-purple-500 to-purple-700",
       default: false,
     },
@@ -616,6 +715,14 @@ export const TECH_OPTIONS: TechOptions = {
       description: "Oxlint + Oxfmt (linting & formatting)",
       icon: `${ICON_BASE_URL}/oxc.svg`,
       color: "from-orange-500 to-orange-700",
+      default: false,
+    },
+    {
+      id: "eslint",
+      name: "ESLint + Prettier",
+      description: "ESLint and Prettier (oxlint, Vite+, or Biome preferred)",
+      icon: "/icon/eslint-prettier.svg",
+      color: "from-purple-500 to-purple-700",
       default: false,
     },
     {
@@ -656,7 +763,9 @@ export const TECH_OPTIONS: TechOptions = {
       id: "opentui",
       name: "OpenTUI",
       description: "Build terminal user interfaces",
-      icon: "",
+      icon: "/icon/opentui.svg",
+      className: "invert-0 dark:invert",
+
       color: "from-cyan-500 to-cyan-700",
       default: false,
     },
@@ -664,7 +773,7 @@ export const TECH_OPTIONS: TechOptions = {
       id: "wxt",
       name: "WXT",
       description: "Build browser extensions",
-      icon: "",
+      icon: "/icon/wxt.svg",
       color: "from-emerald-500 to-emerald-700",
       default: false,
     },
@@ -672,7 +781,7 @@ export const TECH_OPTIONS: TechOptions = {
       id: "skills",
       name: "Skills",
       description: "Install AI agent skills for coding assistants",
-      icon: "",
+      icon: `${ICON_BASE_URL}/vercel.svg`,
       color: "from-pink-500 to-pink-700",
       default: false,
     },
@@ -680,7 +789,9 @@ export const TECH_OPTIONS: TechOptions = {
       id: "mcp",
       name: "MCP",
       description: "Install MCP servers for your agents/editors",
-      icon: "",
+      icon: "/icon/mcp.svg",
+      className: "invert-0 dark:invert",
+
       color: "from-emerald-500 to-emerald-700",
       default: false,
     },
@@ -688,7 +799,7 @@ export const TECH_OPTIONS: TechOptions = {
       id: "evlog",
       name: "evlog",
       description: "Structured request logging with Better Auth context",
-      icon: "",
+      icon: "/icon/evlog.png",
       color: "from-sky-500 to-slate-700",
       default: false,
     },
@@ -696,9 +807,62 @@ export const TECH_OPTIONS: TechOptions = {
       id: "axiom",
       name: "Axiom",
       description: "Managed production observability through evlog and Alchemy",
-      icon: "",
+      icon: "/icon/axiom.svg",
+      className: "invert-0 dark:invert",
+
       color: "from-violet-500 to-indigo-700",
       default: false,
+    },
+    {
+      id: "turnstile",
+      name: "Cloudflare Turnstile",
+      description: "CAPTCHA on Better Auth sign-in/sign-up, provisioned by Alchemy",
+      icon: `${ICON_BASE_URL}/workers.svg`,
+      color: "from-orange-500 to-orange-700",
+      default: false,
+    },
+  ],
+  i18n: [
+    {
+      id: "lingui",
+      name: "Lingui",
+      description: "Source-text message keys with PO catalogs",
+      icon: "",
+      color: "from-blue-400 to-blue-600",
+      default: false,
+    },
+    {
+      id: "paraglide",
+      name: "Paraglide",
+      description: "Compiled, tree-shakeable message functions",
+      icon: "",
+      color: "from-emerald-400 to-emerald-600",
+      default: false,
+    },
+    {
+      id: "i18next",
+      name: "i18next",
+      description: "The most-used i18n framework for JavaScript",
+      icon: "",
+      color: "from-violet-400 to-violet-600",
+      default: false,
+    },
+    {
+      id: "wuchale",
+      name: "wuchale",
+      description: "Implicit string extraction with no t() calls",
+      icon: "",
+      color: "from-amber-400 to-amber-600",
+      default: false,
+      experimental: true,
+    },
+    {
+      id: "none",
+      name: "No i18n",
+      description: "Ship English-only",
+      icon: "",
+      color: "from-gray-400 to-gray-600",
+      default: true,
     },
   ],
   examples: [
@@ -753,6 +917,26 @@ export const TECH_OPTIONS: TechOptions = {
       color: "from-yellow-400 to-yellow-600",
     },
   ],
+  portless: [
+    {
+      id: "false",
+      name: "Standard localhost",
+      description: "Run dev servers on standard localhost ports",
+      icon: "/icon/monitor.svg",
+      className: "invert-0 dark:invert",
+
+      color: "from-gray-400 to-gray-600",
+      default: true,
+    },
+    {
+      id: "true",
+      name: "Portless",
+      description: "Run dev servers on stable .localhost hostnames instead of ports",
+      icon: `${ICON_BASE_URL}/vercel.svg`,
+      color: "from-sky-400 to-sky-600",
+      experimental: true,
+    },
+  ],
 };
 
 export function getStackOptionIds<K extends TechCategory>(category: K): StackOptionId<K>[] {
@@ -787,6 +971,9 @@ export const PRESET_TEMPLATES: {
       dbSetup: "mongodb-atlas",
       auth: "better-auth",
       payments: "none",
+      emailRenderer: "none",
+      emailDeploy: "none",
+      i18n: "none",
       packageManager: "bun",
       addons: ["turborepo"],
       examples: ["todo"],
@@ -796,6 +983,11 @@ export const PRESET_TEMPLATES: {
       webDeploy: "none",
       serverDeploy: "none",
       yolo: "false",
+      shadcnPreset: "",
+      shadcnBase: "baseui",
+      shadcnRtl: false,
+      shadcnPointer: false,
+      portless: "false",
     },
   },
   {
@@ -813,6 +1005,9 @@ export const PRESET_TEMPLATES: {
       dbSetup: "none",
       auth: "better-auth",
       payments: "none",
+      emailRenderer: "none",
+      emailDeploy: "none",
+      i18n: "none",
       packageManager: "bun",
       addons: ["turborepo"],
       examples: ["todo"],
@@ -822,6 +1017,11 @@ export const PRESET_TEMPLATES: {
       webDeploy: "none",
       serverDeploy: "none",
       yolo: "false",
+      shadcnPreset: "",
+      shadcnBase: "baseui",
+      shadcnRtl: false,
+      shadcnPointer: false,
+      portless: "false",
     },
   },
   {
@@ -839,6 +1039,9 @@ export const PRESET_TEMPLATES: {
       dbSetup: "none",
       auth: "better-auth",
       payments: "none",
+      emailRenderer: "none",
+      emailDeploy: "none",
+      i18n: "none",
       packageManager: "bun",
       addons: ["biome", "turborepo"],
       examples: ["none"],
@@ -848,6 +1051,11 @@ export const PRESET_TEMPLATES: {
       webDeploy: "none",
       serverDeploy: "none",
       yolo: "false",
+      shadcnPreset: "",
+      shadcnBase: "baseui",
+      shadcnRtl: false,
+      shadcnPointer: false,
+      portless: "false",
     },
   },
   {
@@ -865,6 +1073,9 @@ export const PRESET_TEMPLATES: {
       dbSetup: "none",
       auth: "none",
       payments: "none",
+      emailRenderer: "none",
+      emailDeploy: "none",
+      i18n: "none",
       packageManager: "bun",
       addons: ["none"],
       examples: ["none"],
@@ -874,6 +1085,11 @@ export const PRESET_TEMPLATES: {
       webDeploy: "none",
       serverDeploy: "none",
       yolo: "false",
+      shadcnPreset: "",
+      shadcnBase: "baseui",
+      shadcnRtl: false,
+      shadcnPointer: false,
+      portless: "false",
     },
   },
 ];
@@ -889,6 +1105,9 @@ export const DEFAULT_STACK: StackState = {
   dbSetup: "none",
   auth: "better-auth",
   payments: "none",
+  emailRenderer: "none",
+  emailDeploy: "none",
+  i18n: "none",
   packageManager: "bun",
   addons: ["turborepo"],
   examples: ["none"],
@@ -898,6 +1117,11 @@ export const DEFAULT_STACK: StackState = {
   webDeploy: "none",
   serverDeploy: "none",
   yolo: "false",
+  shadcnPreset: "",
+  shadcnBase: "baseui",
+  shadcnRtl: false,
+  shadcnPointer: false,
+  portless: "false",
 };
 
 export const isStackDefault = <K extends keyof StackState>(

@@ -1,0 +1,84 @@
+/**
+ * Client-side locale helpers. Every generated API client (tRPC/oRPC links,
+ * the Better Auth client, fetch helpers) sends the `x-app-locale` header so a
+ * cross-origin `apps/server` receives the app's chosen locale instead of
+ * relying on the browser preference alone (D5).
+ *
+ * Import from `@<project>/i18n/client`.
+ */
+import { LOCALE_COOKIE, LOCALE_HEADER, negotiateLocale, sourceLocale } from "./config";
+import type { Locale } from "./config";
+
+const STORAGE_KEY = "locale";
+
+interface StorageLike {
+  getItem(key: string): string | null;
+}
+
+function browserStorage(): StorageLike | undefined {
+  return (globalThis as { localStorage?: StorageLike }).localStorage;
+}
+
+function browserCookieHeader(): string | undefined {
+  return (globalThis as { document?: { cookie?: string } }).document?.cookie;
+}
+
+function browserAcceptLanguage(): string | undefined {
+  const navigatorLike = (globalThis as {
+    navigator?: { languages?: readonly string[]; language?: string };
+  }).navigator;
+  if (!navigatorLike) return undefined;
+  return navigatorLike.languages?.join(",") ?? navigatorLike.language;
+}
+
+function readBrowserStorage(key: string): string | undefined {
+  try {
+    const value = browserStorage()?.getItem(key);
+    return value ?? undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/** The current locale on the client: cookie → `localStorage` → browser language. */
+export function getClientLocale(): Locale {
+  if (typeof (globalThis as { window?: unknown }).window === "undefined") return sourceLocale;
+
+  const cookieHeader = browserCookieHeader();
+  const cookie = cookieHeader
+    ? cookieHeader
+        .split(";")
+        .map((entry) => entry.trim().split("="))
+        .find(([name]) => name === LOCALE_COOKIE)
+        ?.slice(1)
+        .join("=")
+    : undefined;
+
+  return negotiateLocale({
+    cookie,
+    stored: readBrowserStorage(STORAGE_KEY),
+    acceptLanguage: browserAcceptLanguage(),
+  });
+}
+
+/** `x-app-locale` for the current client locale. */
+export function localeHeader(): Record<string, string> {
+  return { [LOCALE_HEADER]: getClientLocale() };
+}
+
+/** A `RequestInit` with `x-app-locale` merged into its headers. */
+export function localeInit(init?: Parameters<typeof fetch>[1]): Parameters<typeof fetch>[1] {
+  const headers = new Headers(init?.headers);
+  for (const [name, value] of Object.entries(localeHeader())) {
+    headers.set(name, value);
+  }
+  return { ...init, headers };
+}
+
+/** `fetch` wrapper that always sends `x-app-locale`. */
+export function localeFetch(
+  input: Parameters<typeof fetch>[0],
+  init?: Parameters<typeof fetch>[1],
+): Promise<Response> {
+  return fetch(input, localeInit(init));
+}

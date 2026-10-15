@@ -1,0 +1,32 @@
+import type { MiddlewareFunction } from "react-router";
+
+import { LOCALE_HEADER } from "@{{projectName}}/i18n/config";
+import { negotiateRequestLocale } from "@{{projectName}}/i18n/routing";
+import { runWithLocale } from "@{{projectName}}/i18n/server";
+{{#if (eq i18n "paraglide")}}
+import { isLocale, sourceLocale } from "@{{projectName}}/i18n/config";
+
+import { paraglideMiddleware } from "./paraglide/server.js";
+{{/if}}
+
+/**
+ * Root middleware (D5/D6): negotiates the request locale and runs loaders and
+ * SSR inside `runWithLocale`. Wired into `src/root.tsx`; route matching keeps
+ * the optional `:locale?` prefix from `src/routes.ts`.
+ */
+export const i18nMiddleware: MiddlewareFunction = ({ request }, next) => {
+{{#if (eq i18n "paraglide")}}
+  return paraglideMiddleware(request, ({ locale }) =>
+    runWithLocale(isLocale(locale) ? locale : sourceLocale, () => next()),
+  );
+{{else}}
+  const locale = negotiateRequestLocale({
+    url: request.url,
+    header: request.headers.get(LOCALE_HEADER),
+    cookieHeader: request.headers.get("cookie"),
+    acceptLanguage: request.headers.get("accept-language"),
+  });
+
+  return runWithLocale(locale, () => next());
+{{/if}}
+};

@@ -1,6 +1,13 @@
-import { type ProjectConfig, usesAlchemyManagedDatabase } from "@better-t-stack/types";
+import {
+  type ProjectConfig,
+  usesAlchemyManagedDatabase,
+  usesShadcnLocaleDirection,
+} from "@better-t-stack/types";
 import Handlebars from "handlebars";
 import isBinaryPath from "is-binary-path";
+
+import { EMBEDDED_PARTIALS } from "../templates.generated";
+import type { CompiledTemplate, TemplateEntry } from "./template-spec";
 
 Handlebars.registerHelper("eq", (a, b) => a === b);
 Handlebars.registerHelper("ne", (a, b) => a !== b);
@@ -8,6 +15,9 @@ Handlebars.registerHelper("and", (...args) => args.slice(0, -1).every(Boolean));
 Handlebars.registerHelper("or", (...args) => args.slice(0, -1).some(Boolean));
 Handlebars.registerHelper("not", (a) => !a);
 Handlebars.registerHelper("includes", (arr, val) => Array.isArray(arr) && arr.includes(val));
+Handlebars.registerHelper("usesShadcnDirection", (shadcn, i18n, i18nOptions) =>
+  usesShadcnLocaleDirection({ shadcn, i18n, i18nOptions }),
+);
 // Mirrors the sanitizers expo prebuild applies when it suggests identifiers.
 const reservedAndroidSegments = new Set([
   "abstract",
@@ -106,55 +116,22 @@ Handlebars.registerHelper(
     (frontend.includes("nuxt") || frontend.includes("svelte")),
 );
 
-const getServerUrlSource = `{{#if (and (eq webDeploy serverDeploy) (or (eq webDeploy "vercel") (eq webDeploy "docker")))}}
-function getServerUrl(url: string | undefined) {
-	if (!url) {
-		url = "/api";
-	}
-
-	const processEnv = typeof process === "undefined" ? undefined : process.env;
-	if (typeof window === "undefined" && processEnv?.SERVER_URL) {
-{{#if (eq webDeploy "vercel")}}
-		return new URL("api", processEnv.SERVER_URL).toString().replace(/\\/$/, "");
-{{else}}
-		return processEnv.SERVER_URL.endsWith("/")
-			? processEnv.SERVER_URL.slice(0, -1)
-			: processEnv.SERVER_URL;
-{{/if}}
-	}
-
-{{#if (eq webDeploy "vercel")}}
-	const normalized = url.endsWith("/") ? url.slice(0, -1) : url;
-
-	if (!normalized.startsWith("/")) {
-		return normalized;
-	}
-
-	if (typeof window !== "undefined") {
-		return \`\${window.location.origin}\${normalized}\`;
-	}
-
-	const vercelUrl =
-		processEnv?.VERCEL_ENV === "production"
-			? (processEnv?.VERCEL_PROJECT_PRODUCTION_URL ?? processEnv?.VERCEL_URL)
-			: (processEnv?.VERCEL_URL ?? processEnv?.VERCEL_PROJECT_PRODUCTION_URL);
-	if (vercelUrl) {
-		const origin = vercelUrl.startsWith("http") ? vercelUrl : \`https://\${vercelUrl}\`;
-		return \`\${origin}\${normalized}\`;
-	}
-
-	return \`http://localhost:3000\${normalized}\`;
-{{else}}
-	return url.endsWith("/") ? url.slice(0, -1) : url;
-{{/if}}
+for (const [name, spec] of EMBEDDED_PARTIALS) {
+  Handlebars.registerPartial(name, Handlebars.template(spec));
 }
-{{/if}}`;
 
-Handlebars.registerPartial("getServerUrl", getServerUrlSource);
-Handlebars.registerPartial("getServerUrlSpaces", getServerUrlSource.replaceAll("\t", "  "));
+/** Precompiled specs are objects; raw template sources are strings. */
+function isCompiledTemplate(content: CompiledTemplate | string): content is CompiledTemplate {
+  return Object(content) === content;
+}
 
-export function processTemplateString(content: string, context: ProjectConfig): string {
-  return Handlebars.compile(content)(context);
+export function processTemplateString(
+  content: CompiledTemplate | string,
+  context: ProjectConfig,
+): string {
+  return isCompiledTemplate(content)
+    ? Handlebars.template(content)(context)
+    : Handlebars.compile(content)(context);
 }
 
 export function isBinaryFile(filePath: string): boolean {
@@ -175,22 +152,23 @@ export function transformFilename(filename: string): string {
 
 export function processFileContent(
   filePath: string,
-  content: string,
+  content: TemplateEntry,
   context: ProjectConfig,
 ): string {
   if (isBinaryFile(filePath)) return "[Binary file]";
 
   const originalPath = filePath.endsWith(".hbs") ? filePath : filePath + ".hbs";
   if (filePath !== originalPath || filePath.includes(".hbs")) {
+    if (content.kind === "raw") return content.content;
     try {
       return processTemplateString(content, context);
     } catch (error) {
       console.warn(`Template processing failed for ${filePath}:`, error);
-      return content;
+      return "";
     }
   }
 
-  return content;
+  return content.kind === "raw" ? content.content : "";
 }
 
 export { Handlebars };

@@ -4,7 +4,7 @@ import {
   adjustAnalyticsStats,
   createEmptyAnalyticsStats,
   type AnalyticsEventFields,
-} from "../convex/analytics_helpers";
+} from "../src/analytics/helpers";
 
 const legitimateEvent: AnalyticsEventFields = {
   database: "postgres",

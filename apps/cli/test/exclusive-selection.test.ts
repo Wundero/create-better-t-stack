@@ -37,6 +37,21 @@ describe("resolveExclusiveSelection", () => {
       "husky",
     ]);
   });
+
+  it("drops the other member of a cross-group pairwise set", () => {
+    const eslintVitePlus = ["eslint", "vite-plus"] as const;
+
+    expect(
+      resolveExclusiveSelection(
+        ["eslint", "biome"],
+        ["eslint", "biome", "vite-plus"],
+        [eslintVitePlus],
+      ),
+    ).toEqual(["biome", "vite-plus"]);
+    expect(
+      resolveExclusiveSelection(["vite-plus"], ["vite-plus", "eslint"], [eslintVitePlus]),
+    ).toEqual(["eslint"]);
+  });
 });
 
 describe("navigableGroupMultiselect exclusive sets", () => {

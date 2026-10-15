@@ -9,6 +9,13 @@ import { openBuilderCommand, openDocsCommand, showSponsorsCommand } from "./comm
 import { addHandler, type AddResult } from "./helpers/core/add-handler";
 import { createProjectHandler, createProjectHandlerResult } from "./helpers/core/command-handlers";
 import {
+  generateAppHandler,
+  generatePackageHandler,
+  type GenerateAppResult,
+  type GeneratePackageResult,
+} from "./helpers/core/generate-handler";
+import { promptGenerateSelection, promptPackageName } from "./prompts/generate";
+import {
   type AddInput,
   type Addons,
   AddonsSchema,
@@ -31,10 +38,19 @@ import {
   DatabaseSetupSchema,
   type DirectoryConflict,
   DirectoryConflictSchema,
+  type EmailDeploy,
+  EmailDeploySchema,
+  type EmailRenderer,
+  EmailRendererSchema,
   type Examples,
   ExamplesSchema,
   type Frontend,
   FrontendSchema,
+  type GenerateInput,
+  GenerateInputSchema,
+  I18nRoutingStrategySchema,
+  I18nOptionsSchema,
+  I18nSchema,
   type InitResult,
   type ORM,
   ORMSchema,
@@ -49,13 +65,19 @@ import {
   RuntimeSchema,
   type ServerDeploy,
   ServerDeploySchema,
+  type ScaffoldAppInput,
+  ScaffoldAppInputSchema,
+  ScaffoldAppInputPartialSchema,
+  type ScaffoldPackageInput,
+  ScaffoldPackageInputSchema,
+  ShadcnBaseSchema,
   type Template,
   TemplateSchema,
   type WebDeploy,
   WebDeploySchema,
   WorkspacePackageNameSchema,
 } from "./types";
-import { getProcessMode } from "./utils/context";
+import { getProcessMode, isSilent } from "./utils/context";
 import {
   CLIError,
   DirectoryConflictError,
@@ -63,6 +85,7 @@ import {
   UserCancelledError,
 } from "./utils/errors";
 import { getLatestCLIVersion } from "./utils/get-latest-cli-version";
+import { normalizeResolvedI18n, resolveI18nCliFlags, type I18nCliInput } from "./utils/i18n-cli";
 import { type ProjectLauncher, ProjectLauncherSchema } from "./utils/project-launcher";
 import { validateResolvedConfigCompatibility } from "./validation";
 
@@ -82,14 +105,22 @@ export const SchemaNameSchema = z
     "api",
     "auth",
     "payments",
+    "emailRenderer",
+    "emailDeploy",
+    "i18n",
+    "i18nOptions",
     "webDeploy",
     "serverDeploy",
     "directoryConflict",
     "template",
     "addonOptions",
     "dbSetupOptions",
+    "shadcnConfig",
     "createInput",
     "addInput",
+    "scaffoldAppInput",
+    "scaffoldPackageInput",
+    "generateInput",
     "projectConfig",
     "betterTStackConfig",
     "betterTStackConfigFile",
@@ -107,6 +138,108 @@ const CreateVirtualInputSchema = ProjectConfigSchema.omit({
 export type SchemaName = z.infer<typeof SchemaNameSchema>;
 
 const command = os.$meta<TrpcCliMeta>({});
+
+const ScaffoldPackageCommandInputSchema = ScaffoldPackageInputSchema.partial();
+
+type ScaffoldPackageCommandInput = z.infer<typeof ScaffoldPackageCommandInputSchema>;
+type ScaffoldAppCommandInput = z.infer<typeof ScaffoldAppInputPartialSchema>;
+
+function parseAppInput(input: ScaffoldAppCommandInput): ScaffoldAppInput {
+  const parsed = ScaffoldAppInputSchema.safeParse(input);
+  if (!parsed.success) {
+    throw new CLIError({
+      message: formatInputValidationError("generate app", parsed.error),
+      cause: parsed.error,
+    });
+  }
+  return parsed.data;
+}
+
+function hasCompleteAppSelection(input: ScaffoldAppCommandInput): boolean {
+  if (input.kind === undefined || input.name === undefined) return false;
+  if (input.kind === "backend") return input.backend !== undefined;
+  return input.frontend !== undefined;
+}
+
+async function resolveAppInput(input: ScaffoldAppCommandInput): Promise<ScaffoldAppInput> {
+  if (hasCompleteAppSelection(input)) {
+    return parseAppInput(input);
+  }
+
+  if (isSilent()) {
+    throw new CLIError({
+      message:
+        'Silent mode requires "kind", "name", and the matching framework ("frontend" for frontend/mobile apps, "backend" for backend apps).',
+    });
+  }
+
+  const picked = await promptGenerateSelection();
+  return parseAppInput({ ...picked, ...input });
+}
+
+async function resolvePackageName(input: ScaffoldPackageCommandInput): Promise<string> {
+  if (input.name !== undefined) return input.name;
+  if (isSilent()) {
+    throw new CLIError({ message: 'Silent mode requires "name" to generate a package.' });
+  }
+  return promptPackageName();
+}
+
+async function resolvePackageInput(
+  input: ScaffoldPackageCommandInput,
+): Promise<ScaffoldPackageInput> {
+  const name = await resolvePackageName(input);
+
+  const parsed = ScaffoldPackageInputSchema.safeParse({ ...input, name });
+  if (!parsed.success) {
+    throw new CLIError({
+      message: formatInputValidationError("generate package", parsed.error),
+      cause: parsed.error,
+    });
+  }
+  return parsed.data;
+}
+
+async function runGeneratePackageCommand(input: ScaffoldPackageCommandInput): Promise<void> {
+  const resolved = await resolvePackageInput(input);
+  await generatePackageHandler(resolved);
+}
+
+async function runGenerateAppCommand(input: ScaffoldAppCommandInput): Promise<void> {
+  const resolved = await resolveAppInput(input);
+  await generateAppHandler(resolved);
+}
+
+function unwrapGenerateResult(
+  result: GeneratePackageResult | GenerateAppResult | undefined,
+): GeneratePackageResult | GenerateAppResult {
+  if (!result) {
+    throw new UserCancelledError({ message: "Operation cancelled" });
+  }
+  if (!result.success) {
+    throw new CLIError({
+      message: result.error || "Unknown error occurred",
+    });
+  }
+  return result;
+}
+
+const generate = os.router({
+  package: command
+    .meta({
+      description: "Generate a new workspace package in an existing Better-T-Stack monorepo",
+    })
+    .input(ScaffoldPackageCommandInputSchema)
+    .handler(async ({ input }) => {
+      await runGeneratePackageCommand(input);
+    }),
+  app: command
+    .meta({ description: "Generate a new app in an existing Better-T-Stack monorepo" })
+    .input(ScaffoldAppInputPartialSchema)
+    .handler(async ({ input }) => {
+      await runGenerateAppCommand(input);
+    }),
+});
 
 function getCliSchemaJson(): unknown {
   return createCli({
@@ -162,12 +295,28 @@ export const router = os.router({
           orm: ORMSchema.optional(),
           auth: AuthSchema.optional(),
           payments: PaymentsSchema.optional(),
+          emailRenderer: EmailRendererSchema.optional(),
+          emailDeploy: EmailDeploySchema.optional(),
+          i18n: I18nSchema.optional(),
+          i18nOptions: I18nOptionsSchema.optional(),
+          i18nLocales: z
+            .string()
+            .optional()
+            .describe("Comma-separated locales; the first entry is the source locale"),
+          i18nSourceLocale: z.string().optional().describe("Canonical BCP-47 source locale"),
+          i18nRouting: I18nRoutingStrategySchema.optional(),
+          i18nDomain: z
+            .array(z.string())
+            .optional()
+            .describe("Locale to host mapping, repeatable (fr=fr.example.com)"),
+          i18nSkill: z.boolean().optional().describe("Generate the i18n-translate agent skill"),
           frontend: z.array(FrontendSchema).optional(),
           addons: z.array(AddonsSchema).optional(),
           examples: z.array(ExamplesSchema).optional(),
           git: z.boolean().optional(),
           packageManager: PackageManagerSchema.optional(),
           install: z.boolean().optional(),
+          portless: z.boolean().optional(),
           open: ProjectLauncherSchema.optional(),
           dbSetup: DatabaseSetupSchema.optional(),
           backend: BackendSchema.optional(),
@@ -186,6 +335,14 @@ export const router = os.router({
           dbSetupOptions: DbSetupOptionsSchema.optional().describe(
             "Structured database setup options",
           ),
+          shadcnPreset: z
+            .string()
+            .min(2)
+            .optional()
+            .describe("shadcn theme preset code, named preset, or preset URL"),
+          shadcnBase: ShadcnBaseSchema.optional().describe("shadcn component base registry"),
+          shadcnRtl: z.boolean().optional().describe("Enable right-to-left shadcn styles"),
+          shadcnPointer: z.boolean().optional().describe("Enable shadcn pointer cursor styles"),
         }),
       ]),
     )
@@ -219,6 +376,25 @@ export const router = os.router({
       }
       return result;
     }),
+  generate,
+  generateJson: command
+    .meta({
+      description: "Generate a package or app from a raw JSON payload (agent-friendly)",
+      jsonInput: "always",
+    })
+    .input(GenerateInputSchema)
+    .handler(async ({ input }) => {
+      switch (input.target) {
+        case "package":
+          return unwrapGenerateResult(
+            await generatePackageHandler(input, { silent: true, mode: "json" }),
+          );
+        case "app":
+          return unwrapGenerateResult(
+            await generateAppHandler(input, { silent: true, mode: "json" }),
+          );
+      }
+    }),
   schema: command
     .meta({ description: "Show runtime CLI and input schemas as JSON" })
     .input(
@@ -244,6 +420,20 @@ export const router = os.router({
       z.object({
         addons: z.array(AddonsSchema).optional().describe("Addons to add"),
         package: WorkspacePackageNameSchema.optional(),
+        envValidation: z.boolean().optional().describe("Set up env var validation with varlock"),
+        i18n: I18nSchema.optional().describe("Add or adopt an i18n library"),
+        i18nOptions: I18nOptionsSchema.optional(),
+        i18nLocales: z
+          .string()
+          .optional()
+          .describe("Comma-separated locales to add; the first entry is the source locale"),
+        i18nSourceLocale: z.string().optional().describe("Canonical BCP-47 source locale"),
+        i18nRouting: I18nRoutingStrategySchema.optional(),
+        i18nDomain: z
+          .array(z.string())
+          .optional()
+          .describe("Locale to host mapping, repeatable (fr=fr.example.com)"),
+        i18nSkill: z.boolean().optional().describe("Generate the i18n-translate agent skill"),
         install: z
           .boolean()
           .optional()
@@ -260,7 +450,40 @@ export const router = os.router({
       }),
     )
     .handler(async ({ input }) => {
-      await addHandler(input);
+      const folded = resolveI18nCliFlags({
+        i18n: input.i18n,
+        i18nOptions: input.i18nOptions,
+        i18nLocales: input.i18nLocales,
+        i18nSourceLocale: input.i18nSourceLocale,
+        i18nRouting: input.i18nRouting,
+        i18nDomain: input.i18nDomain,
+        i18nSkill: input.i18nSkill,
+      } as I18nCliInput);
+      if (folded.isErr()) {
+        throw folded.error;
+      }
+
+      const {
+        i18nLocales: _i18nLocales,
+        i18nSourceLocale: _i18nSourceLocale,
+        i18nRouting: _i18nRouting,
+        i18nDomain: _i18nDomain,
+        i18nSkill: _i18nSkill,
+        ...rest
+      } = input;
+
+      // The raw `--i18n-*` flags ride along so the Add Path can tell which
+      // fields the caller set explicitly when it unions add-locales requests.
+      await addHandler({
+        ...rest,
+        i18n: folded.value.i18n,
+        i18nOptions: folded.value.i18nOptions,
+        i18nLocales: input.i18nLocales,
+        i18nSourceLocale: input.i18nSourceLocale,
+        i18nRouting: input.i18nRouting,
+        i18nDomain: input.i18nDomain,
+        i18nSkill: input.i18nSkill,
+      });
     }),
   addJson: command
     .meta({
@@ -426,7 +649,7 @@ export {
 
 // Import for createVirtual
 import {
-  generate,
+  generate as generateProject,
   GeneratorError,
   type VirtualFileTree,
   EMBEDDED_TEMPLATES,
@@ -476,6 +699,7 @@ export async function createVirtual(
     relativePath: "./virtual",
     addonOptions: virtualOptions.addonOptions,
     dbSetupOptions: virtualOptions.dbSetupOptions,
+    shadcn: virtualOptions.shadcn,
     database: virtualOptions.database || "none",
     orm: virtualOptions.orm || "none",
     backend: virtualOptions.backend || "hono",
@@ -485,16 +709,22 @@ export async function createVirtual(
     examples: virtualOptions.examples || [],
     auth: virtualOptions.auth || "none",
     payments: virtualOptions.payments || "none",
+    emailRenderer: virtualOptions.emailRenderer || "none",
+    emailDeploy: virtualOptions.emailDeploy || "none",
+    i18n: virtualOptions.i18n || "none",
+    i18nOptions: virtualOptions.i18nOptions,
     git: virtualOptions.git ?? false,
     packageManager: virtualOptions.packageManager || "bun",
     install: false,
+    portless: virtualOptions.portless ?? false,
     dbSetup: virtualOptions.dbSetup || "none",
     api: virtualOptions.api || "trpc",
     webDeploy: virtualOptions.webDeploy || "none",
     serverDeploy: virtualOptions.serverDeploy || "none",
   };
 
-  const validationResult = validateResolvedConfigCompatibility(config);
+  const resolvedI18nConfig = normalizeResolvedI18n(config);
+  const validationResult = validateResolvedConfigCompatibility(resolvedI18nConfig);
   if (validationResult.isErr()) {
     return Result.err(
       new GeneratorError({
@@ -505,8 +735,8 @@ export async function createVirtual(
     );
   }
 
-  return generate({
-    config,
+  return generateProject({
+    config: resolvedI18nConfig,
     templates: EMBEDDED_TEMPLATES,
   });
 }
@@ -530,6 +760,8 @@ export type {
   API,
   Auth,
   Payments,
+  EmailRenderer,
+  EmailDeploy,
   WebDeploy,
   ServerDeploy,
   Template,
@@ -546,11 +778,14 @@ export type AddOptions = Pick<
   | "addons"
   | "addonOptions"
   | "package"
+  | "envValidation"
   | "install"
   | "packageManager"
   | "projectDir"
   | "dryRun"
   | "disableAnalytics"
+  | "i18n"
+  | "i18nOptions"
 >;
 
 /**
@@ -605,3 +840,104 @@ export {
   DirectoryConflictError,
   DatabaseSetupError,
 } from "./utils/errors";
+
+export type {
+  ScaffoldAppInput,
+  ScaffoldPackageInput,
+  GenerateInput,
+  GeneratePackageResult,
+  GenerateAppResult,
+};
+
+/**
+ * Programmatic API to generate a workspace package in an existing Better-T-Stack project.
+ * Returns a structured result - no console output, no interactive prompts.
+ *
+ * @example
+ * ```typescript
+ * import { generatePackage } from "create-better-t-stack";
+ *
+ * const result = await generatePackage({ projectDir: "./my-app", name: "shared" });
+ *
+ * if (result.success) {
+ *   console.log(`Generated ${result.name} at ${result.projectDir}`);
+ * }
+ * ```
+ */
+export async function generatePackage(
+  options: ScaffoldPackageInput,
+): Promise<GeneratePackageResult> {
+  const parsedInput = ScaffoldPackageInputSchema.safeParse(options);
+  if (!parsedInput.success) {
+    return {
+      success: false,
+      kind: "package",
+      projectDir: options.projectDir ?? "",
+      name: options.name,
+      error: formatInputValidationError("generate package", parsedInput.error),
+    };
+  }
+
+  const result = await generatePackageHandler(parsedInput.data, {
+    silent: true,
+    mode: getProcessMode() ?? "api",
+  });
+  return (
+    result ?? {
+      success: false,
+      kind: "package",
+      projectDir: parsedInput.data.projectDir ?? "",
+      name: parsedInput.data.name,
+      error: "Operation cancelled",
+    }
+  );
+}
+
+/**
+ * Programmatic API to generate an app in an existing Better-T-Stack project.
+ * Returns a structured result - no console output, no interactive prompts.
+ *
+ * @example
+ * ```typescript
+ * import { generateApp } from "create-better-t-stack";
+ *
+ * const result = await generateApp({
+ *   projectDir: "./my-app",
+ *   kind: "frontend",
+ *   name: "admin",
+ *   frontend: "next",
+ * });
+ *
+ * if (result.success) {
+ *   console.log(`Generated ${result.name} at ${result.projectDir}`);
+ * }
+ * ```
+ */
+export async function generateApp(options: ScaffoldAppInput): Promise<GenerateAppResult> {
+  const parsedInput = ScaffoldAppInputSchema.safeParse(options);
+  if (!parsedInput.success) {
+    return {
+      success: false,
+      kind: "app",
+      projectDir: options.projectDir ?? "",
+      name: options.name,
+      appKind: options.kind,
+      error: formatInputValidationError("generate app", parsedInput.error),
+    };
+  }
+
+  const result = await generateAppHandler(parsedInput.data, {
+    silent: true,
+    mode: getProcessMode() ?? "api",
+  });
+  return (
+    result ?? {
+      success: false,
+      kind: "app",
+      projectDir: parsedInput.data.projectDir ?? "",
+      name: parsedInput.data.name,
+      appKind: parsedInput.data.kind,
+      error: "Operation cancelled",
+    }
+  );
+}

@@ -3,6 +3,7 @@ import type {
   FullstackFrontend,
   NativeFrontend,
   ProjectConfig,
+  ShadcnBase,
   WebFrontend,
 } from "@better-t-stack/types";
 
@@ -14,6 +15,10 @@ export type StackState = Pick<
   | "dbSetup"
   | "auth"
   | "payments"
+  | "emailRenderer"
+  | "emailDeploy"
+  | "i18n"
+  | "i18nOptions"
   | "packageManager"
   | "addons"
   | "examples"
@@ -28,9 +33,24 @@ export type StackState = Pick<
   git: "true" | "false";
   install: "true" | "false";
   yolo: "true" | "false";
+  shadcnPreset: string;
+  shadcnBase: ShadcnBase;
+  shadcnRtl: boolean;
+  shadcnPointer: boolean;
+  portless: "true" | "false";
 };
 
-export type TechCategory = Exclude<keyof StackState, "projectName" | "yolo">;
+// `i18nOptions` is a nested value object, not a selectable tech option.
+export type TechCategory = Exclude<
+  keyof StackState,
+  | "projectName"
+  | "yolo"
+  | "shadcnPreset"
+  | "shadcnBase"
+  | "shadcnRtl"
+  | "shadcnPointer"
+  | "i18nOptions"
+>;
 type StackOptionIds = {
   [K in TechCategory]: Extract<StackState[K] extends (infer Id)[] ? Id : StackState[K], string>;
 };

@@ -1,8 +1,13 @@
 import type { DatabaseSetup, Frontend, ProjectConfig, ServerDeploy, WebDeploy } from "./types";
 
-export const ALCHEMY_DEPLOY_TARGETS = ["cloudflare", "prisma"] as const;
+export const ALCHEMY_DEPLOY_TARGETS = ["cloudflare", "prisma", "aws"] as const;
 
-export const ALCHEMY_DATABASE_SETUPS = ["neon", "planetscale", "prisma-postgres"] as const;
+export const ALCHEMY_DATABASE_SETUPS = [
+  "neon",
+  "planetscale",
+  "prisma-postgres",
+  "aurora",
+] as const;
 
 export type LocalD1Owner = "wrangler" | "alchemy-provider" | "none";
 

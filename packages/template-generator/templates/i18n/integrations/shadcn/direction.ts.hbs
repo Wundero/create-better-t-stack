@@ -1,0 +1,19 @@
+import { getTextDirection, sourceLocale, type Locale, type TextDirection } from "../config";
+
+{{#if shadcn.rtl}}
+const sourceLocaleDirection: TextDirection | undefined = "rtl";
+{{else if (eq shadcn.rtl false)}}
+const sourceLocaleDirection: TextDirection | undefined = "ltr";
+{{else}}
+const sourceLocaleDirection: TextDirection | undefined = undefined;
+{{/if}}
+
+/**
+ * shadcn direction for a locale (design D3). The user's explicit `shadcn.rtl`
+ * wins for the source locale; every other locale derives its direction from the
+ * locale tag through `getTextDirection`.
+ */
+export function getLocaleDirection(locale: Locale): TextDirection {
+  if (locale === sourceLocale && sourceLocaleDirection !== undefined) return sourceLocaleDirection;
+  return getTextDirection(locale);
+}

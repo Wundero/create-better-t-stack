@@ -1,4 +1,5 @@
 import { describe, expect, it, spyOn } from "bun:test";
+import { request as httpRequest } from "node:http";
 import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -46,12 +47,15 @@ type BuildSample = {
   name: string;
   packageManagers?: readonly PackageManager[];
   config: Omit<CreateInput, "packageManager" | "projectName">;
+  /** Set when the create-path surface cannot run yet; the sample is skipped with this reason. */
+  deferral?: string;
 };
 
 type SelectedBuildSample = {
   name: string;
   packageManager: PackageManager;
   config: Omit<CreateInput, "projectName">;
+  deferral?: string;
 };
 
 const baseConfig = {
@@ -944,18 +948,295 @@ const buildSamples: BuildSample[] = [
       examples: [],
     },
   },
+  // Curated Build Set i18n cases (design D10, Rust/Tauri dropped). Each case
+  // installs, typechecks, builds, runs the i18n script contract, applies a
+  // fixture translation and probes the demo in the target locale.
+  {
+    name: "i18n-next-hono-lingui-auth",
+    config: {
+      ...baseConfig,
+      frontend: ["next"],
+      backend: "hono",
+      runtime: "bun",
+      database: "sqlite",
+      orm: "drizzle",
+      api: "trpc",
+      auth: "better-auth",
+      payments: "none",
+      addons: ["turborepo"],
+      examples: ["todo"],
+      i18n: "lingui",
+      i18nOptions: {
+        sourceLocale: "en",
+        locales: ["en", "fr"],
+        routing: { strategy: "cookie", prefixDefaultLocale: false },
+        translateSkill: true,
+      },
+    },
+  },
+  {
+    name: "i18n-tanstack-start-paraglide-prefix",
+    config: {
+      ...baseConfig,
+      frontend: ["tanstack-start"],
+      backend: "self",
+      runtime: "none",
+      database: "sqlite",
+      orm: "drizzle",
+      api: "orpc",
+      auth: "none",
+      payments: "none",
+      addons: ["turborepo"],
+      examples: [],
+      i18n: "paraglide",
+      i18nOptions: {
+        sourceLocale: "en",
+        locales: ["en", "fr"],
+        routing: { strategy: "prefix", prefixDefaultLocale: false },
+        translateSkill: true,
+      },
+    },
+  },
+  {
+    name: "i18n-nuxt-i18next-domain",
+    config: {
+      ...baseConfig,
+      frontend: ["nuxt"],
+      backend: "hono",
+      runtime: "bun",
+      database: "none",
+      orm: "none",
+      api: "orpc",
+      auth: "none",
+      payments: "none",
+      addons: ["turborepo"],
+      examples: [],
+      i18n: "i18next",
+      i18nOptions: {
+        sourceLocale: "en",
+        locales: ["en", "fr"],
+        routing: {
+          strategy: "domain",
+          prefixDefaultLocale: false,
+          domains: { en: "example.test", fr: "fr.example.test" },
+        },
+        translateSkill: true,
+      },
+    },
+  },
+  {
+    name: "i18n-svelte-paraglide",
+    config: {
+      ...baseConfig,
+      frontend: ["svelte"],
+      backend: "self",
+      runtime: "none",
+      database: "sqlite",
+      orm: "drizzle",
+      api: "orpc",
+      auth: "none",
+      payments: "none",
+      addons: ["turborepo"],
+      examples: [],
+      i18n: "paraglide",
+      i18nOptions: {
+        sourceLocale: "en",
+        locales: ["en", "fr"],
+        routing: { strategy: "cookie", prefixDefaultLocale: false },
+        translateSkill: true,
+      },
+    },
+  },
+  {
+    name: "i18n-solid-wuchale",
+    deferral:
+      "wuchale's Vite plugin crashes under Vite 8 (wuchale#484, fix unmerged and no released version; 0.26.7 is latest). The plugin is no longer wired, so the Solid app builds but no longer transforms sources; rendering a target-locale translation needs the upstream fix or a `bunx wuchale --modify web` build step. Human/product decision required.",
+    config: {
+      ...baseConfig,
+      frontend: ["solid"],
+      backend: "self",
+      runtime: "none",
+      database: "sqlite",
+      orm: "drizzle",
+      api: "orpc",
+      auth: "none",
+      payments: "none",
+      addons: ["turborepo"],
+      examples: [],
+      i18n: "wuchale",
+      i18nOptions: {
+        sourceLocale: "en",
+        locales: ["en", "fr"],
+        routing: { strategy: "cookie", prefixDefaultLocale: false },
+        translateSkill: true,
+      },
+    },
+  },
+  {
+    name: "i18n-astro-paraglide",
+    config: {
+      ...baseConfig,
+      frontend: ["astro"],
+      backend: "self",
+      runtime: "none",
+      database: "none",
+      orm: "none",
+      api: "orpc",
+      auth: "none",
+      payments: "none",
+      addons: ["turborepo"],
+      examples: [],
+      i18n: "paraglide",
+      i18nOptions: {
+        sourceLocale: "en",
+        locales: ["en", "fr"],
+        routing: { strategy: "cookie", prefixDefaultLocale: false },
+        translateSkill: true,
+      },
+    },
+  },
+  {
+    name: "i18n-native-uniwind-lingui",
+    config: {
+      ...baseConfig,
+      frontend: ["native-uniwind"],
+      backend: "hono",
+      runtime: "bun",
+      database: "sqlite",
+      orm: "drizzle",
+      api: "orpc",
+      auth: "none",
+      payments: "none",
+      addons: ["turborepo"],
+      examples: ["todo"],
+      i18n: "lingui",
+      i18nOptions: {
+        sourceLocale: "en",
+        locales: ["en", "fr"],
+        routing: { strategy: "cookie", prefixDefaultLocale: false },
+        translateSkill: true,
+      },
+    },
+  },
+  {
+    name: "i18n-nitro-i18next",
+    config: {
+      ...baseConfig,
+      frontend: ["none"],
+      backend: "nitro",
+      runtime: "node",
+      database: "sqlite",
+      orm: "drizzle",
+      api: "orpc",
+      auth: "none",
+      payments: "none",
+      addons: ["turborepo"],
+      examples: [],
+      i18n: "i18next",
+      i18nOptions: {
+        sourceLocale: "en",
+        locales: ["en", "fr"],
+        routing: { strategy: "cookie", prefixDefaultLocale: false },
+        translateSkill: true,
+      },
+    },
+  },
+  {
+    name: "i18n-opentui-react-lingui",
+    deferral:
+      "OpenTUI apps are scaffolded by create-tui after generation, so the create path emits no TUI app and the lingui preload/demo glue cannot be verified here. Follow-up: run the post-scaffold glue in wxt-setup/tui-setup and re-enable this case.",
+    config: {
+      ...baseConfig,
+      frontend: ["tanstack-router"],
+      backend: "hono",
+      runtime: "bun",
+      database: "none",
+      orm: "none",
+      api: "trpc",
+      auth: "none",
+      payments: "none",
+      addons: ["turborepo", "opentui"],
+      addonOptions: { opentui: { template: "react" } },
+      examples: [],
+      i18n: "lingui",
+      i18nOptions: {
+        sourceLocale: "en",
+        locales: ["en", "fr"],
+        routing: { strategy: "cookie", prefixDefaultLocale: false },
+        translateSkill: true,
+      },
+    },
+  },
+  {
+    name: "i18n-react-router-wxt-vanilla-paraglide",
+    deferral:
+      "WXT extensions are scaffolded by wxt init after generation, so the create path emits no extension app and the paraglide wxt wiring cannot be verified here. Follow-up: run the post-scaffold glue in wxt-setup/tui-setup and re-enable this case.",
+    config: {
+      ...baseConfig,
+      frontend: ["react-router"],
+      backend: "none",
+      runtime: "none",
+      database: "none",
+      orm: "none",
+      api: "none",
+      auth: "none",
+      payments: "none",
+      addons: ["turborepo", "wxt"],
+      addonOptions: { wxt: { template: "vanilla" } },
+      examples: [],
+      i18n: "paraglide",
+      i18nOptions: {
+        sourceLocale: "en",
+        locales: ["en", "fr"],
+        routing: { strategy: "cookie", prefixDefaultLocale: false },
+        translateSkill: true,
+      },
+    },
+  },
+  // Stacked branch `wt/i18n-email` (design D10): react-email + lingui. The
+  // probe renders `verify-email` with the recipient's locale and asserts a
+  // fr translation reaches the HTML, next to the server demo probe.
+  {
+    name: "i18n-email-react-email-lingui",
+    config: {
+      ...baseConfig,
+      frontend: ["none"],
+      backend: "hono",
+      runtime: "bun",
+      database: "sqlite",
+      orm: "drizzle",
+      api: "trpc",
+      auth: "better-auth",
+      payments: "none",
+      addons: ["turborepo"],
+      examples: [],
+      emailRenderer: "react-email",
+      emailDeploy: "none",
+      i18n: "lingui",
+      i18nOptions: {
+        sourceLocale: "en",
+        locales: ["en", "fr"],
+        routing: { strategy: "cookie", prefixDefaultLocale: false },
+        translateSkill: true,
+      },
+    },
+  },
 ];
 
 function expandBuildSample(sample: BuildSample): SelectedBuildSample[] {
   const packageManagers = sample.packageManagers ?? ["bun"];
-  return packageManagers.map((packageManager) => ({
-    name: packageManagers.length > 1 ? `${sample.name}-${packageManager}` : sample.name,
-    packageManager,
-    config: {
-      ...sample.config,
+  return packageManagers.map((packageManager) => {
+    const selected: SelectedBuildSample = {
+      name: packageManagers.length > 1 ? `${sample.name}-${packageManager}` : sample.name,
       packageManager,
-    },
-  }));
+      config: {
+        ...sample.config,
+        packageManager,
+      },
+    };
+    if (sample.deferral !== undefined) selected.deferral = sample.deferral;
+    return selected;
+  });
 }
 
 function getSelectedBuildSamples() {
@@ -988,7 +1269,13 @@ function formatOutput(output: string | undefined) {
   return `${head}\n\n... [${output.length - 7_000} chars omitted] ...\n\n${tail}`;
 }
 
-async function runCommand(sampleName: string, projectDir: string, command: string, args: string[]) {
+async function runCommand(
+  sampleName: string,
+  projectDir: string,
+  command: string,
+  args: string[],
+  options: { env?: Record<string, string | undefined> } = {},
+) {
   const commandLabel = [command, ...args].join(" ");
   const startedAt = Date.now();
   let progressInterval: ReturnType<typeof setInterval> | undefined;
@@ -1020,6 +1307,7 @@ async function runCommand(sampleName: string, projectDir: string, command: strin
       timeout: commandTimeoutMs,
       env: {
         ...process.env,
+        ...options.env,
         CI: "1",
         BTS_TELEMETRY: "0",
         NEXT_TELEMETRY_DISABLED: "1",
@@ -1050,6 +1338,8 @@ async function runCommand(sampleName: string, projectDir: string, command: strin
         elapsedMs: Date.now() - startedAt,
       }),
     );
+
+    return result.stdout;
   } finally {
     if (progressInterval) clearInterval(progressInterval);
   }
@@ -1690,7 +1980,8 @@ async function writeOrpcInferenceChecks(sample: SelectedBuildSample, projectDir:
     `\nexport const typeBoundaryProbe = {
   read: publicProcedure.handler(() => {
     const values: number[] = [];
-    return values[0];
+    const value: number | undefined = values[0];
+    return value;
   }),
 };
 export type TypeBoundaryProbeClient = RouterClient<typeof typeBoundaryProbe>;\n`,
@@ -1877,8 +2168,436 @@ async function bootAndValidateNitroRuntime(sample: SelectedBuildSample, projectD
   }
 }
 
+interface I18nVerification {
+  locale: string;
+  candidates: string[];
+}
+
+type I18nRequestHeaders = {
+  accept: string;
+  "accept-language": string;
+  cookie: string;
+  "x-app-locale": string;
+  host: string;
+};
+
+const PLURAL_CATEGORY_ORDER = ["zero", "one", "two", "few", "many", "other"] as const;
+
+/**
+ * Libraries that store plural forms per CLDR category (wuchale) need one form
+ * per category of the target locale, not one per form of the source message.
+ */
+function expandPluralForms(locale: string, forms: readonly string[]): string[] {
+  const categories = [...new Intl.PluralRules(locale).resolvedOptions().pluralCategories];
+  categories.sort(
+    (first, second) => PLURAL_CATEGORY_ORDER.indexOf(first) - PLURAL_CATEGORY_ORDER.indexOf(second),
+  );
+  return categories.map((_, index) => forms[Math.min(index, forms.length - 1)]!);
+}
+
+const i18nPendingReportSchema = z.object({
+  library: z.string(),
+  sourceLocale: z.string(),
+  items: z.array(
+    z.object({
+      id: z.string(),
+      locale: z.string(),
+      source: z.string(),
+      context: z.string().nullable().optional(),
+    }),
+  ),
+});
+
+const i18nNormalizedCatalogSchema = z.object({
+  sourceLocale: z.string(),
+  locales: z.array(z.string()),
+  messages: z.record(
+    z.string(),
+    z.object({
+      source: z.string(),
+      translations: z.record(z.string(), z.string()).optional(),
+    }),
+  ),
+});
+
+type I18nNormalizedCatalog = z.infer<typeof i18nNormalizedCatalogSchema>;
+
+function parseJsonObjectOutput(sampleName: string, label: string, output: string) {
+  const start = output.indexOf("{");
+  const end = output.lastIndexOf("}");
+  if (start === -1 || end <= start) {
+    throw new Error(`${sampleName}: ${label} printed no JSON object:\n${formatOutput(output)}`);
+  }
+  return JSON.parse(output.slice(start, end + 1)) as unknown;
+}
+
+/**
+ * Plain-string translations render verbatim, so they can be matched against
+ * the HTML. ICU messages (`{count, plural, …}`) render as formatted values and
+ * are excluded.
+ */
+function plainTranslationCandidates(catalog: I18nNormalizedCatalog, locale: string): string[] {
+  const candidates = new Set<string>();
+  for (const message of Object.values(catalog.messages)) {
+    const translation = message.translations?.[locale];
+    if (translation === undefined) continue;
+    if (translation === message.source) continue;
+    if (translation.length <= 3 || /[{}#]/.test(translation)) continue;
+    candidates.add(translation);
+  }
+  return [...candidates];
+}
+
+async function verifyI18nScriptContract(
+  sample: SelectedBuildSample,
+  projectDir: string,
+  packageManager: PackageManager,
+): Promise<I18nVerification | undefined> {
+  const library = sample.config.i18n;
+  if (library === undefined || library === "none") return undefined;
+
+  const i18nDir = path.join(projectDir, "packages/i18n");
+  const run = (script: string, args: string[] = [], env?: Record<string, string | undefined>) =>
+    runCommand(
+      sample.name,
+      i18nDir,
+      packageManager,
+      ["run", script, ...(args.length > 0 ? ["--", ...args] : [])],
+      env === undefined ? {} : { env },
+    );
+
+  await run("i18n:extract");
+  await run("i18n:compile");
+  await run("i18n:check", [], { I18N_CHECK_ALLOW_MISSING: "1" });
+
+  const pendingOutput = await run("i18n:pending", ["--all"]);
+  const pending = i18nPendingReportSchema.parse(
+    parseJsonObjectOutput(sample.name, "i18n:pending", pendingOutput),
+  );
+  expect(pending.library).toBe(library);
+
+  const configuredLocales = sample.config.i18nOptions?.locales ?? [pending.sourceLocale];
+  const targetLocale = configuredLocales.find((locale) => locale !== pending.sourceLocale);
+  expect(targetLocale, `${sample.name}: i18n is enabled without a target locale`).toBeDefined();
+  if (targetLocale === undefined) return undefined;
+
+  if (pending.items.length > 0) {
+    const marker = (locale: string, source: string) => `[${locale}] ${source}`;
+    const applyItems = pending.items
+      .filter((item) => item.locale !== pending.sourceLocale)
+      .map((item) => ({
+        id: item.id,
+        locale: item.locale,
+        context: item.context ?? null,
+        ...(item.source.includes(" || ")
+          ? {
+              translations: expandPluralForms(
+                item.locale,
+                item.source.split(" || ").map((form) => marker(item.locale, form)),
+              ),
+            }
+          : { translation: marker(item.locale, item.source) }),
+      }));
+    expect(
+      applyItems.length,
+      `${sample.name}: no pending items for target locales`,
+    ).toBeGreaterThan(0);
+
+    const applyFile = path.join(i18nDir, ".bts-i18n-apply.json");
+    await fs.writeJson(applyFile, { items: applyItems });
+    try {
+      await run("i18n:apply", [applyFile]);
+    } finally {
+      await fs.remove(applyFile);
+    }
+  }
+
+  await run("i18n:compile");
+  await run("i18n:check");
+  await run("i18n:export");
+
+  const catalog = i18nNormalizedCatalogSchema.parse(
+    await fs.readJson(path.join(i18nDir, "dist", "catalog.json")),
+  );
+  expect(catalog.locales).toContain(targetLocale);
+  const candidates = plainTranslationCandidates(catalog, targetLocale);
+  expect(
+    candidates.length,
+    `${sample.name}: the ${targetLocale} catalog has no plain-string translation to assert on`,
+  ).toBeGreaterThan(0);
+
+  return { locale: targetLocale, candidates };
+}
+
+function i18nDemoPath(sample: SelectedBuildSample): string {
+  return sample.config.i18n === "i18next" || sample.config.i18n === "wuchale" ? "/i18n-demo" : "/";
+}
+
+function i18nDevServerEnv(port: number) {
+  return {
+    ...process.env,
+    HOST: "127.0.0.1",
+    PORT: String(port),
+    NODE_ENV: "development",
+  };
+}
+
+function i18nBuiltServerEnv(port: number) {
+  return {
+    ...process.env,
+    BETTER_AUTH_SECRET: "generated-build-test-secret-at-least-32-characters",
+    BETTER_AUTH_URL: `http://127.0.0.1:${port}`,
+    CORS_ORIGIN: `http://127.0.0.1:${port}`,
+    DATABASE_URL: "file:./local.db",
+    HOST: "127.0.0.1",
+    PORT: String(port),
+    NODE_ENV: "production",
+  };
+}
+
+function startI18nWebServer(sample: SelectedBuildSample, projectDir: string, port: number) {
+  const webDir = path.join(projectDir, "apps/web");
+  const frontend = sample.config.frontend ?? [];
+  const options = {
+    cwd: webDir,
+    all: true as const,
+    reject: false as const,
+    killDescendants: true as const,
+  };
+
+  if (frontend.includes("next")) {
+    return execa(
+      sample.packageManager,
+      ["run", "start", "--", "--hostname", "127.0.0.1", "--port", String(port)],
+      {
+        ...options,
+        env: i18nBuiltServerEnv(port),
+      },
+    );
+  }
+  if (frontend.includes("tanstack-start")) {
+    return execa(
+      sample.packageManager,
+      ["run", "serve", "--host", "127.0.0.1", "--port", String(port)],
+      {
+        ...options,
+        env: i18nBuiltServerEnv(port),
+      },
+    );
+  }
+  if (frontend.includes("nuxt") || frontend.includes("solid")) {
+    return execa("node", [".output/server/index.mjs"], {
+      ...options,
+      env: i18nBuiltServerEnv(port),
+    });
+  }
+  if (frontend.includes("svelte") || frontend.includes("astro")) {
+    return execa(
+      sample.packageManager,
+      ["run", "dev", "--", "--host", "127.0.0.1", "--port", String(port)],
+      {
+        ...options,
+        env: i18nDevServerEnv(port),
+      },
+    );
+  }
+  return undefined;
+}
+
+function httpGet(
+  port: number,
+  requestPath: string,
+  headers: I18nRequestHeaders,
+  redirectsLeft = 3,
+): Promise<{ status: number; body: string }> {
+  return new Promise((resolve, reject) => {
+    const request = httpRequest(
+      { host: "127.0.0.1", port, path: requestPath, method: "GET", headers },
+      (response) => {
+        const status = response.statusCode ?? 0;
+        const location = response.headers.location;
+        if (status >= 300 && status < 400 && location !== undefined && redirectsLeft > 0) {
+          response.resume();
+          const nextPath = new URL(location, `http://127.0.0.1:${port}`).pathname;
+          httpGet(port, nextPath, headers, redirectsLeft - 1).then(resolve, reject);
+          return;
+        }
+        const chunks: Buffer[] = [];
+        response.on("data", (chunk: Buffer) => chunks.push(chunk));
+        response.on("end", () => resolve({ status, body: Buffer.concat(chunks).toString("utf8") }));
+      },
+    );
+    request.on("error", reject);
+    request.setTimeout(10_000, () =>
+      request.destroy(new Error(`i18n render probe timed out: ${requestPath}`)),
+    );
+    request.end();
+  });
+}
+
+async function waitForI18nResponse(
+  port: number,
+  requestPath: string,
+  headers: I18nRequestHeaders,
+  candidates: readonly string[],
+) {
+  let last: { status: number; body: string } | undefined;
+  let lastError: unknown;
+  for (let attempt = 0; attempt < 240; attempt++) {
+    try {
+      const response = await httpGet(port, requestPath, headers);
+      last = response;
+      if (
+        response.status === 200 &&
+        candidates.some((candidate) => response.body.includes(candidate))
+      ) {
+        return response;
+      }
+    } catch (error) {
+      lastError = error;
+    }
+    await Bun.sleep(250);
+  }
+  throw new Error(
+    [
+      `No rendered response contained a target-locale translation for ${requestPath}`,
+      `Last status: ${last?.status ?? "none"}`,
+      last ? formatOutput(last.body) : `Last error: ${String(lastError)}`,
+    ].join("\n\n"),
+  );
+}
+
+async function probeI18nServerDemo(
+  sample: SelectedBuildSample,
+  projectDir: string,
+  verification: I18nVerification,
+) {
+  const demoModule = path.join(projectDir, "apps/server/src/i18n-demo.ts");
+  assertDemoModule(sample, demoModule);
+  const probe = [
+    `const { renderI18nDemo } = await import(${JSON.stringify(demoModule)});`,
+    `const demo = await renderI18nDemo(${JSON.stringify(verification.locale)});`,
+    `console.log(JSON.stringify(demo));`,
+  ].join("\n");
+  const output = await runCommand(sample.name, projectDir, "bun", ["-e", probe]);
+  const rendered = verification.candidates.filter((candidate) => output.includes(candidate));
+  expect(
+    rendered.length,
+    `${sample.name}: the server demo did not render a ${verification.locale} translation:\n${formatOutput(output)}`,
+  ).toBeGreaterThan(0);
+}
+
+async function probeI18nEmailRender(
+  sample: SelectedBuildSample,
+  projectDir: string,
+  verification: I18nVerification,
+) {
+  if (sample.config.emailRenderer !== "react-email") return;
+
+  const templateModule = path.join(projectDir, "packages/email/src/templates/verify-email.tsx");
+  const renderModule = path.join(projectDir, "packages/email/src/render.ts");
+  const probe = [
+    'const React = (await import("react")).default;',
+    `const { VerifyEmail, verifyEmailSubject } = await import(${JSON.stringify(templateModule)});`,
+    `const { renderEmail } = await import(${JSON.stringify(renderModule)});`,
+    `const locale = ${JSON.stringify(verification.locale)};`,
+    'const { html } = await renderEmail(React.createElement(VerifyEmail, { name: "Ada", url: "https://example.test/verify", locale }));',
+    "const subject = await verifyEmailSubject(locale);",
+    "console.log(JSON.stringify({ subject, html }));",
+  ].join("\n");
+  const output = await runCommand(sample.name, projectDir, "bun", ["-e", probe]);
+  const rendered = verification.candidates.filter((candidate) => output.includes(candidate));
+  expect(
+    rendered.length,
+    `${sample.name}: verify-email did not render a ${verification.locale} translation:\n${formatOutput(output)}`,
+  ).toBeGreaterThan(0);
+}
+
+function assertDemoModule(sample: SelectedBuildSample, demoModule: string) {
+  if (fs.existsSync(demoModule)) return;
+  throw new Error(
+    `${sample.name}: expected an importable server demo at ${demoModule}; the i18n surface emitted none`,
+  );
+}
+
+async function probeI18nDemoRender(
+  sample: SelectedBuildSample,
+  projectDir: string,
+  verification: I18nVerification,
+) {
+  const frontend = sample.config.frontend ?? [];
+  const webFrontends = frontend.filter((value) => value !== "none");
+
+  if (frontend.some((value) => value.startsWith("native-"))) {
+    console.info(
+      JSON.stringify({
+        event: "i18n:render-probe:skipped",
+        sample: sample.name,
+        reason:
+          "Expo apps have no headless render surface in this harness; catalogs, compile and the iOS/Android export cover the native surface instead.",
+      }),
+    );
+    return;
+  }
+
+  if (webFrontends.length === 0) {
+    await probeI18nServerDemo(sample, projectDir, verification);
+    return;
+  }
+
+  const port = await getAvailablePort();
+  const server = startI18nWebServer(sample, projectDir, port);
+  if (server === undefined) {
+    throw new Error(
+      `${sample.name}: no web server starter for frontend ${webFrontends.join(", ")}`,
+    );
+  }
+
+  const routing = sample.config.i18nOptions?.routing;
+  const demoPath = i18nDemoPath(sample);
+  const requestPath =
+    routing?.strategy === "prefix"
+      ? demoPath === "/"
+        ? `/${verification.locale}`
+        : `/${verification.locale}${demoPath}`
+      : demoPath;
+  const domain =
+    routing?.strategy === "domain" ? routing.domains?.[verification.locale] : undefined;
+  const headers: I18nRequestHeaders = {
+    accept: "text/html",
+    "accept-language": `${verification.locale},${verification.locale};q=0.9`,
+    cookie: `locale=${verification.locale}`,
+    "x-app-locale": verification.locale,
+    host: domain ?? "127.0.0.1",
+  };
+
+  let failure: unknown;
+  try {
+    await waitForI18nResponse(port, requestPath, headers, verification.candidates);
+  } catch (error) {
+    failure = error;
+  } finally {
+    server.kill("SIGTERM");
+  }
+  const result = await server;
+  if (failure) {
+    throw new Error(
+      [
+        `i18n render probe failed for ${sample.name} (${verification.locale}): ${String(failure)}`,
+        formatOutput(result.all),
+      ]
+        .filter(Boolean)
+        .join("\n\n"),
+    );
+  }
+}
+
 describe.skipIf(!shouldRunBuildSamples)("Generated project install/build samples", () => {
   for (const sample of getSelectedBuildSamples()) {
+    if (sample.deferral !== undefined) {
+      it.skip(`installs dependencies and builds ${sample.name} — deferred: ${sample.deferral}`, () => {});
+      continue;
+    }
     it(
       `installs dependencies and builds ${sample.name}`,
       async () => {
@@ -1917,6 +2636,11 @@ describe.skipIf(!shouldRunBuildSamples)("Generated project install/build samples
               "auth:generate",
             ]);
           }
+          const i18nVerification = await verifyI18nScriptContract(
+            sample,
+            projectDir,
+            sample.packageManager,
+          );
           const restoreTypeFixtures = await writeOrpcInferenceChecks(sample, projectDir);
           const restoreSvelteHookTypes = await writeSvelteHookTypeChecks(sample, projectDir);
           if (sample.name === "nuxt-auth-todo-ai") {
@@ -1950,6 +2674,10 @@ try {
           await bootAndValidateNitroRuntime(sample, projectDir);
           await validateSolidBuildArtifacts(sample, projectDir);
           await validatePwaBuildArtifacts(sample, projectDir);
+          if (i18nVerification !== undefined) {
+            await probeI18nDemoRender(sample, projectDir, i18nVerification);
+            await probeI18nEmailRender(sample, projectDir, i18nVerification);
+          }
           if (sample.config.frontend?.some((frontend) => frontend.startsWith("native-"))) {
             // Exercise Metro/Babel and platform imports as well as TypeScript.
             // This exports JS bundles; it does not compile or sign native binaries.

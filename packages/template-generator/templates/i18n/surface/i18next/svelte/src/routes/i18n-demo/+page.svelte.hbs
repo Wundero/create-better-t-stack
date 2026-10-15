@@ -1,0 +1,33 @@
+<script lang="ts">
+  import { locales } from "@{{projectName}}/i18n";
+  import { changeLocale, format, i18next, locale } from "#lib/i18n.ts";
+
+  const t = $derived(i18next.getFixedT($locale));
+  const formatters = $format;
+  const count = 2;
+</script>
+
+<main class="container mx-auto max-w-2xl space-y-4 px-4 py-10">
+  <h1 class="text-2xl font-semibold">{t("i18n demo")}</h1>
+  <p>{t("Hello, \{{name}}!", { name: "Ada" })}</p>
+  <p>{t("You have \{{count}} new message", { count })}</p>
+  <dl class="grid grid-cols-2 gap-2 text-sm">
+    <dt class="text-muted-foreground">{t("Language")}</dt>
+    <dd>{formatters.displayName($locale) ?? $locale}</dd>
+    <dt class="text-muted-foreground">{t("Current locale: \{{locale}}", { locale: $locale })}</dt>
+    <dd>
+      {formatters.date(new Date("2026-10-14T12:00:00Z"))} · {formatters.currency(42.5, "EUR")}
+    </dd>
+  </dl>
+  <div class="flex flex-wrap gap-2">
+    {#each locales as option (option)}
+      <button
+        type="button"
+        class="rounded-md border px-3 py-1 text-sm"
+        onclick={() => void changeLocale(option)}
+      >
+        {option}
+      </button>
+    {/each}
+  </div>
+</main>

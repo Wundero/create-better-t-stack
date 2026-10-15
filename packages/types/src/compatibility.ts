@@ -1,4 +1,12 @@
 import { desktopWebFrontends } from "./constants";
+import {
+  getPaymentProvider,
+  getPaymentsAuthRequirementMessage,
+  getPaymentsConvexRequirementMessage,
+  getPaymentsNativeRequirementMessage,
+  getPaymentsReactRequirementMessage,
+  isPaymentProvider,
+} from "./payment-providers";
 import type {
   Addons,
   API,
@@ -18,6 +26,12 @@ import type {
 export const TASK_RUNNER_ADDONS: readonly Addons[] = ["turborepo", "nx", "vite-plus"];
 export const OBSERVABILITY_ADDONS: readonly Addons[] = ["evlog", "axiom"];
 export const STATIC_DESKTOP_ADDONS: readonly Addons[] = ["tauri", "electrobun"];
+export const TURNSTILE_BACKENDS: readonly Backend[] = ["self", "hono"];
+const TURNSTILE_NATIVE_FRONTENDS: readonly Frontend[] = [
+  "native-bare",
+  "native-uniwind",
+  "native-unistyles",
+];
 const TAURI_STATIC_EXPORT_FRONTENDS: readonly Frontend[] = ["next", "tanstack-start"];
 
 export const CONVEX_BETTER_AUTH_INCOMPATIBLE_FRONTENDS = [
@@ -48,6 +62,14 @@ export const FULLSTACK_FRONTENDS = [
 ] as const satisfies readonly Frontend[];
 
 export type FullstackFrontend = (typeof FULLSTACK_FRONTENDS)[number];
+
+export const NATIVE_FRONTENDS: readonly Frontend[] = [
+  "native-bare",
+  "native-uniwind",
+  "native-unistyles",
+];
+
+export const PORTLESS_BLOCKED_ADDONS: readonly Addons[] = ["tauri", "electrobun"];
 
 export const SERVER_BACKENDS: readonly Backend[] = ["hono", "express", "fastify", "elysia"];
 const EVLOG_FULLSTACK_FRONTENDS: readonly Frontend[] = [
@@ -87,12 +109,14 @@ export const ADDON_COMPATIBILITY = {
   ultracite: [],
   mcp: [],
   oxlint: [],
+  eslint: [],
   fumadocs: [],
   opentui: [],
   wxt: [],
   skills: [],
   evlog: [],
   axiom: [],
+  turnstile: [],
   none: [],
 } as const;
 
@@ -231,6 +255,33 @@ export function validateAddonCompatibility(
     };
   }
 
+  if (addon === "turnstile") {
+    if (auth !== "better-auth") {
+      return { isCompatible: false, reason: "The turnstile addon requires Better Auth." };
+    }
+    if (backend !== undefined && !TURNSTILE_BACKENDS.some((value) => value === backend)) {
+      return {
+        isCompatible: false,
+        reason:
+          "The turnstile addon requires a fullstack 'self' backend, or a Hono backend deployed to Cloudflare Workers.",
+      };
+    }
+    if (backend === "hono" && runtime !== undefined && runtime !== "workers") {
+      return {
+        isCompatible: false,
+        reason:
+          "The turnstile addon requires the 'workers' runtime for a Hono backend so Alchemy can provision the Turnstile secret on Cloudflare.",
+      };
+    }
+    if (frontend.some((value) => TURNSTILE_NATIVE_FRONTENDS.some((native) => native === value))) {
+      return {
+        isCompatible: false,
+        reason:
+          "The turnstile addon supports web frontends only; native frontends cannot render Turnstile.",
+      };
+    }
+  }
+
   if (!Object.hasOwn(ADDON_COMPATIBILITY, addon))
     return { isCompatible: false, reason: `Unknown addon: ${addon}` };
   const compatibleFrontends = ADDON_COMPATIBILITY[addon];
@@ -249,6 +300,28 @@ export function validateAddonCompatibility(
     }
   }
 
+  return { isCompatible: true };
+}
+
+export function validateTurnstileCompatibility(config: {
+  webDeploy?: WebDeploy;
+  serverDeploy?: ServerDeploy;
+  backend?: Backend;
+}): AddonCompatibility {
+  if (config.webDeploy !== "cloudflare") {
+    return {
+      isCompatible: false,
+      reason:
+        "The turnstile addon requires '--web-deploy cloudflare' so the widget sitekey can be provisioned and delivered by Alchemy.",
+    };
+  }
+  if (config.backend !== "self" && config.serverDeploy !== "cloudflare") {
+    return {
+      isCompatible: false,
+      reason:
+        "The turnstile addon requires a fullstack 'self' backend or '--server-deploy cloudflare' so the Turnstile secret can be provisioned by Alchemy.",
+    };
+  }
   return { isCompatible: true };
 }
 
@@ -352,6 +425,7 @@ const DATABASE_SETUP_DATABASES = {
   planetscale: ["postgres", "mysql"],
   "mongodb-atlas": ["mongodb"],
   docker: ["postgres", "mysql", "mongodb"],
+  aurora: ["postgres", "mysql"],
 } as const satisfies Record<Exclude<DatabaseSetup, "none">, readonly Database[]>;
 
 export function supportsDatabaseSetup(dbSetup: DatabaseSetup, database: Database | undefined) {
@@ -361,11 +435,14 @@ export function supportsDatabaseSetup(dbSetup: DatabaseSetup, database: Database
   );
 }
 
+const FUNCTION_RUNTIMES: readonly Runtime[] = ["workers", "lambda"];
+
 export function supportsRuntimeBackend(runtime: Runtime | undefined, backend: Backend | undefined) {
   if (!runtime || !backend) return true;
   if (getBackendDisabledOptions(backend).some((key) => key === "runtime"))
     return runtime === "none";
-  return runtime !== "none" && (runtime !== "workers" || backend === "hono");
+  if (FUNCTION_RUNTIMES.some((value) => value === runtime)) return backend === "hono";
+  return runtime !== "none";
 }
 
 export function supportsRuntimeDatabase(
@@ -390,15 +467,85 @@ export function supportsServerDeployRuntime(
   runtime: Runtime | undefined,
 ) {
   if (!deploy) return true;
-  if (deploy === "none") return runtime !== "workers";
+  if (deploy === "none") return runtime !== "workers" && runtime !== "lambda";
   if (deploy === "cloudflare") return runtime === "workers";
   // varlock/auto-load launches the Node-based Varlock CLI, and Vercel's Bun runtime has no Node
   if (deploy === "vercel") return runtime === "node";
+  if (deploy === "aws") return runtime === "bun" || runtime === "node" || runtime === "lambda";
   return runtime === "bun" || runtime === "node";
 }
 
+export const REACT_WEB_FRONTENDS: readonly Frontend[] = [
+  "next",
+  "tanstack-router",
+  "react-router",
+  "tanstack-start",
+];
+
+export function hasReactWebFrontend(frontend?: readonly Frontend[]) {
+  return (frontend ?? []).some((candidate) => REACT_WEB_FRONTENDS.includes(candidate));
+}
+
+export function isNativeOnlyFrontend(frontend?: readonly Frontend[]) {
+  const selections = (frontend ?? []).filter((candidate) => candidate !== "none");
+  return selections.length > 0 && selections.every((candidate) => candidate.startsWith("native-"));
+}
+
 export function supportsPaymentsAuth(payments?: Payments, auth?: Auth) {
-  return payments !== "polar" || auth === "better-auth";
+  if (!isPaymentProvider(payments)) return true;
+  return !getPaymentProvider(payments).requiresBetterAuth || auth === "better-auth";
+}
+
+export function supportsPaymentsBackend(payments?: Payments, backend?: Backend) {
+  if (!isPaymentProvider(payments)) return true;
+  if (getPaymentProvider(payments).supportsConvex) return true;
+  return backend !== "convex";
+}
+
+export function supportsPaymentsFrontend(payments?: Payments, frontend?: readonly Frontend[]) {
+  if (!isPaymentProvider(payments)) return true;
+  const meta = getPaymentProvider(payments);
+  if (meta.supportsNative && !meta.reactWebOnly) return true;
+  if (isNativeOnlyFrontend(frontend)) return false;
+  if (meta.reactWebOnly && !hasReactWebFrontend(frontend)) return false;
+  return true;
+}
+
+export type PaymentsCapabilityContext = {
+  readonly auth?: Auth;
+  readonly backend?: Backend;
+  readonly frontend?: readonly Frontend[];
+};
+
+/** Returns the first capability violation message for a concrete provider, or null. */
+export function getPaymentsCapabilityIssue(
+  payments: Payments | undefined,
+  context: PaymentsCapabilityContext,
+): string | null {
+  if (!isPaymentProvider(payments)) return null;
+  if (!supportsPaymentsAuth(payments, context.auth)) {
+    return getPaymentsAuthRequirementMessage(payments);
+  }
+  if (!supportsPaymentsBackend(payments, context.backend)) {
+    return getPaymentsConvexRequirementMessage(payments);
+  }
+  if (!supportsPaymentsFrontend(payments, context.frontend)) {
+    return isNativeOnlyFrontend(context.frontend)
+      ? getPaymentsNativeRequirementMessage(payments)
+      : getPaymentsReactRequirementMessage(payments);
+  }
+  return null;
+}
+
+export const EMAIL_DEPLOY_CLOUDFLARE_REQUIRES_WORKERS =
+  "'--email-deploy cloudflare' requires a Cloudflare Workers deployment (--server-deploy cloudflare, or --backend self --web-deploy cloudflare).";
+
+export function supportsCloudflareEmailDeploy(
+  backend?: Backend,
+  webDeploy?: WebDeploy,
+  serverDeploy?: ServerDeploy,
+) {
+  return serverDeploy === "cloudflare" || (backend === "self" && webDeploy === "cloudflare");
 }
 
 const BACKEND_DISABLED_OPTIONS = {
@@ -415,4 +562,33 @@ export function getBackendDisabledOptions(backend: Backend) {
 
 export function getDatabaseSetupDatabases(dbSetup: DatabaseSetup) {
   return dbSetup === "none" ? [] : DATABASE_SETUP_DATABASES[dbSetup];
+}
+
+/**
+ * Portless dev mode relies on a local web dev server, so it is denied when:
+ * - a native frontend is selected (native-bare, native-uniwind, native-unistyles)
+ * - a desktop addon is selected (tauri, electrobun)
+ * - backend is convex (runs its own dev server)
+ * - runtime is workers (not a long-running local process)
+ * - webDeploy or serverDeploy is docker (container-based, not local dev)
+ */
+export function supportsPortlessMode(input: {
+  frontend: readonly string[];
+  addons: readonly string[];
+  backend: string;
+  runtime: string;
+  webDeploy: string;
+  serverDeploy: string;
+}): boolean {
+  if (input.frontend.some((value) => NATIVE_FRONTENDS.some((frontend) => frontend === value))) {
+    return false;
+  }
+  if (input.addons.some((value) => PORTLESS_BLOCKED_ADDONS.some((addon) => addon === value))) {
+    return false;
+  }
+  if (input.backend === "convex") return false;
+  if (input.runtime === "workers") return false;
+  if (input.webDeploy === "docker") return false;
+  if (input.serverDeploy === "docker") return false;
+  return true;
 }

@@ -1,6 +1,7 @@
+import { getPaymentProvider, isPaymentProviderId } from "@better-t-stack/types";
 import pc from "picocolors";
 
-import type { ProjectConfig } from "../types";
+import { getI18nIntegrations, I18N_LIBRARY_META, type ProjectConfig } from "../types";
 
 export type ConfigDisplayRow = {
   label: string;
@@ -43,6 +44,7 @@ const VALUE_LABELS = {
   bun: "Bun",
   node: "Node.js",
   workers: "Cloudflare Workers",
+  lambda: "AWS Lambda",
   trpc: "tRPC",
   orpc: "oRPC",
   sqlite: "SQLite",
@@ -55,11 +57,14 @@ const VALUE_LABELS = {
   "better-auth": "Better Auth",
   clerk: "Clerk",
   polar: "Polar",
+  "react-email": "React Email",
+  ses: "Amazon SES",
   pwa: "PWA",
   tauri: "Tauri",
   electrobun: "Electrobun",
   biome: "Biome",
   oxlint: "Oxlint + Oxfmt",
+  eslint: "ESLint + Prettier",
   ultracite: "Ultracite",
   lefthook: "Lefthook",
   husky: "Husky",
@@ -74,6 +79,7 @@ const VALUE_LABELS = {
   mcp: "MCP servers",
   evlog: "evlog",
   axiom: "Axiom",
+  turnstile: "Cloudflare Turnstile",
   todo: "Todo app",
   ai: "AI chat",
   turso: "Turso",
@@ -83,14 +89,19 @@ const VALUE_LABELS = {
   "prisma-postgres": "Prisma Postgres",
   "mongodb-atlas": "MongoDB Atlas",
   d1: "Cloudflare D1",
+  aurora: "AWS Aurora",
   docker: "Docker",
   cloudflare: "Cloudflare",
+  aws: "AWS",
   vercel: "Vercel",
   alchemy: "Alchemy",
   auto: "Automatic",
   manual: "Manual",
   npm: "npm",
   pnpm: "pnpm",
+  baseui: "Base UI",
+  radixui: "Radix UI",
+  "react-aria": "React Aria",
 } satisfies Record<string, string>;
 
 function isKnownValueLabel(value: string): value is keyof typeof VALUE_LABELS {
@@ -105,11 +116,20 @@ export function formatConfigValue(value: ConfigDisplayValue): string {
   }
 
   const text = String(value);
+  if (isPaymentProviderId(text)) return getPaymentProvider(text).label;
   if (isKnownValueLabel(text)) return VALUE_LABELS[text];
   return text
     .split("-")
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join(" ");
+}
+
+function formatShadcn(config: NonNullable<ProjectConfig["shadcn"]>): string {
+  const parts = [formatConfigValue(config.base ?? "baseui")];
+  if (config.preset) parts.push(`preset ${config.preset}`);
+  if (config.rtl) parts.push("RTL");
+  if (config.pointer) parts.push("pointer");
+  return parts.join(" · ");
 }
 
 function section(
@@ -124,6 +144,29 @@ function section(
     }));
 
   return rows.length > 0 ? { title, rows } : undefined;
+}
+
+function getI18nEntries(
+  config: Partial<ProjectConfig>,
+): Array<[label: string, value: ConfigDisplayValue, format?: "raw"]> {
+  const library = config.i18n;
+  if (library === undefined || library === "none") return [];
+
+  const entries: Array<[label: string, value: ConfigDisplayValue, format?: "raw"]> = [
+    ["i18n", I18N_LIBRARY_META[library].label],
+  ];
+  const options = config.i18nOptions;
+  if (options) {
+    entries.push(["Locales", options.locales.join(", "), "raw"]);
+    entries.push(["Routing", options.routing?.strategy ?? "cookie"]);
+  }
+
+  const integrations = getI18nIntegrations(config, library).map((integration) => integration.label);
+  if (integrations.length > 0) {
+    entries.push(["Also sets up", integrations.join(", "), "raw"]);
+  }
+
+  return entries;
 }
 
 export function getConfigSections(config: Partial<ProjectConfig>): ConfigDisplaySection[] {
@@ -147,15 +190,20 @@ export function getConfigSections(config: Partial<ProjectConfig>): ConfigDisplay
     section("Product", [
       ["Auth", config.auth],
       ["Payments", config.payments],
+      ["Email renderer", config.emailRenderer],
       ["Addons", config.addons],
+      ...getI18nEntries(config),
       ["Examples", config.examples],
+      ["shadcn", config.shadcn ? formatShadcn(config.shadcn) : undefined, "raw"],
     ]),
     section("Delivery", [
       ["Web deploy", config.webDeploy],
       ["Server deploy", config.serverDeploy],
+      ["Email deploy", config.emailDeploy],
       ["Package manager", config.packageManager],
       ["Git", config.git],
       ["Install deps", config.install],
+      ["Portless", config.portless || undefined],
     ]),
   ].filter((value): value is ConfigDisplaySection => value !== undefined);
 }

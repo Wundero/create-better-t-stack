@@ -4,22 +4,32 @@ import type { VirtualFileSystem } from "../core/virtual-fs";
 import { addPackageDependency } from "../utils/add-deps";
 
 export function processDeployDeps(vfs: VirtualFileSystem, config: ProjectConfig): void {
-  const { webDeploy, serverDeploy, frontend, backend, addons, orm } = config;
+  const { webDeploy, serverDeploy, frontend, backend, addons, orm, runtime } = config;
 
   const isCloudflareWeb = webDeploy === "cloudflare";
   const isCloudflareServer = serverDeploy === "cloudflare";
   const isPrismaWeb = webDeploy === "prisma";
   const isPrismaServer = serverDeploy === "prisma";
+  const isAwsWeb = webDeploy === "aws";
+  const isAwsServer = serverDeploy === "aws";
   const isDockerWeb = webDeploy === "docker";
   const isVercelWeb = webDeploy === "vercel";
   const isVercelServer = serverDeploy === "vercel";
   const isBackendSelf = backend === "self";
 
-  if (isPrismaWeb) {
+  if (isPrismaWeb || isAwsWeb) {
     addPackageDependency({
       vfs,
       packagePath: "apps/web/package.json",
       devDependencies: ["@alchemy.run/frontend-frameworks"],
+    });
+  }
+
+  if (isAwsWeb && frontend.includes("next")) {
+    addPackageDependency({
+      vfs,
+      packagePath: "apps/web/package.json",
+      customDevDependencies: { "@opennextjs/aws": "^4.1.5" },
     });
   }
 
@@ -28,6 +38,8 @@ export function processDeployDeps(vfs: VirtualFileSystem, config: ProjectConfig)
     !isCloudflareServer &&
     !isPrismaWeb &&
     !isPrismaServer &&
+    !isAwsWeb &&
+    !isAwsServer &&
     !isDockerWeb &&
     !isVercelWeb &&
     !isVercelServer
@@ -160,6 +172,17 @@ export function processDeployDeps(vfs: VirtualFileSystem, config: ProjectConfig)
         vfs,
         packagePath: serverPkgPath,
         devDependencies: ["@types/node", "@cloudflare/workers-types"],
+      });
+    }
+  }
+
+  if (isAwsServer && runtime === "lambda" && !isBackendSelf) {
+    const serverPkgPath = "apps/server/package.json";
+    if (vfs.exists(serverPkgPath)) {
+      addPackageDependency({
+        vfs,
+        packagePath: serverPkgPath,
+        devDependencies: ["@types/node"],
       });
     }
   }

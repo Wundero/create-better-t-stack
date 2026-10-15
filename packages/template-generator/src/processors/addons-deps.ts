@@ -3,6 +3,7 @@ import type { ProjectConfig } from "@better-t-stack/types";
 import type { JsonValue } from "../core/json-types";
 import type { VirtualFileSystem } from "../core/virtual-fs";
 import { addPackageDependency } from "../utils/add-deps";
+import { supportsShadcnLint } from "./shadcn-lint-config";
 
 type PackageJson = {
   name?: string;
@@ -36,7 +37,17 @@ export function processAddonsDeps(vfs: VirtualFileSystem, config: ProjectConfig)
     addPackageDependency({
       vfs,
       packagePath: "package.json",
-      devDependencies: ["vite-plus", "rolldown"],
+      devDependencies: supportsShadcnLint(config)
+        ? ["vite-plus", "rolldown", "@shadcn/lint"]
+        : ["vite-plus", "rolldown"],
+    });
+  }
+
+  if (config.addons.includes("oxlint") && supportsShadcnLint(config)) {
+    addPackageDependency({
+      vfs,
+      packagePath: "package.json",
+      devDependencies: ["@shadcn/lint"],
     });
   }
 
