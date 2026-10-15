@@ -26,6 +26,11 @@ export default defineConfig({
     ],
     ignore: [
       "../../packages/i18n/**",
+      // The `input` globs are relative to this file (`packages/i18n`), so a
+      // hoisted or workspace-local dependency resolves to `../../…/node_modules`.
+      // The bare `**/node_modules/**` form does not match that leading `../`.
+      "../../node_modules/**",
+      "../../**/node_modules/**",
       "**/node_modules/**",
       "**/dist/**",
       "**/.next/**",

@@ -187,6 +187,10 @@ describe("i18next templates", () => {
     expect(config).toContain('from "i18next-cli"');
     expect(config).toContain('"locales/{{language}}/{{namespace}}.json"');
     expect(config).toContain("keySeparator: false");
+    // The extractor must not read dependency `.d.ts` files: the input globs are
+    // relative to `packages/i18n`, so `node_modules` paths start with `../../`.
+    expect(config).toContain('"../../**/node_modules/**"');
+    expect(config).toContain('"../../node_modules/**"');
 
     const extract = vfs.readFile("packages/i18n/scripts/extract.ts") ?? "";
     expect(extract).toContain("i18next-cli");

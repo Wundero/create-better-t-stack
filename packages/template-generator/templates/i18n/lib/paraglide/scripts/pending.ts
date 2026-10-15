@@ -17,7 +17,7 @@
  */
 
 import { loadCatalogs, resolveFromScript } from "../src/catalogs";
-import { extractArgumentNames } from "../src/icu";
+import { extractCatalogArguments, messageForms } from "../src/complex";
 
 interface PendingItem {
   readonly id: string;
@@ -89,11 +89,11 @@ export async function runPending(argv: readonly string[] = process.argv.slice(2)
       items.push({
         id,
         locale,
-        source: sourceMessage,
+        source: messageForms(sourceMessage).join(" || "),
         context: null,
         comments: [],
         references: [],
-        placeholders: extractArgumentNames(sourceMessage),
+        placeholders: extractCatalogArguments(sourceMessage),
         status,
       });
     }

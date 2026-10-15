@@ -13,8 +13,14 @@
 
 import { access } from "node:fs/promises";
 
-import { catalogPath, loadSettings, readCatalog, resolveFromScript } from "../src/catalogs";
-import { compareMessages, parseMessage } from "../src/icu";
+import {
+  catalogPath,
+  loadSettings,
+  readCatalog,
+  resolveFromScript,
+  type Catalog,
+} from "../src/catalogs";
+import { compareCatalogMessages, parseCatalogMessage } from "../src/complex";
 
 interface Problem {
   readonly locale: string;
@@ -38,7 +44,7 @@ export async function runCheck(): Promise<number> {
   const settings = await loadSettings(packageRoot);
   const problems: Problem[] = [];
 
-  const catalogs = new Map<string, Record<string, string>>();
+  const catalogs = new Map<string, Catalog>();
   for (const locale of settings.locales) {
     const filePath = catalogPath(packageRoot, locale);
     if (!(await exists(filePath))) {
@@ -64,7 +70,7 @@ export async function runCheck(): Promise<number> {
 
   const source = catalogs.get(settings.baseLocale) ?? {};
   for (const [id, message] of Object.entries(source)) {
-    const parsed = parseMessage(message);
+    const parsed = parseCatalogMessage(message);
     if (!parsed.ok) {
       problems.push({ locale: settings.baseLocale, id, kind: "invalid", reason: parsed.error });
     }
@@ -87,7 +93,7 @@ export async function runCheck(): Promise<number> {
         continue;
       }
 
-      const comparison = compareMessages(sourceMessage, translation);
+      const comparison = compareCatalogMessages(sourceMessage, translation);
       if (!comparison.ok) {
         problems.push({ locale, id, kind: "invalid", reason: comparison.error });
       }

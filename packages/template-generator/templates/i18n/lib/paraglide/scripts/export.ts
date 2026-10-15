@@ -27,7 +27,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 import { loadCatalogs, resolveFromScript } from "../src/catalogs";
-import { compareMessages, parseMessage } from "../src/icu";
+import { catalogMessageToIcu, compareCatalogMessages, parseCatalogMessage } from "../src/complex";
 
 interface NormalizedMessage {
   readonly source: string;
@@ -51,8 +51,9 @@ export async function runExport(): Promise<number> {
     const skipped: string[] = [];
 
     for (const id of Object.keys(source).sort()) {
-      const sourceMessage = source[id] as string;
-      const parsedSource = parseMessage(sourceMessage);
+      const sourceMessage = source[id];
+      if (sourceMessage === undefined) continue;
+      const parsedSource = parseCatalogMessage(sourceMessage);
       if (!parsedSource.ok) {
         throw new Error(`cannot export "${id}": ${parsedSource.error}`);
       }
@@ -73,14 +74,18 @@ export async function runExport(): Promise<number> {
           continue;
         }
 
-        const comparison = compareMessages(sourceMessage, translated);
+        const comparison = compareCatalogMessages(sourceMessage, translated);
         if (!comparison.ok) {
           throw new Error(`cannot export "${id}" for ${locale}: ${comparison.error}`);
         }
-        translations[locale] = translated;
+        translations[locale] = catalogMessageToIcu(translated);
       }
 
-      messages[id] = { source: sourceMessage, context: null, translations };
+      messages[id] = {
+        source: catalogMessageToIcu(sourceMessage),
+        context: null,
+        translations,
+      };
     }
 
     const catalog: NormalizedCatalog = { sourceLocale, locales, messages };

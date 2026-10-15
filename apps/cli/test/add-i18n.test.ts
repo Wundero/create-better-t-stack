@@ -87,11 +87,11 @@ describe("add --i18n retrofit", () => {
     });
     expectSuccess(created);
 
-    const providersPath = join(created.projectDir, "apps/web/src/components/providers.tsx");
-    const original = await readFile(providersPath, "utf8");
-    const modified = original.replace(/<ThemeProvider/g, "<CustomProvider");
+    const layoutPath = join(created.projectDir, "apps/web/src/app/layout.tsx");
+    const original = await readFile(layoutPath, "utf8");
+    const modified = original.replace(/<Providers\b/g, "<CustomProviders");
     expect(modified).not.toBe(original);
-    await writeFile(providersPath, modified, "utf8");
+    await writeFile(layoutPath, modified, "utf8");
 
     const result = await add({
       projectDir: created.projectDir,
@@ -101,11 +101,11 @@ describe("add --i18n retrofit", () => {
     });
 
     expect(result?.success).toBe(true);
-    expect(await readFile(providersPath, "utf8")).toBe(modified);
+    expect(await readFile(layoutPath, "utf8")).toBe(modified);
 
     const setupDoc = await readFileOrUndefined(created.projectDir, "I18N_SETUP.md");
     expect(setupDoc).toBeDefined();
-    expect(setupDoc).toContain("apps/web/src/components/providers.tsx");
+    expect(setupDoc).toContain("apps/web/src/app/layout.tsx");
   });
 
   it("plans no changes on a second run (idempotent)", async () => {

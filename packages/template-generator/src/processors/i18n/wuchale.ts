@@ -9,7 +9,6 @@ import {
   Project,
   QuoteKind,
   SyntaxKind,
-  type ArrayLiteralExpression,
   type ObjectLiteralExpression,
   type SourceFile,
 } from "ts-morph";
@@ -169,41 +168,14 @@ export function getWuchaleDeps(vfs: VirtualFileSystem, config: ProjectConfig): v
     });
   }
 
-  wireVitePlugin(vfs, config);
   wireAstroIntegration(vfs, config);
 }
 
 /**
- * Vite-based frontends get the `wuchale/vite` plugin; the plugin extracts and
- * transforms in dev and build. Next.js, server and the externally scaffolded
- * hosts have no bundler integration — `WUCHALE.md` documents the
- * `wuchale --modify <adapter>` fallback for them.
+ * The Astro integration still ships; the Vite surfaces deliberately do not get
+ * `wuchale/vite`, whose plugin races `buildStart` and crashes under Vite 8
+ * (wuchale#484). Those surfaces extract and compile through the wuchale CLI.
  */
-function wireVitePlugin(vfs: VirtualFileSystem, config: ProjectConfig): void {
-  const viteConfigPath = "apps/web/vite.config.ts";
-  if (!vfs.exists(viteConfigPath)) return;
-  if (!isViteWebFrontend(config)) return;
-
-  const content = vfs.readFile(viteConfigPath);
-  if (!content) return;
-
-  const sourceFile = createSourceFile("vite.config.ts", content);
-  if (hasImport(sourceFile, "wuchale/vite")) return;
-
-  const plugins = findArrayProperty(sourceFile, "plugins");
-  if (!plugins) return;
-
-  sourceFile.addImportDeclaration({ namedImports: ["wuchale"], moduleSpecifier: "wuchale/vite" });
-  plugins.addElement(`wuchale({ configPath: "${WUCHALE_CONFIG_PATH}" })`);
-
-  vfs.writeFile(viteConfigPath, sourceFile.getFullText());
-}
-
-function isViteWebFrontend(config: ProjectConfig): boolean {
-  const viteFrontends = ["tanstack-start", "tanstack-router", "react-router", "solid", "svelte"];
-  return config.frontend.some((frontend) => viteFrontends.includes(frontend));
-}
-
 function wireAstroIntegration(vfs: VirtualFileSystem, config: ProjectConfig): void {
   const astroConfigPath = "apps/web/astro.config.mjs";
   if (!vfs.exists(astroConfigPath)) return;
@@ -254,20 +226,6 @@ function hasImport(sourceFile: SourceFile, moduleSpecifier: string): boolean {
   return sourceFile
     .getImportDeclarations()
     .some((imp) => imp.getModuleSpecifierValue() === moduleSpecifier);
-}
-
-function findArrayProperty(
-  sourceFile: SourceFile,
-  name: string,
-): ArrayLiteralExpression | undefined {
-  const assignments = sourceFile
-    .getDescendantsOfKind(SyntaxKind.PropertyAssignment)
-    .filter((property) => property.getName() === name);
-  for (const property of assignments) {
-    const array = property.getInitializerIfKind(SyntaxKind.ArrayLiteralExpression);
-    if (array) return array;
-  }
-  return undefined;
 }
 
 function findDefineConfigObject(sourceFile: SourceFile): ObjectLiteralExpression | undefined {

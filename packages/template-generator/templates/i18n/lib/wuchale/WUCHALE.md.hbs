@@ -40,13 +40,16 @@ translation provider. Translate with the `i18n-translate` skill through
 ## Surface notes
 
 - **Vite frontends** (TanStack Start/Router, React Router, Solid, SvelteKit):
-  `wuchale/vite` is already wired into `apps/web/vite.config.ts`.
+  the `wuchale/vite` plugin is **not wired** — it races `buildStart` and crashes
+  under Vite 8 (wuchale#484, no released fix). `i18n:extract` / `i18n:compile`
+  still work; transform sources with `bunx wuchale --modify web` on a clean
+  working tree before `dev` / `build`.
 - **Astro:** the `@wuchale/astro/integration` is wired into
   `apps/web/astro.config.mjs`.
 - **Next.js, server, Electrobun, OpenTUI and WXT** have no bundler plugin.
-  Extraction works through `i18n:extract`; to transform sources for a build
-  without a plugin, run `bunx wuchale --modify <adapter>` on a clean working
-  tree (the command overwrites source files in place).
+  Extraction works through `i18n:extract`; to transform sources for a build,
+  run `bunx wuchale --modify <adapter>` on a clean working tree (the command
+  overwrites source files in place).
 - **Unsupported surfaces:** Nuxt and WXT Vue have no wuchale adapter, and Expo
   (native) has no wuchale counterpart — the compatibility matrix blocks those
   combinations with that reason.

@@ -10,6 +10,8 @@ import { readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import type { CatalogMessage } from "./complex";
+
 export type JsonValue =
   | string
   | number
@@ -23,7 +25,9 @@ export interface ProjectSettings {
   readonly locales: readonly string[];
 }
 
-export type Catalog = Record<string, string>;
+export interface Catalog {
+  [id: string]: CatalogMessage;
+}
 
 export interface LoadedCatalogs {
   readonly settings: ProjectSettings;
@@ -88,14 +92,31 @@ export async function loadSettings(packageRoot: string): Promise<ProjectSettings
   return { baseLocale: settings.baseLocale, locales: settings.locales };
 }
 
-/** Reads one catalog. Ignores the `$schema` hint inlang writes. */
+/**
+ * Reads one catalog. Ignores the `$schema` hint inlang writes. Values are
+ * either an ICU string or an inlang complex message (array); the shape is
+ * validated later, per message, by `parseCatalogMessage`.
+ */
 export async function readCatalog(filePath: string): Promise<Catalog> {
-  const raw = await readJsonFile(filePath);
-  if (Array.isArray(raw)) {
+  let text: string;
+  try {
+    text = await readFile(filePath, "utf8");
+  } catch {
+    throw new Error(`Missing file: ${filePath}`);
+  }
+
+  let parsed: Catalog;
+  try {
+    parsed = JSON.parse(text) as Catalog;
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error);
+    throw new Error(`Invalid JSON in ${filePath}: ${reason}`);
+  }
+
+  if (Array.isArray(parsed)) {
     throw new Error(`${filePath} must be a JSON object of message ID → message`);
   }
 
-  const parsed = raw as Record<string, string>;
   const catalog: Catalog = {};
   for (const [id, message] of Object.entries(parsed)) {
     if (id === "$schema") continue;
@@ -106,9 +127,13 @@ export async function readCatalog(filePath: string): Promise<Catalog> {
 
 /** Writes a catalog with sorted, stable IDs and a `$schema` hint. */
 export async function writeCatalog(filePath: string, catalog: Catalog): Promise<void> {
-  const sorted: Catalog = { $schema: "https://inlang.com/schema/inlang-message-format" };
+  const sorted: Catalog = {
+    $schema: "https://inlang.com/schema/inlang-message-format",
+  };
   for (const id of Object.keys(catalog).sort()) {
-    sorted[id] = catalog[id] as string;
+    const message = catalog[id];
+    if (message === undefined) continue;
+    sorted[id] = message;
   }
   await writeFile(filePath, `${JSON.stringify(sorted, null, 2)}\n`, "utf8");
 }

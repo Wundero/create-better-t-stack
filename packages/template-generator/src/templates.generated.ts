@@ -34358,6 +34358,11 @@ export default defineConfig({
     ],
     ignore: [
       "../../packages/i18n/**",
+      // The \`input\` globs are relative to this file (\`packages/i18n\`), so a
+      // hoisted or workspace-local dependency resolves to \`../../…/node_modules\`.
+      // The bare \`**/node_modules/**\` form does not match that leading \`../\`.
+      "../../node_modules/**",
+      "../../**/node_modules/**",
       "**/node_modules/**",
       "**/dist/**",
       "**/.next/**",
@@ -36702,7 +36707,16 @@ export function onLocaleChange(listener: (locale: Locale) => void): () => void {
   "$schema": "https://inlang.com/schema/inlang-message-format",
   "i18n_demo_heading": "Internationalization demo",
   "i18n_demo_interpolation": "Hello {name}, your stack is ready.",
-  "i18n_demo_plural": "{count, plural, one {# message translated} other {# messages translated}}",
+  "i18n_demo_plural": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} message translated",
+        "countPlural=other": "{count} messages translated"
+      }
+    }
+  ],
   "i18n_demo_currency_label": "Estimated monthly cost",
   "i18n_demo_date_label": "Generated on"
 }
@@ -36711,7 +36725,16 @@ export function onLocaleChange(listener: (locale: Locale) => void): () => void {
   "$schema": "https://inlang.com/schema/inlang-message-format",
   "i18n_demo_heading": "Demostración de internacionalización",
   "i18n_demo_interpolation": "Hola {name}, tu stack está listo.",
-  "i18n_demo_plural": "{count, plural, one {# mensaje traducido} other {# mensajes traducidos}}",
+  "i18n_demo_plural": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} mensaje traducido",
+        "countPlural=other": "{count} mensajes traducidos"
+      }
+    }
+  ],
   "i18n_demo_currency_label": "Coste mensual estimado",
   "i18n_demo_date_label": "Generado el"
 }
@@ -36720,7 +36743,16 @@ export function onLocaleChange(listener: (locale: Locale) => void): () => void {
   "$schema": "https://inlang.com/schema/inlang-message-format",
   "i18n_demo_heading": "Démonstration d'internationalisation",
   "i18n_demo_interpolation": "Bonjour {name}, votre stack est prêt.",
-  "i18n_demo_plural": "{count, plural, one {# message traduit} other {# messages traduits}}",
+  "i18n_demo_plural": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} message traduit",
+        "countPlural=other": "{count} messages traduits"
+      }
+    }
+  ],
   "i18n_demo_currency_label": "Coût mensuel estimé",
   "i18n_demo_date_label": "Généré le"
 }
@@ -36827,12 +36859,18 @@ import {
   resolveFromScript,
   writeCatalog,
 } from "../src/catalogs";
-import { compareMessages } from "../src/icu";
+import {
+  buildComplexMessage,
+  compareCatalogMessages,
+  isComplexMessage,
+  type CatalogMessage,
+} from "../src/complex";
 
 interface ApplyItem {
   readonly id: string;
   readonly locale: string;
-  readonly translation: string;
+  readonly translation?: string;
+  readonly translations?: readonly string[];
 }
 
 interface RejectedItem {
@@ -36865,16 +36903,16 @@ export async function runApply(argv: readonly string[] = process.argv.slice(2)):
   const packageRoot = resolveFromScript(import.meta.url);
   const { sourceLocale, locales, source } = await loadCatalogs(packageRoot);
 
-  const pending = new Map<string, Map<string, string>>();
+  const pending = new Map<string, Map<string, CatalogMessage>>();
   const rejected: RejectedItem[] = [];
   let applied = 0;
 
   for (const item of rawItems) {
-    if (!item || !item.id || !item.locale || !item.translation) {
+    if (!item || !item.id || !item.locale) {
       rejected.push({
         id: item?.id ?? "?",
         locale: item?.locale ?? "?",
-        reason: "items need non-empty id, locale and translation strings",
+        reason: "items need a non-empty id and locale",
       });
       continue;
     }
@@ -36906,7 +36944,30 @@ export async function runApply(argv: readonly string[] = process.argv.slice(2)):
       continue;
     }
 
-    const comparison = compareMessages(sourceMessage, item.translation);
+    let target: CatalogMessage;
+    if (isComplexMessage(sourceMessage)) {
+      if (!Array.isArray(item.translations) || item.translations.length === 0) {
+        rejected.push({
+          id: item.id,
+          locale: item.locale,
+          reason: "a plural item needs one \`translations\` entry per plural form",
+        });
+        continue;
+      }
+      target = buildComplexMessage(sourceMessage, item.locale, item.translations);
+    } else {
+      if (item.translation === undefined || item.translation.length === 0) {
+        rejected.push({
+          id: item.id,
+          locale: item.locale,
+          reason: "the item needs a non-empty \`translation\` string",
+        });
+        continue;
+      }
+      target = item.translation;
+    }
+
+    const comparison = compareCatalogMessages(sourceMessage, target);
     if (!comparison.ok) {
       rejected.push({ id: item.id, locale: item.locale, reason: comparison.error });
       continue;
@@ -36917,7 +36978,7 @@ export async function runApply(argv: readonly string[] = process.argv.slice(2)):
       localeUpdates = new Map();
       pending.set(item.locale, localeUpdates);
     }
-    localeUpdates.set(item.id, item.translation);
+    localeUpdates.set(item.id, target);
     applied += 1;
   }
 
@@ -36958,8 +37019,14 @@ if (import.meta.main) {
 
 import { access } from "node:fs/promises";
 
-import { catalogPath, loadSettings, readCatalog, resolveFromScript } from "../src/catalogs";
-import { compareMessages, parseMessage } from "../src/icu";
+import {
+  catalogPath,
+  loadSettings,
+  readCatalog,
+  resolveFromScript,
+  type Catalog,
+} from "../src/catalogs";
+import { compareCatalogMessages, parseCatalogMessage } from "../src/complex";
 
 interface Problem {
   readonly locale: string;
@@ -36983,7 +37050,7 @@ export async function runCheck(): Promise<number> {
   const settings = await loadSettings(packageRoot);
   const problems: Problem[] = [];
 
-  const catalogs = new Map<string, Record<string, string>>();
+  const catalogs = new Map<string, Catalog>();
   for (const locale of settings.locales) {
     const filePath = catalogPath(packageRoot, locale);
     if (!(await exists(filePath))) {
@@ -37009,7 +37076,7 @@ export async function runCheck(): Promise<number> {
 
   const source = catalogs.get(settings.baseLocale) ?? {};
   for (const [id, message] of Object.entries(source)) {
-    const parsed = parseMessage(message);
+    const parsed = parseCatalogMessage(message);
     if (!parsed.ok) {
       problems.push({ locale: settings.baseLocale, id, kind: "invalid", reason: parsed.error });
     }
@@ -37032,7 +37099,7 @@ export async function runCheck(): Promise<number> {
         continue;
       }
 
-      const comparison = compareMessages(sourceMessage, translation);
+      const comparison = compareCatalogMessages(sourceMessage, translation);
       if (!comparison.ok) {
         problems.push({ locale, id, kind: "invalid", reason: comparison.error });
       }
@@ -37349,7 +37416,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 import { loadCatalogs, resolveFromScript } from "../src/catalogs";
-import { compareMessages, parseMessage } from "../src/icu";
+import { catalogMessageToIcu, compareCatalogMessages, parseCatalogMessage } from "../src/complex";
 
 interface NormalizedMessage {
   readonly source: string;
@@ -37373,8 +37440,9 @@ export async function runExport(): Promise<number> {
     const skipped: string[] = [];
 
     for (const id of Object.keys(source).sort()) {
-      const sourceMessage = source[id] as string;
-      const parsedSource = parseMessage(sourceMessage);
+      const sourceMessage = source[id];
+      if (sourceMessage === undefined) continue;
+      const parsedSource = parseCatalogMessage(sourceMessage);
       if (!parsedSource.ok) {
         throw new Error(\`cannot export "\${id}": \${parsedSource.error}\`);
       }
@@ -37395,14 +37463,18 @@ export async function runExport(): Promise<number> {
           continue;
         }
 
-        const comparison = compareMessages(sourceMessage, translated);
+        const comparison = compareCatalogMessages(sourceMessage, translated);
         if (!comparison.ok) {
           throw new Error(\`cannot export "\${id}" for \${locale}: \${comparison.error}\`);
         }
-        translations[locale] = translated;
+        translations[locale] = catalogMessageToIcu(translated);
       }
 
-      messages[id] = { source: sourceMessage, context: null, translations };
+      messages[id] = {
+        source: catalogMessageToIcu(sourceMessage),
+        context: null,
+        translations,
+      };
     }
 
     const catalog: NormalizedCatalog = { sourceLocale, locales, messages };
@@ -37536,7 +37608,7 @@ if (import.meta.main) {
  */
 
 import { loadCatalogs, resolveFromScript } from "../src/catalogs";
-import { extractArgumentNames } from "../src/icu";
+import { extractCatalogArguments, messageForms } from "../src/complex";
 
 interface PendingItem {
   readonly id: string;
@@ -37608,11 +37680,11 @@ export async function runPending(argv: readonly string[] = process.argv.slice(2)
       items.push({
         id,
         locale,
-        source: sourceMessage,
+        source: messageForms(sourceMessage).join(" || "),
         context: null,
         comments: [],
         references: [],
-        placeholders: extractArgumentNames(sourceMessage),
+        placeholders: extractCatalogArguments(sourceMessage),
         status,
       });
     }
@@ -37646,6 +37718,8 @@ import { readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import type { CatalogMessage } from "./complex";
+
 export type JsonValue =
   | string
   | number
@@ -37659,7 +37733,9 @@ export interface ProjectSettings {
   readonly locales: readonly string[];
 }
 
-export type Catalog = Record<string, string>;
+export interface Catalog {
+  [id: string]: CatalogMessage;
+}
 
 export interface LoadedCatalogs {
   readonly settings: ProjectSettings;
@@ -37724,14 +37800,31 @@ export async function loadSettings(packageRoot: string): Promise<ProjectSettings
   return { baseLocale: settings.baseLocale, locales: settings.locales };
 }
 
-/** Reads one catalog. Ignores the \`$schema\` hint inlang writes. */
+/**
+ * Reads one catalog. Ignores the \`$schema\` hint inlang writes. Values are
+ * either an ICU string or an inlang complex message (array); the shape is
+ * validated later, per message, by \`parseCatalogMessage\`.
+ */
 export async function readCatalog(filePath: string): Promise<Catalog> {
-  const raw = await readJsonFile(filePath);
-  if (Array.isArray(raw)) {
+  let text: string;
+  try {
+    text = await readFile(filePath, "utf8");
+  } catch {
+    throw new Error(\`Missing file: \${filePath}\`);
+  }
+
+  let parsed: Catalog;
+  try {
+    parsed = JSON.parse(text) as Catalog;
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error);
+    throw new Error(\`Invalid JSON in \${filePath}: \${reason}\`);
+  }
+
+  if (Array.isArray(parsed)) {
     throw new Error(\`\${filePath} must be a JSON object of message ID → message\`);
   }
 
-  const parsed = raw as Record<string, string>;
   const catalog: Catalog = {};
   for (const [id, message] of Object.entries(parsed)) {
     if (id === "$schema") continue;
@@ -37742,9 +37835,13 @@ export async function readCatalog(filePath: string): Promise<Catalog> {
 
 /** Writes a catalog with sorted, stable IDs and a \`$schema\` hint. */
 export async function writeCatalog(filePath: string, catalog: Catalog): Promise<void> {
-  const sorted: Catalog = { $schema: "https://inlang.com/schema/inlang-message-format" };
+  const sorted: Catalog = {
+    $schema: "https://inlang.com/schema/inlang-message-format",
+  };
   for (const id of Object.keys(catalog).sort()) {
-    sorted[id] = catalog[id] as string;
+    const message = catalog[id];
+    if (message === undefined) continue;
+    sorted[id] = message;
   }
   await writeFile(filePath, \`\${JSON.stringify(sorted, null, 2)}\\n\`, "utf8");
 }
@@ -37781,6 +37878,287 @@ export async function loadCatalogs(packageRoot: string): Promise<LoadedCatalogs>
     source,
     catalogs,
   };
+}
+`],
+  ["i18n/lib/paraglide/src/complex.ts", `/**
+ * inlang message-format complex messages (design D8, D4).
+ *
+ * \`@inlang/plugin-message-format\` does not understand ICU inline plurals.
+ * A plural is authored as a *complex message*: an array of matches, each with
+ * \`declarations\`, \`selectors\` and a \`match\` map (selector key → pattern). This
+ * module validates that shape, collects placeholder names, compares a
+ * translation against its source, and converts to and from the ICU subset in
+ * \`src/icu.ts\` (used by \`i18n:export\` and the normalized catalog).
+ *
+ * The plain-string path stays ICU: \`parseMessage\` / \`compareMessages\` in
+ * \`src/icu.ts\` validate simple messages exactly as before.
+ */
+
+import { compareMessages, extractArgumentNames, parseMessage } from "./icu";
+
+export type ComplexPattern = string | readonly ComplexMatch[];
+export interface ComplexMatch {
+  readonly declarations?: readonly string[];
+  readonly selectors: readonly string[];
+  readonly match: Readonly<Record<string, ComplexPattern>>;
+}
+export type ComplexMessage = readonly ComplexMatch[];
+
+/** A catalog value: an ICU string, or an inlang complex message. */
+export type CatalogMessage = string | ComplexMessage;
+
+export type CatalogMessageParseResult =
+  | { readonly ok: true; readonly arguments: readonly string[] }
+  | { readonly ok: false; readonly error: string };
+
+export type CatalogMessageComparison =
+  | { readonly ok: true }
+  | { readonly ok: false; readonly error: string };
+
+const PLURAL_CATEGORY_ORDER = ["zero", "one", "two", "few", "many", "other"] as const;
+const DECLARATION_INPUT = /^input\\s+([A-Za-z0-9_]+)$/;
+const DECLARATION_LOCAL_PLURAL = /^local\\s+([A-Za-z0-9_]+)\\s*=\\s*([A-Za-z0-9_]+)\\s*:\\s*plural$/;
+const PLACEHOLDER = /\\{\\s*([A-Za-z0-9_]+)/g;
+
+export function isComplexMessage(value: CatalogMessage): value is ComplexMessage {
+  return Array.isArray(value);
+}
+
+function categoryRank(category: string): number {
+  const index = PLURAL_CATEGORY_ORDER.indexOf(category as (typeof PLURAL_CATEGORY_ORDER)[number]);
+  return index === -1 ? PLURAL_CATEGORY_ORDER.length : index;
+}
+
+function compareCategoryKeys(selector: string, firstKey: string, secondKey: string): number {
+  return (
+    categoryRank(firstKey.slice(selector.length + 1)) -
+    categoryRank(secondKey.slice(selector.length + 1))
+  );
+}
+
+/** CLDR plural categories for a locale, in the canonical order. */
+export function pluralCategories(locale: string): string[] {
+  const categories = [...new Intl.PluralRules(locale).resolvedOptions().pluralCategories];
+  return categories.sort((first, second) => categoryRank(first) - categoryRank(second));
+}
+
+function matchPlaceholders(entry: ComplexMatch): string[] {
+  return Object.values(entry.match).flatMap(placeholderNames);
+}
+
+function placeholderNames(pattern: ComplexPattern): string[] {
+  if (Array.isArray(pattern)) return pattern.flatMap(matchPlaceholders);
+  return [...pattern.matchAll(PLACEHOLDER)].map((match) => match[1] as string);
+}
+
+function collectArguments(message: ComplexMessage): string[] {
+  return [...new Set(message.flatMap(matchPlaceholders))].sort();
+}
+
+function selectorOf(match: ComplexMatch): string {
+  return match.selectors[0] ?? "";
+}
+
+function isPluralMatch(match: ComplexMatch): boolean {
+  return (match.declarations ?? []).some((line) => DECLARATION_LOCAL_PLURAL.test(line));
+}
+
+function pluralInput(match: ComplexMatch): string | undefined {
+  for (const line of match.declarations ?? []) {
+    const parsed = DECLARATION_LOCAL_PLURAL.exec(line);
+    if (parsed) return parsed[2];
+  }
+  return undefined;
+}
+
+function validateMatch(
+  match: ComplexMatch,
+  index: number,
+): { readonly ok: true } | { readonly ok: false; readonly error: string } {
+  const path = \`match[\${index}]\`;
+  if (!Array.isArray(match.selectors) || match.selectors.length === 0) {
+    return { ok: false, error: \`\${path} must declare at least one selector\` };
+  }
+
+  const selector = selectorOf(match);
+  const bodyKeys = Object.keys(match.match).filter((key) => key.startsWith(\`\${selector}=\`));
+  if (bodyKeys.length === 0) {
+    return { ok: false, error: \`\${path} has no patterns for selector "\${selector}"\` };
+  }
+  if (isPluralMatch(match) && !bodyKeys.includes(\`\${selector}=other\`)) {
+    return { ok: false, error: \`\${path} is a plural and must define "\${selector}=other"\` };
+  }
+  return { ok: true };
+}
+
+function validateComplex(
+  message: ComplexMessage,
+): { readonly ok: true } | { readonly ok: false; readonly error: string } {
+  if (message.length === 0) return { ok: false, error: "a complex message has no matches" };
+  for (const [index, match] of message.entries()) {
+    const result = validateMatch(match, index);
+    if (!result.ok) return result;
+  }
+  return { ok: true };
+}
+
+/** Validates one catalog value (string ICU or complex message). */
+export function parseCatalogMessage(message: CatalogMessage): CatalogMessageParseResult {
+  if (Array.isArray(message)) {
+    const valid = validateComplex(message);
+    return valid.ok
+      ? { ok: true, arguments: collectArguments(message) }
+      : { ok: false, error: valid.error };
+  }
+
+  const parsed = parseMessage(message);
+  return parsed.ok
+    ? { ok: true, arguments: parsed.arguments.map((argument) => argument.name) }
+    : { ok: false, error: parsed.error };
+}
+
+/** Placeholder names, for the pending report and placeholder comparison. */
+export function extractCatalogArguments(message: CatalogMessage): string[] {
+  return Array.isArray(message) ? collectArguments(message) : extractArgumentNames(message);
+}
+
+function compareComplex(
+  source: ComplexMessage,
+  translation: ComplexMessage,
+): CatalogMessageComparison {
+  if (source.length !== translation.length) {
+    return { ok: false, error: "the translation has a different number of matches" };
+  }
+
+  for (const [index, sourceMatch] of source.entries()) {
+    const translationMatch = translation[index];
+    if (!translationMatch) {
+      return { ok: false, error: \`the translation is missing match[\${index}]\` };
+    }
+
+    const selector = selectorOf(sourceMatch);
+    if (selectorOf(translationMatch) !== selector) {
+      return { ok: false, error: \`match[\${index}] must keep the selector "\${selector}"\` };
+    }
+
+    for (const [key, sourcePattern] of Object.entries(sourceMatch.match)) {
+      if (!key.startsWith(\`\${selector}=\`)) continue;
+      const translationPattern = translationMatch.match[key];
+      if (translationPattern === undefined) {
+        return { ok: false, error: \`the translation is missing "\${key}"\` };
+      }
+      const expected = [...new Set(placeholderNames(sourcePattern))].sort();
+      const actual = [...new Set(placeholderNames(translationPattern))].sort();
+      if (expected.join(",") !== actual.join(",")) {
+        return {
+          ok: false,
+          error: \`"\${key}" placeholder set must stay [\${expected.join(", ") || "none"}], got [\${actual.join(", ") || "none"}]\`,
+        };
+      }
+    }
+  }
+  return { ok: true };
+}
+
+/** Validates that a translation keeps the source's structure and placeholders. */
+export function compareCatalogMessages(
+  source: CatalogMessage,
+  translation: CatalogMessage,
+): CatalogMessageComparison {
+  const parsedSource = parseCatalogMessage(source);
+  if (!parsedSource.ok) {
+    return { ok: false, error: \`source message is invalid: \${parsedSource.error}\` };
+  }
+  const parsedTranslation = parseCatalogMessage(translation);
+  if (!parsedTranslation.ok) {
+    return { ok: false, error: \`translation is invalid: \${parsedTranslation.error}\` };
+  }
+
+  if (Array.isArray(source)) {
+    if (!Array.isArray(translation)) {
+      return { ok: false, error: "source and translation must use the same message shape" };
+    }
+    return compareComplex(source, translation);
+  }
+  if (Array.isArray(translation)) {
+    return { ok: false, error: "source and translation must use the same message shape" };
+  }
+
+  const compared = compareMessages(source, translation);
+  return compared.ok ? { ok: true } : { ok: false, error: compared.error };
+}
+
+/**
+ * The ordered pattern bodies of a message, used as the \` || \`-joined \`source\`
+ * of a pending item (one form per plural category, in canonical order).
+ */
+export function messageForms(message: CatalogMessage): string[] {
+  if (!Array.isArray(message)) return [message];
+  const [first] = message;
+  if (!first) return [];
+
+  const selector = selectorOf(first);
+  return Object.entries(first.match)
+    .filter(([key]) => key.startsWith(\`\${selector}=\`))
+    .sort(([firstKey], [secondKey]) => compareCategoryKeys(selector, firstKey, secondKey))
+    .map(([, pattern]) => (Array.isArray(pattern) ? JSON.stringify(pattern) : pattern));
+}
+
+/**
+ * Builds the target-locale complex message from per-category forms. Mirrors the
+ * \`i18n-translate\` contract: one form per CLDR category of the target locale,
+ * in canonical order.
+ */
+export function buildComplexMessage(
+  source: ComplexMessage,
+  locale: string,
+  forms: readonly string[],
+): ComplexMessage {
+  const base = source[0];
+  if (!base) return [];
+
+  const selector = selectorOf(base);
+  const input = pluralInput(base) ?? selector;
+  const declaresInput = (base.declarations ?? []).some((line) => DECLARATION_INPUT.test(line));
+
+  const match: Record<string, string> = {};
+  for (const [index, category] of pluralCategories(locale).entries()) {
+    match[\`\${selector}=\${category}\`] = forms[Math.min(index, forms.length - 1)] ?? "";
+  }
+
+  const declarations = [
+    ...(declaresInput ? [\`input \${input}\`] : []),
+    \`local \${selector} = \${input}: plural\`,
+  ];
+  return [{ declarations, selectors: [selector], match }];
+}
+
+/**
+ * Converts a complex message to the ICU subset in \`src/icu.ts\`. The plural
+ * argument reference becomes \`#\`, exactly as ICU expects inside a plural.
+ */
+export function complexMessageToIcu(message: ComplexMessage): string {
+  const [first] = message;
+  if (!first) return "";
+
+  const selector = selectorOf(first);
+  const input = pluralInput(first) ?? selector;
+
+  const parts = Object.entries(first.match)
+    .filter(([key]) => key.startsWith(\`\${selector}=\`))
+    .sort(([firstKey], [secondKey]) => compareCategoryKeys(selector, firstKey, secondKey))
+    .map(([key, pattern]) => {
+      const category = key.slice(selector.length + 1);
+      const body = Array.isArray(pattern) ? complexMessageToIcu(pattern) : pattern;
+      return \`\${category} {\${body.replaceAll(\`{\${input}}\`, "#")}}\`;
+    });
+
+  return \`{\${input}, plural, \${parts.join(" ")}}\`;
+}
+
+/** Converts any catalog message to its ICU string form (for normalization). */
+export function catalogMessageToIcu(message: CatalogMessage): string {
+  return Array.isArray(message) ? complexMessageToIcu(message) : message;
 }
 `],
   ["i18n/lib/paraglide/src/icu.ts", `/**
@@ -39447,13 +39825,16 @@ translation provider. Translate with the \`i18n-translate\` skill through
 ## Surface notes
 
 - **Vite frontends** (TanStack Start/Router, React Router, Solid, SvelteKit):
-  \`wuchale/vite\` is already wired into \`apps/web/vite.config.ts\`.
+  the \`wuchale/vite\` plugin is **not wired** — it races \`buildStart\` and crashes
+  under Vite 8 (wuchale#484, no released fix). \`i18n:extract\` / \`i18n:compile\`
+  still work; transform sources with \`bunx wuchale --modify web\` on a clean
+  working tree before \`dev\` / \`build\`.
 - **Astro:** the \`@wuchale/astro/integration\` is wired into
   \`apps/web/astro.config.mjs\`.
 - **Next.js, server, Electrobun, OpenTUI and WXT** have no bundler plugin.
-  Extraction works through \`i18n:extract\`; to transform sources for a build
-  without a plugin, run \`bunx wuchale --modify <adapter>\` on a clean working
-  tree (the command overwrites source files in place).
+  Extraction works through \`i18n:extract\`; to transform sources for a build,
+  run \`bunx wuchale --modify <adapter>\` on a clean working tree (the command
+  overwrites source files in place).
 - **Unsupported surfaces:** Nuxt and WXT Vue have no wuchale adapter, and Expo
   (native) has no wuchale counterpart — the compatibility matrix blocks those
   combinations with that reason.
@@ -42252,7 +42633,7 @@ import { Trans, useLingui } from "@lingui/react/macro";
 
 import { LOCALE_COOKIE, locales, type Locale } from "@{{projectName}}/i18n/config";
 import { createFormatters } from "@{{projectName}}/i18n/format";
-import { activateLocale } from "@{{projectName}}/i18n/runtime";
+import { loadCatalog } from "@{{projectName}}/i18n/runtime";
 
 /**
  * i18n demo: translated heading, interpolation, plural, currency, date and a
@@ -42290,7 +42671,12 @@ export function I18nDemo() {
             onChange={(event) => {
               const next = event.target.value as Locale;
               window.localStorage.setItem(LOCALE_COOKIE, next);
-              void activateLocale(next);
+              document.cookie = \`\${LOCALE_COOKIE}=\${next};path=/;max-age=31536000;samesite=lax\`;
+              void loadCatalog(next).then((messages) => {
+                i18n.load(next, messages);
+                i18n.activate(next);
+                document.documentElement.lang = next;
+              });
             }}
           >
             {locales.map((value) => (
@@ -42307,30 +42693,70 @@ export function I18nDemo() {
 `],
   ["i18n/surface/lingui/next/src/components/i18n-provider.tsx.hbs", `"use client";
 
-import { useEffect, type ReactNode } from "react";
 import { I18nProvider as LinguiI18nProvider } from "@lingui/react";
+import { setupI18n, type Messages } from "@lingui/core";
+import { useState, type ReactNode } from "react";
 
-import { LOCALE_COOKIE } from "@{{projectName}}/i18n/config";
-import { i18n, initializeLocale } from "@{{projectName}}/i18n/runtime";
+import type { Locale } from "@{{projectName}}/i18n/config";
 
 /**
- * Surface glue: activates the negotiated locale (stored choice → browser
- * preference → source locale) and provides the shared \`i18n\` instance to the
- * \`@lingui/react\` macros. Wrap the app root with it once; \`<Trans>\` and the
- * \`t\` macro read this provider.
+ * Surface glue: provides one \`@lingui/react\` instance to the client tree,
+ * seeded with the catalog the server already negotiated (see
+ * \`i18n-server-provider.tsx\`). The store is created during the initial render
+ * on both the server and the client, so the SSR HTML and hydration share the
+ * same locale and messages. \`<Trans>\` and the \`t\` macro read this provider.
  */
-export function I18nProvider({ children }: { children: ReactNode }) {
-  useEffect(() => {
-    const stored = window.localStorage.getItem(LOCALE_COOKIE);
-    void initializeLocale({
-      stored: stored ?? undefined,
-      acceptLanguage: typeof navigator === "undefined" ? undefined : navigator.languages.join(","),
-    }).then((locale) => {
-      document.documentElement.lang = locale;
-    });
-  }, []);
+export function I18nProvider({
+  children,
+  initialLocale,
+  initialMessages,
+}: {
+  children: ReactNode;
+  initialLocale: Locale;
+  initialMessages: Messages;
+}) {
+  const [i18n] = useState(() =>
+    setupI18n({ locale: initialLocale, messages: { [initialLocale]: initialMessages } }),
+  );
 
   return <LinguiI18nProvider i18n={i18n}>{children}</LinguiI18nProvider>;
+}
+`],
+  ["i18n/surface/lingui/next/src/components/i18n-server-provider.tsx.hbs", `import { setI18n } from "@lingui/react/server";
+import { setupI18n as createI18n } from "@lingui/core";
+import { cookies, headers } from "next/headers";
+import type { ReactNode } from "react";
+
+import { LOCALE_COOKIE, LOCALE_HEADER, negotiateLocale } from "@{{projectName}}/i18n/config";
+import { loadCatalog } from "@{{projectName}}/i18n/runtime";
+
+import { I18nProvider } from "./i18n-provider";
+
+/**
+ * Server component placed at the app root. It negotiates the locale from the
+ * request (\`x-app-locale\` → \`locale\` cookie → \`Accept-Language\` → the source
+ * locale), loads that catalog, then hands the same messages to React Server
+ * Components (\`setI18n\`) and to the client provider. Rendering on the server in
+ * the negotiated locale keeps SSR HTML and hydration consistent; the
+ * \`useEffect\`-only path used to leave server output in the source locale (D4).
+ */
+export async function I18nServerProvider({ children }: { children: ReactNode }) {
+  const [cookieStore, headerStore] = await Promise.all([cookies(), headers()]);
+
+  const locale = negotiateLocale({
+    header: headerStore.get(LOCALE_HEADER) ?? undefined,
+    cookie: cookieStore.get(LOCALE_COOKIE)?.value,
+    acceptLanguage: headerStore.get("accept-language") ?? undefined,
+  });
+
+  const messages = await loadCatalog(locale);
+  setI18n(createI18n({ locale, messages: { [locale]: messages } }));
+
+  return (
+    <I18nProvider initialLocale={locale} initialMessages={messages}>
+      {children}
+    </I18nProvider>
+  );
 }
 `],
   ["i18n/surface/lingui/nuxt/app/components/I18nDemo.vue.hbs", `<script setup lang="ts">
@@ -46629,4 +47055,4 @@ export default function Success() {
 `]
 ]);
 
-export const TEMPLATE_COUNT = 755;
+export const TEMPLATE_COUNT = 757;

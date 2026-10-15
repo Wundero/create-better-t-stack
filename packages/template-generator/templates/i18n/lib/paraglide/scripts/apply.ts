@@ -24,12 +24,18 @@ import {
   resolveFromScript,
   writeCatalog,
 } from "../src/catalogs";
-import { compareMessages } from "../src/icu";
+import {
+  buildComplexMessage,
+  compareCatalogMessages,
+  isComplexMessage,
+  type CatalogMessage,
+} from "../src/complex";
 
 interface ApplyItem {
   readonly id: string;
   readonly locale: string;
-  readonly translation: string;
+  readonly translation?: string;
+  readonly translations?: readonly string[];
 }
 
 interface RejectedItem {
@@ -62,16 +68,16 @@ export async function runApply(argv: readonly string[] = process.argv.slice(2)):
   const packageRoot = resolveFromScript(import.meta.url);
   const { sourceLocale, locales, source } = await loadCatalogs(packageRoot);
 
-  const pending = new Map<string, Map<string, string>>();
+  const pending = new Map<string, Map<string, CatalogMessage>>();
   const rejected: RejectedItem[] = [];
   let applied = 0;
 
   for (const item of rawItems) {
-    if (!item || !item.id || !item.locale || !item.translation) {
+    if (!item || !item.id || !item.locale) {
       rejected.push({
         id: item?.id ?? "?",
         locale: item?.locale ?? "?",
-        reason: "items need non-empty id, locale and translation strings",
+        reason: "items need a non-empty id and locale",
       });
       continue;
     }
@@ -103,7 +109,30 @@ export async function runApply(argv: readonly string[] = process.argv.slice(2)):
       continue;
     }
 
-    const comparison = compareMessages(sourceMessage, item.translation);
+    let target: CatalogMessage;
+    if (isComplexMessage(sourceMessage)) {
+      if (!Array.isArray(item.translations) || item.translations.length === 0) {
+        rejected.push({
+          id: item.id,
+          locale: item.locale,
+          reason: "a plural item needs one `translations` entry per plural form",
+        });
+        continue;
+      }
+      target = buildComplexMessage(sourceMessage, item.locale, item.translations);
+    } else {
+      if (item.translation === undefined || item.translation.length === 0) {
+        rejected.push({
+          id: item.id,
+          locale: item.locale,
+          reason: "the item needs a non-empty `translation` string",
+        });
+        continue;
+      }
+      target = item.translation;
+    }
+
+    const comparison = compareCatalogMessages(sourceMessage, target);
     if (!comparison.ok) {
       rejected.push({ id: item.id, locale: item.locale, reason: comparison.error });
       continue;
@@ -114,7 +143,7 @@ export async function runApply(argv: readonly string[] = process.argv.slice(2)):
       localeUpdates = new Map();
       pending.set(item.locale, localeUpdates);
     }
-    localeUpdates.set(item.id, item.translation);
+    localeUpdates.set(item.id, target);
     applied += 1;
   }
 

@@ -26,6 +26,12 @@ const BINARY_EXTENSIONS = new Set([
   ".zip",
 ]);
 
+interface PluralMatch {
+  declarations: string[];
+  selectors: string[];
+  match: Record<string, string>;
+}
+
 function loadTemplates(): TemplateData {
   const root = path.join(import.meta.dir, "..", "templates");
   const templates: TemplateData = new Map();
@@ -107,12 +113,17 @@ describe("paraglide shared package", () => {
     expect(config).toContain('cookieName: "locale"');
 
     for (const locale of ["en", "es", "fr"]) {
-      const catalog = readJson<Record<string, string>>(
+      const catalog = readJson<Record<string, string | PluralMatch[]>>(
         vfs,
         `packages/i18n/messages/${locale}.json`,
       );
       expect(catalog.i18n_demo_heading).toBeString();
-      expect(catalog.i18n_demo_plural).toContain("plural");
+      // The plural is an inlang complex message (message-format has no ICU
+      // inline plurals), not an ICU `{count, plural, …}` string.
+      const plural = catalog.i18n_demo_plural as PluralMatch[];
+      expect(Array.isArray(plural)).toBe(true);
+      expect(plural[0]?.selectors).toEqual(["countPlural"]);
+      expect(Object.keys(plural[0]?.match ?? {})).toEqual(["countPlural=one", "countPlural=other"]);
     }
 
     expect(vfs.readFile("packages/i18n/src/runtime.ts")).toContain("./paraglide/messages.js");

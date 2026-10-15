@@ -79,6 +79,27 @@ const NEXT_PROVIDERS = [
   "",
 ].join("\n");
 
+const NEXT_LAYOUT = [
+  'import Providers from "@/components/providers";',
+  'import Header from "@/components/header";',
+  "",
+  "export default function RootLayout({ children }: { children: React.ReactNode }) {",
+  "  return (",
+  '    <html lang="en">',
+  "      <body>",
+  "        <Providers>",
+  '          <div className="grid grid-rows-[auto_1fr] h-svh">',
+  "            <Header />",
+  "            {children}",
+  "          </div>",
+  "        </Providers>",
+  "      </body>",
+  "    </html>",
+  "  );",
+  "}",
+  "",
+].join("\n");
+
 const NEXT_PAGE = [
   '"use client"',
   "",
@@ -101,6 +122,7 @@ describe("getLinguiDeps on Next + server (self)", () => {
     "apps/web/package.json": packageJson("web"),
     "apps/web/next.config.ts": NEXT_CONFIG,
     "apps/web/src/components/providers.tsx": NEXT_PROVIDERS,
+    "apps/web/src/app/layout.tsx": NEXT_LAYOUT,
     "apps/web/src/app/page.tsx": NEXT_PAGE,
   });
   getLinguiDeps(vfs, baseConfig());
@@ -125,11 +147,18 @@ describe("getLinguiDeps on Next + server (self)", () => {
     );
   });
 
-  test("wraps the provider root and renders the demo on the home page", () => {
+  test("wraps the Next root layout with the server provider and renders the demo", () => {
+    const layout = vfs.readFile("apps/web/src/app/layout.tsx") ?? "";
+    expect(layout).toContain(
+      'import { I18nServerProvider } from "@/components/i18n-server-provider";',
+    );
+    expect(layout).toContain("<I18nServerProvider>");
+    expect(layout).toContain("</I18nServerProvider>");
+
+    // The client `providers.tsx` is a client component; SSR-safe activation
+    // lives in the layout's server component instead.
     const providers = vfs.readFile("apps/web/src/components/providers.tsx") ?? "";
-    expect(providers).toContain('import { I18nProvider } from "@/components/i18n-provider";');
-    expect(providers).toContain("<I18nProvider>");
-    expect(providers).toContain("</I18nProvider>");
+    expect(providers).not.toContain("I18nProvider");
 
     const page = vfs.readFile("apps/web/src/app/page.tsx") ?? "";
     expect(page).toContain('import { I18nDemo } from "@/components/i18n-demo";');

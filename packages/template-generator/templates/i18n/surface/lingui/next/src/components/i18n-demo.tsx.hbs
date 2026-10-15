@@ -5,7 +5,7 @@ import { Trans, useLingui } from "@lingui/react/macro";
 
 import { LOCALE_COOKIE, locales, type Locale } from "@{{projectName}}/i18n/config";
 import { createFormatters } from "@{{projectName}}/i18n/format";
-import { activateLocale } from "@{{projectName}}/i18n/runtime";
+import { loadCatalog } from "@{{projectName}}/i18n/runtime";
 
 /**
  * i18n demo: translated heading, interpolation, plural, currency, date and a
@@ -43,7 +43,12 @@ export function I18nDemo() {
             onChange={(event) => {
               const next = event.target.value as Locale;
               window.localStorage.setItem(LOCALE_COOKIE, next);
-              void activateLocale(next);
+              document.cookie = `${LOCALE_COOKIE}=${next};path=/;max-age=31536000;samesite=lax`;
+              void loadCatalog(next).then((messages) => {
+                i18n.load(next, messages);
+                i18n.activate(next);
+                document.documentElement.lang = next;
+              });
             }}
           >
             {locales.map((value) => (

@@ -2,7 +2,16 @@
   "$schema": "https://inlang.com/schema/inlang-message-format",
   "i18n_demo_heading": "Démonstration d'internationalisation",
   "i18n_demo_interpolation": "Bonjour {name}, votre stack est prêt.",
-  "i18n_demo_plural": "{count, plural, one {# message traduit} other {# messages traduits}}",
+  "i18n_demo_plural": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} message traduit",
+        "countPlural=other": "{count} messages traduits"
+      }
+    }
+  ],
   "i18n_demo_currency_label": "Coût mensuel estimé",
   "i18n_demo_date_label": "Généré le"
 }

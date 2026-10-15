@@ -1042,6 +1042,8 @@ const buildSamples: BuildSample[] = [
   },
   {
     name: "i18n-solid-wuchale",
+    deferral:
+      "wuchale's Vite plugin crashes under Vite 8 (wuchale#484, fix unmerged and no released version; 0.26.7 is latest). The plugin is no longer wired, so the Solid app builds but no longer transforms sources; rendering a target-locale translation needs the upstream fix or a `bunx wuchale --modify web` build step. Human/product decision required.",
     config: {
       ...baseConfig,
       frontend: ["solid"],

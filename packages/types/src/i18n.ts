@@ -143,6 +143,9 @@ export interface I18nSupportCell {
 
 export type I18nSupportMatrix = Record<I18nLibrary, Record<I18nSurface, I18nSupportCell>>;
 
+const WUCHALE_VITE_NOTE =
+  "The wuchale Vite plugin crashes under Vite 8 (wuchale#484, no released fix); the app builds through the wuchale CLI instead.";
+
 export const I18N_SUPPORT = {
   lingui: {
     next: { level: "native", note: "Uses the SWC plugin and React Server Components." },
@@ -214,13 +217,16 @@ export const I18N_SUPPORT = {
     "wxt-svelte": { level: "adapter" },
   },
   wuchale: {
-    next: { level: "native" },
-    "tanstack-start": { level: "adapter" },
-    "tanstack-router": { level: "adapter" },
-    "react-router": { level: "adapter" },
+    next: {
+      level: "adapter",
+      note: "No Next bundler plugin; extraction, compilation and `wuchale --modify` run through the CLI.",
+    },
+    "tanstack-start": { level: "partial", note: WUCHALE_VITE_NOTE },
+    "tanstack-router": { level: "partial", note: WUCHALE_VITE_NOTE },
+    "react-router": { level: "partial", note: WUCHALE_VITE_NOTE },
     nuxt: { level: "unsupported", note: "No Vue adapter." },
-    svelte: { level: "native" },
-    solid: { level: "native" },
+    svelte: { level: "partial", note: WUCHALE_VITE_NOTE },
+    solid: { level: "partial", note: WUCHALE_VITE_NOTE },
     astro: { level: "native" },
     native: { level: "unsupported", note: "No Metro integration." },
     server: { level: "adapter" },
@@ -230,10 +236,19 @@ export const I18N_SUPPORT = {
     "opentui-react": { level: "partial", note: "Unverified with the OpenTUI reconciler." },
     "opentui-solid": { level: "partial", note: "Unverified with the OpenTUI reconciler." },
     "wxt-vanilla": { level: "adapter" },
-    "wxt-react": { level: "native" },
-    "wxt-solid": { level: "native" },
+    "wxt-react": {
+      level: "adapter",
+      note: "No WXT bundler hook; extraction and transforms run through the CLI.",
+    },
+    "wxt-solid": {
+      level: "adapter",
+      note: "No WXT bundler hook; extraction and transforms run through the CLI.",
+    },
     "wxt-vue": { level: "unsupported", note: "No Vue adapter." },
-    "wxt-svelte": { level: "native" },
+    "wxt-svelte": {
+      level: "adapter",
+      note: "No WXT bundler hook; extraction and transforms run through the CLI.",
+    },
   },
 } as const satisfies I18nSupportMatrix;
 

@@ -406,11 +406,10 @@ function patchNativeConfig(vfs: VirtualFileSystem): void {
 }
 
 function wrapReactRoots(vfs: VirtualFileSystem): void {
-  const themeProviderRoots = [
-    "apps/web/src/components/providers.tsx",
-    "apps/web/src/routes/__root.tsx",
-    "apps/web/src/root.tsx",
-  ];
+  // Next.js gets a server component around `<Providers>` (see `patchNextLayout`)
+  // so the negotiated locale is active during SSR; the other React surfaces are
+  // (or render) client roots and keep the client provider.
+  const themeProviderRoots = ["apps/web/src/routes/__root.tsx", "apps/web/src/root.tsx"];
 
   for (const file of themeProviderRoots) {
     patch(vfs, file, (content) => {
@@ -450,6 +449,26 @@ function wrapReactRoots(vfs: VirtualFileSystem): void {
     return appendAfterLastImport(
       wrapped,
       'import { I18nProvider } from "~/components/i18n-provider";',
+    );
+  });
+
+  patchNextLayout(vfs);
+}
+
+/**
+ * The Next App Router root is a server component. `I18nServerProvider` reads
+ * the request locale (`x-app-locale` → cookie → `Accept-Language`) and seeds
+ * both the React Server Components (`setI18n`) and the client provider, so the
+ * SSR HTML and hydration use the negotiated locale instead of the initial
+ * client-only `useEffect` activation.
+ */
+function patchNextLayout(vfs: VirtualFileSystem): void {
+  patch(vfs, "apps/web/src/app/layout.tsx", (content) => {
+    const wrapped = wrapElement(content, /<Providers\b[^>]*>/s, "Providers", "I18nServerProvider");
+    if (!wrapped) return undefined;
+    return appendAfterLastImport(
+      wrapped,
+      'import { I18nServerProvider } from "@/components/i18n-server-provider";',
     );
   });
 }

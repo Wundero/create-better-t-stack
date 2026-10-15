@@ -33,7 +33,7 @@ const CONFIG_FILE_PATTERN =
  * editing the wrong place.
  */
 const REQUIRED_ROOT_FILES = new Map<I18nSurface, readonly string[]>([
-  ["next", ["apps/web/src/components/providers.tsx"]],
+  ["next", ["apps/web/src/app/layout.tsx"]],
   ["tanstack-start", ["apps/web/src/routes/__root.tsx"]],
   ["tanstack-router", ["apps/web/src/routes/__root.tsx"]],
   ["react-router", ["apps/web/src/root.tsx"]],
@@ -82,13 +82,13 @@ function classifyWrite(write: RetrofitWrite): RetrofitEdit | RetrofitSkipped {
 }
 
 function manualSnippet(filePath: string, library: I18nLibrary): string {
-  if (filePath === "apps/web/src/components/providers.tsx" && library === "lingui") {
+  if (filePath === "apps/web/src/app/layout.tsx" && library === "lingui") {
     return [
-      'import { I18nProvider } from "@/components/i18n-provider";',
+      'import { I18nServerProvider } from "@/components/i18n-server-provider";',
       "",
-      "<I18nProvider>",
-      "  {/* existing ThemeProvider subtree */}",
-      "</I18nProvider>",
+      "<I18nServerProvider>",
+      "  {/* existing <Providers> subtree */}",
+      "</I18nServerProvider>",
     ].join("\n");
   }
   return [

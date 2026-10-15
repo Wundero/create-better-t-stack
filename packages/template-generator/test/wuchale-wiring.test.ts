@@ -185,37 +185,28 @@ describe("wuchale dependencies", () => {
     expect(serverPackage?.dependencies?.["wuchale"]).toBe("0.26.7");
   });
 
-  test("wires the wuchale Vite plugin into the web app exactly once", () => {
-    const vfs = new VirtualFileSystem();
-    vfs.writeJson("packages/i18n/package.json", { name: "@demo/i18n", scripts: {} });
-    vfs.writeJson("apps/web/package.json", { name: "web", scripts: {} });
-    vfs.writeFile(
-      "apps/web/vite.config.ts",
-      `import { defineConfig } from "vite";\n\nexport default defineConfig({\n  plugins: [tailwindcss()],\n});\n`,
-    );
+  test("does not wire the crashing wuchale Vite plugin into any Vite frontend", () => {
+    const viteFrontends = [
+      "svelte",
+      "solid",
+      "tanstack-start",
+      "tanstack-router",
+      "react-router",
+    ] as const;
 
-    getWuchaleDeps(vfs, baseConfig());
-    getWuchaleDeps(vfs, baseConfig());
+    for (const frontend of viteFrontends) {
+      const vfs = new VirtualFileSystem();
+      vfs.writeJson("packages/i18n/package.json", { name: "@demo/i18n", scripts: {} });
+      vfs.writeJson("apps/web/package.json", { name: "web", scripts: {} });
+      const baseline = `import { defineConfig } from "vite";\n\nexport default defineConfig({\n  plugins: [tailwindcss()],\n});\n`;
+      vfs.writeFile("apps/web/vite.config.ts", baseline);
 
-    const updated = vfs.readFile("apps/web/vite.config.ts") ?? "";
-    expect(updated).toContain('import { wuchale } from "wuchale/vite";');
-    expect(updated.match(/wuchale\(\{ configPath/g)).toHaveLength(1);
-    expect(updated).toContain('configPath: "../../packages/i18n/wuchale.config.mjs"');
-  });
+      getWuchaleDeps(vfs, baseConfig({ frontend: [frontend] }));
+      getWuchaleDeps(vfs, baseConfig({ frontend: [frontend] }));
 
-  test("wires the plugin inside a react-router arrow-function config", () => {
-    const vfs = new VirtualFileSystem();
-    vfs.writeJson("packages/i18n/package.json", { name: "@demo/i18n", scripts: {} });
-    vfs.writeJson("apps/web/package.json", { name: "web", scripts: {} });
-    vfs.writeFile(
-      "apps/web/vite.config.ts",
-      `import { defineConfig } from "vite";\n\nexport default defineConfig(({ command }) => ({\n  plugins: [tailwindcss()],\n}));\n`,
-    );
-
-    getWuchaleDeps(vfs, baseConfig({ frontend: ["react-router"] }));
-
-    const updated = vfs.readFile("apps/web/vite.config.ts") ?? "";
-    expect(updated).toContain("wuchale({ configPath");
+      // wuchale#484: the plugin races `buildStart` and crashes under Vite 8.
+      expect(vfs.readFile("apps/web/vite.config.ts"), frontend).toBe(baseline);
+    }
   });
 
   test("does not wire the Vite plugin for Next.js", () => {

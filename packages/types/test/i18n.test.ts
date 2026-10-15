@@ -107,6 +107,26 @@ describe("I18N_SUPPORT matrix", () => {
       }
     }
   });
+
+  test("softens wuchale cells that have no bundler integration", () => {
+    // No Next/WXT bundler hook: extraction and transforms go through the CLI.
+    expect(I18N_SUPPORT.wuchale.next.level).toBe("adapter");
+    for (const surface of ["wxt-react", "wxt-solid", "wxt-svelte"] as const) {
+      expect(I18N_SUPPORT.wuchale[surface].level).toBe("adapter");
+    }
+
+    // wuchale#484: the Vite plugin crashes under Vite 8, so these are partial.
+    for (const surface of [
+      "tanstack-start",
+      "tanstack-router",
+      "react-router",
+      "svelte",
+      "solid",
+    ] as const) {
+      expect(I18N_SUPPORT.wuchale[surface].level).toBe("partial");
+      expect(I18N_SUPPORT.wuchale[surface].note).toContain("Vite 8");
+    }
+  });
 });
 
 describe("I18N_LIBRARY_META", () => {
