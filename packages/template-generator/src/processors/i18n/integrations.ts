@@ -120,23 +120,6 @@ const INTL_POLYFILL_PACKAGES = [
   "@formatjs/intl-displaynames",
 ] as const;
 
-/**
- * Versions for integration dependencies that Phase 0 did not seed in
- * `dependencyVersionMap`. Reported as an out-of-scope need in the L7 lane
- * report; `dependencyVersionMap` stays the orchestrator's file.
- */
-const UNSEEDED_DEPENDENCY_VERSIONS = {
-  "expo-localization": "~57.0.2",
-  "@formatjs/intl-getcanonicallocales": "^3.2.12",
-  "@formatjs/intl-locale": "^5.3.12",
-  "@formatjs/intl-pluralrules": "^6.3.15",
-  "@formatjs/intl-numberformat": "^9.4.3",
-  "@formatjs/intl-datetimeformat": "^7.8.1",
-  "@formatjs/intl-relativetimeformat": "^12.3.15",
-  "@formatjs/intl-listformat": "^8.3.15",
-  "@formatjs/intl-displaynames": "^7.3.15",
-} as const satisfies Record<string, string>;
-
 // --- generic helpers ---------------------------------------------------------
 
 interface IntegrationContext {
@@ -176,19 +159,6 @@ function addSeededDependency(
 ): void {
   if (!vfs.exists(packagePath)) return;
   addPackageDependency({ vfs, packagePath, dependencies, devDependencies });
-}
-
-function addCustomDependency(
-  vfs: VirtualFileSystem,
-  packagePath: string,
-  name: keyof typeof UNSEEDED_DEPENDENCY_VERSIONS,
-): void {
-  if (!vfs.exists(packagePath)) return;
-  addPackageDependency({
-    vfs,
-    packagePath,
-    customDependencies: { [name]: UNSEEDED_DEPENDENCY_VERSIONS[name] },
-  });
 }
 
 function addWorkspaceDependency(
@@ -957,14 +927,14 @@ function intlPolyfillsContent(config: ProjectConfig): string {
     " * formatters (`createFormatters`), `negotiateLocale` and `getTextDirection`,",
     " * with locale data for every configured language.",
     " */",
-    'import "@formatjs/intl-getcanonicallocales/polyfill";',
-    'import "@formatjs/intl-locale/polyfill";',
-    'import "@formatjs/intl-pluralrules/polyfill";',
-    'import "@formatjs/intl-numberformat/polyfill";',
-    'import "@formatjs/intl-datetimeformat/polyfill";',
-    'import "@formatjs/intl-relativetimeformat/polyfill";',
-    'import "@formatjs/intl-listformat/polyfill";',
-    'import "@formatjs/intl-displaynames/polyfill";',
+    'import "@formatjs/intl-getcanonicallocales/polyfill.js";',
+    'import "@formatjs/intl-locale/polyfill.js";',
+    'import "@formatjs/intl-pluralrules/polyfill.js";',
+    'import "@formatjs/intl-numberformat/polyfill.js";',
+    'import "@formatjs/intl-datetimeformat/polyfill.js";',
+    'import "@formatjs/intl-relativetimeformat/polyfill.js";',
+    'import "@formatjs/intl-listformat/polyfill.js";',
+    'import "@formatjs/intl-displaynames/polyfill.js";',
     localeData,
     "",
   ].join("\n");
@@ -1046,9 +1016,10 @@ function patchNativeDeviceLocale(vfs: VirtualFileSystem, config: ProjectConfig):
 
 function processExpo(ctx: IntegrationContext): void {
   const { vfs, config } = ctx;
-  for (const dependency of [...INTL_POLYFILL_PACKAGES, "expo-localization"] as const) {
-    addCustomDependency(vfs, "apps/native/package.json", dependency);
-  }
+  addSeededDependency(vfs, "apps/native/package.json", [
+    ...INTL_POLYFILL_PACKAGES,
+    "expo-localization",
+  ]);
   patchNativeIntlEntry(vfs);
   patchNativeDeviceLocale(vfs, config);
 }

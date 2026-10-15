@@ -19,7 +19,7 @@ const configuredLocales = new Set<string>();
  * `z.config` must stay untouched — translate issues at the boundary instead).
  */
 export async function applyZodLocale(locale: string): Promise<boolean> {
-  if (typeof window === "undefined") return false;
+  if ((globalThis as { window?: unknown }).window === undefined) return false;
   const exportName = zodLocaleExportName(locale);
   if (exportName === undefined) return false;
   if (configuredLocales.has(exportName)) return true;
