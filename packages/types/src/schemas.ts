@@ -104,6 +104,41 @@ export const AuthSchema = z
 
 export const PaymentsSchema = z.enum(["polar", "none"]).describe("Payments provider");
 
+export const I18N_LIBRARY_VALUES = ["lingui", "paraglide", "i18next", "wuchale"] as const;
+
+export const I18N_VALUES = [...I18N_LIBRARY_VALUES, "none"] as const;
+
+export const I18nSchema = z.enum(I18N_VALUES).describe("Internationalization library");
+
+export const I18nRoutingStrategySchema = z
+  .enum(["cookie", "prefix", "domain"])
+  .describe("Locale routing strategy");
+
+export const I18nOptionsSchema = z
+  .strictObject({
+    sourceLocale: z
+      .string()
+      .default("en")
+      .describe("Canonical BCP-47 source locale; must be included in locales"),
+    locales: z
+      .array(z.string())
+      .default(["en", "es", "fr"])
+      .describe("Configured locales; must include the source locale"),
+    routing: z
+      .strictObject({
+        strategy: I18nRoutingStrategySchema.default("cookie"),
+        prefixDefaultLocale: z.boolean().default(false).describe("Prefix the source locale too"),
+        domains: z
+          .record(z.string(), z.string())
+          .optional()
+          .describe("Locale to host mapping; only for the domain strategy"),
+      })
+      .optional()
+      .describe("Locale routing configuration"),
+    translateSkill: z.boolean().default(true).describe("Generate the i18n-translate agent skill"),
+  })
+  .describe("Internationalization options");
+
 export const WebDeploySchema = z
   .enum(["cloudflare", "prisma", "docker", "vercel", "none"])
   .describe("Web deployment");
@@ -507,6 +542,8 @@ export const CreateInputSchema = z
     orm: ORMSchema.optional(),
     auth: AuthSchema.optional(),
     payments: PaymentsSchema.optional(),
+    i18n: I18nSchema.optional(),
+    i18nOptions: I18nOptionsSchema.optional(),
     frontend: z.array(FrontendSchema).optional(),
     addons: AddonsListSchema.optional(),
     examples: z.array(ExamplesSchema).optional(),
@@ -545,7 +582,10 @@ export const AddInputSchema = z
   .object({
     addons: AddonsListSchema.optional(),
     package: WorkspacePackageNameSchema.optional(),
+    envValidation: z.boolean().optional(),
     addonOptions: AddonOptionsSchema.optional(),
+    i18n: I18nSchema.optional(),
+    i18nOptions: I18nOptionsSchema.optional(),
     webDeploy: WebDeploySchema.optional(),
     serverDeploy: ServerDeploySchema.optional(),
     projectDir: z.string().optional(),
@@ -555,6 +595,128 @@ export const AddInputSchema = z
     disableAnalytics: z.boolean().optional(),
   })
   .strict();
+
+export const AppKindSchema = z
+  .enum(["frontend", "backend", "mobile"])
+  .describe("Kind of app to generate");
+
+export const AppNameSchema = z
+  .string()
+  .min(1, "App name cannot be empty")
+  .max(64, "App name must not exceed 64 characters")
+  .regex(/^[a-z0-9](?:[a-z0-9._-]*[a-z0-9])?$/, "App name must be an unscoped lowercase npm name")
+  .refine((name) => name !== "node_modules", "App name is reserved")
+  .describe("Name of an app to scaffold");
+
+export const ScaffoldPackageInputSchema = z
+  .strictObject({
+    name: WorkspacePackageNameSchema,
+    envValidation: z.boolean().optional().describe("Set up env var validation with varlock"),
+    projectDir: z.string().optional(),
+    install: z.boolean().optional(),
+    dryRun: z.boolean().optional(),
+    packageManager: PackageManagerSchema.optional(),
+    disableAnalytics: z.boolean().optional(),
+  })
+  .describe("Input for scaffolding a workspace package");
+
+const NATIVE_FRONTENDS: ReadonlySet<z.infer<typeof FrontendSchema>> = new Set([
+  "native-bare",
+  "native-uniwind",
+  "native-unistyles",
+]);
+
+const UNGENERATABLE_BACKENDS: ReadonlySet<z.infer<typeof BackendSchema>> = new Set([
+  "none",
+  "self",
+  "convex",
+]);
+
+const ScaffoldAppInputBaseSchema = z.strictObject({
+  kind: AppKindSchema,
+  name: AppNameSchema,
+  frontend: FrontendSchema.optional().describe("Frontend framework for the app"),
+  backend: BackendSchema.optional().describe("Backend framework for the app"),
+  projectDir: z.string().optional(),
+  install: z.boolean().optional(),
+  dryRun: z.boolean().optional(),
+  packageManager: PackageManagerSchema.optional(),
+  disableAnalytics: z.boolean().optional(),
+});
+
+export const ScaffoldAppInputSchema = ScaffoldAppInputBaseSchema.superRefine((input, ctx) => {
+  const hasNativeFrontend = input.frontend !== undefined && NATIVE_FRONTENDS.has(input.frontend);
+  const hasWebFrontend =
+    input.frontend !== undefined && input.frontend !== "none" && !hasNativeFrontend;
+
+  if (input.backend !== undefined && input.kind !== "backend") {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["backend"],
+      message: `\`backend\` is not allowed when \`kind\` is "${input.kind}"`,
+    });
+  }
+
+  if (input.kind === "frontend") {
+    if (input.frontend === undefined) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["frontend"],
+        message: '`frontend` is required when `kind` is "frontend"',
+      });
+    } else if (!hasWebFrontend) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["frontend"],
+        message: '`frontend` must be a web frontend when `kind` is "frontend"',
+      });
+    }
+    return;
+  }
+
+  if (input.kind === "backend") {
+    if (input.backend === undefined) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["backend"],
+        message: '`backend` is required when `kind` is "backend"',
+      });
+    } else if (UNGENERATABLE_BACKENDS.has(input.backend)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["backend"],
+        message:
+          '`backend` must be "hono", "express", "fastify", or "elysia" when `kind` is "backend"',
+      });
+    }
+    return;
+  }
+
+  if (input.frontend === undefined) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["frontend"],
+      message: '`frontend` is required when `kind` is "mobile"',
+    });
+  } else if (!hasNativeFrontend) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["frontend"],
+      message: '`frontend` must be a native frontend when `kind` is "mobile"',
+    });
+  }
+});
+
+/**
+ * Refinement-free partial of `ScaffoldAppInputSchema` for surfaces that collect
+ * fields incrementally (CLI flags, interactive filling) and validate later.
+ */
+export const ScaffoldAppInputPartialSchema = ScaffoldAppInputBaseSchema.partial();
+
+export const GenerateInputSchema = z.discriminatedUnion("target", [
+  ScaffoldPackageInputSchema.extend({ target: z.literal("package") }),
+  ScaffoldAppInputSchema.extend({ target: z.literal("app") }),
+]);
 
 export const CLIInputSchema = CreateInputSchema.safeExtend({
   projectDirectory: z.string().optional(),
@@ -575,6 +737,8 @@ export const ProjectConfigSchema = z.object({
   examples: z.array(ExamplesSchema),
   auth: AuthSchema,
   payments: PaymentsSchema,
+  i18n: I18nSchema.default("none"),
+  i18nOptions: I18nOptionsSchema.optional(),
   git: z.boolean(),
   packageManager: PackageManagerSchema,
   install: z.boolean(),
@@ -599,6 +763,8 @@ export const BetterTStackConfigSchema = z.object({
   examples: z.array(ExamplesSchema),
   auth: AuthSchema,
   payments: PaymentsSchema,
+  i18n: I18nSchema.default("none"),
+  i18nOptions: I18nOptionsSchema.optional(),
   packageManager: PackageManagerSchema,
   dbSetup: DatabaseSetupSchema,
   api: APISchema,
@@ -640,6 +806,7 @@ export const DATABASE_SETUP_VALUES = DatabaseSetupSchema.options;
 export const API_VALUES = APISchema.options;
 export const AUTH_VALUES = AuthSchema.options;
 export const PAYMENTS_VALUES = PaymentsSchema.options;
+export const I18N_ROUTING_STRATEGY_VALUES = I18nRoutingStrategySchema.options;
 export const WEB_DEPLOY_VALUES = WebDeploySchema.options;
 export const SERVER_DEPLOY_VALUES = ServerDeploySchema.options;
 export const DIRECTORY_CONFLICT_VALUES = DirectoryConflictSchema.options;

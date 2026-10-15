@@ -1,4 +1,4 @@
-import { ProjectConfigSchema } from "@better-t-stack/types";
+import { I18nOptionsSchema, ProjectConfigSchema } from "@better-t-stack/types";
 import { z } from "zod";
 
 import { DEFAULT_STACK, TECH_OPTIONS, getStackOptionIds, type StackState } from "./constant";
@@ -19,6 +19,8 @@ const stackFields = {
   dbSetup: option("dbSetup"),
   auth: option("auth"),
   payments: option("payments"),
+  i18n: option("i18n"),
+  i18nOptions: I18nOptionsSchema,
   packageManager: option("packageManager"),
   addons: z.array(z.enum(["none", ...getStackOptionIds("addons")])),
   examples: z.array(z.enum(["none", ...getStackOptionIds("examples")])),
@@ -43,6 +45,8 @@ export const StackStateSchema = z.object({
   dbSetup: stackFields.dbSetup.default(DEFAULT_STACK.dbSetup),
   auth: stackFields.auth.default(DEFAULT_STACK.auth),
   payments: stackFields.payments.default(DEFAULT_STACK.payments),
+  i18n: stackFields.i18n.default(DEFAULT_STACK.i18n),
+  i18nOptions: stackFields.i18nOptions.optional(),
   packageManager: stackFields.packageManager.default(DEFAULT_STACK.packageManager),
   addons: stackFields.addons.default(DEFAULT_STACK.addons),
   examples: stackFields.examples.default(DEFAULT_STACK.examples),

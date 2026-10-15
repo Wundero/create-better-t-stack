@@ -1,0 +1,52 @@
+{{#if (includes frontend "next")}}"use client";
+
+{{/if}}import { useEffect, useState, type ComponentProps } from "react";
+{{#if (includes frontend "next")}}
+import { ClerkProvider } from "@clerk/nextjs";
+{{else if (includes frontend "tanstack-start")}}
+import { ClerkProvider } from "@clerk/tanstack-react-start";
+{{else if (includes frontend "react-router")}}
+import { ClerkProvider } from "@clerk/react-router";
+{{else}}
+import { ClerkProvider } from "@clerk/react";
+{{/if}}
+
+import { LOCALE_COOKIE, negotiateLocale } from "@{{projectName}}/i18n/config";
+import {
+  loadClerkLocalization,
+  type ClerkLocalization,
+} from "@{{projectName}}/i18n/integrations/clerk-client";
+
+type ClerkProviderProps = ComponentProps<typeof ClerkProvider>;
+
+/**
+ * Forwards every prop to `ClerkProvider` and lazily loads the `@clerk/localizations`
+ * bundle for the negotiated locale. The bundle is cached by the shared helper;
+ * locales without a Clerk translation fall back to English.
+ *
+ * Clerk marks localization experimental and the hosted Account Portal stays in
+ * English.
+ */
+export function ClerkLocalizationProvider({ children, ...props }: ClerkProviderProps) {
+  const [localization, setLocalization] = useState<ClerkLocalization>();
+
+  useEffect(() => {
+    const stored =
+      typeof window === "undefined"
+        ? undefined
+        : (window.localStorage.getItem(LOCALE_COOKIE) ?? undefined);
+    let cancelled = false;
+    void loadClerkLocalization(negotiateLocale({ stored })).then((next) => {
+      if (!cancelled && next !== undefined) setLocalization(next);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  return (
+    <ClerkProvider {...props} localization={localization}>
+      {children}
+    </ClerkProvider>
+  );
+}

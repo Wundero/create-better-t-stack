@@ -1,0 +1,51 @@
+---
+import { createFormatters, isLocale } from "@{{projectName}}/i18n";
+
+import * as m from "../paraglide/messages.js";
+import { getLocale, locales, setLocale } from "../paraglide/runtime.js";
+
+/**
+ * i18n demo: translated heading, interpolation, plural, currency, date and a
+ * locale switcher. Date and currency always come from the shared
+ * `createFormatters` bundle, never from the i18n library.
+ */
+const locale = getLocale();
+const formatters = createFormatters(locale);
+---
+
+<section class="rounded-lg border border-neutral-700 p-4">
+  <h2 class="mb-2 font-medium text-white">{m.i18n_demo_heading()}</h2>
+  <p class="text-sm text-neutral-400">{m.i18n_demo_interpolation({ name: "Better T Stack" })}</p>
+  <p class="text-sm text-neutral-400">{m.i18n_demo_plural({ count: 3 })}</p>
+  <dl class="mt-3 grid gap-1 text-sm">
+    <div class="flex gap-2">
+      <dt class="text-neutral-400">{m.i18n_demo_currency_label()}</dt>
+      <dd class="text-white">{formatters.currency(19.99, "EUR")}</dd>
+    </div>
+    <div class="flex gap-2">
+      <dt class="text-neutral-400">{m.i18n_demo_date_label()}</dt>
+      <dd class="text-white">{formatters.date(new Date("2024-05-01T00:00:00Z"))}</dd>
+    </div>
+  </dl>
+  <label class="mt-3 flex items-center gap-2 text-sm">
+    <span class="text-neutral-400">{formatters.displayName(locale)}</span>
+    <select id="i18n-demo-locale" class="rounded border border-neutral-700 bg-transparent px-2 py-1 text-white">
+      {locales.map((available) => (
+        <option value={available} selected={available === locale}>
+          {formatters.displayName(available) ?? available}
+        </option>
+      ))}
+    </select>
+  </label>
+</section>
+
+<script>
+  import { isLocale } from "@{{projectName}}/i18n";
+
+  import { setLocale } from "../paraglide/runtime.js";
+
+  const select = document.querySelector<HTMLSelectElement>("#i18n-demo-locale");
+  select?.addEventListener("change", () => {
+    if (select && isLocale(select.value)) void setLocale(select.value);
+  });
+</script>
