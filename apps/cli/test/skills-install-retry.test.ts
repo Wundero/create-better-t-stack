@@ -57,6 +57,7 @@ function createProjectConfig(overrides: Partial<ProjectConfig> = {}): ProjectCon
     serverDeploy: "none",
     emailRenderer: "none",
     emailDeploy: "none",
+    i18n: "none",
     ...overrides,
   };
 }

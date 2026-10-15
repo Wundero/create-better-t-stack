@@ -29,6 +29,7 @@ const baseConfig = {
   serverDeploy: "none",
   emailRenderer: "none",
   emailDeploy: "none",
+  i18n: "none",
 } satisfies ProjectConfig;
 
 afterEach(() => {

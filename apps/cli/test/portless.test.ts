@@ -27,6 +27,7 @@ function createConfig(portless: boolean, projectName = "portless-app"): ProjectC
     serverDeploy: "none",
     emailRenderer: "none",
     emailDeploy: "none",
+    i18n: "none",
     portless,
   };
 }

@@ -55,6 +55,8 @@ function projectConfig(overrides: Partial<ProjectConfig> = {}): ProjectConfig {
     examples: [],
     auth: "none",
     payments: "none",
+    emailRenderer: "none",
+    emailDeploy: "none",
     i18n: "none",
     git: false,
     packageManager: "bun",

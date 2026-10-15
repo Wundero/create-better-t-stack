@@ -121,13 +121,18 @@ const RTL_LANGUAGE_CODES: ReadonlySet<string> = new Set([
   "yi",
 ]);
 
+/** `Intl.Locale#getTextInfo` is newer than some generated `lib` targets; read it structurally. */
+interface LocaleWithTextInfo {
+  getTextInfo?(): { readonly direction?: string };
+}
+
 /**
  * Build-time twin of the generated `getTextDirection` (design D3): prefers
  * `Intl.Locale#getTextInfo` and falls back to the RTL language table.
  */
 export function getTextDirection(locale: string): TextDirection {
   try {
-    const { direction } = new Intl.Locale(locale).getTextInfo();
+    const direction = (new Intl.Locale(locale) as LocaleWithTextInfo).getTextInfo?.().direction;
     if (direction === "rtl" || direction === "ltr") return direction;
   } catch {
     // Invalid tag or a runtime without getTextInfo: use the fallback table.
