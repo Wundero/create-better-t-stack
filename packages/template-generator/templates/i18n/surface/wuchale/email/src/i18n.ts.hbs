@@ -1,0 +1,17 @@
+/**
+ * Email i18n glue (partial: wuchale's React Email render path is unverified by
+ * the compatibility matrix). Templates take the recipient's locale, use the
+ * shared `Intl` formatters and rely on the `email` adapter for extracted
+ * strings.
+ */
+
+import { createFormatters, type Locale } from "@{{projectName}}/i18n";
+
+export interface EmailI18n {
+  readonly locale: Locale;
+  readonly formatters: ReturnType<typeof createFormatters>;
+}
+
+export function createEmailI18n(locale: Locale): EmailI18n {
+  return { locale, formatters: createFormatters(locale) };
+}

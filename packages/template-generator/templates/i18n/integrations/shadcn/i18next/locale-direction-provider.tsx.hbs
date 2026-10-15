@@ -1,0 +1,30 @@
+"use client";
+
+import { useEffect, type ReactNode } from "react";
+import { useTranslation } from "react-i18next";
+
+import { isLocale, sourceLocale, type Locale } from "@{{projectName}}/i18n/config";
+import { getLocaleDirection } from "@{{projectName}}/i18n/integrations/shadcn-direction";
+import { DirectionProvider } from "@{{projectName}}/ui/components/direction";
+
+// Registers the react-i18next adapter on the shared instance before the
+// provider reads the active language.
+import "@/i18n";
+
+/**
+ * shadcn direction derived from the active locale: `getLocaleDirection`
+ * applies `getTextDirection` per locale and keeps an explicit `shadcn.rtl`
+ * winning for the source locale. Also keeps `<html dir>` in sync.
+ */
+export function LocaleDirectionProvider({ children }: { children: ReactNode }) {
+  const { i18n } = useTranslation();
+  const resolved = i18n.resolvedLanguage ?? "";
+  const locale: Locale = isLocale(resolved) ? resolved : sourceLocale;
+  const direction = getLocaleDirection(locale);
+
+  useEffect(() => {
+    document.documentElement.dir = direction;
+  }, [direction]);
+
+  return <DirectionProvider direction={direction}>{children}</DirectionProvider>;
+}

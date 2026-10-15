@@ -39,9 +39,12 @@ import {
   validateWebDeployRequiresWebFrontend,
   validateWorkersCompatibility,
 } from "./compatibility-rules";
-import { ValidationError } from "./errors";
+import { CLIError, ValidationError } from "./errors";
+import { validateI18nConfig } from "./i18n-cli";
+import { hasReactWebFrontend, isValidShadcnPresetValue } from "./shadcn";
 
 type ValidationResult = Result<void, ValidationError>;
+type ConfigValidationResult = Result<void, ValidationError | CLIError>;
 
 function validationErr(message: string): ValidationResult {
   return Result.err(new ValidationError({ message }));
@@ -238,6 +241,31 @@ export function validateDatabaseProvisioningMode(config: Partial<ProjectConfig>)
   return Result.ok(undefined);
 }
 
+export function validateShadcn(config: Partial<ProjectConfig>): ValidationResult {
+  const shadcn = config.shadcn;
+  if (!shadcn) return Result.ok(undefined);
+
+  if (!shadcn.preset) {
+    return validationErr(
+      "shadcn theming requires a preset. Provide '--shadcn-preset <code|name|url>' or omit shadcn options.",
+    );
+  }
+
+  if (!isValidShadcnPresetValue(shadcn.preset)) {
+    return validationErr(
+      `Invalid shadcn preset "${shadcn.preset}". Use a preset code, a named preset, or a preset URL.`,
+    );
+  }
+
+  if (config.frontend !== undefined && !hasReactWebFrontend(config.frontend)) {
+    return validationErr(
+      "shadcn theming requires a React web frontend (next, tanstack-start, tanstack-router, or react-router).",
+    );
+  }
+
+  return Result.ok(undefined);
+}
+
 export function validateConvexConstraints(
   config: Partial<ProjectConfig>,
   providedFlags: Set<string>,
@@ -426,7 +454,7 @@ export function validateFullConfig(
   config: Partial<ProjectConfig>,
   providedFlags: Set<string>,
   options: CLIInput,
-): ValidationResult {
+): ConfigValidationResult {
   return Result.gen(function* () {
     yield* validateDatabaseOrmAuth(config, providedFlags);
     yield* validateDatabaseSetup(config, providedFlags);
@@ -438,6 +466,8 @@ export function validateFullConfig(
     yield* validateBackendConstraints(config, providedFlags, options);
 
     yield* validateFrontendConstraints(config, providedFlags);
+
+    yield* validateShadcn(config);
 
     yield* validateApiConstraints(config, options);
 
@@ -501,11 +531,15 @@ export function validateFullConfig(
       config.frontend ?? [],
     );
 
+    yield* validateI18nConfig(config);
+
     return Result.ok(undefined);
   });
 }
 
-export function validateConfigForProgrammaticUse(config: Partial<ProjectConfig>): ValidationResult {
+export function validateConfigForProgrammaticUse(
+  config: Partial<ProjectConfig>,
+): ConfigValidationResult {
   return Result.gen(function* () {
     yield* validateDatabaseOrmAuth(config);
 
@@ -539,6 +573,8 @@ export function validateConfigForProgrammaticUse(config: Partial<ProjectConfig>)
       config.frontend ?? [],
       config.api,
     );
+
+    yield* validateI18nConfig(config);
 
     return Result.ok(undefined);
   });
