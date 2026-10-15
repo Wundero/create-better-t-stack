@@ -1,8 +1,21 @@
 // Registers the shared i18next instance with the i18next-vue plugin. Templates
 // get `$t`; components can use `useTranslation()` from `i18next-vue`.
+//
+// `@nuxtjs/i18n` owns locale detection (domain / prefix / cookie) and routing;
+// i18next owns the messages. Seed the instance with the module's active locale
+// and follow its switches, so SSR and navigation render the negotiated locale
+// instead of the base locale.
+import { isLocale } from "@{{projectName}}/i18n";
 import { initI18next } from "@{{projectName}}/i18n/runtime";
 import I18NextVue from "i18next-vue";
 
 export default defineNuxtPlugin((nuxtApp) => {
-  nuxtApp.vueApp.use(I18NextVue, { i18next: initI18next() });
+  const activeLocale = nuxtApp.$i18n.locale.value;
+  const instance = initI18next(isLocale(activeLocale) ? activeLocale : undefined);
+
+  nuxtApp.vueApp.use(I18NextVue, { i18next: instance });
+
+  nuxtApp.hook("i18n:localeSwitched", ({ newLocale }) => {
+    if (isLocale(newLocale)) void instance.changeLanguage(newLocale);
+  });
 });

@@ -1980,8 +1980,10 @@ async function writeOrpcInferenceChecks(sample: SelectedBuildSample, projectDir:
     `\nexport const typeBoundaryProbe = {
   read: publicProcedure.handler(() => {
     const values: number[] = [];
-    const value: number | undefined = values[0];
-    return value;
+    // Array.prototype.at(0) is number | undefined regardless of
+    // noUncheckedIndexedAccess, so the probe holds across every generated
+    // tsconfig (astro extends astro/tsconfigs/strict, which omits the flag).
+    return values.at(0);
   }),
 };
 export type TypeBoundaryProbeClient = RouterClient<typeof typeBoundaryProbe>;\n`,
