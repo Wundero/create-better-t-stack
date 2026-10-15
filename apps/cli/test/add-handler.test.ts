@@ -166,6 +166,29 @@ describe("add()", () => {
     expect(existsSync(join(projectDir, "packages", "other"))).toBe(false);
   });
 
+  it("catalogs a workspace package against a generated bun monorepo", async () => {
+    const seeded = await runCreateTest({
+      projectName: "workspace-package-catalog",
+      addons: ["turborepo"],
+    });
+    expectSuccess(seeded);
+    const projectDir = seeded.projectDir;
+
+    const result = await add({ projectDir, package: "cataloged", install: false });
+
+    expect(result.success).toBe(true);
+    const pkg: { devDependencies?: Record<string, string> } = JSON.parse(
+      await readFile(join(projectDir, "packages", "cataloged", "package.json"), "utf8"),
+    );
+    expect(pkg.devDependencies?.typescript).toBe("catalog:");
+
+    const root: { workspaces?: string[] | { catalog?: Record<string, string> } } = JSON.parse(
+      await readFile(join(projectDir, "package.json"), "utf8"),
+    );
+    const catalog = Array.isArray(root.workspaces) ? undefined : root.workspaces?.catalog;
+    expect(catalog?.typescript).toBeDefined();
+  });
+
   it("returns an error in silent mode instead of exiting when the project config is missing", async () => {
     const projectDir = join(SMOKE_DIR, "missing-bts-config");
     await mkdir(projectDir, { recursive: true });
@@ -215,5 +238,140 @@ describe("add()", () => {
 
     expect(result.success).toBe(false);
     expect(result.error).toContain("Prisma Compute requires an executable server artifact");
+  });
+});
+
+async function seedPackageProject(projectDir: string) {
+  await rm(projectDir, { recursive: true, force: true });
+  await mkdir(join(projectDir, "packages", "config"), { recursive: true });
+  await writeFile(
+    join(projectDir, "bts.jsonc"),
+    JSON.stringify({
+      version: "0.0.0-test",
+      createdAt: new Date(0).toISOString(),
+      database: "none",
+      orm: "none",
+      backend: "none",
+      runtime: "bun",
+      frontend: ["tanstack-router"],
+      addons: ["none"],
+      examples: ["none"],
+      auth: "none",
+      payments: "none",
+      packageManager: "bun",
+      dbSetup: "none",
+      api: "none",
+      webDeploy: "none",
+      serverDeploy: "none",
+    }),
+  );
+  await writeFile(
+    join(projectDir, "package.json"),
+    JSON.stringify({ private: true, devDependencies: { typescript: "catalog:" } }),
+  );
+  await writeFile(
+    join(projectDir, "packages", "config", "package.json"),
+    JSON.stringify({ name: "@acme/config", private: true }),
+  );
+}
+
+describe("add() env validation", () => {
+  it("scaffolds env validation files when envValidation is true", async () => {
+    const projectDir = join(SMOKE_DIR, "workspace-package-env-validation");
+    await seedPackageProject(projectDir);
+
+    const result = await add({
+      projectDir,
+      package: "shared-env",
+      envValidation: true,
+      install: false,
+    });
+
+    expect(result.success).toBe(true);
+    expect(
+      await readFile(join(projectDir, "packages", "shared-env", ".env.schema"), "utf8"),
+    ).toContain("# @generateTsTypes(path=./src/env.ts, exposeEnv=local)");
+
+    const packageJson = JSON.parse(
+      await readFile(join(projectDir, "packages", "shared-env", "package.json"), "utf8"),
+    );
+    expect(packageJson.devDependencies.varlock).toBeDefined();
+    expect(packageJson.scripts["env:generate"]).toBe("varlock codegen");
+
+    const rootPackageJson = JSON.parse(await readFile(join(projectDir, "package.json"), "utf8"));
+    expect(rootPackageJson.scripts.postinstall).toContain(
+      "varlock codegen --path ./packages/shared-env/",
+    );
+    expect(rootPackageJson.devDependencies.varlock).toBeDefined();
+
+    expect(existsSync(join(projectDir, "packages", "shared-env", "src", "env.ts"))).toBe(false);
+    expect(
+      await readFile(join(projectDir, "packages", "shared-env", "src", "index.ts"), "utf8"),
+    ).toBe("export {};\n");
+  });
+
+  it("leaves the root package.json untouched when envValidation is off", async () => {
+    const projectDir = join(SMOKE_DIR, "workspace-package-plain");
+    await seedPackageProject(projectDir);
+    const rootPackagePath = join(projectDir, "package.json");
+    const rootPackageBefore = await readFile(rootPackagePath, "utf8");
+
+    const result = await add({ projectDir, package: "plain", install: false });
+
+    expect(result.success).toBe(true);
+    expect(await readFile(rootPackagePath, "utf8")).toBe(rootPackageBefore);
+    expect(existsSync(join(projectDir, "packages", "plain", ".env.schema"))).toBe(false);
+    expect(JSON.parse(rootPackageBefore).scripts?.postinstall).toBeUndefined();
+  });
+
+  it("preserves root env validation mutations when addons are added in the same run", async () => {
+    const projectDir = join(SMOKE_DIR, "workspace-package-env-with-addons");
+    await seedPackageProject(projectDir);
+    const rootPackagePath = join(projectDir, "package.json");
+    const before: { devDependencies?: Record<string, string> } = JSON.parse(
+      await readFile(rootPackagePath, "utf8"),
+    );
+
+    const result = await add({
+      projectDir,
+      package: "pkg-env",
+      envValidation: true,
+      addons: ["biome"],
+      install: false,
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.addedAddons).toEqual(["biome"]);
+
+    const after: {
+      scripts?: Record<string, string>;
+      devDependencies?: Record<string, string>;
+    } = JSON.parse(await readFile(rootPackagePath, "utf8"));
+
+    expect(after.scripts?.postinstall).toContain("varlock codegen --path ./packages/pkg-env/");
+    expect(after.devDependencies?.varlock).toBeDefined();
+    for (const [name, version] of Object.entries(before.devDependencies ?? {})) {
+      expect(after.devDependencies?.[name]).toBe(version);
+    }
+  });
+
+  it("counts the planned root package.json write during a dry run", async () => {
+    const projectDir = join(SMOKE_DIR, "workspace-package-env-dry-run");
+    await seedPackageProject(projectDir);
+    const rootPackagePath = join(projectDir, "package.json");
+    const rootPackageBefore = await readFile(rootPackagePath, "utf8");
+
+    const result = await add({
+      projectDir,
+      package: "ghost",
+      envValidation: true,
+      dryRun: true,
+      install: false,
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.plannedFileCount ?? 0).toBeGreaterThan(3);
+    expect(existsSync(join(projectDir, "packages", "ghost"))).toBe(false);
+    expect(await readFile(rootPackagePath, "utf8")).toBe(rootPackageBefore);
   });
 });

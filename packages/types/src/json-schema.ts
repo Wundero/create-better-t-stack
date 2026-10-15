@@ -23,6 +23,9 @@ import {
   DbSetupOptionsSchema,
   CreateInputSchema,
   AddInputSchema,
+  ScaffoldAppInputSchema,
+  ScaffoldPackageInputSchema,
+  GenerateInputSchema,
   ProjectConfigSchema,
   BetterTStackConfigSchema,
   BetterTStackConfigFileSchema,
@@ -118,6 +121,18 @@ export function getAddInputJsonSchema() {
   return z.toJSONSchema(AddInputSchema);
 }
 
+export function getScaffoldAppInputJsonSchema() {
+  return z.toJSONSchema(ScaffoldAppInputSchema);
+}
+
+export function getScaffoldPackageInputJsonSchema() {
+  return z.toJSONSchema(ScaffoldPackageInputSchema);
+}
+
+export function getGenerateInputJsonSchema() {
+  return z.toJSONSchema(GenerateInputSchema);
+}
+
 export function getProjectConfigJsonSchema() {
   return z.toJSONSchema(ProjectConfigSchema);
 }
@@ -159,6 +174,9 @@ export function getAllJsonSchemas() {
     dbSetupOptions: getDbSetupOptionsJsonSchema(),
     createInput: getCreateInputJsonSchema(),
     addInput: getAddInputJsonSchema(),
+    scaffoldAppInput: getScaffoldAppInputJsonSchema(),
+    scaffoldPackageInput: getScaffoldPackageInputJsonSchema(),
+    generateInput: getGenerateInputJsonSchema(),
     projectConfig: getProjectConfigJsonSchema(),
     betterTStackConfig: getBetterTStackConfigJsonSchema(),
     betterTStackConfigFile: getBetterTStackConfigFileJsonSchema(),

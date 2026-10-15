@@ -24,6 +24,10 @@ import type {
   ProjectNameSchema,
   CreateInputSchema,
   AddInputSchema,
+  AppKindSchema,
+  ScaffoldAppInputSchema,
+  ScaffoldPackageInputSchema,
+  GenerateInputSchema,
   CLIInputSchema,
   ProjectConfigSchema,
   BetterTStackConfigSchema,
@@ -55,6 +59,10 @@ export type ProjectName = z.infer<typeof ProjectNameSchema>;
 
 export type CreateInput = z.infer<typeof CreateInputSchema>;
 export type AddInput = z.infer<typeof AddInputSchema>;
+export type AppKind = z.infer<typeof AppKindSchema>;
+export type ScaffoldAppInput = z.infer<typeof ScaffoldAppInputSchema>;
+export type ScaffoldPackageInput = z.infer<typeof ScaffoldPackageInputSchema>;
+export type GenerateInput = z.infer<typeof GenerateInputSchema>;
 export type CLIInput = z.infer<typeof CLIInputSchema>;
 export type ProjectConfig = z.infer<typeof ProjectConfigSchema>;
 export type BetterTStackConfig = z.infer<typeof BetterTStackConfigSchema>;
