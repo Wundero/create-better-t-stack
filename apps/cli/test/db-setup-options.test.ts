@@ -203,6 +203,7 @@ describe("Database setup options", () => {
       examples: ["none"],
       auth: "none",
       payments: "none",
+      i18n: "none",
       git: true,
       packageManager: "bun",
       install: false,

@@ -1,0 +1,51 @@
+/**
+ * WXT + React popup demo: translated heading, interpolation, plural, currency,
+ * date and a locale switcher.
+ */
+
+import { useEffect, useState } from "react";
+
+import {
+  createFormatters,
+  LOCALE_COOKIE,
+  locales,
+  negotiateLocale,
+  type Locale,
+} from "@{{projectName}}/i18n";
+import { loadLocale, plural } from "@{{projectName}}/i18n/runtime";
+
+function initialLocale(): Locale {
+  // @wc-ignore
+  const stored = localStorage.getItem(LOCALE_COOKIE) ?? undefined;
+  return negotiateLocale({ stored, system: navigator.language });
+}
+
+export function I18nPopup() {
+  const [locale, setLocale] = useState<Locale>(initialLocale);
+
+  useEffect(() => {
+    // @wc-ignore
+    localStorage.setItem(LOCALE_COOKIE, locale);
+    void loadLocale(locale);
+  }, [locale]);
+
+  const { currency, date, displayName } = createFormatters(locale);
+  const itemCount = 3;
+
+  return (
+    <section className="flex flex-col gap-3 p-4">
+      <h1 className="text-xl font-semibold">Welcome</h1>
+      <p>Hello {displayName(locale) ?? locale}!</p>
+      <p>{plural(itemCount, ["# item", "# items"])}</p>
+      <p>{currency(1299.5, "EUR")}</p>
+      <p>{date(new Date("2026-10-14T12:00:00Z"))}</p>
+      <div className="flex gap-2">
+        {locales.map((next) => (
+          <button key={next} type="button" onClick={() => setLocale(next)}>
+            {next}
+          </button>
+        ))}
+      </div>
+    </section>
+  );
+}

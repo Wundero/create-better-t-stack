@@ -318,6 +318,78 @@ create-better-t-stack --payments polar --auth better-auth
 
 **Note:** Polar payments requires Better-Auth authentication.
 
+## Internationalization
+
+### `--i18n <library>`
+
+Internationalization library:
+
+- `none`: No internationalization (default)
+- `lingui`: Lingui — source-text keys and PO catalogs
+- `paraglide`: Paraglide — compiled message functions with message IDs
+- `i18next`: i18next — JSON catalogs
+- `wuchale`: wuchale — implicit extraction (experimental)
+
+Selecting a library generates a shared `packages/i18n` workspace package, per-surface wiring,
+built-in localization for the selected integrations (Better Auth, Clerk, Zod, Nuxt UI, and
+others), a uniform translation-script contract and an `i18n-translate` agent skill.
+
+```bash
+create-better-t-stack --i18n lingui
+create-better-t-stack --frontend next --backend hono --api trpc --i18n paraglide
+```
+
+The library must support every surface in the selected stack. Incompatible combinations are
+rejected with the exact reason shown in the [compatibility rules](/docs/cli/compatibility#internationalization-i18n).
+
+### `--i18n-locales <locales>`
+
+Comma-separated locales. The first entry is the source locale unless `--i18n-source-locale` is
+given. Defaults to `en,es,fr`.
+
+```bash
+create-better-t-stack --i18n lingui --i18n-locales en,fr,de
+```
+
+### `--i18n-source-locale <locale>`
+
+Canonical BCP-47 source locale. Must be included in `--i18n-locales`. Defaults to `en`.
+
+```bash
+create-better-t-stack --i18n i18next --i18n-locales en,fr --i18n-source-locale fr
+```
+
+### `--i18n-routing <strategy>`
+
+Locale routing strategy:
+
+- `cookie`: Locale negotiation from the locale cookie, the `x-app-locale` header, and
+  `Accept-Language` (default; works on every surface)
+- `prefix`: Localized URL prefixes (server-rendered web surfaces and paraglide)
+- `domain`: One host per locale (server-rendered surfaces only)
+
+```bash
+create-better-t-stack --frontend tanstack-start --backend self --api orpc --i18n paraglide --i18n-routing prefix
+```
+
+### `--i18n-domain <locale=host>`
+
+Locale-to-host mapping for `--i18n-routing domain`. Repeat the flag once per locale; every key
+must be a configured locale and every host must be unique.
+
+```bash
+create-better-t-stack --frontend nuxt --api orpc --i18n i18next \
+  --i18n-routing domain --i18n-domain en=example.com --i18n-domain fr=fr.example.com
+```
+
+### `--i18n-skill / --no-i18n-skill`
+
+Generate the `i18n-translate` agent skill (enabled by default).
+
+```bash
+create-better-t-stack --i18n lingui --no-i18n-skill
+```
+
 ## Addons
 
 ### `--addons <types...>`
