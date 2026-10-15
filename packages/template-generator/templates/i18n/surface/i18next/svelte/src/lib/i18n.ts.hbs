@@ -1,0 +1,28 @@
+// Svelte store glue for i18next (shipped with the adapter): the shared
+// instance plus a `locale` store that components subscribe to with `$locale`.
+import { createFormatters, isLocale, sourceLocale } from "@{{projectName}}/i18n";
+import { initI18next, setLocale } from "@{{projectName}}/i18n/runtime";
+import type { Locale } from "@{{projectName}}/i18n";
+import { derived, writable } from "svelte/store";
+
+const i18next = initI18next();
+
+function resolvedLocale(): Locale {
+  const resolved = i18next.resolvedLanguage ?? "";
+  return isLocale(resolved) ? resolved : sourceLocale;
+}
+
+export const locale = writable<Locale>(resolvedLocale());
+
+i18next.on("languageChanged", () => {
+  locale.set(resolvedLocale());
+});
+
+/** Date, number, currency and list formatters (`$format` in components). */
+export const format = derived(locale, ($locale) => createFormatters($locale));
+
+export function changeLocale(next: Locale) {
+  return setLocale(next);
+}
+
+export { i18next };

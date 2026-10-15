@@ -1,0 +1,30 @@
+// Solid primitive glue for i18next (shipped with the adapter): a factory that
+// returns a locale signal, a reactive translator and a locale switcher.
+import { createFormatters, isLocale, sourceLocale } from "@{{projectName}}/i18n";
+import { initI18next, setLocale as applyLocale } from "@{{projectName}}/i18n/runtime";
+import type { Locale } from "@{{projectName}}/i18n";
+import type { TOptions } from "i18next";
+import { createMemo, createSignal } from "solid-js";
+
+const i18next = initI18next();
+
+function resolvedLocale(): Locale {
+  const resolved = i18next.resolvedLanguage ?? "";
+  return isLocale(resolved) ? resolved : sourceLocale;
+}
+
+const [locale, setLocaleSignal] = createSignal<Locale>(resolvedLocale());
+
+i18next.on("languageChanged", () => {
+  setLocaleSignal(resolvedLocale());
+});
+
+export function createI18n() {
+  return {
+    locale,
+    translate: (id: string, options?: TOptions) => i18next.getFixedT(locale())(id, options),
+    /** Date, number, currency and list formatters for the active locale. */
+    format: createMemo(() => createFormatters(locale())),
+    changeLocale: (next: Locale) => applyLocale(next),
+  };
+}

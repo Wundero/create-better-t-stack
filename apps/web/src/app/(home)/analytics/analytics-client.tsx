@@ -30,6 +30,8 @@ type PrecomputedStats = {
   webDeploy: Record<string, number>;
   serverDeploy: Record<string, number>;
   payments: Record<string, number>;
+  /** Absent until the Convex deployment that added it is live. */
+  i18n?: Record<string, number>;
   git: Record<string, number>;
   install: Record<string, number>;
   nodeVersion: Record<string, number>;
@@ -169,6 +171,7 @@ function buildFromPrecomputed(
   const webDeployDistribution = recordToDistribution(stats.webDeploy);
   const serverDeployDistribution = recordToDistribution(stats.serverDeploy);
   const paymentsDistribution = recordToDistribution(stats.payments);
+  const i18nDistribution = withShare(recordToDistribution(stats.i18n ?? {}));
   const gitDistribution = recordToDistribution(stats.git);
   const installDistribution = recordToDistribution(stats.install);
   const stackCombinationDistribution = withShare(
@@ -257,6 +260,7 @@ function buildFromPrecomputed(
     webDeployDistribution: withShare(webDeployDistribution, totalProjects),
     serverDeployDistribution: withShare(serverDeployDistribution, totalProjects),
     paymentsDistribution: withShare(paymentsDistribution, totalProjects),
+    i18nDistribution,
     nodeVersionDistribution,
     cliVersionDistribution,
     stackCombinationDistribution,
@@ -312,6 +316,7 @@ const emptyData: AggregatedAnalyticsData = {
   webDeployDistribution: [],
   serverDeployDistribution: [],
   paymentsDistribution: [],
+  i18nDistribution: [],
   nodeVersionDistribution: [],
   cliVersionDistribution: [],
   stackCombinationDistribution: [],

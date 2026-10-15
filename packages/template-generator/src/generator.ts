@@ -1,3 +1,4 @@
+import { validateAddonCompatibility, validateTurnstileCompatibility } from "@better-t-stack/types";
 import { Result } from "better-result";
 
 import { writeBtsConfigToVfs } from "./bts-config";
@@ -28,6 +29,7 @@ import {
   processUiPackage,
   processAuthTemplates,
   processPaymentsTemplates,
+  processI18nTemplates,
   processAddonTemplates,
   processExampleTemplates,
   processExtrasTemplates,
@@ -59,6 +61,28 @@ export async function generate(
     try: async () => {
       const { config, templates } = options;
 
+      if (config.addons.includes("turnstile")) {
+        const addon = validateAddonCompatibility(
+          "turnstile",
+          config.frontend,
+          config.auth,
+          config.backend,
+          config.runtime,
+        );
+        const deploy = validateTurnstileCompatibility({
+          webDeploy: config.webDeploy,
+          serverDeploy: config.serverDeploy,
+          backend: config.backend,
+        });
+        const issue = !addon.isCompatible ? addon : !deploy.isCompatible ? deploy : undefined;
+        if (issue) {
+          throw new GeneratorError({
+            message: `turnstile addon: ${issue.reason}`,
+            phase: "initialization",
+          });
+        }
+      }
+
       if (!templates || templates.size === 0) {
         throw new GeneratorError({
           message: "No templates provided. Templates must be passed via the templates option.",
@@ -77,6 +101,7 @@ export async function generate(
       await processUiPackage(vfs, templates, config);
       await processAuthTemplates(vfs, templates, config);
       await processPaymentsTemplates(vfs, templates, config);
+      await processI18nTemplates(vfs, templates, config);
       await processAddonTemplates(vfs, templates, config);
       await processExampleTemplates(vfs, templates, config);
       await processExtrasTemplates(vfs, templates, config);
