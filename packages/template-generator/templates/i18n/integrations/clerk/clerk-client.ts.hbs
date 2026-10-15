@@ -1,0 +1,33 @@
+/**
+ * Lazy Clerk localization loading (emitted only for projects that use Clerk).
+ *
+ * `@clerk/localizations` ships one bundle per locale; the bundle for the active
+ * locale is imported on demand and cached. Locales without a bundle resolve
+ * `undefined`, and the provider falls back to Clerk's English default.
+ *
+ * Clerk marks localization experimental and does not localize the hosted
+ * Account Portal, which stays in English.
+ */
+
+import { clerkLocalizationExportName } from "./clerk";
+
+type ClerkLocalizations = typeof import("@clerk/localizations");
+
+export type ClerkLocalization = ClerkLocalizations["enUS"];
+
+const cache = new Map<string, ClerkLocalization>();
+
+export async function loadClerkLocalization(
+  locale: string,
+): Promise<ClerkLocalization | undefined> {
+  const exportName = clerkLocalizationExportName(locale);
+  if (exportName === undefined) return undefined;
+
+  const cached = cache.get(exportName);
+  if (cached !== undefined) return cached;
+
+  const clerkLocalizations: ClerkLocalizations = await import("@clerk/localizations");
+  const resource = clerkLocalizations[exportName as keyof ClerkLocalizations];
+  cache.set(exportName, resource);
+  return resource;
+}

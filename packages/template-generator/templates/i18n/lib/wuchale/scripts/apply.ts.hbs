@@ -1,0 +1,106 @@
+/**
+ * `i18n:apply <file>` — validate translated items and write them into the
+ * `.po` catalogs. Placeholder sets must match the source; rejected items keep
+ * their catalog entry pending.
+ *
+ * Input: the `i18n:pending` report with a `translation` (or `translations` for
+ * plurals) added to each item, e.g.
+ * `{ "items": [{ "id": "Welcome", "locale": "fr", "translation": "Bienvenue" }] }`
+ */
+
+import { readFile } from "node:fs/promises";
+
+import {
+  findItem,
+  readCatalogs,
+  resolvePackageRoot,
+  setTranslation,
+  validatePlaceholders,
+  writeCatalogFile,
+  type ApplyOutcome,
+  type CatalogRead,
+} from "./catalog";
+
+interface ApplyEntry {
+  id?: string;
+  locale?: string;
+  context?: string | null;
+  translation?: string;
+  translations?: string[];
+}
+
+interface ApplyInput {
+  items?: ApplyEntry[];
+}
+
+function translationForms(entry: ApplyEntry): string[] | undefined {
+  if (entry.translations !== undefined) return entry.translations;
+  if (entry.translation !== undefined) return [entry.translation];
+  return undefined;
+}
+
+const file = process.argv[2];
+if (!file) {
+  console.error("Usage: bun run i18n:apply <file>");
+  process.exit(1);
+}
+
+const payload = JSON.parse(await readFile(file, "utf8")) as ApplyInput;
+const entries = payload.items ?? [];
+
+const packageRoot = resolvePackageRoot(import.meta.url);
+const catalogs = await readCatalogs(packageRoot);
+const byLocale = new Map<string, CatalogRead[]>();
+for (const read of catalogs) {
+  const group = byLocale.get(read.source.locale) ?? [];
+  group.push(read);
+  byLocale.set(read.source.locale, group);
+}
+
+const outcome: ApplyOutcome = { applied: 0, rejected: [] };
+const touched = new Set<CatalogRead>();
+
+for (const entry of entries) {
+  const forms = translationForms(entry);
+  if (entry.id === undefined || entry.locale === undefined || forms === undefined) {
+    outcome.rejected.push({
+      id: entry.id ?? "<missing id>",
+      locale: entry.locale ?? "<missing locale>",
+      error: "each item needs an id, a locale and a translation (or translations)",
+    });
+    continue;
+  }
+
+  let matched = false;
+  for (const read of byLocale.get(entry.locale) ?? []) {
+    const item = findItem(read.catalog, entry.id, entry.context);
+    if (!item) continue;
+    matched = true;
+
+    // The same message can live in several adapters' catalogs; update them all.
+    const error = validatePlaceholders(item, forms);
+    if (error !== null) {
+      outcome.rejected.push({ id: entry.id, locale: entry.locale, error });
+      continue;
+    }
+
+    setTranslation(item, forms);
+    touched.add(read);
+    outcome.applied += 1;
+  }
+
+  if (!matched) {
+    outcome.rejected.push({
+      id: entry.id,
+      locale: entry.locale,
+      error: "no catalog entry with this id",
+    });
+  }
+}
+
+for (const read of touched) {
+  await writeCatalogFile(read.source.path, read.catalog);
+}
+
+console.log(JSON.stringify(outcome, null, 2));
+process.exit(outcome.rejected.length > 0 ? 1 : 0);

@@ -14,6 +14,8 @@ export type StackSnapshot = {
   dbSetup: string;
   auth: string;
   payments: string;
+  i18n: string;
+  i18nLocaleCount: number;
   addons: string;
   examples: string;
   packageManager: string;
@@ -228,6 +230,8 @@ export function stackSnapshot(stack: StackState): StackSnapshot {
     dbSetup: stack.dbSetup,
     auth: stack.auth,
     payments: stack.payments,
+    i18n: stack.i18n,
+    i18nLocaleCount: stack.i18nOptions?.locales.length ?? 0,
     addons: joinList(stack.addons),
     examples: joinList(stack.examples),
     packageManager: stack.packageManager,

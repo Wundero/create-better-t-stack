@@ -1,0 +1,43 @@
+---
+import { getTextDirection, isLocale, locales, sourceLocale } from "@{{projectName}}/i18n";
+import { getFormat, getT } from "../lib/i18n";
+import Layout from "../layouts/Layout.astro";
+import { getRequestLocale } from "@{{projectName}}/i18n/server";
+
+const requestLocale = getRequestLocale();
+const locale = isLocale(requestLocale) ? requestLocale : sourceLocale;
+const t = getT(locale);
+const formatters = getFormat(locale);
+const count = 2;
+---
+
+<Layout title="i18n demo">
+  <main dir={getTextDirection(locale)} class="container mx-auto max-w-2xl space-y-4 px-4 py-10">
+    <h1 class="text-2xl font-semibold">{t("i18n demo")}</h1>
+    <p>{t("Hello, \{{name}}!", { name: "Ada" })}</p>
+    <p>{t("You have \{{count}} new message", { count })}</p>
+    <dl class="grid grid-cols-2 gap-2 text-sm">
+      <dt class="text-muted-foreground">{t("Language")}</dt>
+      <dd>{formatters.displayName(locale) ?? locale}</dd>
+      <dt class="text-muted-foreground">{t("Current locale: \{{locale}}", { locale })}</dt>
+      <dd>
+        {formatters.date(new Date("2026-10-14T12:00:00Z"))} · {formatters.currency(42.5, "EUR")}
+      </dd>
+    </dl>
+    <div class="flex flex-wrap gap-2">
+      {locales.map((option) => (
+        <button type="button" data-locale={option} class="rounded-md border px-3 py-1 text-sm">
+          {option}
+        </button>
+      ))}
+    </div>
+  </main>
+  <script>
+    for (const button of document.querySelectorAll("button[data-locale]")) {
+      button.addEventListener("click", () => {
+        document.cookie = `locale=${button.getAttribute("data-locale")};path=/`;
+        location.reload();
+      });
+    }
+  </script>
+</Layout>

@@ -45,6 +45,16 @@ The file is JSONC with comments enabled and includes a `$schema` URL for tooling
   "api": "trpc",
   "auth": "better-auth",
   "payments": "none",
+  "i18n": "lingui",
+  "i18nOptions": {
+    "sourceLocale": "en",
+    "locales": ["en", "fr"],
+    "routing": {
+      "strategy": "prefix",
+      "prefixDefaultLocale": false,
+    },
+    "translateSkill": true,
+  },
   "addons": ["turborepo"],
   "addonOptions": {
     "wxt": {
@@ -69,6 +79,11 @@ Notes:
 - Deeply nested structured options remain in `addonOptions` or `dbSetupOptions` and may not be fully represented in the one-line command
 - `addonOptions` stores nested configuration for prompt-driven addons
 - `dbSetupOptions` stores structured database setup behavior for automation
+- `i18n` records the selected i18n library and is always written (defaults to `"none"`), so
+  `add` can detect whether a project already uses i18n
+- `i18nOptions` stores `sourceLocale`, `locales`, the locale `routing` strategy (`cookie`,
+  `prefix`, or `domain` with a locale-to-host `domains` map), and `translateSkill`
 - The file may be updated when you run `add` (addons and addon-specific config)
+- `payments` accepts `polar`, `stripe`, `autumn`, `dodo`, `creem`, `chargebee`, `commet`, or `none`; all providers require `better-auth`
 
 See also: [`add` command](/docs/cli#add)
