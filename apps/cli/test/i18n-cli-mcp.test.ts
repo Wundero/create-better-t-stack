@@ -109,17 +109,35 @@ describe("MCP i18n contract", () => {
     expect(payload.data?.fieldNotes?.i18n).toContain("none");
   });
 
-  it("exposes i18n and i18nOptions in the plan and create tool schema", async () => {
+  it("exposes i18n and i18nOptions in the plan, create and add tool schemas", async () => {
     const { client, cleanup } = await connectInMemoryClient();
     cleanups.push(cleanup);
 
     const result = await client.listTools();
     const toolsByName = new Map(result.tools.map((tool) => [tool.name, tool]));
 
-    for (const toolName of ["bts_plan_project", "bts_create_project"]) {
+    for (const toolName of [
+      "bts_plan_project",
+      "bts_create_project",
+      "bts_plan_addons",
+      "bts_add_addons",
+    ]) {
       const schema = toolsByName.get(toolName)?.inputSchema as JsonSchemaView | undefined;
       expect(schema?.properties).toHaveProperty("i18n");
       expect(schema?.properties).toHaveProperty("i18nOptions");
+    }
+  });
+
+  it("serves the i18n and i18nOptions schema names", async () => {
+    const { client, cleanup } = await connectInMemoryClient();
+    cleanups.push(cleanup);
+
+    for (const name of ["i18n", "i18nOptions"]) {
+      const result = await client.callTool({ name: "bts_get_schema", arguments: { name } });
+      const payload = result.structuredContent as { ok?: boolean };
+
+      expect(result.isError ?? false).toBe(false);
+      expect(payload.ok).toBe(true);
     }
   });
 
@@ -138,6 +156,29 @@ describe("MCP i18n contract", () => {
     });
 
     const expectedReason = oracleCompatibility("lingui", ["svelte"]).reason;
+
+    expect(result.isError).toBe(true);
+    expect(expectedReason).toBeDefined();
+    if (expectedReason !== undefined) {
+      expect(getToolText(result)).toContain(expectedReason);
+    }
+  });
+
+  it("returns the shared reason from the same oracle for another library", async () => {
+    const { client, cleanup } = await connectInMemoryClient();
+    cleanups.push(cleanup);
+
+    const result = await client.callTool({
+      name: "bts_plan_project",
+      arguments: {
+        ...getExplicitCreateInput(path.join(SMOKE_DIR, "mcp-i18n-incompatible-wuchale")),
+        frontend: ["nuxt"],
+        api: "orpc",
+        i18n: "wuchale",
+      },
+    });
+
+    const expectedReason = oracleCompatibility("wuchale", ["nuxt"]).reason;
 
     expect(result.isError).toBe(true);
     expect(expectedReason).toBeDefined();
