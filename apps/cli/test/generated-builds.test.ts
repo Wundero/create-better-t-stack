@@ -1216,7 +1216,8 @@ const buildSamples: BuildSample[] = [
       i18nOptions: {
         sourceLocale: "en",
         locales: ["en", "fr"],
-        routing: { strategy: "cookie" },
+        routing: { strategy: "cookie", prefixDefaultLocale: false },
+        translateSkill: true,
       },
     },
   },

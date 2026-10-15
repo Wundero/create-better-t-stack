@@ -186,6 +186,7 @@ describe("email renderer + email deploy", () => {
       examples: [],
       auth: "none",
       payments: "none",
+      i18n: "none",
       emailRenderer: "react-email",
       emailDeploy: "ses",
       git: false,
