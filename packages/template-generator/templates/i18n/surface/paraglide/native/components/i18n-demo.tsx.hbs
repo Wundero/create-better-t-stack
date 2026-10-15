@@ -1,0 +1,94 @@
+import { getLocale, locales, m, setLocale } from "@{{projectName}}/i18n/runtime";
+import { useFormat } from "@/hooks/use-format";
+import { Pressable, StyleSheet, Text, View } from "react-native";
+
+/**
+ * i18n demo: translated heading, interpolation, plural, currency, date and a
+ * locale switcher. Date and currency always come from the shared
+ * `createFormatters` bundle, never from the i18n library.
+ *
+ * Hosts that own their storage persist the locale through
+ * `overwriteGetLocale`/`overwriteSetLocale` from `@{{projectName}}/i18n/runtime`
+ * so `setLocale` writes to the template's storage.
+ */
+export function I18nDemo() {
+  const locale = getLocale();
+  const formatters = useFormat();
+
+  return (
+    <View style={styles.card}>
+      <Text style={styles.heading}>{m.i18n_demo_heading()}</Text>
+      <Text style={styles.body}>{m.i18n_demo_interpolation({ name: "Better T Stack" })}</Text>
+      <Text style={styles.body}>{m.i18n_demo_plural({ count: 3 })}</Text>
+      <View style={styles.row}>
+        <Text style={styles.label}>{m.i18n_demo_currency_label()}</Text>
+        <Text style={styles.value}>{formatters.currency(19.99, "EUR")}</Text>
+      </View>
+      <View style={styles.row}>
+        <Text style={styles.label}>{m.i18n_demo_date_label()}</Text>
+        <Text style={styles.value}>{formatters.date(new Date("2024-05-01T00:00:00Z"))}</Text>
+      </View>
+      <View style={styles.locales}>
+        {locales.map((available) => (
+          <Pressable
+            key={available}
+            onPress={() => void setLocale(available)}
+            style={[styles.localeButton, available === locale && styles.localeButtonActive]}
+          >
+            <Text style={styles.localeLabel}>{formatters.displayName(available) ?? available}</Text>
+          </Pressable>
+        ))}
+      </View>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  card: {
+    borderWidth: 1,
+    borderColor: "#52525b",
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    gap: 4,
+  },
+  heading: {
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  body: {
+    fontSize: 14,
+    opacity: 0.8,
+  },
+  row: {
+    marginTop: 8,
+    flexDirection: "row",
+    gap: 8,
+  },
+  label: {
+    fontSize: 13,
+    opacity: 0.6,
+  },
+  value: {
+    fontSize: 13,
+  },
+  locales: {
+    marginTop: 12,
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  localeButton: {
+    borderWidth: 1,
+    borderColor: "#52525b",
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+  },
+  localeButtonActive: {
+    borderColor: "#10b981",
+  },
+  localeLabel: {
+    fontSize: 13,
+  },
+});

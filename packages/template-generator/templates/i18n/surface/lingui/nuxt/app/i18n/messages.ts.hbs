@@ -1,0 +1,20 @@
+import { msg } from "@lingui/core/macro";
+
+/**
+ * Message descriptors for the Vue surface. Lingui has no Vue binding, so the
+ * macros live in `.ts` files (transformed by `@lingui/vite-plugin`) and
+ * components pass the descriptors to the shared `i18n` instance.
+ */
+const name = "Ada";
+/** Overridden by callers through `values`; `count` only satisfies the macro. */
+const count = 0;
+
+export const demoMessages = {
+  heading: msg`Internationalization`,
+  greeting: msg`Hello ${name}, welcome back!`,
+  unread: msg`{count, plural, one {# unread message} other {# unread messages}}`,
+  addMessage: msg`Add a message`,
+  language: msg`Language`,
+};
+
+export { count as demoCount };

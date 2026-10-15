@@ -1,0 +1,16 @@
+/**
+ * Email i18n glue for the paraglide surface.
+ *
+ * The recipient's locale comes from the Better Auth callback
+ * (`packages/auth/src/email.tsx`), which resolves it as `user.locale` →
+ * request locale → source locale. Message functions from the compiled catalog
+ * take it per call (`m.email_verify_heading({}, { locale })`), so parallel
+ * renders never touch a global locale.
+ */
+import { isLocale, sourceLocale } from "@{{projectName}}/i18n/config";
+import type { Locale } from "@{{projectName}}/i18n/config";
+
+/** Normalizes a recipient locale; unknown tags fall back to the source locale. */
+export function resolveEmailLocale(locale?: string | null): Locale {
+  return locale !== undefined && locale !== null && isLocale(locale) ? locale : sourceLocale;
+}
