@@ -226,8 +226,13 @@ describe("i18next templates", () => {
     expect(composable).toContain("createFormatters");
 
     const page = vfs.readFile("apps/web/app/pages/i18n-demo.vue") ?? "";
-    expect(page).toContain('{{ t("i18n demo") }}');
-    expect(page).toContain('{{ t("Hello, {{name}}!", { name: "Ada" }) }}');
+    expect(page).toContain(
+      'const greeting = computed(() => t("Hello, {{name}}!", { name: "Ada" }));',
+    );
+    expect(page).toContain("{{ greeting }}");
+    // Keys with i18next `{{placeholders}}` must live in the script: a literal
+    // `}}` inside a Vue `{{ }}` mustache would close the interpolation early.
+    expect(page).not.toContain('{{ t("Hello, {{name}}!"');
   });
 
   test("emits the shipped Svelte store and Solid primitive glue", async () => {

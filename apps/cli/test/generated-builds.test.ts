@@ -1980,7 +1980,8 @@ async function writeOrpcInferenceChecks(sample: SelectedBuildSample, projectDir:
     `\nexport const typeBoundaryProbe = {
   read: publicProcedure.handler(() => {
     const values: number[] = [];
-    return values[0];
+    const value: number | undefined = values[0];
+    return value;
   }),
 };
 export type TypeBoundaryProbeClient = RouterClient<typeof typeBoundaryProbe>;\n`,

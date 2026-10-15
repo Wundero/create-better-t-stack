@@ -20887,7 +20887,7 @@ export function createHeader(language: string) {
     + ((stack1 = lookupProperty(helpers,"if").call(alias1,((stack1 = (depth0 != null ? lookupProperty(depth0,"i18nOptions") : depth0)) != null ? lookupProperty(stack1,"sourceLocale") : stack1),{"name":"if","hash":{},"fn":container.program(0, data, 0),"inverse":container.program(1, data, 0),"data":data,"loc":{"start":{"line":3,"column":16},"end":{"line":3,"column":97}}})) != null ? stack1 : "")
     + ",\n  \"locales\": [\n"
     + ((stack1 = lookupProperty(helpers,"if").call(alias1,((stack1 = (depth0 != null ? lookupProperty(depth0,"i18nOptions") : depth0)) != null ? lookupProperty(stack1,"locales") : stack1),{"name":"if","hash":{},"fn":container.program(2, data, 0),"inverse":container.program(5, data, 0),"data":data,"loc":{"start":{"line":5,"column":0},"end":{"line":13,"column":7}}})) != null ? stack1 : "")
-    + "  ],\n  \"modules\": [\n    \"https://cdn.jsdelivr.net/npm/@inlang/plugin-message-format@4.5.0/dist/index.js\",\n    \"https://cdn.jsdelivr.net/npm/@inlang/plugin-m-function-matcher@2.3.4/dist/index.js\"\n  ],\n  \"plugin.inlang.messageFormat\": {\n    \"pathPattern\": \"./messages/{locale}.json\"\n  }\n}\n";
+    + "  ],\n  \"modules\": [\n    \"https://cdn.jsdelivr.net/npm/@inlang/plugin-message-format@4.5.0/dist/index.js\"\n  ],\n  \"plugin.inlang.messageFormat\": {\n    \"pathPattern\": \"./messages/{locale}.json\"\n  }\n}\n";
 },"useData":true}],
   ["i18n/lib/paraglide/scripts/apply.ts", { kind: "raw", content: `/**
  * \`i18n:apply <file>\`
@@ -21955,6 +21955,16 @@ export function isComplexMessage(value: CatalogMessage): value is ComplexMessage
   return Array.isArray(value);
 }
 
+/**
+ * \`Array.isArray\` cannot subtract a \`readonly\` array member from a union, so a
+ * declared type guard is required to narrow \`ComplexPattern\` back to \`string\`
+ * (the generated \`noUncheckedIndexedAccess\`-era TypeScript rejects the inline
+ * check).
+ */
+function isComplexPattern(value: ComplexPattern): value is ComplexMessage {
+  return Array.isArray(value);
+}
+
 function categoryRank(category: string): number {
   const index = PLURAL_CATEGORY_ORDER.indexOf(category as (typeof PLURAL_CATEGORY_ORDER)[number]);
   return index === -1 ? PLURAL_CATEGORY_ORDER.length : index;
@@ -21978,7 +21988,7 @@ function matchPlaceholders(entry: ComplexMatch): string[] {
 }
 
 function placeholderNames(pattern: ComplexPattern): string[] {
-  if (Array.isArray(pattern)) return pattern.flatMap(matchPlaceholders);
+  if (isComplexPattern(pattern)) return pattern.flatMap(matchPlaceholders);
   return [...pattern.matchAll(PLACEHOLDER)].map((match) => match[1] as string);
 }
 
@@ -22035,7 +22045,7 @@ function validateComplex(
 
 /** Validates one catalog value (string ICU or complex message). */
 export function parseCatalogMessage(message: CatalogMessage): CatalogMessageParseResult {
-  if (Array.isArray(message)) {
+  if (isComplexMessage(message)) {
     const valid = validateComplex(message);
     return valid.ok
       ? { ok: true, arguments: collectArguments(message) }
@@ -22050,7 +22060,7 @@ export function parseCatalogMessage(message: CatalogMessage): CatalogMessagePars
 
 /** Placeholder names, for the pending report and placeholder comparison. */
 export function extractCatalogArguments(message: CatalogMessage): string[] {
-  return Array.isArray(message) ? collectArguments(message) : extractArgumentNames(message);
+  return isComplexMessage(message) ? collectArguments(message) : extractArgumentNames(message);
 }
 
 function compareComplex(
@@ -22105,13 +22115,13 @@ export function compareCatalogMessages(
     return { ok: false, error: \`translation is invalid: \${parsedTranslation.error}\` };
   }
 
-  if (Array.isArray(source)) {
-    if (!Array.isArray(translation)) {
+  if (isComplexMessage(source)) {
+    if (!isComplexMessage(translation)) {
       return { ok: false, error: "source and translation must use the same message shape" };
     }
     return compareComplex(source, translation);
   }
-  if (Array.isArray(translation)) {
+  if (isComplexMessage(translation)) {
     return { ok: false, error: "source and translation must use the same message shape" };
   }
 
@@ -22124,7 +22134,7 @@ export function compareCatalogMessages(
  * of a pending item (one form per plural category, in canonical order).
  */
 export function messageForms(message: CatalogMessage): string[] {
-  if (!Array.isArray(message)) return [message];
+  if (!isComplexMessage(message)) return [message];
   const [first] = message;
   if (!first) return [];
 
@@ -22132,7 +22142,7 @@ export function messageForms(message: CatalogMessage): string[] {
   return Object.entries(first.match)
     .filter(([key]) => key.startsWith(\`\${selector}=\`))
     .sort(([firstKey], [secondKey]) => compareCategoryKeys(selector, firstKey, secondKey))
-    .map(([, pattern]) => (Array.isArray(pattern) ? JSON.stringify(pattern) : pattern));
+    .map(([, pattern]) => (isComplexPattern(pattern) ? JSON.stringify(pattern) : pattern));
 }
 
 /**
@@ -22180,7 +22190,7 @@ export function complexMessageToIcu(message: ComplexMessage): string {
     .sort(([firstKey], [secondKey]) => compareCategoryKeys(selector, firstKey, secondKey))
     .map(([key, pattern]) => {
       const category = key.slice(selector.length + 1);
-      const body = Array.isArray(pattern) ? complexMessageToIcu(pattern) : pattern;
+      const body = isComplexPattern(pattern) ? complexMessageToIcu(pattern) : pattern;
       return \`\${category} {\${body.replaceAll(\`{\${input}}\`, "#")}}\`;
     });
 
@@ -22189,7 +22199,7 @@ export function complexMessageToIcu(message: ComplexMessage): string {
 
 /** Converts any catalog message to its ICU string form (for normalization). */
 export function catalogMessageToIcu(message: CatalogMessage): string {
-  return Array.isArray(message) ? complexMessageToIcu(message) : message;
+  return isComplexMessage(message) ? complexMessageToIcu(message) : message;
 }
 ` }],
   ["i18n/lib/paraglide/src/icu.ts", { kind: "raw", content: `/**
@@ -24289,7 +24299,7 @@ export function plural(
     + alias4(((helper = (helper = lookupProperty(helpers,"projectName") || (depth0 != null ? lookupProperty(depth0,"projectName") : depth0)) != null ? helper : alias2),(typeof helper === alias3 ? helper.call(alias1,{"name":"projectName","hash":{},"data":data,"loc":{"start":{"line":2,"column":36},"end":{"line":2,"column":51}}}) : helper)))
     + "/i18n\";\nimport { currentLocale, setLocale } from \"@"
     + alias4(((helper = (helper = lookupProperty(helpers,"projectName") || (depth0 != null ? lookupProperty(depth0,"projectName") : depth0)) != null ? helper : alias2),(typeof helper === alias3 ? helper.call(alias1,{"name":"projectName","hash":{},"data":data,"loc":{"start":{"line":3,"column":43},"end":{"line":3,"column":58}}}) : helper)))
-    + "/i18n/runtime\";\nimport { useTranslation } from \"i18next-vue\";\nimport { computed, onUnmounted, ref } from \"vue\";\nimport { useFormat } from \"~/composables/use-format\";\n\nconst { t, i18next } = useTranslation();\nconst locale = ref(currentLocale());\nconst syncLocale = () => {\n  locale.value = currentLocale();\n};\ni18next.on(\"languageChanged\", syncLocale);\nonUnmounted(() => {\n  i18next.off(\"languageChanged\", syncLocale);\n});\n\nconst formatters = useFormat();\nconst languageName = computed(() => formatters.value.displayName(locale.value) ?? locale.value);\nconst count = 2;\n\nfunction changeLocale(option: string) {\n  if (isLocale(option)) void setLocale(option);\n}\n\u003C/script>\n\n<template>\n  <main class=\"container mx-auto max-w-2xl space-y-4 px-4 py-10\">\n    <h1 class=\"text-2xl font-semibold\">{{ t(\"i18n demo\") }}</h1>\n    <p>{{ t(\"Hello, {{name}}!\", { name: \"Ada\" }) }}</p>\n    <p>{{ t(\"You have {{count}} new message\", { count }) }}</p>\n    <dl class=\"grid grid-cols-2 gap-2 text-sm\">\n      <dt class=\"text-muted-foreground\">{{ t(\"Language\") }}</dt>\n      <dd>{{ languageName }}</dd>\n      <dt class=\"text-muted-foreground\">{{ t(\"Current locale: {{locale}}\", { locale }) }}</dt>\n      <dd>\n        {{ formatters.date(new Date(\"2026-10-14T12:00:00Z\")) }} ·\n        {{ formatters.currency(42.5, \"EUR\") }}\n      </dd>\n    </dl>\n    <div class=\"flex flex-wrap gap-2\">\n      <button\n        v-for=\"option in locales\"\n        :key=\"option\"\n        type=\"button\"\n        class=\"rounded-md border px-3 py-1 text-sm\"\n        @click=\"changeLocale(option)\"\n      >\n        {{ option }}\n      </button>\n    </div>\n  </main>\n</template>\n";
+    + "/i18n/runtime\";\nimport { useTranslation } from \"i18next-vue\";\nimport { computed, onUnmounted, ref } from \"vue\";\nimport { useFormat } from \"~/composables/use-format\";\n\nconst { t, i18next } = useTranslation();\nconst locale = ref(currentLocale());\nconst syncLocale = () => {\n  locale.value = currentLocale();\n};\ni18next.on(\"languageChanged\", syncLocale);\nonUnmounted(() => {\n  i18next.off(\"languageChanged\", syncLocale);\n});\n\nconst formatters = useFormat();\nconst languageName = computed(() => formatters.value.displayName(locale.value) ?? locale.value);\nconst count = 2;\n\n// Message keys carry i18next `{{placeholders}}`; computing them here keeps the\n// literal out of Vue's `{{ }}` interpolation, which would close on the inner `}}`.\nconst heading = computed(() => t(\"i18n demo\"));\nconst greeting = computed(() => t(\"Hello, {{name}}!\", { name: \"Ada\" }));\nconst messages = computed(() => t(\"You have {{count}} new message\", { count }));\nconst currentLocaleLabel = computed(() =>\n  t(\"Current locale: {{locale}}\", { locale: locale.value }),\n);\n\nfunction changeLocale(option: string) {\n  if (isLocale(option)) void setLocale(option);\n}\n\u003C/script>\n\n<template>\n  <main class=\"container mx-auto max-w-2xl space-y-4 px-4 py-10\">\n    <h1 class=\"text-2xl font-semibold\">{{ heading }}</h1>\n    <p>{{ greeting }}</p>\n    <p>{{ messages }}</p>\n    <dl class=\"grid grid-cols-2 gap-2 text-sm\">\n      <dt class=\"text-muted-foreground\">{{ t(\"Language\") }}</dt>\n      <dd>{{ languageName }}</dd>\n      <dt class=\"text-muted-foreground\">{{ currentLocaleLabel }}</dt>\n      <dd>\n        {{ formatters.date(new Date(\"2026-10-14T12:00:00Z\")) }} ·\n        {{ formatters.currency(42.5, \"EUR\") }}\n      </dd>\n    </dl>\n    <div class=\"flex flex-wrap gap-2\">\n      <button\n        v-for=\"option in locales\"\n        :key=\"option\"\n        type=\"button\"\n        class=\"rounded-md border px-3 py-1 text-sm\"\n        @click=\"changeLocale(option)\"\n      >\n        {{ option }}\n      </button>\n    </div>\n  </main>\n</template>\n";
 },"useData":true}],
   ["i18n/surface/i18next/nuxt/app/plugins/i18n.ts.hbs", { kind: "template", "compiler":[8,">= 4.3.0"],"main":function(container,depth0,helpers,partials,data) {
     var helper, lookupProperty = container.lookupProperty || function(parent: any, propertyName: any) {
@@ -25364,7 +25374,7 @@ export function plural(
 
   return "\u003Cscript lang=\"ts\">\n\timport { isLocale } from \"@"
     + container.escapeExpression(((helper = (helper = lookupProperty(helpers,"projectName") || (depth0 != null ? lookupProperty(depth0,"projectName") : depth0)) != null ? helper : container.hooks.helperMissing),(typeof helper === "function" ? helper.call(depth0 != null ? depth0 : (container.nullContext || {}),{"name":"projectName","hash":{},"data":data,"loc":{"start":{"line":2,"column":28},"end":{"line":2,"column":43}}}) : helper)))
-    + "/i18n\";\n\timport { useFormat } from \"$lib/use-format.svelte.js\";\n\n\timport * as m from \"../../paraglide/messages.js\";\n\timport { getLocale, locales, setLocale } from \"../../paraglide/runtime.js\";\n\n\t/**\n\t * i18n demo: translated heading, interpolation, plural, currency, date and a\n\t * locale switcher. Date and currency always come from the shared\n\t * `createFormatters` bundle, never from the i18n library.\n\t */\n\tconst locale = getLocale();\n\tconst format = useFormat();\n\n\tfunction onLocaleChange(event: Event) {\n\t\tconst target = event.currentTarget;\n\t\tif (target instanceof HTMLSelectElement && isLocale(target.value)) {\n\t\t\tvoid setLocale(target.value);\n\t\t}\n\t}\n\u003C/script>\n\n<section class=\"rounded-lg border p-4\">\n\t<h2 class=\"mb-2 font-medium\">{m.i18n_demo_heading()}</h2>\n\t<p class=\"text-muted-foreground text-sm\">{m.i18n_demo_interpolation({ name: \"Better T Stack\" })}</p>\n\t<p class=\"text-muted-foreground text-sm\">{m.i18n_demo_plural({ count: 3 })}</p>\n\t<dl class=\"mt-3 grid gap-1 text-sm\">\n\t\t<div class=\"flex gap-2\">\n\t\t\t<dt class=\"text-muted-foreground\">{m.i18n_demo_currency_label()}</dt>\n\t\t\t<dd>{format.current.currency(19.99, \"EUR\")}</dd>\n\t\t</div>\n\t\t<div class=\"flex gap-2\">\n\t\t\t<dt class=\"text-muted-foreground\">{m.i18n_demo_date_label()}</dt>\n\t\t\t<dd>{format.current.date(new Date(\"2024-05-01T00:00:00Z\"))}</dd>\n\t\t</div>\n\t</dl>\n\t<label class=\"mt-3 flex items-center gap-2 text-sm\">\n\t\t<span class=\"text-muted-foreground\">{format.current.displayName(locale)}</span>\n\t\t<select class=\"rounded border bg-transparent px-2 py-1\" value={locale} onchange={onLocaleChange}>\n\t\t\t{#each locales as available (available)}\n\t\t\t\t<option value={available}>{format.current.displayName(available) ?? available}</option>\n\t\t\t{/each}\n\t\t</select>\n\t</label>\n</section>\n";
+    + "/i18n\";\n\timport { useFormat } from \"#lib/use-format.svelte.ts\";\n\n\timport * as m from \"../../paraglide/messages.js\";\n\timport { getLocale, locales, setLocale } from \"../../paraglide/runtime.js\";\n\n\t/**\n\t * i18n demo: translated heading, interpolation, plural, currency, date and a\n\t * locale switcher. Date and currency always come from the shared\n\t * `createFormatters` bundle, never from the i18n library.\n\t */\n\tconst locale = getLocale();\n\tconst format = useFormat();\n\n\tfunction onLocaleChange(event: Event) {\n\t\tconst target = event.currentTarget;\n\t\tif (target instanceof HTMLSelectElement && isLocale(target.value)) {\n\t\t\tvoid setLocale(target.value);\n\t\t}\n\t}\n\u003C/script>\n\n<section class=\"rounded-lg border p-4\">\n\t<h2 class=\"mb-2 font-medium\">{m.i18n_demo_heading()}</h2>\n\t<p class=\"text-muted-foreground text-sm\">{m.i18n_demo_interpolation({ name: \"Better T Stack\" })}</p>\n\t<p class=\"text-muted-foreground text-sm\">{m.i18n_demo_plural({ count: 3 })}</p>\n\t<dl class=\"mt-3 grid gap-1 text-sm\">\n\t\t<div class=\"flex gap-2\">\n\t\t\t<dt class=\"text-muted-foreground\">{m.i18n_demo_currency_label()}</dt>\n\t\t\t<dd>{format.current.currency(19.99, \"EUR\")}</dd>\n\t\t</div>\n\t\t<div class=\"flex gap-2\">\n\t\t\t<dt class=\"text-muted-foreground\">{m.i18n_demo_date_label()}</dt>\n\t\t\t<dd>{format.current.date(new Date(\"2024-05-01T00:00:00Z\"))}</dd>\n\t\t</div>\n\t</dl>\n\t<label class=\"mt-3 flex items-center gap-2 text-sm\">\n\t\t<span class=\"text-muted-foreground\">{format.current.displayName(locale)}</span>\n\t\t<select class=\"rounded border bg-transparent px-2 py-1\" value={locale} onchange={onLocaleChange}>\n\t\t\t{#each locales as available (available)}\n\t\t\t\t<option value={available}>{format.current.displayName(available) ?? available}</option>\n\t\t\t{/each}\n\t\t</select>\n\t</label>\n</section>\n";
 },"useData":true}],
   ["i18n/surface/paraglide/svelte/src/lib/use-format.svelte.ts.hbs", { kind: "template", "compiler":[8,">= 4.3.0"],"main":function(container,depth0,helpers,partials,data) {
     var helper, lookupProperty = container.lookupProperty || function(parent: any, propertyName: any) {
