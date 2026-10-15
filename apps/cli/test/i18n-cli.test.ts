@@ -34,6 +34,8 @@ function baseConfig(overrides: Partial<ProjectConfig> = {}): ProjectConfig {
     auth: "none",
     payments: "none",
     i18n: "none",
+    emailRenderer: "none",
+    emailDeploy: "none",
     git: false,
     packageManager: "bun",
     install: false,
