@@ -100,20 +100,6 @@ The generated project SHALL support the `cookie`, `prefix`, and `domain` routing
 - **WHEN** `domain` routing is generated with Better Auth and all domains share a registrable parent domain
 - **THEN** trusted origins include every domain and the session cookie is shared across those subdomains
 
-### Requirement: Rust translations from shared catalogs
-
-When the Tauri addon and i18n are both selected, the generator SHALL produce a Rust i18n crate. The crate SHALL compile translations from the same catalogs used by JavaScript, through a normalized export. It SHALL provide a `t!` macro whose message IDs match the JavaScript library's IDs, or typed message functions for ID-keyed libraries.
-
-#### Scenario: Shared message
-
-- **WHEN** a source sentence is used both in a web component and in `t!` in `src-tauri`, and a French translation is applied once
-- **THEN** both the webview and the Rust host render the same French translation
-
-#### Scenario: Missing message
-
-- **WHEN** Rust code uses `t!` with a message that is not in the source catalog
-- **THEN** `cargo build` fails with a compile error naming the message
-
 ### Requirement: Agent translation workflow
 
 The generated project SHALL expose the `i18n:pending`, `i18n:apply`, and `i18n:check` scripts with a library-independent JSON contract. When the translate-skill option is enabled, it SHALL include an `i18n-translate` agent skill that translates only through those scripts.

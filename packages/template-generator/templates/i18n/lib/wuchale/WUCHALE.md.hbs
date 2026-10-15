@@ -25,11 +25,10 @@ invent.
 | Script | What it does |
 | --- | --- |
 | `i18n:extract` | Runs the wuchale CLI: extracts strings, refreshes the `.po` catalogs and the per-app loaders. |
-| `i18n:compile` | `i18n:extract` plus the normalized `dist/catalog.json` export; runs before `dev` and `build`. |
+| `i18n:compile` | Runs the wuchale CLI to extract and compile the catalogs the app runtimes load; runs before `dev` and `build`. |
 | `i18n:pending --locale <l> \| --all [--limit N]` | Lists untranslated items as JSON. |
 | `i18n:apply <file>` | Validates placeholders and writes translations back. |
 | `i18n:check` | Fails on missing or invalid entries; `I18N_CHECK_ALLOW_MISSING=1` allows missing ones. |
-| `i18n:export` | Writes the normalized ICU catalog to `dist/catalog.json`. |
 
 ## AI translation is disabled
 
@@ -48,8 +47,8 @@ translation provider. Translate with the `i18n-translate` skill through
   without a plugin, run `bunx wuchale --modify <adapter>` on a clean working
   tree (the command overwrites source files in place).
 - **Unsupported surfaces:** Nuxt and WXT Vue have no wuchale adapter, and Expo
-  (native) and Tauri's Rust host have no wuchale counterpart — the compatibility
-  matrix blocks those combinations with that reason.
+  (native) has no wuchale counterpart — the compatibility matrix blocks those
+  combinations with that reason.
 - **Partial surfaces:** `react-email` (server render path) and the OpenTUI
   React/Solid reconcilers ship glue but are unverified; the compatibility matrix
   reports them as warnings.

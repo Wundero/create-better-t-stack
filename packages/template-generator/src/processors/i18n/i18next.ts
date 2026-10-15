@@ -66,9 +66,7 @@ function surfaceDeps(surface: I18nSurface): SurfaceDeps | null {
     case "wxt-svelte":
       return { packagePath: "apps/extension/package.json", dependencies: ["i18next"] };
     case "email":
-    case "tauri-host":
-      // The email surface ships on the `wt/email-support` stack; the Rust host
-      // consumes the normalized export through L8 (`templates/i18n/rust/**`).
+      // The email surface ships on the `wt/email-support` stack.
       return null;
   }
 }

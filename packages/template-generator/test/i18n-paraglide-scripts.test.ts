@@ -168,7 +168,7 @@ describe("paraglide uniform scripts", () => {
     expect(runScript(root, "check.ts", [], { I18N_CHECK_ALLOW_MISSING: "1" }).status).toBe(0);
   });
 
-  test("apply writes valid items, rejects mismatched placeholders and export round-trips", async () => {
+  test("apply writes valid items and rejects mismatched placeholders", async () => {
     const root = await materialize();
 
     const french = readJson<Record<string, string>>(root, "messages/fr.json");
@@ -202,57 +202,6 @@ describe("paraglide uniform scripts", () => {
     expect(updated.i18n_demo_heading).toBe("Démonstration i18n");
     expect(Object.keys(updated)).toEqual(Object.keys(updated).sort());
     expect(runScript(root, "check.ts").status).toBe(0);
-
-    const exported = runScript(root, "export.ts");
-    expect(exported.status).toBe(0);
-
-    const catalog = readJson<{
-      sourceLocale: string;
-      locales: string[];
-      messages: Record<
-        string,
-        { source: string; context: null; translations: Record<string, string> }
-      >;
-    }>(root, "dist/catalog.json");
-    expect(catalog.sourceLocale).toBe("en");
-    expect(catalog.locales).toEqual(["en", "fr"]);
-    expect(catalog.messages.i18n_demo_heading?.translations.fr).toBe("Démonstration i18n");
-    expect(catalog.messages.i18n_demo_heading?.translations.en).toBeString();
-    expect(catalog.messages.i18n_demo_heading?.context).toBeNull();
-
-    const icu = (await import(pathToFileURL(path.join(root, "src/icu.ts")).href)) as {
-      parseMessage(message: string): { ok: boolean; arguments?: Array<{ name: string }> };
-      compareMessages(source: string, translation: string): { ok: boolean };
-    };
-
-    for (const message of Object.values(catalog.messages)) {
-      for (const translation of Object.values(message.translations)) {
-        const parsed = icu.parseMessage(translation);
-        expect(parsed.ok).toBe(true);
-        expect(icu.compareMessages(message.source, translation).ok).toBe(true);
-      }
-    }
-
-    const plural = catalog.messages.i18n_demo_plural;
-    expect(plural).toBeDefined();
-    const pluralArguments = icu.parseMessage(plural?.source ?? "").arguments ?? [];
-    expect(pluralArguments.map((argument) => argument.name)).toEqual(["count"]);
-  });
-
-  test("export refuses messages outside the ICU subset with the message ID", async () => {
-    const root = await materialize();
-
-    const english = readJson<Record<string, string>>(root, "messages/en.json");
-    english.i18n_demo_number = "{value, number}";
-    writeJson(root, "messages/en.json", english);
-
-    const french = readJson<Record<string, string>>(root, "messages/fr.json");
-    french.i18n_demo_number = "{value, number}";
-    writeJson(root, "messages/fr.json", french);
-
-    const exported = runScript(root, "export.ts");
-    expect(exported.status).toBe(1);
-    expect(exported.stderr).toContain("i18n_demo_number");
   });
 
   test("accepts the supported ICU subset and rejects the rest", async () => {

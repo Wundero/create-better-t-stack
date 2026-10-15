@@ -1,11 +1,9 @@
 /**
  * ICU MessageFormat subset analysis shared by the Lingui `i18n:*` scripts.
  *
- * `i18n:export` must fail loudly when a message uses constructs the Rust side
- * cannot evaluate, and `i18n:apply` must reject translations whose argument
- * sets differ from the source. Both use the analyzer here. The subset is the
- * one D7 describes: arguments, `plural`/`selectordinal` with `#`, `select`,
- * and recursive nesting.
+ * `i18n:apply` rejects translations whose argument sets differ from the
+ * source, and `i18n:pending` reports the placeholders a translator must keep.
+ * Both use the analyzer here.
  */
 
 const SUPPORTED_TYPES = new Set(["plural", "selectordinal", "select", "number", "date", "time"]);
@@ -185,7 +183,7 @@ export function analyzeIcu(message: string): IcuAnalysis {
   return { arguments: argumentsList, issues: state.issues };
 }
 
-/** Returns the list of problems that keep a message out of the exported ICU subset. */
+/** Returns the list of problems that keep a message out of the supported ICU subset. */
 export function validateIcuSubset(message: string): string[] {
   return analyzeIcu(message).issues;
 }

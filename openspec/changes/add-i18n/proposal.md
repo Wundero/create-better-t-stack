@@ -3,7 +3,7 @@
 Generated Better T Stack projects ship English-only. Adding i18n by hand means wiring a library into every surface the stack produces:
 
 - web frontends, native, server backends, email,
-- Tauri, including its Rust side,
+- Tauri,
 - Electrobun, OpenTUI and WXT.
 
 Each surface is wired differently. Several integrations already in the stack have their own built-in localization, and they all have to agree on a locale:
@@ -38,8 +38,7 @@ Doing this once in the generator, from one compatibility map, removes a large an
   - library-agnostic `Intl` formatters;
   - request-scoped locale;
   - library runtime;
-  - a uniform script contract (`i18n:extract | compile | pending | apply | check | export`).
-- Generate **Rust-side translations for Tauri** from the same catalogs. `i18n:export` writes a normalized catalog, a generated `i18n` crate compiles it, and a `t!()` macro produces the same message IDs as the JS library.
+  - a uniform script contract (`i18n:extract | compile | pending | apply | check`).
 - Generate an agent skill (`i18n-translate`) that translates pending messages only through the script contract, so it works the same for every library and catalog format. Also generate an optional `i18n-adopt` skill for wrapping existing hard-coded strings.
 - Support **Add Path retrofitting**:
   - `bts add --i18n <library>` adds i18n to an existing project.
@@ -58,7 +57,7 @@ Non-goals:
 
 ### New Capabilities
 
-- `i18n`: library selection, compatibility, shared i18n package, per-surface wiring, built-in integration localization, routing strategies, Rust/Tauri catalogs, translation tooling, and Add Path retrofitting.
+- `i18n`: library selection, compatibility, shared i18n package, per-surface wiring, built-in integration localization, routing strategies, translation tooling, and Add Path retrofitting.
 
 ### Modified Capabilities
 
@@ -67,7 +66,7 @@ None. Existing outputs change only when `i18n !== "none"`.
 ## Impact
 
 - **`packages/types`:** schemas, the new `i18n.ts` module, the JSON schema, analytics-safe values, and a `checkoutLocale` field on `PaymentProviderMeta`.
-- **`apps/cli`:** flags, prompts, validation, summaries, the reproducible command, MCP, post-install steps, Add Path retrofitting, the skills addon source, and the Tauri setup post-step.
+- **`apps/cli`:** flags, prompts, validation, summaries, the reproducible command, MCP, post-install steps, Add Path retrofitting, and the skills addon source.
 - **`apps/web`:** stack-builder category, validation, URL state, and docs.
 - **`packages/template-generator`:** the i18n handler and deps processor, templates, task-runner wiring, and README.
 - **Tests:**

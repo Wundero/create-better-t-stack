@@ -39,7 +39,6 @@ const SURFACE_CONFIG = {
   native: { frontend: ["native-bare"] },
   server: { backend: "hono" },
   email: { emailRenderer: "react-email" },
-  "tauri-host": { addons: ["tauri"] },
   "electrobun-host": { addons: ["electrobun"] },
   "opentui-core": { addons: ["opentui"], addonOptions: { opentui: { template: "core" } } },
   "opentui-react": { addons: ["opentui"], addonOptions: { opentui: { template: "react" } } },

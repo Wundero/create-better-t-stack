@@ -88,7 +88,7 @@ function run(pkg: string, script: string, args: string[] = []) {
 }
 
 describe("Lingui message ID parity", () => {
-  test("matches the Rust t! macro vectors", () => {
+  test("generates stable hash IDs for source text and context", () => {
     expect(generateMessageId("my message", "")).toBe("vQhkQx");
     expect(generateMessageId("my message", "custom context")).toBe("gGUeZH");
     expect(generateMessageId("Hello World", "my context")).toBe("SO_WB8");
@@ -132,7 +132,7 @@ describe("ICU subset analysis", () => {
   });
 });
 
-describe("i18n:pending / i18n:apply / i18n:export round trip", () => {
+describe("i18n:pending / i18n:apply round trip", () => {
   test("pending lists only the untranslated items", () => {
     const pkg = makePackage();
     const result = run(pkg, "pending.ts", ["--all"]);
@@ -183,42 +183,5 @@ describe("i18n:pending / i18n:apply / i18n:export round trip", () => {
     const unread = catalog.entries.find((item) => item.msgid === UNREAD);
     expect(greeting?.msgstr).toBe("Bonjour {name}, bon retour !");
     expect(unread?.msgstr).toBe("");
-  });
-
-  test("export normalizes catalogs with hash and explicit IDs", () => {
-    const pkg = makePackage();
-    const result = run(pkg, "export.ts");
-    expect(result.status).toBe(0);
-
-    const catalog = JSON.parse(fs.readFileSync(path.join(pkg, "dist", "catalog.json"), "utf8"));
-    const greetingId = generateMessageId(GREETING);
-    const unreadId = generateMessageId(UNREAD);
-
-    expect(catalog.sourceLocale).toBe("en");
-    expect(catalog.locales).toEqual(["en", "fr"]);
-    expect(Object.keys(catalog.messages).sort()).toEqual([HEADING_ID, unreadId, greetingId].sort());
-    expect(catalog.messages[greetingId]).toEqual({
-      source: GREETING,
-      context: null,
-      translations: { en: GREETING, fr: GREETING },
-    });
-    expect(catalog.messages[HEADING_ID]).toEqual({
-      source: "Internationalization",
-      context: null,
-      translations: { en: "Internationalization", fr: "Internationalization" },
-    });
-  });
-
-  test("export fails naming the message with an unsupported ICU construct", () => {
-    const pkg = makePackage();
-    const unsupported = "{value, choice, 0#zero|1#one}";
-    fs.writeFileSync(
-      path.join(pkg, "locales", "en", "messages.po"),
-      poFile("en", [entry(unsupported, unsupported)]),
-    );
-
-    const result = run(pkg, "export.ts");
-    expect(result.status).toBe(1);
-    expect(result.stderr).toContain(generateMessageId(unsupported));
   });
 });

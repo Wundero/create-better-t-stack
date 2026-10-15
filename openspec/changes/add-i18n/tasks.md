@@ -8,7 +8,7 @@
   - web: `constant.ts`, `stack-validation.ts`, `stack-utils.ts`, URL state, OG, agent content, docs;
   - generator: processors, handlers, post-process, README, task runners.
 - [x] 0.2 Record the current template versions of Next, Vite, Expo, Nuxt, SvelteKit, Astro, Tauri, WXT and OpenTUI. Pick compatible versions of Lingui (including the SWC plugin), Paraglide, i18next (and its extractor), wuchale, `@better-auth/i18n`, `@clerk/localizations`, `@nuxtjs/i18n` and `@wxt-dev/i18n`.
-- [x] 0.3 Evaluate maintained Rust ICU MessageFormat crates against the D7 subset. Decide whether to use a crate or ship the in-house evaluator.
+- [x] 0.3 Evaluate maintained Rust ICU MessageFormat crates against the D7 subset. Decide whether to use a crate or ship the in-house evaluator. — removed: Rust dropped at ⛔2
 - [x] 0.4 Confirm that Nitro's middleware, workers `nodejs_compat`, and lambda handlers support `AsyncLocalStorage` in the current templates. _(Resolved at ⛔1: AsyncLocalStorage is supported on Bun/Node natively and workers via `nodejs_compat`; there is no generated Lambda surface, so Lambda is out of scope for this change and would be a node-wrapping deploy target.)_
 - [x] 0.5 List the anchors in each generated root/provider file that D9 `anchored-insert` will use. Add a test that fails if a template change removes an anchor.
 - [x] 0.6 Record each dependency branch's head SHA in design.md "Context". The `wt/i18n` and stacked branches are created via the worktree skill, per `orchestration.md`.
@@ -58,9 +58,9 @@
 
 Surface order for each library: next → tanstack-start → server (incl. nitro) → native → solid → nuxt → svelte → astro → tanstack-router → react-router → wxt-* → opentui-* → electrobun-host.
 
-For each library, the subtasks are: runtime, catalogs, the extract/compile/pending/apply/check/export scripts, surface glue for every non-unsupported surface, the demo, and the ICU export round-trip test.
+For each library, the subtasks are: runtime, catalogs, the extract/compile/pending/apply/check scripts, surface glue for every non-unsupported surface, and the demo.
 
-- [x] 5.1 Lingui, including the Bun preload macro plugin for Bun hosts and the custom Rust extractor hook.
+- [x] 5.1 Lingui, including the Bun preload macro plugin for Bun hosts.
 - [x] 5.2 Paraglide, including `outdir` and ignore patterns per app, and CLI compile for non-Vite surfaces.
 - [x] 5.3 i18next, with natural-language keys, the extractor, and the Svelte/Solid glue we ship.
 - [x] 5.4 wuchale (experimental), with its AI translation disabled.
@@ -92,13 +92,13 @@ For each library, the subtasks are: runtime, catalogs, the extract/compile/pendi
 - [x] 7.11 Add the `lingui/skills` source to the skills addon.
 - [x] 7.12 Write one focused test per integration proving it is added only when its `when()` holds.
 
-## 8. Rust / Tauri
+## 8. Rust / Tauri — removed: Rust dropped at ⛔2
 
-- [ ] 8.1 Implement `i18n:export` normalized catalog generation for every library, with strict ICU-subset validation.
-- [ ] 8.2 Generate the `packages/i18n/rust` crate: `build.rs` codegen, the runtime, the `t!` proc-macro with ID parity and missing-ID compile errors, Paraglide `m::*` functions, and ICU4X plurals and formatting.
-- [ ] 8.3 Build the `syn`-based Rust extractor and merge it into each library's `i18n:extract`.
-- [ ] 8.4 Add the `tauri-setup.ts` post-step: Cargo dependency, `set_locale` command, `sys-locale` init, menu rebuild, and `beforeDev/BuildCommand` export.
-- [ ] 8.5 Write tests for the Rust unit evaluator and Lingui ID parity, and add the Tauri curated build case.
+- [ ] 8.1 Implement `i18n:export` normalized catalog generation for every library, with strict ICU-subset validation. — removed: Rust dropped at ⛔2
+- [ ] 8.2 Generate the `packages/i18n/rust` crate: `build.rs` codegen, the runtime, the `t!` proc-macro with ID parity and missing-ID compile errors, Paraglide `m::*` functions, and ICU4X plurals and formatting. — removed: Rust dropped at ⛔2
+- [ ] 8.3 Build the `syn`-based Rust extractor and merge it into each library's `i18n:extract`. — removed: Rust dropped at ⛔2
+- [ ] 8.4 Add the `tauri-setup.ts` post-step: Cargo dependency, `set_locale` command, `sys-locale` init, menu rebuild, and `beforeDev/BuildCommand` export. — removed: Rust dropped at ⛔2
+- [ ] 8.5 Write tests for the Rust unit evaluator and Lingui ID parity, and add the Tauri curated build case. — removed: Rust dropped at ⛔2
 
 ## 9. Translation Tooling and Skills
 
@@ -110,7 +110,7 @@ For each library, the subtasks are: runtime, catalogs, the extract/compile/pendi
 
 - [ ] 10.1 Wire `--i18n`, `--i18n-locales` and the interactive add prompt into `add-handler.ts` and `AddInputSchema`. Add library-switch rejection.
 - [ ] 10.2 Implement the edit kinds: `create`, `config-edit` (magicast and structured edits), `anchored-insert` (single-match anchors) and `manual` (outro plus `I18N_SETUP.md`).
-- [ ] 10.3 Retrofit surfaces, integrations, Rust (when `src-tauri` exists), scripts and skills. Add-locales mode.
+- [ ] 10.3 Retrofit surfaces, integrations, scripts and skills. Add-locales mode.
 - [ ] 10.4 Make generated apps inherit the project's i18n (on the stacked branch for `feat/generate-package-app`, see Section 12).
 - [ ] 10.5 Write the Add Path suite: pristine, user-modified, idempotent, add-locales, library-switch rejection and dry-run plan output.
 

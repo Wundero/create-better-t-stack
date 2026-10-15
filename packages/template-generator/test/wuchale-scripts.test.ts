@@ -9,7 +9,6 @@ import type { ProjectConfig } from "@better-t-stack/types";
 
 import { processTemplateString } from "../src/core/template-processor";
 import {
-  buildNormalizedCatalog,
   collectPendingItems,
   messagePlaceholders,
   parseCatalogFileName,
@@ -130,76 +129,6 @@ function baseConfig(): ProjectConfig {
   };
 }
 
-/** Renders a minimal ICU subset: arguments, `plural` with `#`. */
-function renderIcu(
-  message: string,
-  values: Record<string, number | string>,
-  locale: string,
-): string {
-  let index = 0;
-
-  const readUntil = (stop: RegExp): string => {
-    let out = "";
-    while (index < message.length && !stop.test(message[index] ?? "")) {
-      out += message[index];
-      index += 1;
-    }
-    return out;
-  };
-
-  const renderUntil = (stop: string | null): string => {
-    let out = "";
-    while (index < message.length) {
-      if (stop !== null && message.startsWith(stop, index)) break;
-      const char = message[index] ?? "";
-      if (char === "{") {
-        out += renderArgument();
-        continue;
-      }
-      if (char === "#") {
-        out += String(values.count ?? "");
-        index += 1;
-        continue;
-      }
-      out += char;
-      index += 1;
-    }
-    return out;
-  };
-
-  const renderArgument = (): string => {
-    index += 1;
-    const name = readUntil(/[,}]/).trim();
-    if (message[index] === "}") {
-      index += 1;
-      return String(values[name] ?? "");
-    }
-    index += 1;
-    const type = readUntil(/[,}]/).trim();
-    if (type !== "plural") throw new Error(`unsupported argument type ${type}`);
-    index += 1;
-
-    const branches = new Map<string, string>();
-    for (;;) {
-      const key = readUntil(/\{/).trim();
-      index += 1;
-      branches.set(key, renderUntil("}"));
-      index += 1;
-      while (message[index] === " ") index += 1;
-      if (message[index] === "}") {
-        index += 1;
-        break;
-      }
-    }
-
-    const count = Number(values[name] ?? 0);
-    const category = new Intl.PluralRules(locale).select(count);
-    return branches.get(category) ?? branches.get("other") ?? "";
-  };
-
-  return renderUntil(null);
-}
-
 async function createTempPackage(): Promise<string> {
   const dir = await mkdtemp(join(tmpdir(), "wuchale-scripts-"));
   await mkdir(join(dir, "src"), { recursive: true });
@@ -212,7 +141,7 @@ async function createTempPackage(): Promise<string> {
   for (const name of ["po.ts", "catalog.ts"]) {
     await copyFile(`${templatesDir}/lib/wuchale/scripts/${name}`, join(dir, "scripts", name));
   }
-  for (const name of ["extract", "compile", "pending", "apply", "check", "export"]) {
+  for (const name of ["extract", "compile", "pending", "apply", "check"]) {
     const template = await readFile(`${templatesDir}/lib/wuchale/scripts/${name}.ts.hbs`, "utf8");
     await writeFile(
       join(dir, "scripts", `${name}.ts`),
@@ -292,56 +221,8 @@ describe("pending report", () => {
   });
 });
 
-describe("ICU export", () => {
-  test("builds the normalized catalog and renders both locales", () => {
-    const result = buildNormalizedCatalog(catalogReads(), {
-      locales: ["en", "fr"],
-      sourceLocale: "en",
-    });
-    if (!result.isOk) throw new Error(result.errors.join("\n"));
-
-    const { catalog } = result;
-    expect(catalog.sourceLocale).toBe("en");
-    expect(Object.keys(catalog.messages).sort()).toEqual([
-      "Hello {0}!",
-      "Welcome",
-      "cart|One item",
-    ]);
-
-    const greeting = catalog.messages["Hello {0}!"];
-    expect(greeting?.translations["en"]).toBe("Hello {0}!");
-    expect(greeting?.translations["fr"]).toBe("Hello {0}!");
-
-    const plural = catalog.messages["cart|One item"];
-    expect(plural?.translations["en"]).toContain("{count, plural,");
-    expect(plural?.translations["en"]).toContain("one {One item}");
-    expect(plural?.translations["en"]).toContain("other {# items}");
-  });
-
-  test("round-trips exported ICU through a renderer for both locales", () => {
-    const result = buildNormalizedCatalog(catalogReads(), {
-      locales: ["en", "fr"],
-      sourceLocale: "en",
-    });
-    if (!result.isOk) throw new Error(result.errors.join("\n"));
-
-    const plural = result.catalog.messages["cart|One item"];
-    const enMessage = plural?.translations["en"] ?? "";
-    const frMessage = plural?.translations["fr"] ?? "";
-
-    expect(renderIcu(enMessage, { count: 1 }, "en")).toBe("One item");
-    expect(renderIcu(enMessage, { count: 4 }, "en")).toBe("4 items");
-    // The fr catalog is untranslated, so the export falls back to the source.
-    expect(renderIcu(frMessage, { count: 1 }, "fr")).toBe("One item");
-    expect(renderIcu(frMessage, { count: 4 }, "fr")).toBe("4 items");
-
-    const heading = result.catalog.messages["Welcome"]?.translations["fr"] ?? "";
-    expect(renderIcu(heading, {}, "fr")).toBe("Welcome");
-  });
-});
-
 describe("script contract end to end", () => {
-  test("pending, apply, check and export run against the catalogs", async () => {
+  test("pending, apply and check run against the catalogs", async () => {
     const dir = await createTempPackage();
     try {
       // Given catalogs with untranslated fr entries
@@ -375,15 +256,6 @@ describe("script contract end to end", () => {
       // Then check passes without the allow-missing escape hatch
       const checkRun = runScript(dir, "check.ts", []);
       expect(checkRun.status).toBe(0);
-
-      // And export writes the normalized catalog with the fr translation
-      const exportRun = runScript(dir, "export.ts", []);
-      expect(exportRun.status).toBe(0);
-      const exported = JSON.parse(await readFile(join(dir, "dist/catalog.json"), "utf8")) as {
-        messages: Record<string, { translations: Record<string, string> }>;
-      };
-      expect(exported.messages["Welcome"]?.translations["fr"]).toBe("Bienvenue");
-      expect(exported.messages["Hello {0}!"]?.translations["fr"]).toBe("Bonjour {0} !");
     } finally {
       await rm(dir, { recursive: true, force: true });
     }

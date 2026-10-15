@@ -47,9 +47,12 @@ describe("getI18nSurfaces", () => {
     expect(getI18nSurfaces({ frontend: ["next"] })).not.toContain("email");
   });
 
-  test("derives the desktop host surfaces from addons", () => {
-    expect(getI18nSurfaces({ addons: ["tauri"] })).toEqual(["tauri-host"]);
+  test("derives the desktop host surface from the electrobun addon", () => {
     expect(getI18nSurfaces({ addons: ["electrobun"] })).toEqual(["electrobun-host"]);
+  });
+
+  test("derives no i18n surface from the tauri addon", () => {
+    expect(getI18nSurfaces({ addons: ["tauri"] })).toEqual([]);
   });
 
   test("uses the CLI default OpenTUI template when none is configured", () => {
@@ -71,9 +74,9 @@ describe("getI18nSurfaces", () => {
       getI18nSurfaces({
         frontend: ["next", "native-bare"],
         backend: "hono",
-        addons: ["tauri", "wxt"],
+        addons: ["wxt"],
       }),
-    ).toEqual(["next", "native", "server", "tauri-host", "wxt-react"]);
+    ).toEqual(["next", "native", "server", "wxt-react"]);
   });
 });
 
@@ -88,9 +91,9 @@ describe("I18N_SUPPORT matrix", () => {
     }
   });
 
-  test("covers all four libraries and 21 surfaces", () => {
+  test("covers all four libraries and 20 surfaces", () => {
     expect(I18N_LIBRARIES).toHaveLength(4);
-    expect(I18N_SURFACES).toHaveLength(21);
+    expect(I18N_SURFACES).toHaveLength(20);
     expect(Object.keys(I18N_SUPPORT).sort()).toEqual([...I18N_LIBRARIES].sort());
   });
 
@@ -118,12 +121,10 @@ describe("I18N_LIBRARY_META", () => {
     expect(I18N_LIBRARY_META.lingui).toMatchObject({
       keyStyle: "source-text",
       catalogFormat: "po",
-      rustMacro: "source-text",
     });
     expect(I18N_LIBRARY_META.paraglide).toMatchObject({
       keyStyle: "id",
       catalogFormat: "inlang-json",
-      rustMacro: "function",
     });
     expect(I18N_LIBRARY_META.wuchale.keyStyle).toBe("implicit");
   });

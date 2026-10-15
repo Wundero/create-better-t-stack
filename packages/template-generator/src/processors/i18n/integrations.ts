@@ -20,8 +20,8 @@ import { addPackageDependency, type AvailableDependencies } from "../../utils/ad
  * always derived through `getI18nSurfaces`. Integrations owned by
  * other lanes (`turnstile-language`, `payments-checkout-locale`,
  * `shadcn-direction`, `react-email-locale`, `server-locale-middleware`,
- * `tauri-rust-i18n`, `lingui-bun-preload`) have no handler here: they live on
- * the stacked branches, in L6 or in L8.
+ * `lingui-bun-preload`) have no handler here: they live on the stacked
+ * branches or in L6.
  *
  * Two phases mirror `template-handlers/i18n.ts` and `processors/i18n-deps.ts`:
  * - `processI18nIntegrationTemplates` emits new files from

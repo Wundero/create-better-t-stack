@@ -270,7 +270,6 @@ describe("wuchale template layout", () => {
     "opentui-react",
     "opentui-solid",
     "electrobun-host",
-    "tauri-host",
     "email",
   ];
 

@@ -116,7 +116,7 @@ describe("paraglide shared package", () => {
     }
 
     expect(vfs.readFile("packages/i18n/src/runtime.ts")).toContain("./paraglide/messages.js");
-    for (const script of ["extract", "compile", "pending", "apply", "check", "export"]) {
+    for (const script of ["extract", "compile", "pending", "apply", "check"]) {
       expect(vfs.exists(`packages/i18n/scripts/${script}.ts`)).toBe(true);
     }
   });

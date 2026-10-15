@@ -3,13 +3,12 @@ import { getI18nSurfaces, type I18nSurface, type ProjectConfig } from "@better-t
 import type { VirtualFileSystem } from "../core/virtual-fs";
 import { processI18nIntegrationTemplates } from "../processors/i18n/integrations";
 import { processI18nRoutingTemplates } from "../processors/i18n/routing";
-import { processI18nRustTemplates } from "../processors/i18n/rust";
 import { processI18nSkillMirror } from "./i18n-skill";
 import { processTemplatesFromPrefix, type TemplateData } from "./utils";
 
 /**
  * Generated-project destination for each surface's i18n glue. Surfaces created
- * by an external scaffolder (Tauri, WXT, OpenTUI) still resolve here so the
+ * by an external scaffolder (WXT, OpenTUI) still resolve here so the
  * templates land inside the app the scaffolders own.
  */
 const SURFACE_DESTINATIONS = {
@@ -24,7 +23,6 @@ const SURFACE_DESTINATIONS = {
   native: "apps/native",
   server: "apps/server",
   email: "packages/email",
-  "tauri-host": "apps/web",
   "electrobun-host": "apps/desktop",
   "opentui-core": "apps/tui",
   "opentui-react": "apps/tui",
@@ -39,8 +37,7 @@ const SURFACE_DESTINATIONS = {
 /**
  * i18n templates. Every lane owns its own template namespace:
  * `i18n/shared` (L4), `i18n/lib/<library>` and `i18n/surface/<library>/<surface>`
- * (L5a–L5d), `i18n/routing` and `i18n/integrations` and `i18n/rust`
- * (L6–L8), and `i18n/skill` (L9).
+ * (L5a–L5d), `i18n/routing` and `i18n/integrations` (L6–L7), and `i18n/skill` (L9).
  */
 export async function processI18nTemplates(
   vfs: VirtualFileSystem,
@@ -65,7 +62,6 @@ export async function processI18nTemplates(
 
   processI18nRoutingTemplates(vfs, templates, config);
   processI18nIntegrationTemplates(vfs, templates, config);
-  processI18nRustTemplates(vfs, templates, config);
 
   // Decision (design D8, spec gates only `i18n-translate`): `i18n-adopt` shares
   // the single `translateSkill` toggle. Both skills are the agent-driven

@@ -1,18 +1,16 @@
 /**
- * `i18n:compile` — validates every catalog and writes the normalized export
- * (design D7). Runs before `dev` and `build`; a message outside the ICU subset
- * fails here with its id.
+ * `i18n:compile` — i18next resolves keys at runtime, so there is no build step;
+ * this validates that every configured locale catalog is present and parseable
+ * before `dev` and `build` run.
  */
 
 import { sourceLocale, locales } from "../src/config";
-import { runExport } from "./export";
-import { icuMessagesById, packageRoot, readCatalog } from "./lib/catalogs";
+import { packageRoot, readCatalog } from "./lib/catalogs";
 
 const root = packageRoot();
 
 for (const locale of locales) {
-  icuMessagesById(readCatalog(root, locale));
+  readCatalog(root, locale);
 }
 
 console.log(`i18n:compile OK for ${locales.join(", ")} (source ${sourceLocale})`);
-console.log(`i18n:compile wrote ${runExport(root)}`);

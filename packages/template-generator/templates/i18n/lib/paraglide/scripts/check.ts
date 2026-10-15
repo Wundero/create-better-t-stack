@@ -3,8 +3,7 @@
  *
  * Fails when a catalog is missing, invalid, or has untranslated messages:
  *
- *   - every message must stay inside the ICU subset the Rust runtime
- *     understands (see `src/icu.ts`);
+ *   - every message must stay inside the ICU subset in `src/icu.ts`;
  *   - every translation must keep the source placeholders and argument sets;
  *   - every source message needs an entry in each target catalog unless
  *     `I18N_CHECK_ALLOW_MISSING=1` relaxes missing entries for development.

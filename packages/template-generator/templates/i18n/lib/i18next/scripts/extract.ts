@@ -19,7 +19,3 @@ const extractor = Bun.spawn(["bunx", "i18next-cli", "extract", ...forwarded], {
 
 const exitCode = await extractor.exited;
 if (exitCode !== 0) process.exit(exitCode);
-
-// Task 8.3 (Rust/Tauri) merges `t!(...)` references into the source catalog
-// after the extractor runs, so keys used only by the Rust host are never
-// pruned. It hooks in here and stays a no-op without the Tauri addon.

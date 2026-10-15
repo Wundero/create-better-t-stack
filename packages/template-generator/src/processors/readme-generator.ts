@@ -456,7 +456,6 @@ function generateI18nSection(config: ProjectConfig, packageManagerRunCmd: string
     `- \`${packageManagerRunCmd} i18n:apply <file>\`: validate placeholders and ICU arguments, then write translations`,
     `- \`${packageManagerRunCmd} i18n:compile\`: compile catalogs for the app runtimes (also runs before \`dev\` and \`build\`)`,
     `- \`${packageManagerRunCmd} i18n:check\`: fail on missing or invalid entries; \`I18N_CHECK_ALLOW_MISSING=1\` relaxes it during development`,
-    `- \`${packageManagerRunCmd} i18n:export\`: write the normalized catalog used by the Rust host (Tauri)`,
     "",
   ];
 

@@ -1,12 +1,9 @@
 /**
- * ICU MessageFormat subset used by `i18n:pending`, `i18n:apply`, `i18n:check`
- * and `i18n:export`.
+ * ICU MessageFormat subset used by `i18n:pending`, `i18n:apply` and `i18n:check`.
  *
- * The supported subset is the one the Rust side can evaluate (design D7):
- * arguments (`{name}`), `plural` and `selectordinal` with `#`, `select`, and
- * arbitrarily nested messages. Anything else — `number`, `date`, `time` and
- * markup — fails validation instead of silently producing a message the Rust
- * runtime cannot render.
+ * The supported subset is arguments (`{name}`), `plural` and `selectordinal`
+ * with `#`, `select`, and arbitrarily nested messages. Anything else —
+ * `number`, `date`, `time` and markup — fails validation.
  */
 
 export type IcuArgumentType = "argument" | "plural" | "selectordinal" | "select";

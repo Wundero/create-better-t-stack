@@ -6,7 +6,6 @@ import { processI18nIntegrations } from "./i18n/integrations";
 import { getLinguiDeps } from "./i18n/lingui";
 import { getParaglideDeps } from "./i18n/paraglide";
 import { processI18nRouting } from "./i18n/routing";
-import { getI18nRustDeps } from "./i18n/rust";
 import { getWuchaleDeps } from "./i18n/wuchale";
 
 type I18nDeps = (vfs: VirtualFileSystem, config: ProjectConfig) => void;
@@ -24,8 +23,8 @@ const I18N_LIBRARY_DEPS = {
 
 /**
  * i18n dependency processing. Library deps come first, then the cross-library
- * concerns (routing L6, built-in localization L7, Rust L8), each in its own
- * stub file until its lane lands.
+ * concerns (routing L6, built-in localization L7), each in its own stub file
+ * until its lane lands.
  */
 export function processI18nDeps(vfs: VirtualFileSystem, config: ProjectConfig): void {
   const library = config.i18n;
@@ -34,5 +33,4 @@ export function processI18nDeps(vfs: VirtualFileSystem, config: ProjectConfig): 
   I18N_LIBRARY_DEPS[library](vfs, config);
   processI18nRouting(vfs, config);
   processI18nIntegrations(vfs, config);
-  getI18nRustDeps(vfs, config);
 }

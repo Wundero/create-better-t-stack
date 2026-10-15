@@ -1,6 +1,6 @@
 /**
  * Shared helpers for the wuchale uniform scripts
- * (`i18n:extract | compile | pending | apply | check | export`).
+ * (`i18n:extract | compile | pending | apply | check`).
  *
  * Everything here is pure or filesystem-only: the CLI entrypoints add argv
  * handling and JSON output. Catalogs are the per-adapter `.po` files wuchale
@@ -43,26 +43,6 @@ export interface PendingReport {
   readonly sourceLocale: string;
   readonly items: PendingItem[];
 }
-
-export interface NormalizedMessage {
-  readonly source: string;
-  readonly context: string | null;
-  readonly translations: Record<string, string>;
-}
-
-export interface NormalizedCatalog {
-  readonly sourceLocale: string;
-  readonly locales: string[];
-  readonly messages: Record<string, NormalizedMessage>;
-}
-
-export type IcuResult =
-  | { readonly isOk: true; readonly message: string }
-  | { readonly isOk: false; readonly error: string };
-
-export type ExportResult =
-  | { readonly isOk: true; readonly catalog: NormalizedCatalog }
-  | { readonly isOk: false; readonly errors: string[] };
 
 /** `packages/i18n` root, resolved from a script in `packages/i18n/scripts`. */
 export function resolvePackageRoot(importMetaUrl: string): string {
@@ -171,48 +151,9 @@ export function validatePlaceholders(item: PoItem, forms: readonly string[]): st
   return null;
 }
 
-/** A stable id for the normalized export: context-qualified source text. */
+/** A stable context-qualified message id. */
 export function normalizeMessageId(item: PoItem): string {
   return item.context === null ? item.id : `${item.context}|${item.id}`;
-}
-
-function balancedBraces(text: string): string | null {
-  const withoutPlaceholders = text.replace(PLACEHOLDER, "");
-  let depth = 0;
-  for (const char of withoutPlaceholders) {
-    if (char === "{") depth += 1;
-    else if (char === "}") {
-      depth -= 1;
-      if (depth < 0) return "unbalanced brace";
-    }
-  }
-  return depth === 0 ? null : "unbalanced brace";
-}
-
-/**
- * Converts a wuchale catalog item to the ICU subset used by `i18n:export`:
- * positional arguments, `plural` with `#`, `select` and nesting. Wuchale
- * already writes positional `{n}` placeholders, so the conversion keeps them
- * as ICU arguments; a plural item becomes one `{count, plural, ...}` message
- * whose categories follow the locale's CLDR order.
- */
-export function toIcuMessage(item: PoItem, forms: readonly string[], locale: string): IcuResult {
-  if (item.pluralId === null) {
-    const message = forms[0] ?? item.id;
-    const error = balancedBraces(message);
-    return error === null ? { isOk: true, message } : { isOk: false, error };
-  }
-
-  const categories = pluralCategories(locale);
-  const parts: string[] = [];
-  for (const [index, category] of categories.entries()) {
-    const form = forms[index] ?? forms[forms.length - 1] ?? item.id;
-    const error = balancedBraces(form);
-    if (error !== null) return { isOk: false, error };
-    parts.push(`${category} {${form}}`);
-  }
-
-  return { isOk: true, message: `{count, plural, ${parts.join(" ")}}` };
 }
 
 /** Pending items for one locale, or for every non-source locale. */
@@ -274,82 +215,6 @@ export function findItem(
 export function setTranslation(item: PoItem, forms: readonly string[]): void {
   item.translations = [...forms];
   item.obsolete = false;
-}
-
-export interface NormalizeOptions {
-  readonly locales: readonly string[];
-  readonly sourceLocale: string;
-}
-
-/**
- * Builds the D7 normalized catalog from every parsed per-adapter catalog.
- * Fails with the offending message id when a message is outside the ICU
- * subset.
- */
-export function buildNormalizedCatalog(
-  catalogs: readonly CatalogRead[],
-  options: NormalizeOptions,
-): ExportResult {
-  const errors: string[] = [];
-  const messages = new Map<
-    string,
-    { source: string; context: string | null; translations: Map<string, string> }
-  >();
-  const sourceByKey = new Map<string, PoItem>();
-
-  for (const read of catalogs) {
-    for (const item of read.catalog.items) {
-      if (item.id.length === 0 && item.pluralId === null) continue;
-      const id = normalizeMessageId(item);
-      const existingSource = sourceByKey.get(id);
-      if (existingSource === undefined) {
-        sourceByKey.set(id, item);
-      } else if (sourceForms(existingSource).join(" ") !== sourceForms(item).join(" ")) {
-        errors.push(`"${id}" has conflicting source text across adapters`);
-        continue;
-      }
-
-      const entry = messages.get(id) ?? {
-        source: sourceForms(item).join(" || "),
-        context: item.context,
-        translations: new Map<string, string>(),
-      };
-      messages.set(id, entry);
-
-      const forms = isUntranslated(item.translations) ? sourceForms(item) : item.translations;
-      const locale = read.source.locale;
-      const converted = toIcuMessage(item, forms, locale);
-      if (!converted.isOk) {
-        errors.push(`"${id}" (${locale}): ${converted.error}`);
-        continue;
-      }
-      if (!entry.translations.has(locale)) {
-        entry.translations.set(locale, converted.message);
-      }
-    }
-  }
-
-  if (errors.length > 0) return { isOk: false, errors };
-
-  const normalizedMessages: Record<string, NormalizedMessage> = {};
-  for (const [id, entry] of messages) {
-    const translations: Record<string, string> = {};
-    for (const locale of options.locales) {
-      const message =
-        entry.translations.get(locale) ?? entry.translations.get(options.sourceLocale);
-      if (message !== undefined) translations[locale] = message;
-    }
-    normalizedMessages[id] = { source: entry.source, context: entry.context, translations };
-  }
-
-  return {
-    isOk: true,
-    catalog: {
-      sourceLocale: options.sourceLocale,
-      locales: [...options.locales],
-      messages: normalizedMessages,
-    },
-  };
 }
 
 /**

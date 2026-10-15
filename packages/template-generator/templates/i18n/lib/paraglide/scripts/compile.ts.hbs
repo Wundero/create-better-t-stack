@@ -32,17 +32,5 @@ export function runCompile(): number {
 }
 
 if (import.meta.main) {
-  const compileExitCode = runCompile();
-{{#if (includes addons "tauri")}}
-  // The Tauri crate consumes the normalized catalog; keep it in sync with
-  // every compile (design D7).
-  if (compileExitCode === 0) {
-    const { runExport } = await import("./export");
-    process.exitCode = await runExport();
-  } else {
-    process.exitCode = compileExitCode;
-  }
-{{else}}
-  process.exitCode = compileExitCode;
-{{/if}}
+  process.exitCode = runCompile();
 }

@@ -98,7 +98,7 @@ const WUCHALE_CONFIG_PATH = "../../packages/i18n/wuchale.config.mjs";
 
 /**
  * Only surfaces whose support cell is not `unsupported` get adapters, deps or
- * glue. `nuxt`, `native`, `tauri-host` and `wxt-vue` have no wuchale adapter.
+ * glue. `nuxt`, `native` and `wxt-vue` have no wuchale adapter.
  */
 export function getWuchaleSurfaces(config: ProjectConfig): I18nSurface[] {
   return getI18nSurfaces(config).filter(

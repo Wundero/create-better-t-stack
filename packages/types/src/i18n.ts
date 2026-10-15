@@ -28,7 +28,6 @@ export type I18nSurface =
   | "native"
   | "server"
   | "email"
-  | "tauri-host"
   | "electrobun-host"
   | "opentui-core"
   | "opentui-react"
@@ -51,7 +50,6 @@ export const I18N_SURFACES = [
   "native",
   "server",
   "email",
-  "tauri-host",
   "electrobun-host",
   "opentui-core",
   "opentui-react",
@@ -121,7 +119,6 @@ export function getI18nSurfaces(config: I18nConfigInput): I18nSurface[] {
     surfaces.push("server");
   }
   if (config.emailRenderer === "react-email") surfaces.push("email");
-  if (addons.includes("tauri")) surfaces.push("tauri-host");
   if (addons.includes("electrobun")) surfaces.push("electrobun-host");
 
   if (addons.includes("opentui")) {
@@ -162,7 +159,6 @@ export const I18N_SUPPORT = {
     native: { level: "native", note: "Uses @lingui/metro-transformer." },
     server: { level: "adapter", note: "Uses a Bun preload or a bundler macro plugin." },
     email: { level: "native" },
-    "tauri-host": { level: "adapter", note: "Rust crate generated from the shared catalogs." },
     "electrobun-host": { level: "adapter", note: "Uses a Bun preload." },
     "opentui-core": { level: "adapter", note: "Uses a Bun preload." },
     "opentui-react": { level: "adapter", note: "Uses a Bun preload." },
@@ -185,7 +181,6 @@ export const I18N_SUPPORT = {
     native: { level: "adapter", note: "Compiled through the CLI." },
     server: { level: "native" },
     email: { level: "native" },
-    "tauri-host": { level: "adapter", note: "Typed Rust functions generated from the catalogs." },
     "electrobun-host": { level: "native" },
     "opentui-core": { level: "native" },
     "opentui-react": { level: "native" },
@@ -208,7 +203,6 @@ export const I18N_SUPPORT = {
     native: { level: "native" },
     server: { level: "native" },
     email: { level: "native" },
-    "tauri-host": { level: "adapter", note: "Rust crate generated from the shared catalogs." },
     "electrobun-host": { level: "native" },
     "opentui-core": { level: "native" },
     "opentui-react": { level: "native" },
@@ -231,10 +225,6 @@ export const I18N_SUPPORT = {
     native: { level: "unsupported", note: "No Metro integration." },
     server: { level: "adapter" },
     email: { level: "partial", note: "The server render path is unverified." },
-    "tauri-host": {
-      level: "unsupported",
-      note: "Implicit extraction has no Rust counterpart.",
-    },
     "electrobun-host": { level: "adapter" },
     "opentui-core": { level: "adapter" },
     "opentui-react": { level: "partial", note: "Unverified with the OpenTUI reconciler." },
@@ -249,14 +239,12 @@ export const I18N_SUPPORT = {
 
 export type I18nKeyStyle = "source-text" | "id" | "implicit";
 export type I18nCatalogFormat = "po" | "inlang-json" | "i18next-json";
-export type I18nRustMacro = "source-text" | "function";
 
 export interface I18nLibraryMeta {
   readonly label: string;
   readonly keyStyle: I18nKeyStyle;
   readonly experimental: boolean;
   readonly catalogFormat: I18nCatalogFormat;
-  readonly rustMacro: I18nRustMacro;
 }
 
 export const I18N_LIBRARY_META = {
@@ -265,28 +253,24 @@ export const I18N_LIBRARY_META = {
     keyStyle: "source-text",
     experimental: false,
     catalogFormat: "po",
-    rustMacro: "source-text",
   },
   paraglide: {
     label: "Paraglide",
     keyStyle: "id",
     experimental: false,
     catalogFormat: "inlang-json",
-    rustMacro: "function",
   },
   i18next: {
     label: "i18next",
     keyStyle: "source-text",
     experimental: false,
     catalogFormat: "i18next-json",
-    rustMacro: "source-text",
   },
   wuchale: {
     label: "wuchale",
     keyStyle: "implicit",
     experimental: true,
     catalogFormat: "po",
-    rustMacro: "function",
   },
 } as const satisfies Record<I18nLibrary, I18nLibraryMeta>;
 
@@ -525,7 +509,6 @@ export type I18nIntegrationId =
   | "expo-localization"
   | "lingui-bun-preload"
   | "server-locale-middleware"
-  | "tauri-rust-i18n"
   | "lingui-skills";
 
 export interface I18nIntegrationContext {
@@ -661,12 +644,6 @@ export const I18N_INTEGRATIONS = [
     label: "Server locale middleware",
     kind: "framework",
     when: ({ surfaces }) => hasSurface(surfaces, "server"),
-  },
-  {
-    id: "tauri-rust-i18n",
-    label: "Tauri Rust i18n",
-    kind: "tooling",
-    when: ({ surfaces }) => hasSurface(surfaces, "tauri-host"),
   },
   {
     id: "lingui-skills",

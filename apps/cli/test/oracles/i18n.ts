@@ -12,7 +12,6 @@ export type OracleSurface =
   | "native"
   | "server"
   | "email"
-  | "tauri-host"
   | "electrobun-host"
   | "opentui-core"
   | "opentui-react"
@@ -39,7 +38,6 @@ export const ORACLE_SURFACES = [
   "native",
   "server",
   "email",
-  "tauri-host",
   "electrobun-host",
   "opentui-core",
   "opentui-react",
@@ -62,7 +60,7 @@ const ORACLE_UNSUPPORTED = {
   lingui: ["svelte", "wxt-svelte"],
   paraglide: [],
   i18next: [],
-  wuchale: ["nuxt", "native", "tauri-host", "wxt-vue"],
+  wuchale: ["nuxt", "native", "wxt-vue"],
 } as const satisfies Record<OracleLibrary, readonly OracleSurface[]>;
 
 const ORACLE_PARTIAL = {
@@ -83,7 +81,6 @@ const ORACLE_NOTES = {
   wuchale: {
     nuxt: "No Vue adapter.",
     native: "No Metro integration.",
-    "tauri-host": "Implicit extraction has no Rust counterpart.",
     "wxt-vue": "No Vue adapter.",
     email: "The server render path is unverified.",
     "opentui-react": "Unverified with the OpenTUI reconciler.",

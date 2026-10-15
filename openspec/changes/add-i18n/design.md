@@ -39,7 +39,7 @@ Proposed pins (latest stable, 2026-10-14):
 - **wuchale:** `0.26.7` (0.x, experimental; **no official Vue adapter**; AI disabled by simply omitting the `ai` config).
 - **Integrations:** `@better-auth/i18n` `1.7.7` (locks to `better-auth ^1.7.7`), `@clerk/localizations` `4.23.0` (docs still "Experimental"), `@nuxtjs/i18n` `10.6.0` (Nuxt 4, `vue-i18n ^11.4`), `@wxt-dev/i18n` `0.2.8`.
 
-**0.3 Rust ICU crate decision.** Use **`formatjs_icu_messageformat` 0.3.0 + `formatjs_icu_messageformat_parser` 1.1.0** (FormatJS org; ICU4X-backed via `icu ^2.3`) instead of the in-house evaluator. The parser covers the D7 subset — arguments, `plural`, `selectordinal` (`PluralType::Ordinal`), `select`, `#` (`Pound`), and recursive nesting — and the runtime supports parse-once (precompiled AST via `from_ast_with_options`) with per-locale format time. `fluent`/`fluent-bundle` is FTL syntax, not MF1; `intl_pluralrules` is dead (2022); `rust-icu-messageformat` and `icu_messageformat` do not exist. Risks: crate is young (0.3.0, ~2 months), MSRV 1.92 / edition 2024, ICU4X lacks full ECMA-402 currency/unit/timezone parity; `icu_*` are `2.3.x` and `icu_locid` is frozen at 1.5 (use `icu_locale`). Ship the in-house evaluator only if the young-crate/MSRV risk is rejected.
+**0.3 Rust ICU crate decision — removed.** Rust/Tauri translations were dropped at ⛔2 (JS-first only); see the Lane log. The `formatjs_icu_messageformat` evaluation is no longer in scope.
 
 **0.4 AsyncLocalStorage.** Supported on every generated server path: Bun and Node natively; workers via `nodejs_compat`, already emitted for both Hono (`generators/alchemy/server.ts:79`) and Nitro (`generators/alchemy/server.ts:40`; `templates/backend/server/nitro/base/nitro.config.ts.hbs` sets `cloudflare.nodeCompat: true`). Nitro on bun/node uses the native process. **There is no AWS/Lambda surface** — `RuntimeSchema` is `bun|node|workers|none` and `ServerDeploySchema` is `cloudflare|prisma|docker|vercel|none`; task 0.4's "lambda handlers" premise has no generated artifact. Add a guard test asserting `nodejs_compat` stays present.
 
@@ -60,7 +60,7 @@ Proposed pins (latest stable, 2026-10-14):
 - Server entries: Hono `const app = new Hono();`; Express `const app = express();`; Fastify `fastify.get('/', async () => {`; Elysia `.get("/", () => "OK")`.
 - better-auth `createAuth`: `return betterAuth({`, `emailAndPassword: { enabled: true },`.
 
-Absent (consistent with D7/D11): Tauri `src-tauri/**`, WXT entrypoints, the OpenTUI entry, and the React Email render entry have **no static templates** — Tauri/WXT/OpenTUI come from external scaffolders and are wired by CLI post-steps; React Email lives on `wt/email-support`. Their anchor coverage belongs to L8/L10 and the stacked branches. A guard test must fail if a template change removes any chosen anchor.
+Absent (consistent with D11): Tauri `src-tauri/**`, WXT entrypoints, the OpenTUI entry, and the React Email render entry have **no static templates** — Tauri/WXT/OpenTUI come from external scaffolders and are wired by CLI post-steps; React Email lives on `wt/email-support`. Their anchor coverage belongs to L10 and the stacked branches. A guard test must fail if a template change removes any chosen anchor.
 
 **0.6 Dependency branch heads (2026-10-14).**
 
@@ -84,7 +84,6 @@ Absent (consistent with D7/D11): Tauri `src-tauri/**`, WXT entrypoints, the Open
 - Payment checkout locales: **supported "where possible"** — `"api"` for Polar and Stripe, remaining providers upgraded as each is verified on `wt/payment-providers`.
 - AWS Lambda: **removed from scope** — no generated surface; would be a node-wrapping deploy target, not an i18n lane.
 - Svelte layout: normalize `+layout.svelte` to a single unique anchor.
-- Rust crate: default `formatjs_icu_messageformat`; in-house evaluator acceptable fallback; final call at L8 (⛔2).
 
 ### Lane log
 
@@ -109,7 +108,6 @@ Deferred to later lanes (non-blocking):
 - **WXT/OpenTUI surface glue cannot be create-path templated** — `wxt init` / `create-tui` run after generation and reject a non-empty app dir. Needs a CLI post-step (`apps/cli/src/helpers/addons/{wxt-setup.ts,tui-setup.ts}`) or L10 Add-Path to re-emit `i18n/surface/<library>/<surface>/**` from the embedded templates and register the plugin/preload. Affects the curated cases `opentui(react) + lingui` and `react-router + wxt(vanilla) + paraglide`.
 - **Server/electrobun/opentui/wxt demos are importable but not route-mounted** — L6/L10 must anchor-insert (the D10 `nitro + i18next` case depends on it).
 - **wuchale `next` cell** is `native` in the matrix but wuchale ships no Next bundler plugin (source transform needs `wuchale --modify`); L11 must soften the cell or wire the modify step.
-- `i18n:compile` chains `i18n:export` only when Tauri is selected — L8 owns the final hook.
 - Paraglide's `paraglide.config.mjs` strategy/`urlPatterns` are co-owned with L6's routing.
 
 **L6 (routing), L7 (built-ins), L9 (tooling) — merged into `wt/i18n`.** Tasks 6.1–6.4, 7.1–7.6/7.11/7.12, 9.1–9.3 done. Reviews: L7/L9 PASS (targeted must-fix cleared); **L6 FAIL → fixed → re-FAIL (two clerk-interaction regressions) → fixed → PASS**. Gate after each merge green: `packages/template-generator` up to 195/195; `apps/cli` 925 pass / 2 toolchain-preflight fails / 78 skip (after an orchestrator test-expectation update); `packages/types` 45/45; `apps/web` 87/87. `templates.generated.ts` regenerated and committed per merge.
@@ -117,12 +115,15 @@ Deferred to later lanes (non-blocking):
 Orchestrator follow-ups: updated `apps/cli/test/api.test.ts` for L6's legitimate `localeHeader()` change to the native oRPC client (the stale expectation was not L6-owned); absorbed an oxfmt blank line in this file.
 
 Deferred / verification items:
+
 - **Runtime verification for L11 curated builds:** React Router 8 (`flatRoutes().then(prefix…)` context mode, `future.v8_middleware`, root `middleware` export default-enablement) and TanStack Start (`createStart` request middleware, paraglide SSR isolation via `src/server.ts`); Elysia double-pass `app.handle` and nitro h3-v2 `next()`.
 - WXT/OpenTUI post-scaffold glue, demo route-mounting, and the wuchale `next` matrix cell (see the L5 section).
 - **`DEFAULT_LOCALES` still duplicated as `["en","es","fr"]` in `processors/i18n/{lingui.ts,i18next.ts,paraglide/index.ts}`** — consolidate onto `I18nOptionsSchema.parse({}).locales`.
 - L9's emitted `scripts/contract.ts` is not imported by the L5 library scripts (they re-declare the shapes); L9 added conformance tests that lock runtime JSON to the emitted copy until those closed lanes adopt the import.
 - The shared package's scripts hardcode `bun` — settle before release.
 - `processors/i18n/routing.ts` ownership table gap: `test/i18n-routing.test.ts` and `readme-generator.ts` edits were authorized ad hoc (recorded here).
+
+**Rust/Tauri translations dropped at ⛔2 (JS-first only).** The L8 lane (Rust/Tauri i18n) was never merged and its branch is deleted. The Rust/Tauri-i18n seams merged into L1/L4/L5/L6/L7/L9 were stripped: the `tauri-host` surface and its matrix cells, the `tauri-rust-i18n` integration, `I18N_LIBRARY_META.rustMacro`, `processors/i18n/rust.ts`, the `i18n:export` scripts with their ICU-export helpers, and every Rust/Tauri-i18n mention in templates, README and docs. The JS-first workflow (`i18n:extract | compile | pending | apply | check`, skills, routing, integrations) is unchanged, decision D7 is deleted, and the `tauri` addon itself remains.
 
 ## Goals / Non-Goals
 
@@ -131,7 +132,6 @@ Deferred / verification items:
 - One i18n choice that works across every surface the stack can contain, or is blocked with a precise reason.
 - One compatibility module consumed by the CLI, the web builder, the generator and the Add Path.
 - Built-in localization of integrations is enabled automatically and fed the shared locale.
-- Rust (Tauri) reads the **same catalogs** as JS.
 - Formatting (date, time, number, currency, relative, list, plural, unit) behaves the same for every library.
 - Translation is agent-driven and library-agnostic.
 - Existing projects can adopt i18n through the Add Path without losing user edits.
@@ -189,7 +189,6 @@ export type I18nSurface =
   | "native" // any native-* frontend
   | "server" // hono | express | fastify | elysia | nitro (any runtime incl. workers, lambda)
   | "email" // emailRenderer === "react-email"
-  | "tauri-host" // Rust side of the tauri addon
   | "electrobun-host" // Bun main process
   | "opentui-core"
   | "opentui-react"
@@ -210,32 +209,30 @@ Derivation rules:
 
 **Support matrix.** The type is `Record<I18nLibrary, Record<I18nSurface, { level: "native" | "adapter" | "partial" | "unsupported"; note?: string }>>`, declared with `satisfies`. Adding a surface or library therefore fails typecheck until every cell is filled. Notes are user-facing and appear in CLI hints, web tooltips and the generated README.
 
-| surface                                         | lingui                                                            | paraglide             | i18next                     | wuchale                                                   |
-| ----------------------------------------------- | ----------------------------------------------------------------- | --------------------- | --------------------------- | --------------------------------------------------------- |
-| next                                            | native (SWC plugin, RSC)                                          | native                | adapter                     | native                                                    |
-| tanstack-start / tanstack-router / react-router | adapter (Vite plugin + React)                                     | native                | adapter                     | adapter                                                   |
-| nuxt                                            | adapter (`createVueExtractor` + composable)                       | adapter               | adapter (`i18next-vue`)     | unsupported — no Vue adapter                              |
-| svelte                                          | unsupported — no Svelte template support                          | native                | adapter (shipped store)     | native                                                    |
-| solid                                           | native (`@lingui/solid`)                                          | native                | adapter (shipped primitive) | native                                                    |
-| astro                                           | partial — macros only in frontmatter/islands, not `.astro` markup | native                | adapter                     | native                                                    |
-| native                                          | native (`@lingui/metro-transformer`)                              | adapter (CLI compile) | native                      | unsupported — no Metro integration                        |
-| server                                          | adapter (Bun preload / bundler macro plugin)                      | native                | native                      | adapter                                                   |
-| email                                           | native                                                            | native                | native                      | partial — server render path unverified                   |
-| tauri-host                                      | adapter (§D7)                                                     | adapter (§D7)         | adapter (§D7)               | unsupported — implicit extraction has no Rust counterpart |
-| electrobun-host, opentui-core                   | adapter (Bun preload)                                             | native                | native                      | adapter                                                   |
-| opentui-react / opentui-solid                   | adapter (Bun preload)                                             | native                | native / adapter            | partial — unverified with OpenTUI reconciler              |
-| wxt-vanilla                                     | adapter                                                           | native                | native                      | adapter                                                   |
-| wxt-react / wxt-solid                           | native                                                            | native                | native / adapter            | native                                                    |
-| wxt-vue                                         | adapter                                                           | adapter               | adapter                     | unsupported                                               |
-| wxt-svelte                                      | unsupported                                                       | native                | adapter                     | native                                                    |
+| surface                                         | lingui                                                            | paraglide             | i18next                     | wuchale                                      |
+| ----------------------------------------------- | ----------------------------------------------------------------- | --------------------- | --------------------------- | -------------------------------------------- |
+| next                                            | native (SWC plugin, RSC)                                          | native                | adapter                     | native                                       |
+| tanstack-start / tanstack-router / react-router | adapter (Vite plugin + React)                                     | native                | adapter                     | adapter                                      |
+| nuxt                                            | adapter (`createVueExtractor` + composable)                       | adapter               | adapter (`i18next-vue`)     | unsupported — no Vue adapter                 |
+| svelte                                          | unsupported — no Svelte template support                          | native                | adapter (shipped store)     | native                                       |
+| solid                                           | native (`@lingui/solid`)                                          | native                | adapter (shipped primitive) | native                                       |
+| astro                                           | partial — macros only in frontmatter/islands, not `.astro` markup | native                | adapter                     | native                                       |
+| native                                          | native (`@lingui/metro-transformer`)                              | adapter (CLI compile) | native                      | unsupported — no Metro integration           |
+| server                                          | adapter (Bun preload / bundler macro plugin)                      | native                | native                      | adapter                                      |
+| email                                           | native                                                            | native                | native                      | partial — server render path unverified      |
+| electrobun-host, opentui-core                   | adapter (Bun preload)                                             | native                | native                      | adapter                                      |
+| opentui-react / opentui-solid                   | adapter (Bun preload)                                             | native                | native / adapter            | partial — unverified with OpenTUI reconciler |
+| wxt-vanilla                                     | adapter                                                           | native                | native                      | adapter                                      |
+| wxt-react / wxt-solid                           | native                                                            | native                | native / adapter            | native                                       |
+| wxt-vue                                         | adapter                                                           | adapter               | adapter                     | unsupported                                  |
+| wxt-svelte                                      | unsupported                                                       | native                | adapter                     | native                                       |
 
 **Library metadata** (`I18N_LIBRARY_META`) records:
 
 - `label`;
 - `keyStyle` (`source-text | id | implicit`);
 - `experimental` (wuchale);
-- `catalogFormat` (`po | inlang-json | i18next-json`);
-- `rustMacro` (`source-text | function`).
+- `catalogFormat` (`po | inlang-json | i18next-json`).
 
 **API surface:**
 
@@ -293,7 +290,6 @@ Integrations are declarative entries: `{ id, label, kind: "builtin-localization"
 | `expo-localization` + `hermes-intl-polyfills` | `native`                               | Device locale, plus `@formatjs/intl-*` polyfills for each configured locale. Hermes `Intl` is incomplete.                                                                                                                                                                                        |
 | `lingui-bun-preload`                          | lingui and any Bun-run host            | A `bunfig.toml` preload `Bun.plugin` that runs `@lingui/babel-plugin-lingui-macro`. Hosts: `server` on Bun, `electrobun-host`, `opentui-*`. Node, workers and lambda builds use the bundler plugin path instead.                                                                                 |
 | `server-locale-middleware`                    | `server`                               | Middleware in each backend's native idiom (hono, express, fastify, elysia, and **nitro `server/middleware/locale.ts`**). It negotiates per D5, then calls `runWithLocale`. Requires `AsyncLocalStorage`: workers templates must have `nodejs_compat`; lambda and Node runtimes have it natively. |
-| `tauri-rust-i18n`                             | `tauri-host`                           | D7.                                                                                                                                                                                                                                                                                              |
 | `lingui-skills`                               | lingui and `addons.includes("skills")` | Adds `lingui/skills` to the skills addon sources.                                                                                                                                                                                                                                                |
 
 ### D4. Generated shared package `@<project>/i18n`
@@ -305,8 +301,7 @@ packages/i18n/
   src/server.ts      AsyncLocalStorage runWithLocale/getRequestLocale
   src/runtime.ts     library-specific instance/helpers
   src/integrations/  better-auth.ts, zod.ts (BCP-47→zod locale map), clerk.ts …
-  scripts/           extract | compile | pending | apply | check | export (uniform contract, library-specific impl)
-  rust/              (tauri only, D7)
+  scripts/           extract | compile | pending | apply | check (uniform contract, library-specific impl)
   GLOSSARY.md
   <catalogs>         lingui: locales/{l}/messages.po · paraglide: messages/{l}.json + project.inlang · i18next: locales/{l}/{ns}.json · wuchale: per adapter .po
 ```
@@ -369,68 +364,11 @@ Matching uses BCP-47 lookup with truncation (`fr-CA` → `fr`).
 
 Static and SPA builds can't do domain routing, so it is blocked for them with a reason. The rule lives in `getI18nRoutingSupport`.
 
-### D7. Rust (Tauri) translations from the same catalogs
-
-**Normalized export.** `i18n:export` writes `packages/i18n/dist/catalog.json`:
-
-```json
-{
-  "sourceLocale": "en",
-  "locales": ["en", "fr"],
-  "messages": {
-    "<id>": { "source": "…", "context": null, "translations": { "en": "<ICU>", "fr": "<ICU>" } }
-  }
-}
-```
-
-- Message IDs are the library's own IDs:
-  - Lingui: generated ID from message + context.
-  - i18next: key = source text.
-  - Paraglide: message ID.
-- Each library's exporter converts to an ICU subset: arguments, `plural`/`selectordinal` with `#`, `select`, and nesting.
-  - Paraglide variants/matchers map to `select`/`plural`.
-  - i18next `{{x}}` and `_one/_other` suffixes map to ICU.
-  - Anything outside the subset makes `i18n:export` fail with the message ID.
-- `i18n:export` runs in `i18n:compile` and in Tauri's `beforeDevCommand`/`beforeBuildCommand`.
-
-**Crate** `packages/i18n/rust` (package `<project>-i18n`):
-
-- `build.rs` reads `catalog.json` (`cargo:rerun-if-changed`) and generates:
-  - a static table of pre-parsed message ASTs per locale;
-  - for `keyStyle: id`, a module of typed functions (`m::welcome_back_user(name)`).
-- Runtime API:
-  - `set_locale` / `locale()`, held in an `RwLock`;
-  - `t!("Source sentence", name = value)` for source-text libraries;
-  - the `m::*` functions for Paraglide.
-- `t!` is a proc-macro in a sibling `macros` crate. It:
-  - computes the **same ID the JS library computes** (Lingui's hash of message + context; i18next uses the literal);
-  - emits a **compile error** when the ID is missing from the source catalog, which catches un-extracted strings in CI.
-- **Plurals and formatting** use ICU4X: `icu_plurals` for plural categories, `icu_decimal`/`icu_datetime` for numbers and dates, with compiled data for the configured locales only.
-- **Phase 0 gate:** evaluate any maintained Rust ICU MessageFormat crate. If one fits, the generated code uses it instead of the in-house subset evaluator; otherwise ship the evaluator (~300 lines, fully unit-tested).
-
-**Extraction from Rust:**
-
-- The `i18n:extract` step scans `apps/*/src-tauri/src/**/*.rs` for `t!(…)` with a small `syn`-based binary in the crate (`cargo run -p <project>-i18n --bin extract`). The binary emits `{ source, context?, references[] }` items.
-- The items are merged into the source catalog through the library-specific `extract` implementation:
-  - Lingui: a custom extractor registered in `lingui.config.ts` that delegates to the binary.
-  - i18next: a merge step after `i18next-cli extract`, marking Rust references so they are never pruned.
-  - Paraglide: no extraction, since IDs are authored.
-
-**Wiring into the app:**
-
-- Tauri's `src-tauri` is created by `tauri init` at setup time, so the wiring runs as a **post-step in `tauri-setup.ts`**. It:
-  - adds the path dependency to `src-tauri/Cargo.toml` (TOML edit);
-  - adds a `set_locale` command;
-  - initializes from `sys-locale`;
-  - rebuilds native menus on locale change.
-- The webview calls `set_locale` when the user switches language.
-- The README documents the Rust API.
-
 ### D8. Translation tooling contract and skills
 
 **Uniform scripts** (root `package.json` plus task-runner wiring):
 
-- `i18n:extract`, `i18n:compile` and `i18n:export`.
+- `i18n:extract` and `i18n:compile`.
 - `i18n:pending --locale <l> | --all [--limit N]` emits `{ library, sourceLocale, items: [{ id, locale, source, context, comments, references, placeholders, status }] }`.
 - `i18n:apply <file>`:
   - validates that the placeholder and ICU argument sets match the source;
@@ -458,8 +396,8 @@ Static and SPA builds can't do domain routing, so it is blocked for them with a 
 - **Compatibility.** The detected config plus the requested i18n go through `validateI18nCompatibility`. Requesting a different library than the one in `bts.jsonc` is an error with guidance. Removing locales isn't supported through `add`.
 - **Planning.** Edits are planned in the existing VFS flow (`writePlannedTree` with snapshot and restore). Every edit is one of:
   1. `create` — a new file. Skipped if the path exists, and reported.
-  2. `config-edit` — an AST edit of config files (`vite.config.*`, `nuxt.config.ts`, `astro.config.*`, `next.config.*`, `metro.config.js`, `svelte.config.js`, `wxt.config.ts`, `app.config.ts`) via `magicast`, plus `package.json`/`bunfig.toml`/`Cargo.toml` structured edits.
-  3. `anchored-insert` — for app root and provider files (layouts, `__root.tsx`, `root.tsx`, `app.vue`, `+layout.svelte`, `_layout.tsx`, auth server `index.ts`, email `render.ts`, Tauri `lib.rs`). Applied only when a known anchor from the generated template is found **exactly once**.
+  2. `config-edit` — an AST edit of config files (`vite.config.*`, `nuxt.config.ts`, `astro.config.*`, `next.config.*`, `metro.config.js`, `svelte.config.js`, `wxt.config.ts`, `app.config.ts`) via `magicast`, plus `package.json`/`bunfig.toml` structured edits.
+  3. `anchored-insert` — for app root and provider files (layouts, `__root.tsx`, `root.tsx`, `app.vue`, `+layout.svelte`, `_layout.tsx`, auth server `index.ts`, email `render.ts`). Applied only when a known anchor from the generated template is found **exactly once**.
   4. `manual` — anything else. It is reported in the outro and written to `I18N_SETUP.md` with the exact snippet.
 - **Safety.** No existing file is overwritten or deleted. `--dry-run` prints the full plan, including manual steps. Re-running is idempotent.
 - **Retrofit coverage.** Retrofitting uses the same integrations map. Built-in localization (Better Auth, Clerk, Zod …) is retrofitted with the same edit kinds. The Better Auth `locale` field prints the migrate command.
@@ -483,7 +421,6 @@ Static and SPA builds can't do domain routing, so it is blocked for them with a 
   - solid + wuchale
   - astro + paraglide
   - native-uniwind + lingui
-  - tanstack-router + tauri + lingui — includes `cargo build`, plus a Rust test asserting `t!` output in `fr`
   - nitro + i18next
   - opentui(react) + lingui
   - react-router + wxt(vanilla) + paraglide
@@ -496,7 +433,6 @@ Static and SPA builds can't do domain routing, so it is blocked for them with a 
   - add-locales;
   - library-switch rejection.
 - **MCP Surface contract.** The schema exposes `i18n`/`i18nOptions`; invalid combinations return the shared reason.
-- **Rust.** Unit tests cover the ICU subset evaluator and ID parity: the Lingui IDs computed in Rust must equal the JS IDs for a fixture set.
 
 ### D11. Branch plan for unmerged dependencies
 
@@ -527,7 +463,6 @@ Each integration that needs an unmerged feature gets its own **stacked branch**:
 
 - **Library churn.** Lingui v6 needs Node ≥ 22.19 and is ESM-only, and the SWC plugin is coupled to Next/SWC versions. Pin versions through the existing catalog mechanism and add a Phase 0 compatibility check.
 - **wuchale is young.** Keep it experimental, with conservative matrix cells.
-- **ICU normalization** across three catalog formats can drift. `i18n:export` is strict and fails loudly, and a round-trip test covers every library.
 - **Global Zod config.** Server-side Zod translation is done at the boundary, never with `z.config`, to avoid cross-request leakage.
 - **Anchor-based retrofitting** will hit manual steps on customized projects. That is the intended outcome; silent rewrites are not.
 - **Domain routing** brings session, OAuth and SEO complexity. It is limited to server-rendered surfaces, and its consequences are documented in generated READMEs.
@@ -556,4 +491,3 @@ Additional resolutions from checkpoint 1:
 
 - **AWS Lambda:** not a generated surface (`RuntimeSchema = bun|node|workers|none`); AWS Lambda supports the Node.js runtime only for this purpose, so it would be a node-wrapping deploy target, not an i18n lane. Removed from the i18n PR scope (task 0.4).
 - **Svelte layout:** the `+layout.svelte` template is normalized so every generated variant carries a single unique locale-provider anchor (see 0.5), instead of a branch-aware anchor.
-- **Rust crate:** default is the maintained `formatjs_icu_messageformat` crate (0.3). The in-house evaluator remains an acceptable fallback. Final decision is revisited at L8's crate-design checkpoint (⛔2).

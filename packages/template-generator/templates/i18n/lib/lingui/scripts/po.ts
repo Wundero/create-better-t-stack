@@ -28,8 +28,8 @@ export const EXPLICIT_ID_FLAG = "js-lingui-explicit-id";
 
 /**
  * Lingui v6 message ID: first 6 chars of base64url(sha256(message + 0x1F + context)).
- * Must stay in sync with the Rust `t!` macro and the macro transform, so the
- * export round-trip test locks it.
+ * Must stay in sync with the macro transform so `i18n:apply` can address
+ * generated-ID entries; a round-trip test locks it.
  */
 export function generateMessageId(message: string, context = ""): string {
   const digest = createHash("sha256")
