@@ -1,9 +1,12 @@
 import {
   getI18nIntegrations,
   getI18nSurfaces,
+  getPaymentProvider,
   I18nOptionsSchema,
+  isPaymentProvider,
   type I18nIntegrationId,
   type I18nSurface,
+  type PaymentProviderId,
   type ProjectConfig,
 } from "@better-t-stack/types";
 
@@ -18,10 +21,9 @@ import { addPackageDependency, type AvailableDependencies } from "../../utils/ad
  * `packages/types/src/i18n.ts` and runs only when that entry's `when()` holds —
  * `getI18nIntegrations` stays the single source of truth, and surfaces are
  * always derived through `getI18nSurfaces`. Integrations owned by
- * other lanes (`turnstile-language`, `payments-checkout-locale`,
- * `shadcn-direction`, `react-email-locale`, `server-locale-middleware`,
- * `lingui-bun-preload`) have no handler here: they live on the stacked
- * branches or in L6.
+ * other lanes (`turnstile-language`, `shadcn-direction`, `react-email-locale`,
+ * `server-locale-middleware`, `lingui-bun-preload`) have no handler here: they
+ * live on the stacked branches or in L6.
  *
  * Two phases mirror `template-handlers/i18n.ts` and `processors/i18n-deps.ts`:
  * - `processI18nIntegrationTemplates` emits new files from
@@ -1051,6 +1053,118 @@ function processExpo(ctx: IntegrationContext): void {
   patchNativeDeviceLocale(vfs, config);
 }
 
+// --- payments-checkout-locale -------------------------------------------------
+
+/** `apps/web` payment libraries, one per web language (only one is generated). */
+const PAYMENTS_LIB_PATHS = [
+  "apps/web/src/lib/payments.ts",
+  "apps/web/app/lib/payments.ts",
+] as const;
+
+/** Convex dashboard routes that render the Polar `CheckoutLink`. */
+const POLAR_CONVEX_DASHBOARDS = [
+  "apps/web/src/app/dashboard/page.tsx",
+  "apps/web/src/routes/_auth/dashboard.tsx",
+  "apps/web/src/routes/dashboard.tsx",
+] as const;
+
+function patchStripeCheckoutLocale(vfs: VirtualFileSystem, config: ProjectConfig): void {
+  const importStatement = `import { getClientLocale } from "@${config.projectName}/i18n/client";`;
+  const planLine = /^([ \t]*)plan: "pro",$/m;
+
+  for (const path of PAYMENTS_LIB_PATHS) {
+    patchFile(vfs, path, (content) => {
+      if (content.includes("getClientLocale")) return undefined;
+      if (countOccurrences(content, 'plan: "pro",') !== 1) return undefined;
+      const match = planLine.exec(content);
+      if (!match) return undefined;
+      const indent = match[1] ?? "";
+      const withLocale = content.replace(
+        planLine,
+        `${indent}plan: "pro",\n${indent}locale: getClientLocale(),`,
+      );
+      return appendAfterLastImport(withLocale, importStatement);
+    });
+  }
+}
+
+function patchPolarAuthClient(vfs: VirtualFileSystem, config: ProjectConfig): void {
+  const original =
+    '  return new Polar({ accessToken: config.POLAR_ACCESS_TOKEN, server: "sandbox" });';
+  const replacement = [
+    '  const polar = new Polar({ accessToken: config.POLAR_ACCESS_TOKEN, server: "sandbox" });',
+    "  // The Better Auth plugin does not forward a locale, so inject the",
+    "  // request-scoped locale into every create-checkout call.",
+    "  const checkouts = polar.checkouts;",
+    "  const createCheckout = checkouts.create.bind(checkouts);",
+    "  checkouts.create = (params, options) =>",
+    "    createCheckout({ locale: getRequestLocale(), ...params }, options);",
+    "  return polar;",
+  ].join("\n");
+
+  patchFile(vfs, "packages/auth/src/lib/payments.ts", (content) => {
+    const withImports = insertAfterOnce(
+      content,
+      'import { Polar } from "@polar-sh/sdk";',
+      `\nimport { getRequestLocale } from "@${config.projectName}/i18n/server";`,
+    );
+    if (!withImports) return undefined;
+    return replaceOnce(withImports, original, replacement);
+  });
+}
+
+function patchPolarConvexDashboards(vfs: VirtualFileSystem, config: ProjectConfig): void {
+  const importStatement = `import { getClientLocale } from "@${config.projectName}/i18n/client";`;
+  const productIdsLine = /^([ \t]*)productIds=\{\[product\.id\]\}$/m;
+
+  for (const path of POLAR_CONVEX_DASHBOARDS) {
+    patchFile(vfs, path, (content) => {
+      if (content.includes("getClientLocale")) return undefined;
+      if (countOccurrences(content, "productIds={[product.id]}") !== 1) return undefined;
+      const withImport = insertAfterOnce(
+        content,
+        'import { CheckoutLink, CustomerPortalLink } from "@convex-dev/polar/react";',
+        `\n${importStatement}`,
+      );
+      if (!withImport) return undefined;
+      const match = productIdsLine.exec(withImport);
+      if (!match) return undefined;
+      const indent = match[1] ?? "";
+      return withImport.replace(
+        productIdsLine,
+        `${indent}productIds={[product.id]}\n${indent}locale={getClientLocale()}`,
+      );
+    });
+  }
+}
+
+function processPolarCheckoutLocale(ctx: IntegrationContext): void {
+  const { vfs, config } = ctx;
+  if (config.backend === "convex") {
+    patchPolarConvexDashboards(vfs, config);
+    return;
+  }
+  addWorkspaceDependency(vfs, "packages/auth/package.json", config);
+  patchPolarAuthClient(vfs, config);
+}
+
+type PaymentsCheckoutLocaleHandlers = Partial<
+  Record<PaymentProviderId, (ctx: IntegrationContext) => void>
+>;
+
+const PAYMENTS_CHECKOUT_LOCALE_HANDLERS: PaymentsCheckoutLocaleHandlers = {
+  polar: processPolarCheckoutLocale,
+  stripe: ({ vfs, config }) => patchStripeCheckoutLocale(vfs, config),
+};
+
+function processPaymentsCheckoutLocale(ctx: IntegrationContext): void {
+  const { payments } = ctx.config;
+  if (!isPaymentProvider(payments)) return;
+  const { checkoutLocale } = getPaymentProvider(payments);
+  if (checkoutLocale === "none") return;
+  PAYMENTS_CHECKOUT_LOCALE_HANDLERS[payments]?.(ctx);
+}
+
 // --- dispatch ----------------------------------------------------------------
 
 type IntegrationHandler = (ctx: IntegrationContext) => void;
@@ -1078,6 +1192,7 @@ const DEPENDENCY_HANDLERS = {
   "pwa-manifest-lang": processPwaManifestLang,
   "wxt-i18n": processWxt,
   "expo-localization": processExpo,
+  "payments-checkout-locale": processPaymentsCheckoutLocale,
 } satisfies IntegrationHandlers;
 
 function runHandlers(handlers: IntegrationHandlers, ctx: IntegrationContext): void {

@@ -1,3 +1,4 @@
+import { getPaymentProvider, isPaymentProvider } from "./payment-providers";
 import { I18N_LIBRARY_VALUES, I18nOptionsSchema } from "./schemas";
 import type {
   AddonOptions,
@@ -74,8 +75,6 @@ export interface I18nConfigInput {
   emailRenderer?: string;
   /** Present only once the `wt/shadcn-theme-config` branch is merged; absent in core. */
   shadcn?: { readonly rtl?: boolean };
-  /** Present only once the `wt/payment-providers` branch is merged; absent in core. */
-  paymentCheckoutLocale?: string;
 }
 
 const NATIVE_FRONTENDS = [
@@ -589,7 +588,9 @@ export const I18N_INTEGRATIONS = [
     id: "payments-checkout-locale",
     label: "Payment checkout locale",
     kind: "builtin-localization",
-    when: ({ config }) => config.paymentCheckoutLocale !== undefined,
+    when: ({ config }) =>
+      isPaymentProvider(config.payments) &&
+      getPaymentProvider(config.payments).checkoutLocale !== "none",
     dependsOnBranch: "wt/payment-providers",
   },
   {

@@ -190,6 +190,48 @@ const LINGUI_PROVIDER_STUB = [
   "",
 ].join("\n");
 
+const POLAR_PAYMENTS_LIB_STUB = [
+  'import { Polar } from "@polar-sh/sdk";',
+  "",
+  "export function createPolarClient(config: { POLAR_ACCESS_TOKEN: string }) {",
+  '  return new Polar({ accessToken: config.POLAR_ACCESS_TOKEN, server: "sandbox" });',
+  "}",
+  "",
+].join("\n");
+
+const STRIPE_PAYMENTS_LIB_STUB = [
+  'import { authClient } from "@/lib/auth-client";',
+  "",
+  "export async function checkout(): Promise<void> {",
+  "  const { error } = await authClient.subscription.upgrade({",
+  '    plan: "pro",',
+  '    successUrl: "/success",',
+  '    cancelUrl: "/dashboard",',
+  "  });",
+  "  if (error) return;",
+  "}",
+  "",
+].join("\n");
+
+const POLAR_CONVEX_DASHBOARD_STUB = [
+  '"use client";',
+  "",
+  'import { CheckoutLink, CustomerPortalLink } from "@convex-dev/polar/react";',
+  "",
+  "function DashboardContent() {",
+  "  return (",
+  "    <CheckoutLink",
+  "      polarApi={api.polar}",
+  "      productIds={[product.id]}",
+  "      embed={false}",
+  "    >",
+  "      Upgrade",
+  "    </CheckoutLink>",
+  "  );",
+  "}",
+  "",
+].join("\n");
+
 describe("better-auth-i18n", () => {
   const files = {
     "packages/auth/package.json": JSON.stringify({ name: "@demo/auth" }),
@@ -649,6 +691,64 @@ describe("expo-localization", () => {
       vfs.readJson<{ dependencies?: Record<string, string> }>("apps/native/package.json")
         ?.dependencies,
     ).toBeUndefined();
+  });
+});
+
+describe("payments-checkout-locale", () => {
+  test("injects the request locale into the Polar client when a checkout locale is verified", () => {
+    const vfs = withFiles({
+      "packages/auth/package.json": JSON.stringify({ name: "@demo/auth" }),
+      "packages/auth/src/lib/payments.ts": POLAR_PAYMENTS_LIB_STUB,
+    });
+    run(vfs, baseConfig({ auth: "better-auth", payments: "polar" }));
+
+    const payments = vfs.readFile("packages/auth/src/lib/payments.ts") ?? "";
+    expect(payments).toContain('import { getRequestLocale } from "@demo/i18n/server";');
+    expect(payments).toContain("const checkouts = polar.checkouts;");
+    expect(payments).toContain(
+      "createCheckout({ locale: getRequestLocale(), ...params }, options)",
+    );
+    expect(payments).toContain("return polar;");
+    expect(
+      vfs.readJson<{ dependencies?: Record<string, string> }>("packages/auth/package.json")
+        ?.dependencies?.["@demo/i18n"],
+    ).toBeDefined();
+  });
+
+  test("passes the negotiated locale to the Polar CheckoutLink on Convex", () => {
+    const vfs = withFiles({
+      "apps/web/src/app/dashboard/page.tsx": POLAR_CONVEX_DASHBOARD_STUB,
+    });
+    run(vfs, baseConfig({ auth: "better-auth", payments: "polar", backend: "convex" }));
+
+    const dashboard = vfs.readFile("apps/web/src/app/dashboard/page.tsx") ?? "";
+    expect(dashboard).toContain('import { getClientLocale } from "@demo/i18n/client";');
+    expect(dashboard).toContain("locale={getClientLocale()}");
+  });
+
+  test("passes the negotiated locale to the Stripe Checkout Session", () => {
+    const vfs = withFiles({
+      "apps/web/src/lib/payments.ts": STRIPE_PAYMENTS_LIB_STUB,
+    });
+    run(vfs, baseConfig({ auth: "better-auth", payments: "stripe", frontend: ["next"] }));
+
+    const payments = vfs.readFile("apps/web/src/lib/payments.ts") ?? "";
+    expect(payments).toContain('import { getClientLocale } from "@demo/i18n/client";');
+    expect(payments).toContain('    plan: "pro",\n    locale: getClientLocale(),');
+  });
+
+  test("leaves providers without a verified checkout locale untouched", () => {
+    for (const payments of ["autumn", "dodo", "creem", "chargebee", "commet"] as const) {
+      const vfs = withFiles({
+        "packages/auth/package.json": JSON.stringify({ name: "@demo/auth" }),
+        "packages/auth/src/lib/payments.ts": POLAR_PAYMENTS_LIB_STUB,
+        "apps/web/src/lib/payments.ts": STRIPE_PAYMENTS_LIB_STUB,
+      });
+      run(vfs, baseConfig({ auth: "better-auth", payments }));
+
+      expect(vfs.readFile("packages/auth/src/lib/payments.ts")).toBe(POLAR_PAYMENTS_LIB_STUB);
+      expect(vfs.readFile("apps/web/src/lib/payments.ts")).toBe(STRIPE_PAYMENTS_LIB_STUB);
+    }
   });
 });
 
