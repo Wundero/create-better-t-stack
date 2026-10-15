@@ -54,6 +54,9 @@ function commonRuntimeEntries(plan: AlchemyDeploymentPlan, includeCorsOrigin = t
   if (plan.hasAxiomServerRuntime) {
     entries.push("...observabilityBindings,");
   }
+  if (plan.hasTurnstileServerRuntime) {
+    entries.push("...turnstileSecretBindings,");
+  }
 
   return entries;
 }
@@ -132,6 +135,9 @@ export function selfCloudflareWebEnvEntries(
   entries.push(...commonRuntimeEntries(plan, false));
   if (plan.hasAxiomWebRuntime) {
     entries.push("...observabilityBindings,");
+  }
+  if (plan.hasTurnstileWebRuntime) {
+    entries.push("...turnstileSitekeyBindings,");
   }
 
   if (auth === "clerk" && ["next", "solid", "tanstack-start"].includes(framework)) {
@@ -274,6 +280,9 @@ export function splitCloudflareWebEnvEntries(
 
   if (plan.hasAxiomWebRuntime) {
     entries.push("...observabilityBindings,");
+  }
+  if (plan.hasTurnstileWebRuntime) {
+    entries.push("...turnstileSitekeyBindings,");
   }
 
   if (framework === "next") entries.push("IMAGES: Cloudflare.Images.Images(),");

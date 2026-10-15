@@ -83,6 +83,10 @@ export async function getDeploymentChoice(
     return "cloudflare";
   }
 
+  if (addons.includes("turnstile")) {
+    return "cloudflare";
+  }
+
   const supportsPrismaCompute = supportsPrismaWebDeploy(frontend);
   const supportsCloudflare = validateCloudflareWebDeployKnownIssues({
     webDeploy: "cloudflare",
