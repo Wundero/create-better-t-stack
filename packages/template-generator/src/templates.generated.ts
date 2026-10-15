@@ -31033,7 +31033,8 @@ export default config;
   ["frontend/react/next/src/app/layout.tsx.hbs", `import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "../index.css";
-{{#if shadcn.rtl}}import { DirectionProvider } from "@{{projectName}}/ui/components/direction";
+{{#if (usesShadcnDirection shadcn i18n i18nOptions)}}import { LocaleDirectionProvider } from "@/components/locale-direction-provider";
+{{else if shadcn.rtl}}import { DirectionProvider } from "@{{projectName}}/ui/components/direction";
 {{/if}}{{#if (eq auth "clerk")}}import { ClerkProvider } from "@clerk/nextjs";
 {{/if}}{{#if (and (eq backend "convex") (eq auth "better-auth"))}}
 import { getToken } from "@/lib/auth-server";
@@ -31064,17 +31065,20 @@ export default async function RootLayout({
 }>) {
   const token = await getToken();
   return (
-    <html lang="en" suppressHydrationWarning{{#if shadcn.rtl}} dir="rtl"{{/if}}>
+    <html lang="en" suppressHydrationWarning{{#unless (usesShadcnDirection shadcn i18n i18nOptions)}}{{#if shadcn.rtl}} dir="rtl"{{/if}}{{/unless}}>
       <body
         className={\`\${geistSans.variable} \${geistMono.variable} antialiased\`}
       >
-        {{#if shadcn.rtl}}<DirectionProvider direction="rtl">
+        {{#if (usesShadcnDirection shadcn i18n i18nOptions)}}<LocaleDirectionProvider>
+        {{else if shadcn.rtl}}<DirectionProvider direction="rtl">
         {{/if}}<Providers initialToken={token}>
           <div className="grid grid-rows-[auto_1fr] h-svh">
             <Header />
             {children}
           </div>
-        </Providers>{{#if shadcn.rtl}}
+        </Providers>{{#if (usesShadcnDirection shadcn i18n i18nOptions)}}
+        </LocaleDirectionProvider>
+        {{else if shadcn.rtl}}
         </DirectionProvider>{{/if}}
       </body>
     </html>
@@ -31087,11 +31091,12 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
 	return (
-		<html lang="en" suppressHydrationWarning{{#if shadcn.rtl}} dir="rtl"{{/if}}>
+		<html lang="en" suppressHydrationWarning{{#unless (usesShadcnDirection shadcn i18n i18nOptions)}}{{#if shadcn.rtl}} dir="rtl"{{/if}}{{/unless}}>
 			<body
 				className={\`\${geistSans.variable} \${geistMono.variable} antialiased\`}
 			>
-				{{#if shadcn.rtl}}<DirectionProvider direction="rtl">
+				{{#if (usesShadcnDirection shadcn i18n i18nOptions)}}<LocaleDirectionProvider>
+				{{else if shadcn.rtl}}<DirectionProvider direction="rtl">
 				{{/if}}{{#if (eq auth "clerk")}}<ClerkProvider>
 					<Providers>
 						<div className="grid grid-rows-[auto_1fr] h-svh">
@@ -31104,7 +31109,9 @@ export default function RootLayout({
 						<Header />
 						{children}
 					</div>
-				</Providers>{{/if}}{{#if shadcn.rtl}}
+				</Providers>{{/if}}{{#if (usesShadcnDirection shadcn i18n i18nOptions)}}
+				</LocaleDirectionProvider>
+				{{else if shadcn.rtl}}
 				</DirectionProvider>{{/if}}
 			</body>
 		</html>
@@ -31507,7 +31514,8 @@ import "./index.css";
 import Header from "./components/header";
 import { ThemeProvider } from "./components/theme-provider";
 import { Toaster } from "@{{projectName}}/ui/components/sonner";
-{{#if shadcn.rtl}}import { DirectionProvider } from "@{{projectName}}/ui/components/direction";
+{{#if (usesShadcnDirection shadcn i18n i18nOptions)}}import { LocaleDirectionProvider } from "./components/locale-direction-provider";
+{{else if shadcn.rtl}}import { DirectionProvider } from "@{{projectName}}/ui/components/direction";
 {{/if}}{{#if (eq auth "clerk")}}
 import { ClerkProvider{{#if (or (eq backend "convex") (ne api "none"))}}, useAuth{{/if}} } from "@clerk/react-router";
 import { clerkMiddleware, rootAuthLoader } from "@clerk/react-router/server";
@@ -31575,7 +31583,7 @@ export const links: Route.LinksFunction = () => [
 
 export function Layout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en"{{#if shadcn.rtl}} dir="rtl"{{/if}} suppressHydrationWarning>
+    <html lang="en"{{#unless (usesShadcnDirection shadcn i18n i18nOptions)}}{{#if shadcn.rtl}} dir="rtl"{{/if}}{{/unless}} suppressHydrationWarning>
       <head>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -31583,10 +31591,13 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <Links />
       </head>
       <body>
-        {{#if shadcn.rtl}}<DirectionProvider direction="rtl">
+        {{#if (usesShadcnDirection shadcn i18n i18nOptions)}}<LocaleDirectionProvider>
+        {{else if shadcn.rtl}}<DirectionProvider direction="rtl">
         {{/if}}{children}
         <ScrollRestoration />
-        <Scripts />{{#if shadcn.rtl}}
+        <Scripts />{{#if (usesShadcnDirection shadcn i18n i18nOptions)}}
+        </LocaleDirectionProvider>
+        {{else if shadcn.rtl}}
         </DirectionProvider>{{/if}}
       </body>
     </html>
@@ -31977,7 +31988,7 @@ export default defineConfig({{#if (and (or (eq webDeploy "vercel") (eq webDeploy
 }{{#if (and (or (eq webDeploy "vercel") (eq webDeploy "prisma")) (not (or (includes addons "tauri") (includes addons "electrobun"))))}}){{/if}});
 `],
   ["frontend/react/tanstack-router/index.html.hbs", `<!DOCTYPE html>
-<html lang="en"{{#if shadcn.rtl}} dir="rtl"{{/if}}>
+<html lang="en"{{#unless (usesShadcnDirection shadcn i18n i18nOptions)}}{{#if shadcn.rtl}} dir="rtl"{{/if}}{{/unless}}>
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -32209,7 +32220,8 @@ if (!rootElement.innerHTML) {
   ["frontend/react/tanstack-router/src/routes/__root.tsx.hbs", `import Header from "@/components/header";
 import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "@{{projectName}}/ui/components/sonner";
-{{#if shadcn.rtl}}import { DirectionProvider } from "@{{projectName}}/ui/components/direction";
+{{#if (usesShadcnDirection shadcn i18n i18nOptions)}}import { LocaleDirectionProvider } from "@/components/locale-direction-provider";
+{{else if shadcn.rtl}}import { DirectionProvider } from "@{{projectName}}/ui/components/direction";
 {{/if}}{{#if (eq api "orpc")}}
 import { link, orpc } from "@/utils/orpc";
 import type { QueryClient } from "@tanstack/react-query";
@@ -32274,7 +32286,8 @@ function RootComponent() {
   {{/if}}
 
   return (
-    {{#if shadcn.rtl}}<DirectionProvider direction="rtl">
+    {{#if (usesShadcnDirection shadcn i18n i18nOptions)}}<LocaleDirectionProvider>
+    {{else if shadcn.rtl}}<DirectionProvider direction="rtl">
     {{/if}}<>
       <HeadContent />
       {{#if (eq api "orpc")}}
@@ -32308,7 +32321,9 @@ function RootComponent() {
       {{#if (or (eq api "orpc") (eq api "trpc"))}}
       <ReactQueryDevtools position="bottom" buttonPosition="bottom-right" />
       {{/if}}
-    </>{{#if shadcn.rtl}}
+    </>{{#if (usesShadcnDirection shadcn i18n i18nOptions)}}
+    </LocaleDirectionProvider>
+    {{else if shadcn.rtl}}
     </DirectionProvider>{{/if}}
   );
 }
@@ -32665,7 +32680,8 @@ declare module "@tanstack/react-router" {
 }
 `],
   ["frontend/react/tanstack-start/src/routes/__root.tsx.hbs", `import { Toaster } from "@{{projectName}}/ui/components/sonner";
-{{#if shadcn.rtl}}import { DirectionProvider } from "@{{projectName}}/ui/components/direction";
+{{#if (usesShadcnDirection shadcn i18n i18nOptions)}}import { LocaleDirectionProvider } from "@/components/locale-direction-provider";
+{{else if shadcn.rtl}}import { DirectionProvider } from "@{{projectName}}/ui/components/direction";
 {{/if}}{{#unless (eq backend "convex")}} {{#unless (eq api "none")}}
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 {{/unless}} {{/unless}}
@@ -32812,19 +32828,22 @@ function RootDocument() {
   return (
     <ClerkProvider>
       <ConvexProviderWithClerk client={context.convexQueryClient.convexClient} useAuth={useAuth}>
-        <html lang="en" className="dark"{{#if shadcn.rtl}} dir="rtl"{{/if}}>
+        <html lang="en" className="dark"{{#unless (usesShadcnDirection shadcn i18n i18nOptions)}}{{#if shadcn.rtl}} dir="rtl"{{/if}}{{/unless}}>
           <head>
             <HeadContent />
           </head>
           <body>
-            {{#if shadcn.rtl}}<DirectionProvider direction="rtl">
+            {{#if (usesShadcnDirection shadcn i18n i18nOptions)}}<LocaleDirectionProvider>
+            {{else if shadcn.rtl}}<DirectionProvider direction="rtl">
             {{/if}}<div className="grid h-svh grid-rows-[auto_1fr]">
               <Header />
               <Outlet />
             </div>
             <Toaster richColors />
             <TanStackRouterDevtools position="bottom-left" />
-            <Scripts />{{#if shadcn.rtl}}
+            <Scripts />{{#if (usesShadcnDirection shadcn i18n i18nOptions)}}
+            </LocaleDirectionProvider>
+            {{else if shadcn.rtl}}
             </DirectionProvider>{{/if}}
           </body>
         </html>
@@ -32839,19 +32858,22 @@ function RootDocument() {
       authClient={authClient}
       initialToken={context.token}
     >
-      <html lang="en" className="dark"{{#if shadcn.rtl}} dir="rtl"{{/if}}>
+      <html lang="en" className="dark"{{#unless (usesShadcnDirection shadcn i18n i18nOptions)}}{{#if shadcn.rtl}} dir="rtl"{{/if}}{{/unless}}>
         <head>
           <HeadContent />
         </head>
         <body>
-          {{#if shadcn.rtl}}<DirectionProvider direction="rtl">
+          {{#if (usesShadcnDirection shadcn i18n i18nOptions)}}<LocaleDirectionProvider>
+          {{else if shadcn.rtl}}<DirectionProvider direction="rtl">
           {{/if}}<div className="grid h-svh grid-rows-[auto_1fr]">
             <Header />
             <Outlet />
           </div>
           <Toaster richColors />
           <TanStackRouterDevtools position="bottom-left" />
-          <Scripts />{{#if shadcn.rtl}}
+          <Scripts />{{#if (usesShadcnDirection shadcn i18n i18nOptions)}}
+          </LocaleDirectionProvider>
+          {{else if shadcn.rtl}}
           </DirectionProvider>{{/if}}
         </body>
       </html>
@@ -32863,12 +32885,13 @@ function RootDocument() {
       {{#unless (eq api "none")}}
       <ClerkApiAuthBridge />
       {{/unless}}
-      <html lang="en" className="dark"{{#if shadcn.rtl}} dir="rtl"{{/if}}>
+      <html lang="en" className="dark"{{#unless (usesShadcnDirection shadcn i18n i18nOptions)}}{{#if shadcn.rtl}} dir="rtl"{{/if}}{{/unless}}>
         <head>
           <HeadContent />
         </head>
         <body>
-          {{#if shadcn.rtl}}<DirectionProvider direction="rtl">
+          {{#if (usesShadcnDirection shadcn i18n i18nOptions)}}<LocaleDirectionProvider>
+          {{else if shadcn.rtl}}<DirectionProvider direction="rtl">
           {{/if}}<div className="grid h-svh grid-rows-[auto_1fr]">
             <Header />
             <Outlet />
@@ -32878,7 +32901,9 @@ function RootDocument() {
           {{#unless (eq api "none")}}
           <ReactQueryDevtools position="bottom" buttonPosition="bottom-right" />
           {{/unless}}
-          <Scripts />{{#if shadcn.rtl}}
+          <Scripts />{{#if (usesShadcnDirection shadcn i18n i18nOptions)}}
+          </LocaleDirectionProvider>
+          {{else if shadcn.rtl}}
           </DirectionProvider>{{/if}}
         </body>
       </html>
@@ -32888,19 +32913,22 @@ function RootDocument() {
   const { convexQueryClient } = Route.useRouteContext();
   return (
     <ConvexProvider client={convexQueryClient.convexClient}>
-      <html lang="en" className="dark"{{#if shadcn.rtl}} dir="rtl"{{/if}}>
+      <html lang="en" className="dark"{{#unless (usesShadcnDirection shadcn i18n i18nOptions)}}{{#if shadcn.rtl}} dir="rtl"{{/if}}{{/unless}}>
         <head>
           <HeadContent />
         </head>
         <body>
-          {{#if shadcn.rtl}}<DirectionProvider direction="rtl">
+          {{#if (usesShadcnDirection shadcn i18n i18nOptions)}}<LocaleDirectionProvider>
+          {{else if shadcn.rtl}}<DirectionProvider direction="rtl">
           {{/if}}<div className="grid h-svh grid-rows-[auto_1fr]">
             <Header />
             <Outlet />
           </div>
           <Toaster richColors />
           <TanStackRouterDevtools position="bottom-left" />
-          <Scripts />{{#if shadcn.rtl}}
+          <Scripts />{{#if (usesShadcnDirection shadcn i18n i18nOptions)}}
+          </LocaleDirectionProvider>
+          {{else if shadcn.rtl}}
           </DirectionProvider>{{/if}}
         </body>
       </html>
@@ -32908,12 +32936,13 @@ function RootDocument() {
   );
   {{else}}
   return (
-    <html lang="en" className="dark"{{#if shadcn.rtl}} dir="rtl"{{/if}}>
+    <html lang="en" className="dark"{{#unless (usesShadcnDirection shadcn i18n i18nOptions)}}{{#if shadcn.rtl}} dir="rtl"{{/if}}{{/unless}}>
       <head>
         <HeadContent />
       </head>
       <body>
-        {{#if shadcn.rtl}}<DirectionProvider direction="rtl">
+        {{#if (usesShadcnDirection shadcn i18n i18nOptions)}}<LocaleDirectionProvider>
+        {{else if shadcn.rtl}}<DirectionProvider direction="rtl">
         {{/if}}<div className="grid h-svh grid-rows-[auto_1fr]">
           <Header />
           <Outlet />
@@ -32923,7 +32952,9 @@ function RootDocument() {
         {{#unless (eq api "none")}}
         <ReactQueryDevtools position="bottom" buttonPosition="bottom-right" />
         {{/unless}}
-        <Scripts />{{#if shadcn.rtl}}
+        <Scripts />{{#if (usesShadcnDirection shadcn i18n i18nOptions)}}
+        </LocaleDirectionProvider>
+        {{else if shadcn.rtl}}
         </DirectionProvider>{{/if}}
       </body>
     </html>
@@ -34200,6 +34231,156 @@ export function useUiLocale() {
     const language = locale.value.split("-")[0] ?? "en";
     return nuxtUiLocales[language as keyof typeof nuxtUiLocales] ?? nuxtUiLocales.en;
   });
+}
+`],
+  ["i18n/integrations/shadcn/direction.ts.hbs", `import { getTextDirection, sourceLocale, type Locale, type TextDirection } from "../config";
+
+{{#if shadcn.rtl}}
+const sourceLocaleDirection: TextDirection | undefined = "rtl";
+{{else if (eq shadcn.rtl false)}}
+const sourceLocaleDirection: TextDirection | undefined = "ltr";
+{{else}}
+const sourceLocaleDirection: TextDirection | undefined = undefined;
+{{/if}}
+
+/**
+ * shadcn direction for a locale (design D3). The user's explicit \`shadcn.rtl\`
+ * wins for the source locale; every other locale derives its direction from the
+ * locale tag through \`getTextDirection\`.
+ */
+export function getLocaleDirection(locale: Locale): TextDirection {
+  if (locale === sourceLocale && sourceLocaleDirection !== undefined) return sourceLocaleDirection;
+  return getTextDirection(locale);
+}
+`],
+  ["i18n/integrations/shadcn/i18next/locale-direction-provider.tsx.hbs", `"use client";
+
+import { useEffect, type ReactNode } from "react";
+import { useTranslation } from "react-i18next";
+
+import { isLocale, sourceLocale, type Locale } from "@{{projectName}}/i18n/config";
+import { getLocaleDirection } from "@{{projectName}}/i18n/integrations/shadcn-direction";
+import { DirectionProvider } from "@{{projectName}}/ui/components/direction";
+
+// Registers the react-i18next adapter on the shared instance before the
+// provider reads the active language.
+import "@/i18n";
+
+/**
+ * shadcn direction derived from the active locale: \`getLocaleDirection\`
+ * applies \`getTextDirection\` per locale and keeps an explicit \`shadcn.rtl\`
+ * winning for the source locale. Also keeps \`<html dir>\` in sync.
+ */
+export function LocaleDirectionProvider({ children }: { children: ReactNode }) {
+  const { i18n } = useTranslation();
+  const resolved = i18n.resolvedLanguage ?? "";
+  const locale: Locale = isLocale(resolved) ? resolved : sourceLocale;
+  const direction = getLocaleDirection(locale);
+
+  useEffect(() => {
+    document.documentElement.dir = direction;
+  }, [direction]);
+
+  return <DirectionProvider direction={direction}>{children}</DirectionProvider>;
+}
+`],
+  ["i18n/integrations/shadcn/lingui/locale-direction-provider.tsx.hbs", `"use client";
+
+import { useLingui } from "@lingui/react/macro";
+import { useEffect, type ReactNode } from "react";
+
+import type { Locale } from "@{{projectName}}/i18n/config";
+import { getLocaleDirection } from "@{{projectName}}/i18n/integrations/shadcn-direction";
+import { DirectionProvider } from "@{{projectName}}/ui/components/direction";
+
+/**
+ * shadcn direction derived from the active locale: \`getLocaleDirection\`
+ * applies \`getTextDirection\` per locale and keeps an explicit \`shadcn.rtl\`
+ * winning for the source locale. Also keeps \`<html dir>\` in sync.
+ */
+export function LocaleDirectionProvider({ children }: { children: ReactNode }) {
+  const { i18n } = useLingui();
+  const locale = i18n.locale as Locale;
+  const direction = getLocaleDirection(locale);
+
+  useEffect(() => {
+    document.documentElement.dir = direction;
+  }, [direction]);
+
+  return <DirectionProvider direction={direction}>{children}</DirectionProvider>;
+}
+`],
+  ["i18n/integrations/shadcn/paraglide/locale-direction-provider.tsx.hbs", `"use client";
+
+import { useEffect, type ReactNode } from "react";
+
+import type { Locale } from "@{{projectName}}/i18n/config";
+import { getLocaleDirection } from "@{{projectName}}/i18n/integrations/shadcn-direction";
+import { DirectionProvider } from "@{{projectName}}/ui/components/direction";
+import { getLocale } from "../paraglide/runtime.js";
+
+/**
+ * shadcn direction derived from the active locale: \`getLocaleDirection\`
+ * applies \`getTextDirection\` per locale and keeps an explicit \`shadcn.rtl\`
+ * winning for the source locale. Paraglide reloads the document on locale
+ * changes, so the direction is re-derived on every load. Also keeps
+ * \`<html dir>\` in sync.
+ */
+export function LocaleDirectionProvider({ children }: { children: ReactNode }) {
+  const locale = getLocale() as Locale;
+  const direction = getLocaleDirection(locale);
+
+  useEffect(() => {
+    document.documentElement.dir = direction;
+  }, [direction]);
+
+  return <DirectionProvider direction={direction}>{children}</DirectionProvider>;
+}
+`],
+  ["i18n/integrations/shadcn/wuchale/locale-direction-provider.tsx.hbs", `"use client";
+
+import { useEffect, useState, type ReactNode } from "react";
+
+import {
+  LOCALE_COOKIE,
+  negotiateLocale,
+  sourceLocale,
+  type Locale,
+} from "@{{projectName}}/i18n/config";
+import { getLocaleDirection } from "@{{projectName}}/i18n/integrations/shadcn-direction";
+import { DirectionProvider } from "@{{projectName}}/ui/components/direction";
+
+function storedLocale(): Locale {
+  if (typeof window === "undefined") return sourceLocale;
+  const stored = window.localStorage.getItem(LOCALE_COOKIE) ?? undefined;
+  return negotiateLocale({ stored, system: window.navigator.language });
+}
+
+/**
+ * shadcn direction derived from the active locale: \`getLocaleDirection\`
+ * applies \`getTextDirection\` per locale and keeps an explicit \`shadcn.rtl\`
+ * winning for the source locale. wuchale keeps the committed locale in its
+ * runtime, so this reads the persisted locale and follows the \`storage\` event;
+ * other tabs also refresh through it. Also keeps \`<html dir>\` in sync.
+ */
+export function LocaleDirectionProvider({ children }: { children: ReactNode }) {
+  const [locale, setLocale] = useState<Locale>(storedLocale);
+
+  useEffect(() => {
+    const onStorage = (event: StorageEvent) => {
+      if (event.key === LOCALE_COOKIE || event.key === null) setLocale(storedLocale());
+    };
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, []);
+
+  const direction = getLocaleDirection(locale);
+
+  useEffect(() => {
+    document.documentElement.dir = direction;
+  }, [direction]);
+
+  return <DirectionProvider direction={direction}>{children}</DirectionProvider>;
 }
 `],
   ["i18n/integrations/wxt/sync-wxt.ts.hbs", `/**
@@ -47077,4 +47258,4 @@ export default function Success() {
 `]
 ]);
 
-export const TEMPLATE_COUNT = 757;
+export const TEMPLATE_COUNT = 762;

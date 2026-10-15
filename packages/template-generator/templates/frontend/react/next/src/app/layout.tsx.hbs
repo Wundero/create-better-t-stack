@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "../index.css";
-{{#if shadcn.rtl}}import { DirectionProvider } from "@{{projectName}}/ui/components/direction";
+{{#if (usesShadcnDirection shadcn i18n i18nOptions)}}import { LocaleDirectionProvider } from "@/components/locale-direction-provider";
+{{else if shadcn.rtl}}import { DirectionProvider } from "@{{projectName}}/ui/components/direction";
 {{/if}}{{#if (eq auth "clerk")}}import { ClerkProvider } from "@clerk/nextjs";
 {{/if}}{{#if (and (eq backend "convex") (eq auth "better-auth"))}}
 import { getToken } from "@/lib/auth-server";
@@ -32,17 +33,20 @@ export default async function RootLayout({
 }>) {
   const token = await getToken();
   return (
-    <html lang="en" suppressHydrationWarning{{#if shadcn.rtl}} dir="rtl"{{/if}}>
+    <html lang="en" suppressHydrationWarning{{#unless (usesShadcnDirection shadcn i18n i18nOptions)}}{{#if shadcn.rtl}} dir="rtl"{{/if}}{{/unless}}>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        {{#if shadcn.rtl}}<DirectionProvider direction="rtl">
+        {{#if (usesShadcnDirection shadcn i18n i18nOptions)}}<LocaleDirectionProvider>
+        {{else if shadcn.rtl}}<DirectionProvider direction="rtl">
         {{/if}}<Providers initialToken={token}>
           <div className="grid grid-rows-[auto_1fr] h-svh">
             <Header />
             {children}
           </div>
-        </Providers>{{#if shadcn.rtl}}
+        </Providers>{{#if (usesShadcnDirection shadcn i18n i18nOptions)}}
+        </LocaleDirectionProvider>
+        {{else if shadcn.rtl}}
         </DirectionProvider>{{/if}}
       </body>
     </html>
@@ -55,11 +59,12 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
 	return (
-		<html lang="en" suppressHydrationWarning{{#if shadcn.rtl}} dir="rtl"{{/if}}>
+		<html lang="en" suppressHydrationWarning{{#unless (usesShadcnDirection shadcn i18n i18nOptions)}}{{#if shadcn.rtl}} dir="rtl"{{/if}}{{/unless}}>
 			<body
 				className={`${geistSans.variable} ${geistMono.variable} antialiased`}
 			>
-				{{#if shadcn.rtl}}<DirectionProvider direction="rtl">
+				{{#if (usesShadcnDirection shadcn i18n i18nOptions)}}<LocaleDirectionProvider>
+				{{else if shadcn.rtl}}<DirectionProvider direction="rtl">
 				{{/if}}{{#if (eq auth "clerk")}}<ClerkProvider>
 					<Providers>
 						<div className="grid grid-rows-[auto_1fr] h-svh">
@@ -72,7 +77,9 @@ export default function RootLayout({
 						<Header />
 						{children}
 					</div>
-				</Providers>{{/if}}{{#if shadcn.rtl}}
+				</Providers>{{/if}}{{#if (usesShadcnDirection shadcn i18n i18nOptions)}}
+				</LocaleDirectionProvider>
+				{{else if shadcn.rtl}}
 				</DirectionProvider>{{/if}}
 			</body>
 		</html>

@@ -1,7 +1,8 @@
 import Header from "@/components/header";
 import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "@{{projectName}}/ui/components/sonner";
-{{#if shadcn.rtl}}import { DirectionProvider } from "@{{projectName}}/ui/components/direction";
+{{#if (usesShadcnDirection shadcn i18n i18nOptions)}}import { LocaleDirectionProvider } from "@/components/locale-direction-provider";
+{{else if shadcn.rtl}}import { DirectionProvider } from "@{{projectName}}/ui/components/direction";
 {{/if}}{{#if (eq api "orpc")}}
 import { link, orpc } from "@/utils/orpc";
 import type { QueryClient } from "@tanstack/react-query";
@@ -66,7 +67,8 @@ function RootComponent() {
   {{/if}}
 
   return (
-    {{#if shadcn.rtl}}<DirectionProvider direction="rtl">
+    {{#if (usesShadcnDirection shadcn i18n i18nOptions)}}<LocaleDirectionProvider>
+    {{else if shadcn.rtl}}<DirectionProvider direction="rtl">
     {{/if}}<>
       <HeadContent />
       {{#if (eq api "orpc")}}
@@ -100,7 +102,9 @@ function RootComponent() {
       {{#if (or (eq api "orpc") (eq api "trpc"))}}
       <ReactQueryDevtools position="bottom" buttonPosition="bottom-right" />
       {{/if}}
-    </>{{#if shadcn.rtl}}
+    </>{{#if (usesShadcnDirection shadcn i18n i18nOptions)}}
+    </LocaleDirectionProvider>
+    {{else if shadcn.rtl}}
     </DirectionProvider>{{/if}}
   );
 }

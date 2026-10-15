@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en"{{#if shadcn.rtl}} dir="rtl"{{/if}}>
+<html lang="en"{{#unless (usesShadcnDirection shadcn i18n i18nOptions)}}{{#if shadcn.rtl}} dir="rtl"{{/if}}{{/unless}}>
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />

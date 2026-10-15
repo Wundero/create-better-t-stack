@@ -1,5 +1,6 @@
 import { Toaster } from "@{{projectName}}/ui/components/sonner";
-{{#if shadcn.rtl}}import { DirectionProvider } from "@{{projectName}}/ui/components/direction";
+{{#if (usesShadcnDirection shadcn i18n i18nOptions)}}import { LocaleDirectionProvider } from "@/components/locale-direction-provider";
+{{else if shadcn.rtl}}import { DirectionProvider } from "@{{projectName}}/ui/components/direction";
 {{/if}}{{#unless (eq backend "convex")}} {{#unless (eq api "none")}}
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 {{/unless}} {{/unless}}
@@ -146,19 +147,22 @@ function RootDocument() {
   return (
     <ClerkProvider>
       <ConvexProviderWithClerk client={context.convexQueryClient.convexClient} useAuth={useAuth}>
-        <html lang="en" className="dark"{{#if shadcn.rtl}} dir="rtl"{{/if}}>
+        <html lang="en" className="dark"{{#unless (usesShadcnDirection shadcn i18n i18nOptions)}}{{#if shadcn.rtl}} dir="rtl"{{/if}}{{/unless}}>
           <head>
             <HeadContent />
           </head>
           <body>
-            {{#if shadcn.rtl}}<DirectionProvider direction="rtl">
+            {{#if (usesShadcnDirection shadcn i18n i18nOptions)}}<LocaleDirectionProvider>
+            {{else if shadcn.rtl}}<DirectionProvider direction="rtl">
             {{/if}}<div className="grid h-svh grid-rows-[auto_1fr]">
               <Header />
               <Outlet />
             </div>
             <Toaster richColors />
             <TanStackRouterDevtools position="bottom-left" />
-            <Scripts />{{#if shadcn.rtl}}
+            <Scripts />{{#if (usesShadcnDirection shadcn i18n i18nOptions)}}
+            </LocaleDirectionProvider>
+            {{else if shadcn.rtl}}
             </DirectionProvider>{{/if}}
           </body>
         </html>
@@ -173,19 +177,22 @@ function RootDocument() {
       authClient={authClient}
       initialToken={context.token}
     >
-      <html lang="en" className="dark"{{#if shadcn.rtl}} dir="rtl"{{/if}}>
+      <html lang="en" className="dark"{{#unless (usesShadcnDirection shadcn i18n i18nOptions)}}{{#if shadcn.rtl}} dir="rtl"{{/if}}{{/unless}}>
         <head>
           <HeadContent />
         </head>
         <body>
-          {{#if shadcn.rtl}}<DirectionProvider direction="rtl">
+          {{#if (usesShadcnDirection shadcn i18n i18nOptions)}}<LocaleDirectionProvider>
+          {{else if shadcn.rtl}}<DirectionProvider direction="rtl">
           {{/if}}<div className="grid h-svh grid-rows-[auto_1fr]">
             <Header />
             <Outlet />
           </div>
           <Toaster richColors />
           <TanStackRouterDevtools position="bottom-left" />
-          <Scripts />{{#if shadcn.rtl}}
+          <Scripts />{{#if (usesShadcnDirection shadcn i18n i18nOptions)}}
+          </LocaleDirectionProvider>
+          {{else if shadcn.rtl}}
           </DirectionProvider>{{/if}}
         </body>
       </html>
@@ -197,12 +204,13 @@ function RootDocument() {
       {{#unless (eq api "none")}}
       <ClerkApiAuthBridge />
       {{/unless}}
-      <html lang="en" className="dark"{{#if shadcn.rtl}} dir="rtl"{{/if}}>
+      <html lang="en" className="dark"{{#unless (usesShadcnDirection shadcn i18n i18nOptions)}}{{#if shadcn.rtl}} dir="rtl"{{/if}}{{/unless}}>
         <head>
           <HeadContent />
         </head>
         <body>
-          {{#if shadcn.rtl}}<DirectionProvider direction="rtl">
+          {{#if (usesShadcnDirection shadcn i18n i18nOptions)}}<LocaleDirectionProvider>
+          {{else if shadcn.rtl}}<DirectionProvider direction="rtl">
           {{/if}}<div className="grid h-svh grid-rows-[auto_1fr]">
             <Header />
             <Outlet />
@@ -212,7 +220,9 @@ function RootDocument() {
           {{#unless (eq api "none")}}
           <ReactQueryDevtools position="bottom" buttonPosition="bottom-right" />
           {{/unless}}
-          <Scripts />{{#if shadcn.rtl}}
+          <Scripts />{{#if (usesShadcnDirection shadcn i18n i18nOptions)}}
+          </LocaleDirectionProvider>
+          {{else if shadcn.rtl}}
           </DirectionProvider>{{/if}}
         </body>
       </html>
@@ -222,19 +232,22 @@ function RootDocument() {
   const { convexQueryClient } = Route.useRouteContext();
   return (
     <ConvexProvider client={convexQueryClient.convexClient}>
-      <html lang="en" className="dark"{{#if shadcn.rtl}} dir="rtl"{{/if}}>
+      <html lang="en" className="dark"{{#unless (usesShadcnDirection shadcn i18n i18nOptions)}}{{#if shadcn.rtl}} dir="rtl"{{/if}}{{/unless}}>
         <head>
           <HeadContent />
         </head>
         <body>
-          {{#if shadcn.rtl}}<DirectionProvider direction="rtl">
+          {{#if (usesShadcnDirection shadcn i18n i18nOptions)}}<LocaleDirectionProvider>
+          {{else if shadcn.rtl}}<DirectionProvider direction="rtl">
           {{/if}}<div className="grid h-svh grid-rows-[auto_1fr]">
             <Header />
             <Outlet />
           </div>
           <Toaster richColors />
           <TanStackRouterDevtools position="bottom-left" />
-          <Scripts />{{#if shadcn.rtl}}
+          <Scripts />{{#if (usesShadcnDirection shadcn i18n i18nOptions)}}
+          </LocaleDirectionProvider>
+          {{else if shadcn.rtl}}
           </DirectionProvider>{{/if}}
         </body>
       </html>
@@ -242,12 +255,13 @@ function RootDocument() {
   );
   {{else}}
   return (
-    <html lang="en" className="dark"{{#if shadcn.rtl}} dir="rtl"{{/if}}>
+    <html lang="en" className="dark"{{#unless (usesShadcnDirection shadcn i18n i18nOptions)}}{{#if shadcn.rtl}} dir="rtl"{{/if}}{{/unless}}>
       <head>
         <HeadContent />
       </head>
       <body>
-        {{#if shadcn.rtl}}<DirectionProvider direction="rtl">
+        {{#if (usesShadcnDirection shadcn i18n i18nOptions)}}<LocaleDirectionProvider>
+        {{else if shadcn.rtl}}<DirectionProvider direction="rtl">
         {{/if}}<div className="grid h-svh grid-rows-[auto_1fr]">
           <Header />
           <Outlet />
@@ -257,7 +271,9 @@ function RootDocument() {
         {{#unless (eq api "none")}}
         <ReactQueryDevtools position="bottom" buttonPosition="bottom-right" />
         {{/unless}}
-        <Scripts />{{#if shadcn.rtl}}
+        <Scripts />{{#if (usesShadcnDirection shadcn i18n i18nOptions)}}
+        </LocaleDirectionProvider>
+        {{else if shadcn.rtl}}
         </DirectionProvider>{{/if}}
       </body>
     </html>

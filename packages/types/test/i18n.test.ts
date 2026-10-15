@@ -6,6 +6,8 @@ import {
   getI18nIntegrations,
   getI18nRoutingSupport,
   getI18nSurfaces,
+  getTextDirection,
+  hasRtlLocale,
   type I18nConfigInput,
   I18N_INTEGRATIONS,
   I18N_LIBRARIES,
@@ -14,6 +16,7 @@ import {
   I18N_SURFACES,
   type I18nLibrary,
   type I18nSupportLevel,
+  usesShadcnLocaleDirection,
   validateI18nCompatibility,
   validateI18nOptions,
 } from "../src/i18n";
@@ -410,5 +413,54 @@ describe("integration ids and libraries stay in sync with the registry", () => {
       expect(I18N_LIBRARY_META[library]).toBeDefined();
       expect(I18N_SUPPORT[library]).toBeDefined();
     }
+  });
+});
+
+describe("shadcn direction", () => {
+  test("derives the text direction from the locale tag", () => {
+    expect(getTextDirection("ar")).toBe("rtl");
+    expect(getTextDirection("he-IL")).toBe("rtl");
+    expect(getTextDirection("en")).toBe("ltr");
+    expect(getTextDirection("pt-BR")).toBe("ltr");
+  });
+
+  test("falls back to the RTL language table for unknown tags", () => {
+    expect(getTextDirection("")).toBe("ltr");
+    expect(getTextDirection("xx")).toBe("ltr");
+    expect(hasRtlLocale(["en", "fa-AF", "fr"])).toBe(true);
+    expect(hasRtlLocale(["en", "es", "fr"])).toBe(false);
+  });
+
+  test("activates shadcn-direction only when shadcn is configured", () => {
+    const withoutShadcn = getI18nIntegrations({ frontend: ["next"] }, "lingui").map((i) => i.id);
+    expect(withoutShadcn).not.toContain("shadcn-direction");
+
+    const withShadcn = getI18nIntegrations(
+      { frontend: ["next"], shadcn: { rtl: false } },
+      "lingui",
+    ).map((i) => i.id);
+    expect(withShadcn).toContain("shadcn-direction");
+  });
+
+  test("uses locale-derived direction only for i18n stacks with RTL support", () => {
+    expect(usesShadcnLocaleDirection({ shadcn: { rtl: true }, i18n: "lingui" })).toBe(true);
+
+    expect(
+      usesShadcnLocaleDirection({
+        shadcn: { rtl: false },
+        i18n: "i18next",
+        i18nOptions: { ...defaultOptions(), locales: ["en", "ar"] },
+      }),
+    ).toBe(true);
+
+    expect(
+      usesShadcnLocaleDirection({
+        shadcn: { rtl: false },
+        i18n: "lingui",
+        i18nOptions: { ...defaultOptions(), locales: ["en", "es", "fr"] },
+      }),
+    ).toBe(false);
+    expect(usesShadcnLocaleDirection({ shadcn: { rtl: true }, i18n: "none" })).toBe(false);
+    expect(usesShadcnLocaleDirection({ i18n: "lingui" })).toBe(false);
   });
 });
