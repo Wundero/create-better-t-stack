@@ -11,7 +11,7 @@ import {
 } from "../../../packages/template-generator/src/generators/workspace-app";
 import { EMBEDDED_TEMPLATES } from "../../../packages/template-generator/src/templates.generated";
 import { generateAppHandler } from "../src/helpers/core/generate-handler";
-import { oracleCompatibility } from "./oracles/i18n";
+import { oracleCompatibility, type OracleSurface } from "./oracles/i18n";
 import { expectSuccess, runCreateTest } from "./test-utils";
 
 type PackageJson = {
@@ -31,7 +31,9 @@ function readPackageName(content: string): string {
   return parsed.name ?? "";
 }
 
-function requireReason(library: I18nLibrary, frontend: Frontend): string {
+type OracleFrontend = Extract<Frontend, OracleSurface>;
+
+function requireReason(library: I18nLibrary, frontend: OracleFrontend): string {
   const reason = oracleCompatibility(library, [frontend]).reason;
   if (reason === undefined) {
     throw new Error(`oracle fixture must reject ${library} on ${frontend}`);
@@ -147,7 +149,7 @@ describe("planWorkspaceApp: i18n inheritance", () => {
   const rejections = [
     { library: "lingui", frontend: "svelte" },
     { library: "wuchale", frontend: "nuxt" },
-  ] as const satisfies readonly { library: I18nLibrary; frontend: Frontend }[];
+  ] as const satisfies readonly { library: I18nLibrary; frontend: OracleFrontend }[];
 
   for (const { library, frontend } of rejections) {
     it(`rejects a ${frontend} app when the project uses ${library}`, () => {
