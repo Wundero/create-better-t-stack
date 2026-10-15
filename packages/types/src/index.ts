@@ -6,3 +6,4 @@ export * from "./schemas";
 export * from "./types";
 export * from "./compatibility";
 export * from "./i18n";
+export * from "./payment-providers";

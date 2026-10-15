@@ -69,7 +69,7 @@ Options:
   --orm <type>                    ORM type (none, drizzle, prisma, mongoose)
   --dry-run                       Validate configuration without writing files
   --auth <provider>               Authentication (better-auth, clerk, none)
-  --payments <provider>           Payments provider (polar, none)
+  --payments <provider>           Payments provider (polar, stripe, autumn, dodo, creem, chargebee, commet, none)
   --i18n <library>                Internationalization library (lingui, paraglide, i18next, wuchale, none)
   --i18n-locales <locales>        Comma-separated locales; the first entry is the source locale unless --i18n-source-locale is given
   --i18n-source-locale <locale>   Canonical BCP-47 source locale; must be included in --i18n-locales (default en)

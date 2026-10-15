@@ -1,13 +1,20 @@
 <script lang="ts">
 	import type { PageProps } from './$types';
-	{{#if (eq payments "polar")}}
+{{#if (eq payments "polar")}}
 	import { authClient } from '#lib/auth-client.ts';
-	{{/if}}
+{{else if (and (ne payments "none") (ne payments "polar"))}}
+	import PaymentActions from '#lib/components/PaymentActions.svelte';
+	import { usePayment } from '#lib/payments.ts';
+{{/if}}
 	{{#if (eq api "orpc")}}
 	import { orpc } from '#lib/orpc.ts';
 	import { createQuery } from '@tanstack/svelte-query';
 	{{/if}}
 	let { data }: PageProps = $props();
+
+{{#if (and (ne payments "none") (ne payments "polar"))}}
+	const { state: paymentState, isLoading: paymentLoading, checkout, portal } = usePayment();
+{{/if}}
 
 	{{#if (eq api "orpc")}}
 	const privateDataQuery = createQuery(() => orpc.privateData.queryOptions());
@@ -31,5 +38,13 @@
 				Upgrade to Pro
 			</button>
 		{/if}
+		{{else if (and (ne payments "none") (ne payments "polar"))}}
+		<PaymentActions
+			isActive={$paymentState.isActive}
+			planLabel={$paymentState.planLabel}
+			pending={$paymentLoading}
+			onCheckout={checkout}
+			onPortal={portal}
+		/>
 		{{/if}}
 	</div>
