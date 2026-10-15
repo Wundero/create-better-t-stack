@@ -34126,6 +34126,127 @@ export function ClerkLocalizationProvider({ children, ...props }: ClerkProviderP
   );
 }
 `],
+  ["i18n/integrations/email/auth-email.tsx.hbs", `/**
+ * Locale-aware Better Auth email callbacks (i18n \`react-email-locale\`).
+ *
+ * The recipient's locale resolves as \`user.locale\` → request locale (routing
+ * source, \`x-app-locale\`, cookie, \`Accept-Language\`) → source locale, reusing
+ * the shared negotiation contract from \`@{{projectName}}/i18n/config\`. The
+ * templates render in that locale and the localized subject comes from the
+ * selected library's template module.
+ */
+import { renderEmail } from "@{{projectName}}/email";
+import {
+  ResetPasswordEmail,
+  resetPasswordSubject,
+} from "@{{projectName}}/email/templates/reset-password";
+import {
+  VerifyEmail,
+  verifyEmailSubject,
+} from "@{{projectName}}/email/templates/verify-email";
+import {
+  isLocale,
+  LOCALE_COOKIE,
+  LOCALE_HEADER,
+  negotiateLocale,
+  sourceLocale,
+} from "@{{projectName}}/i18n/config";
+import type { Locale } from "@{{projectName}}/i18n/config";
+
+interface RecipientUser {
+  readonly email: string;
+  readonly name?: string | null;
+  readonly locale?: string | null;
+}
+
+interface ResetPasswordData {
+  readonly user: RecipientUser;
+  readonly url: string;
+}
+
+interface VerificationData {
+  readonly user: RecipientUser;
+  readonly url: string;
+}
+
+function readCookie(header: string | null): string | undefined {
+  if (!header) return undefined;
+  for (const entry of header.split(";")) {
+    const [name, ...rest] = entry.trim().split("=");
+    if (name === LOCALE_COOKIE) return decodeURIComponent(rest.join("="));
+  }
+  return undefined;
+}
+
+function localeFromRequest(request: Request | undefined): Locale | undefined {
+  if (!request) return undefined;
+  const url = new URL(request.url);
+  return negotiateLocale({
+    pathname: url.pathname,
+    host: url.host,
+    header: request.headers.get(LOCALE_HEADER) ?? undefined,
+    cookie: readCookie(request.headers.get("cookie")),
+    acceptLanguage: request.headers.get("accept-language") ?? undefined,
+  });
+}
+
+/** \`user.locale\` wins; the request contributes next; the source locale is last. */
+export function resolveRecipientLocale(user: RecipientUser, request?: Request): Locale {
+  const stored = user.locale ?? undefined;
+  if (stored && isLocale(stored)) return stored;
+  return localeFromRequest(request) ?? sourceLocale;
+}
+
+interface LocalizedEmail {
+  readonly to: string;
+  readonly subject: string;
+  readonly html: string;
+  readonly text: string;
+}
+
+/**
+ * Transport seam. \`@{{projectName}}/email\` renders and the deploy target sends
+ * (\`createSesEmailSender\` / \`createCloudflareEmailSender\` from
+ * \`@{{projectName}}/email/send\`); wire that here once \`--email-deploy\` is set.
+ * Without a deploy target the localized preview is logged so an email is never
+ * dropped silently.
+ */
+async function sendEmail(message: LocalizedEmail): Promise<void> {
+  console.info(\`[email] \${message.subject} → \${message.to}\\n\${message.html}\`);
+}
+
+export async function sendResetPassword(
+  { user, url }: ResetPasswordData,
+  request?: Request,
+): Promise<void> {
+  const locale = resolveRecipientLocale(user, request);
+  const { html, text } = await renderEmail(
+    <ResetPasswordEmail name={user.name ?? user.email} url={url} locale={locale} />,
+  );
+  await sendEmail({
+    to: user.email,
+    subject: await resetPasswordSubject(locale),
+    html,
+    text,
+  });
+}
+
+export async function sendVerificationEmail(
+  { user, url }: VerificationData,
+  request?: Request,
+): Promise<void> {
+  const locale = resolveRecipientLocale(user, request);
+  const { html, text } = await renderEmail(
+    <VerifyEmail name={user.name ?? user.email} url={url} locale={locale} />,
+  );
+  await sendEmail({
+    to: user.email,
+    subject: await verifyEmailSubject(locale),
+    html,
+    text,
+  });
+}
+`],
   ["i18n/integrations/expo/device-locale.ts.hbs", `import { getLocales } from "expo-localization";
 
 /**
@@ -36718,7 +36839,19 @@ export function onLocaleChange(listener: (locale: Locale) => void): () => void {
     }
   ],
   "i18n_demo_currency_label": "Estimated monthly cost",
-  "i18n_demo_date_label": "Generated on"
+  "i18n_demo_date_label": "Generated on",
+  "email_verify_subject": "Verify your email address",
+  "email_verify_heading": "Verify your email",
+  "email_verify_description": "Hi {name}, confirm your email address to continue.",
+  "email_verify_expires": "This link expires in {expiresIn}.",
+  "email_verify_button": "Verify email",
+  "email_verify_footer": "If you did not request this, you can safely ignore this email.",
+  "email_reset_subject": "Reset your password",
+  "email_reset_heading": "Reset your password",
+  "email_reset_description": "Hi {name}, we received a request to reset your password.",
+  "email_reset_expires": "This link expires in {expiresIn}. If you did not request a reset, no action is needed.",
+  "email_reset_button": "Reset password",
+  "email_reset_footer": "For your security, never share this link with anyone."
 }
 `],
   ["i18n/lib/paraglide/messages/es.json.hbs", `{
@@ -36736,7 +36869,19 @@ export function onLocaleChange(listener: (locale: Locale) => void): () => void {
     }
   ],
   "i18n_demo_currency_label": "Coste mensual estimado",
-  "i18n_demo_date_label": "Generado el"
+  "i18n_demo_date_label": "Generado el",
+  "email_verify_subject": "Verifica tu dirección de correo electrónico",
+  "email_verify_heading": "Verifica tu correo electrónico",
+  "email_verify_description": "Hola {name}, confirma tu dirección de correo electrónico para continuar.",
+  "email_verify_expires": "Este enlace caduca en {expiresIn}.",
+  "email_verify_button": "Verificar correo",
+  "email_verify_footer": "Si no lo solicitaste, puedes ignorar este correo.",
+  "email_reset_subject": "Restablece tu contraseña",
+  "email_reset_heading": "Restablece tu contraseña",
+  "email_reset_description": "Hola {name}, recibimos una solicitud para restablecer tu contraseña.",
+  "email_reset_expires": "Este enlace caduca en {expiresIn}. Si no solicitaste el restablecimiento, no necesitas hacer nada.",
+  "email_reset_button": "Restablecer contraseña",
+  "email_reset_footer": "Por tu seguridad, nunca compartas este enlace con nadie."
 }
 `],
   ["i18n/lib/paraglide/messages/fr.json.hbs", `{
@@ -36754,7 +36899,19 @@ export function onLocaleChange(listener: (locale: Locale) => void): () => void {
     }
   ],
   "i18n_demo_currency_label": "Coût mensuel estimé",
-  "i18n_demo_date_label": "Généré le"
+  "i18n_demo_date_label": "Généré le",
+  "email_verify_subject": "Vérifiez votre adresse e-mail",
+  "email_verify_heading": "Vérifiez votre adresse e-mail",
+  "email_verify_description": "Bonjour {name}, confirmez votre adresse e-mail pour continuer.",
+  "email_verify_expires": "Ce lien expire dans {expiresIn}.",
+  "email_verify_button": "Vérifier l'e-mail",
+  "email_verify_footer": "Si vous n'êtes pas à l'origine de cette demande, vous pouvez ignorer cet e-mail.",
+  "email_reset_subject": "Réinitialisez votre mot de passe",
+  "email_reset_heading": "Réinitialisez votre mot de passe",
+  "email_reset_description": "Bonjour {name}, nous avons reçu une demande de réinitialisation de votre mot de passe.",
+  "email_reset_expires": "Ce lien expire dans {expiresIn}. Si vous n'avez pas demandé de réinitialisation, aucune action n'est nécessaire.",
+  "email_reset_button": "Réinitialiser le mot de passe",
+  "email_reset_footer": "Pour votre sécurité, ne partagez jamais ce lien avec qui que ce soit."
 }
 `],
   ["i18n/lib/paraglide/project.inlang/paraglide.config.mjs.hbs", `/**
@@ -41511,6 +41668,187 @@ export function hostI18n(locale: Locale = negotiateLocale({ system: process.env.
   };
 }
 `],
+  ["i18n/surface/i18next/email/src/i18n.ts.hbs", `/**
+ * Email i18n glue for the i18next surface.
+ *
+ * The recipient's locale comes from the Better Auth callback
+ * (\`packages/auth/src/email.tsx\`), which resolves it as \`user.locale\` →
+ * request locale → source locale. Templates receive it as a \`locale\` prop and
+ * translate through a fresh instance, so parallel renders never share state.
+ */
+import { isLocale, sourceLocale } from "@{{projectName}}/i18n/config";
+import type { Locale } from "@{{projectName}}/i18n/config";
+import { createI18next } from "@{{projectName}}/i18n/runtime";
+
+/** Normalizes a recipient locale; unknown tags fall back to the source locale. */
+export function resolveEmailLocale(locale?: string | null): Locale {
+  return locale !== undefined && locale !== null && isLocale(locale) ? locale : sourceLocale;
+}
+
+/** A synchronous translator for one email render. */
+export function createEmailI18n(locale?: string | null) {
+  const active = resolveEmailLocale(locale);
+  const instance = createI18next(active);
+  return { locale: active, instance, t: instance.getFixedT(active) };
+}
+`],
+  ["i18n/surface/i18next/email/src/templates/reset-password.tsx.hbs", `import { Body, Container, Head, Hr, Html, Preview, Text } from "react-email";
+
+import { Button } from "../components/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "../components/card";
+import { createEmailI18n } from "../i18n";
+
+export type ResetPasswordEmailProps = {
+  name: string;
+  url: string;
+  expiresIn?: string;
+  /** Recipient locale from the Better Auth callback (user → request → source). */
+  locale?: string;
+};
+
+/** Localized subject line, rendered from the same catalog as the body. */
+export function resetPasswordSubject(locale?: string): string {
+  return createEmailI18n(locale).t("Reset your password");
+}
+
+export function ResetPasswordEmail({
+  name,
+  url,
+  expiresIn = "1 hour",
+  locale,
+}: ResetPasswordEmailProps) {
+  const { locale: active, t } = createEmailI18n(locale);
+
+  return (
+    <Html lang={active}>
+      <Head />
+      <Preview>{t("Reset your password")}</Preview>
+      <Body
+        style=\\{{ backgroundColor: "#f4f4f5", margin: 0, padding: "24px 0", fontFamily: "Arial, Helvetica, sans-serif" }}
+      >
+        <Container style=\\{{ maxWidth: "560px", margin: "0 auto" }}>
+          <Card>
+            <CardHeader>
+              <CardTitle>{t("Reset your password")}</CardTitle>
+              <CardDescription>
+                {t("Hi \\{{name}}, we received a request to reset your password.", { name })}
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Text style=\\{{ margin: 0, fontSize: "14px", lineHeight: "22px", color: "#3f3f46" }}>
+                {t(
+                  "This link expires in \\{{expiresIn}}. If you did not request a reset, no action is needed.",
+                  { expiresIn },
+                )}
+              </Text>
+            </CardContent>
+            <CardFooter>
+              <Button href={url}>{t("Reset password")}</Button>
+            </CardFooter>
+          </Card>
+          <Hr style=\\{{ borderColor: "#e4e4e7", margin: "24px 0" }} />
+          <Text style=\\{{ margin: 0, fontSize: "12px", color: "#71717a", textAlign: "center" }}>
+            {t("For your security, never share this link with anyone.")}
+          </Text>
+        </Container>
+      </Body>
+    </Html>
+  );
+}
+
+export default ResetPasswordEmail;
+`],
+  ["i18n/surface/i18next/email/src/templates/verify-email.tsx.hbs", `import { Body, Container, Head, Heading, Hr, Html, Preview, Section, Text } from "react-email";
+
+import { Button } from "../components/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "../components/card";
+import { createEmailI18n } from "../i18n";
+
+export type VerifyEmailProps = {
+  name: string;
+  url: string;
+  otp?: string;
+  expiresIn?: string;
+  /** Recipient locale from the Better Auth callback (user → request → source). */
+  locale?: string;
+};
+
+/** Localized subject line, rendered from the same catalog as the body. */
+export function verifyEmailSubject(locale?: string): string {
+  return createEmailI18n(locale).t("Verify your email address");
+}
+
+export function VerifyEmail({
+  name,
+  url,
+  otp,
+  expiresIn = "10 minutes",
+  locale,
+}: VerifyEmailProps) {
+  const { locale: active, t } = createEmailI18n(locale);
+
+  return (
+    <Html lang={active}>
+      <Head />
+      <Preview>{t("Verify your email address")}</Preview>
+      <Body
+        style=\\{{ backgroundColor: "#f4f4f5", margin: 0, padding: "24px 0", fontFamily: "Arial, Helvetica, sans-serif" }}
+      >
+        <Container style=\\{{ maxWidth: "560px", margin: "0 auto" }}>
+          <Card>
+            <CardHeader>
+              <CardTitle>{t("Verify your email")}</CardTitle>
+              <CardDescription>
+                {t("Hi \\{{name}}, confirm your email address to continue.", { name })}
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Text style=\\{{ margin: 0, fontSize: "14px", lineHeight: "22px", color: "#3f3f46" }}>
+                {t("This link expires in \\{{expiresIn}}.", { expiresIn })}
+              </Text>
+              {otp ? (
+                <Section
+                  style=\\{{ marginTop: "16px", backgroundColor: "#f4f4f5", borderRadius: "6px", paddingTop: "16px", paddingBottom: "16px", textAlign: "center" }}
+                >
+                  <Heading
+                    as="h2"
+                    style=\\{{ margin: 0, fontSize: "24px", letterSpacing: "6px", color: "#18181b" }}
+                  >
+                    {otp}
+                  </Heading>
+                </Section>
+              ) : null}
+            </CardContent>
+            <CardFooter>
+              <Button href={url}>{t("Verify email")}</Button>
+            </CardFooter>
+          </Card>
+          <Hr style=\\{{ borderColor: "#e4e4e7", margin: "24px 0" }} />
+          <Text style=\\{{ margin: 0, fontSize: "12px", color: "#71717a", textAlign: "center" }}>
+            {t("If you did not request this, you can safely ignore this email.")}
+          </Text>
+        </Container>
+      </Body>
+    </Html>
+  );
+}
+
+export default VerifyEmail;
+`],
   ["i18n/surface/i18next/native/app/i18n-demo.tsx.hbs", `import { isLocale, locales, sourceLocale } from "@{{projectName}}/i18n";
 import { useTranslation } from "react-i18next";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
@@ -42516,6 +42854,237 @@ export async function printI18nDemo(locale?: string): Promise<void> {
   console.log(format.currency(42.5, "EUR"));
   console.log(format.date(new Date()));
 }
+`],
+  ["i18n/surface/lingui/email/src/i18n.ts.hbs", `/**
+ * Email i18n glue for the lingui surface.
+ *
+ * The recipient's locale comes from the Better Auth callback
+ * (\`packages/auth/src/email.tsx\`), which resolves it as \`user.locale\` →
+ * request locale → source locale. Templates receive it as a \`locale\` prop and
+ * load the matching compiled catalog on a fresh instance, so parallel renders
+ * never share catalog state.
+ */
+import { isLocale, sourceLocale } from "@{{projectName}}/i18n/config";
+import type { Locale } from "@{{projectName}}/i18n/config";
+import { setupI18n } from "@{{projectName}}/i18n/runtime";
+import type { I18n } from "@{{projectName}}/i18n/runtime";
+
+/** Normalizes a recipient locale; unknown tags fall back to the source locale. */
+export function resolveEmailLocale(locale?: string | null): Locale {
+  return locale !== undefined && locale !== null && isLocale(locale) ? locale : sourceLocale;
+}
+
+/** A fresh request-scoped instance for one email render. */
+export async function createEmailI18n(locale?: string | null): Promise<I18n> {
+  return setupI18n(resolveEmailLocale(locale));
+}
+`],
+  ["i18n/surface/lingui/email/src/templates/reset-password.tsx.hbs", `import { Body, Container, Head, Hr, Html, Preview, Text } from "react-email";
+
+import { Button } from "../components/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "../components/card";
+import { createEmailI18n, resolveEmailLocale } from "../i18n";
+
+export type ResetPasswordEmailProps = {
+  name: string;
+  url: string;
+  expiresIn?: string;
+  /** Recipient locale from the Better Auth callback (user → request → source). */
+  locale?: string;
+};
+
+/** Localized subject line, rendered from the same catalog as the body. */
+export async function resetPasswordSubject(locale?: string): Promise<string> {
+  const i18n = await createEmailI18n(locale);
+  return i18n._(/** i18n */ { id: "email.reset.subject", message: "Reset your password" });
+}
+
+export async function ResetPasswordEmail({
+  name,
+  url,
+  expiresIn = "1 hour",
+  locale,
+}: ResetPasswordEmailProps) {
+  const i18n = await createEmailI18n(locale);
+
+  return (
+    <Html lang={resolveEmailLocale(locale)}>
+      <Head />
+      <Preview>
+        {i18n._(/** i18n */ { id: "email.reset.subject", message: "Reset your password" })}
+      </Preview>
+      <Body
+        style=\\{{ backgroundColor: "#f4f4f5", margin: 0, padding: "24px 0", fontFamily: "Arial, Helvetica, sans-serif" }}
+      >
+        <Container style=\\{{ maxWidth: "560px", margin: "0 auto" }}>
+          <Card>
+            <CardHeader>
+              <CardTitle>
+                {i18n._(/** i18n */ { id: "email.reset.heading", message: "Reset your password" })}
+              </CardTitle>
+              <CardDescription>
+                {i18n._(
+                  /** i18n */ {
+                    id: "email.reset.description",
+                    message: "Hi {name}, we received a request to reset your password.",
+                    values: { name },
+                  },
+                )}
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Text style=\\{{ margin: 0, fontSize: "14px", lineHeight: "22px", color: "#3f3f46" }}>
+                {i18n._(
+                  /** i18n */ {
+                    id: "email.reset.expires",
+                    message:
+                      "This link expires in {expiresIn}. If you did not request a reset, no action is needed.",
+                    values: { expiresIn },
+                  },
+                )}
+              </Text>
+            </CardContent>
+            <CardFooter>
+              <Button href={url}>
+                {i18n._(/** i18n */ { id: "email.reset.button", message: "Reset password" })}
+              </Button>
+            </CardFooter>
+          </Card>
+          <Hr style=\\{{ borderColor: "#e4e4e7", margin: "24px 0" }} />
+          <Text style=\\{{ margin: 0, fontSize: "12px", color: "#71717a", textAlign: "center" }}>
+            {i18n._(
+              /** i18n */ {
+                id: "email.reset.footer",
+                message: "For your security, never share this link with anyone.",
+              },
+            )}
+          </Text>
+        </Container>
+      </Body>
+    </Html>
+  );
+}
+
+export default ResetPasswordEmail;
+`],
+  ["i18n/surface/lingui/email/src/templates/verify-email.tsx.hbs", `import { Body, Container, Head, Heading, Hr, Html, Preview, Section, Text } from "react-email";
+
+import { Button } from "../components/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "../components/card";
+import { createEmailI18n, resolveEmailLocale } from "../i18n";
+
+export type VerifyEmailProps = {
+  name: string;
+  url: string;
+  otp?: string;
+  expiresIn?: string;
+  /** Recipient locale from the Better Auth callback (user → request → source). */
+  locale?: string;
+};
+
+/** Localized subject line, rendered from the same catalog as the body. */
+export async function verifyEmailSubject(locale?: string): Promise<string> {
+  const i18n = await createEmailI18n(locale);
+  return i18n._(
+    /** i18n */ { id: "email.verify.subject", message: "Verify your email address" },
+  );
+}
+
+export async function VerifyEmail({
+  name,
+  url,
+  otp,
+  expiresIn = "10 minutes",
+  locale,
+}: VerifyEmailProps) {
+  const i18n = await createEmailI18n(locale);
+
+  return (
+    <Html lang={resolveEmailLocale(locale)}>
+      <Head />
+      <Preview>
+        {i18n._(
+          /** i18n */ { id: "email.verify.subject", message: "Verify your email address" },
+        )}
+      </Preview>
+      <Body
+        style=\\{{ backgroundColor: "#f4f4f5", margin: 0, padding: "24px 0", fontFamily: "Arial, Helvetica, sans-serif" }}
+      >
+        <Container style=\\{{ maxWidth: "560px", margin: "0 auto" }}>
+          <Card>
+            <CardHeader>
+              <CardTitle>
+                {i18n._(/** i18n */ { id: "email.verify.heading", message: "Verify your email" })}
+              </CardTitle>
+              <CardDescription>
+                {i18n._(
+                  /** i18n */ {
+                    id: "email.verify.description",
+                    message: "Hi {name}, confirm your email address to continue.",
+                    values: { name },
+                  },
+                )}
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Text style=\\{{ margin: 0, fontSize: "14px", lineHeight: "22px", color: "#3f3f46" }}>
+                {i18n._(
+                  /** i18n */ {
+                    id: "email.verify.expires",
+                    message: "This link expires in {expiresIn}.",
+                    values: { expiresIn },
+                  },
+                )}
+              </Text>
+              {otp ? (
+                <Section
+                  style=\\{{ marginTop: "16px", backgroundColor: "#f4f4f5", borderRadius: "6px", paddingTop: "16px", paddingBottom: "16px", textAlign: "center" }}
+                >
+                  <Heading
+                    as="h2"
+                    style=\\{{ margin: 0, fontSize: "24px", letterSpacing: "6px", color: "#18181b" }}
+                  >
+                    {otp}
+                  </Heading>
+                </Section>
+              ) : null}
+            </CardContent>
+            <CardFooter>
+              <Button href={url}>
+                {i18n._(/** i18n */ { id: "email.verify.button", message: "Verify email" })}
+              </Button>
+            </CardFooter>
+          </Card>
+          <Hr style=\\{{ borderColor: "#e4e4e7", margin: "24px 0" }} />
+          <Text style=\\{{ margin: 0, fontSize: "12px", color: "#71717a", textAlign: "center" }}>
+            {i18n._(
+              /** i18n */ {
+                id: "email.verify.footer",
+                message: "If you did not request this, you can safely ignore this email.",
+              },
+            )}
+          </Text>
+        </Container>
+      </Body>
+    </Html>
+  );
+}
+
+export default VerifyEmail;
 `],
   ["i18n/surface/lingui/native/components/i18n-demo.tsx.hbs", `import { useMemo, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
@@ -43675,6 +44244,181 @@ export function renderI18nDemo(locale: Locale = hostLocale()): I18nDemoPayload {
   };
 }
 `],
+  ["i18n/surface/paraglide/email/src/i18n.ts.hbs", `/**
+ * Email i18n glue for the paraglide surface.
+ *
+ * The recipient's locale comes from the Better Auth callback
+ * (\`packages/auth/src/email.tsx\`), which resolves it as \`user.locale\` →
+ * request locale → source locale. Message functions from the compiled catalog
+ * take it per call (\`m.email_verify_heading({}, { locale })\`), so parallel
+ * renders never touch a global locale.
+ */
+import { isLocale, sourceLocale } from "@{{projectName}}/i18n/config";
+import type { Locale } from "@{{projectName}}/i18n/config";
+
+/** Normalizes a recipient locale; unknown tags fall back to the source locale. */
+export function resolveEmailLocale(locale?: string | null): Locale {
+  return locale !== undefined && locale !== null && isLocale(locale) ? locale : sourceLocale;
+}
+`],
+  ["i18n/surface/paraglide/email/src/templates/reset-password.tsx.hbs", `import { Body, Container, Head, Hr, Html, Preview, Text } from "react-email";
+
+import { Button } from "../components/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "../components/card";
+import { resolveEmailLocale } from "../i18n";
+
+import { m } from "@{{projectName}}/i18n/runtime";
+
+export type ResetPasswordEmailProps = {
+  name: string;
+  url: string;
+  expiresIn?: string;
+  /** Recipient locale from the Better Auth callback (user → request → source). */
+  locale?: string;
+};
+
+/** Localized subject line, rendered from the same catalog as the body. */
+export function resetPasswordSubject(locale?: string): string {
+  return m.email_reset_subject({}, { locale: resolveEmailLocale(locale) });
+}
+
+export function ResetPasswordEmail({
+  name,
+  url,
+  expiresIn = "1 hour",
+  locale,
+}: ResetPasswordEmailProps) {
+  const active = resolveEmailLocale(locale);
+
+  return (
+    <Html lang={active}>
+      <Head />
+      <Preview>{m.email_reset_subject({}, { locale: active })}</Preview>
+      <Body
+        style=\\{{ backgroundColor: "#f4f4f5", margin: 0, padding: "24px 0", fontFamily: "Arial, Helvetica, sans-serif" }}
+      >
+        <Container style=\\{{ maxWidth: "560px", margin: "0 auto" }}>
+          <Card>
+            <CardHeader>
+              <CardTitle>{m.email_reset_heading({}, { locale: active })}</CardTitle>
+              <CardDescription>
+                {m.email_reset_description({ name }, { locale: active })}
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Text style=\\{{ margin: 0, fontSize: "14px", lineHeight: "22px", color: "#3f3f46" }}>
+                {m.email_reset_expires({ expiresIn }, { locale: active })}
+              </Text>
+            </CardContent>
+            <CardFooter>
+              <Button href={url}>{m.email_reset_button({}, { locale: active })}</Button>
+            </CardFooter>
+          </Card>
+          <Hr style=\\{{ borderColor: "#e4e4e7", margin: "24px 0" }} />
+          <Text style=\\{{ margin: 0, fontSize: "12px", color: "#71717a", textAlign: "center" }}>
+            {m.email_reset_footer({}, { locale: active })}
+          </Text>
+        </Container>
+      </Body>
+    </Html>
+  );
+}
+
+export default ResetPasswordEmail;
+`],
+  ["i18n/surface/paraglide/email/src/templates/verify-email.tsx.hbs", `import { Body, Container, Head, Heading, Hr, Html, Preview, Section, Text } from "react-email";
+
+import { Button } from "../components/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "../components/card";
+import { resolveEmailLocale } from "../i18n";
+
+import { m } from "@{{projectName}}/i18n/runtime";
+
+export type VerifyEmailProps = {
+  name: string;
+  url: string;
+  otp?: string;
+  expiresIn?: string;
+  /** Recipient locale from the Better Auth callback (user → request → source). */
+  locale?: string;
+};
+
+/** Localized subject line, rendered from the same catalog as the body. */
+export function verifyEmailSubject(locale?: string): string {
+  return m.email_verify_subject({}, { locale: resolveEmailLocale(locale) });
+}
+
+export function VerifyEmail({
+  name,
+  url,
+  otp,
+  expiresIn = "10 minutes",
+  locale,
+}: VerifyEmailProps) {
+  const active = resolveEmailLocale(locale);
+
+  return (
+    <Html lang={active}>
+      <Head />
+      <Preview>{m.email_verify_subject({}, { locale: active })}</Preview>
+      <Body
+        style=\\{{ backgroundColor: "#f4f4f5", margin: 0, padding: "24px 0", fontFamily: "Arial, Helvetica, sans-serif" }}
+      >
+        <Container style=\\{{ maxWidth: "560px", margin: "0 auto" }}>
+          <Card>
+            <CardHeader>
+              <CardTitle>{m.email_verify_heading({}, { locale: active })}</CardTitle>
+              <CardDescription>
+                {m.email_verify_description({ name }, { locale: active })}
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Text style=\\{{ margin: 0, fontSize: "14px", lineHeight: "22px", color: "#3f3f46" }}>
+                {m.email_verify_expires({ expiresIn }, { locale: active })}
+              </Text>
+              {otp ? (
+                <Section
+                  style=\\{{ marginTop: "16px", backgroundColor: "#f4f4f5", borderRadius: "6px", paddingTop: "16px", paddingBottom: "16px", textAlign: "center" }}
+                >
+                  <Heading
+                    as="h2"
+                    style=\\{{ margin: 0, fontSize: "24px", letterSpacing: "6px", color: "#18181b" }}
+                  >
+                    {otp}
+                  </Heading>
+                </Section>
+              ) : null}
+            </CardContent>
+            <CardFooter>
+              <Button href={url}>{m.email_verify_button({}, { locale: active })}</Button>
+            </CardFooter>
+          </Card>
+          <Hr style=\\{{ borderColor: "#e4e4e7", margin: "24px 0" }} />
+          <Text style=\\{{ margin: 0, fontSize: "12px", color: "#71717a", textAlign: "center" }}>
+            {m.email_verify_footer({}, { locale: active })}
+          </Text>
+        </Container>
+      </Body>
+    </Html>
+  );
+}
+
+export default VerifyEmail;
+`],
   ["i18n/surface/paraglide/native/components/i18n-demo.tsx.hbs", `import { getLocale, locales, m, setLocale } from "@{{projectName}}/i18n/runtime";
 import { useFormat } from "@/hooks/use-format";
 import { Pressable, StyleSheet, Text, View } from "react-native";
@@ -44360,24 +45104,199 @@ export function createDesktopDemo() {
   ["i18n/surface/wuchale/electrobun-host/src/locales/_gitignore", `*
 `],
   ["i18n/surface/wuchale/email/src/i18n.ts.hbs", `/**
- * Email i18n glue (partial: wuchale's React Email render path is unverified by
- * the compatibility matrix). Templates take the recipient's locale, use the
- * shared \`Intl\` formatters and rely on the \`email\` adapter for extracted
- * strings.
+ * Email i18n glue for the wuchale surface (partial: the React Email render
+ * path is unverified by the compatibility matrix).
+ *
+ * The recipient's locale comes from the Better Auth callback
+ * (\`packages/auth/src/email.tsx\`), which resolves it as \`user.locale\` →
+ * request locale → source locale. Templates take the \`locale\` prop and use the
+ * shared \`Intl\` formatters; the wuchale CLI still extracts their strings
+ * through the \`email\` adapter, while the runtime transform only runs on
+ * surfaces with a bundler pipeline.
  */
+import { isLocale, sourceLocale } from "@{{projectName}}/i18n/config";
+import type { Locale } from "@{{projectName}}/i18n/config";
+import { createFormatters } from "@{{projectName}}/i18n";
 
-import { createFormatters, type Locale } from "@{{projectName}}/i18n";
+/** Normalizes a recipient locale; unknown tags fall back to the source locale. */
+export function resolveEmailLocale(locale?: string | null): Locale {
+  return locale !== undefined && locale !== null && isLocale(locale) ? locale : sourceLocale;
+}
 
 export interface EmailI18n {
   readonly locale: Locale;
   readonly formatters: ReturnType<typeof createFormatters>;
 }
 
-export function createEmailI18n(locale: Locale): EmailI18n {
-  return { locale, formatters: createFormatters(locale) };
+export function createEmailI18n(locale?: string | null): EmailI18n {
+  const active = resolveEmailLocale(locale);
+  return { locale: active, formatters: createFormatters(active) };
 }
 `],
   ["i18n/surface/wuchale/email/src/locales/_gitignore", `*
+`],
+  ["i18n/surface/wuchale/email/src/templates/reset-password.tsx.hbs", `import { Body, Container, Head, Hr, Html, Preview, Text } from "react-email";
+
+import { Button } from "../components/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "../components/card";
+import { createEmailI18n } from "../i18n";
+
+export type ResetPasswordEmailProps = {
+  name: string;
+  url: string;
+  expiresIn?: string;
+  /** Recipient locale from the Better Auth callback (user → request → source). */
+  locale?: string;
+};
+
+/**
+ * Subject for the resolved locale. The wuchale runtime transform only runs on
+ * surfaces with a bundler pipeline, so the React Email path ships the source
+ * text until wuchale's server render is verified (matrix: \`partial\`).
+ */
+export function resetPasswordSubject(_locale?: string): string {
+  return "Reset your password";
+}
+
+export function ResetPasswordEmail({
+  name,
+  url,
+  expiresIn = "1 hour",
+  locale,
+}: ResetPasswordEmailProps) {
+  const { locale: active } = createEmailI18n(locale);
+
+  return (
+    <Html lang={active}>
+      <Head />
+      <Preview>Reset your password</Preview>
+      <Body
+        style=\\{{ backgroundColor: "#f4f4f5", margin: 0, padding: "24px 0", fontFamily: "Arial, Helvetica, sans-serif" }}
+      >
+        <Container style=\\{{ maxWidth: "560px", margin: "0 auto" }}>
+          <Card>
+            <CardHeader>
+              <CardTitle>Reset your password</CardTitle>
+              <CardDescription>
+                Hi {name}, we received a request to reset your password.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Text style=\\{{ margin: 0, fontSize: "14px", lineHeight: "22px", color: "#3f3f46" }}>
+                This link expires in {expiresIn}. If you did not request a reset, no action is
+                needed.
+              </Text>
+            </CardContent>
+            <CardFooter>
+              <Button href={url}>Reset password</Button>
+            </CardFooter>
+          </Card>
+          <Hr style=\\{{ borderColor: "#e4e4e7", margin: "24px 0" }} />
+          <Text style=\\{{ margin: 0, fontSize: "12px", color: "#71717a", textAlign: "center" }}>
+            For your security, never share this link with anyone.
+          </Text>
+        </Container>
+      </Body>
+    </Html>
+  );
+}
+
+export default ResetPasswordEmail;
+`],
+  ["i18n/surface/wuchale/email/src/templates/verify-email.tsx.hbs", `import { Body, Container, Head, Heading, Hr, Html, Preview, Section, Text } from "react-email";
+
+import { Button } from "../components/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "../components/card";
+import { createEmailI18n } from "../i18n";
+
+export type VerifyEmailProps = {
+  name: string;
+  url: string;
+  otp?: string;
+  expiresIn?: string;
+  /** Recipient locale from the Better Auth callback (user → request → source). */
+  locale?: string;
+};
+
+/**
+ * Subject for the resolved locale. The wuchale runtime transform only runs on
+ * surfaces with a bundler pipeline, so the React Email path ships the source
+ * text until wuchale's server render is verified (matrix: \`partial\`).
+ */
+export function verifyEmailSubject(_locale?: string): string {
+  return "Verify your email address";
+}
+
+export function VerifyEmail({
+  name,
+  url,
+  otp,
+  expiresIn = "10 minutes",
+  locale,
+}: VerifyEmailProps) {
+  const { locale: active } = createEmailI18n(locale);
+
+  return (
+    <Html lang={active}>
+      <Head />
+      <Preview>Verify your email address</Preview>
+      <Body
+        style=\\{{ backgroundColor: "#f4f4f5", margin: 0, padding: "24px 0", fontFamily: "Arial, Helvetica, sans-serif" }}
+      >
+        <Container style=\\{{ maxWidth: "560px", margin: "0 auto" }}>
+          <Card>
+            <CardHeader>
+              <CardTitle>Verify your email</CardTitle>
+              <CardDescription>
+                Hi {name}, confirm your email address to continue.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Text style=\\{{ margin: 0, fontSize: "14px", lineHeight: "22px", color: "#3f3f46" }}>
+                This link expires in {expiresIn}.
+              </Text>
+              {otp ? (
+                <Section
+                  style=\\{{ marginTop: "16px", backgroundColor: "#f4f4f5", borderRadius: "6px", paddingTop: "16px", paddingBottom: "16px", textAlign: "center" }}
+                >
+                  <Heading
+                    as="h2"
+                    style=\\{{ margin: 0, fontSize: "24px", letterSpacing: "6px", color: "#18181b" }}
+                  >
+                    {otp}
+                  </Heading>
+                </Section>
+              ) : null}
+            </CardContent>
+            <CardFooter>
+              <Button href={url}>Verify email</Button>
+            </CardFooter>
+          </Card>
+          <Hr style=\\{{ borderColor: "#e4e4e7", margin: "24px 0" }} />
+          <Text style=\\{{ margin: 0, fontSize: "12px", color: "#71717a", textAlign: "center" }}>
+            If you did not request this, you can safely ignore this email.
+          </Text>
+        </Container>
+      </Body>
+    </Html>
+  );
+}
+
+export default VerifyEmail;
 `],
   ["i18n/surface/wuchale/next/src/app/i18n-demo/page.tsx.hbs", `"use client";
 
@@ -47655,4 +48574,4 @@ export default function Success() {
 `]
 ]);
 
-export const TEMPLATE_COUNT = 773;
+export const TEMPLATE_COUNT = 785;

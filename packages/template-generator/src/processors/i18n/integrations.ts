@@ -10,6 +10,7 @@ import {
 import type { VirtualFileSystem } from "../../core/virtual-fs";
 import { processSingleTemplate, type TemplateData } from "../../template-handlers/utils";
 import { addPackageDependency, type AvailableDependencies } from "../../utils/add-deps";
+import { processEmailLocale, processEmailLocaleTemplates } from "./email";
 
 /**
  * Built-in localization integrations (lane L7).
@@ -19,9 +20,9 @@ import { addPackageDependency, type AvailableDependencies } from "../../utils/ad
  * `getI18nIntegrations` stays the single source of truth, and surfaces are
  * always derived through `getI18nSurfaces`. Integrations owned by
  * other lanes (`turnstile-language`, `payments-checkout-locale`,
- * `shadcn-direction`, `react-email-locale`, `server-locale-middleware`,
+ * `shadcn-direction`, `server-locale-middleware`,
  * `lingui-bun-preload`) have no handler here: they live on the stacked
- * branches or in L6.
+ * branches or in L6 (`react-email-locale` lives in `./email.ts`).
  *
  * Two phases mirror `template-handlers/i18n.ts` and `processors/i18n-deps.ts`:
  * - `processI18nIntegrationTemplates` emits new files from
@@ -1064,6 +1065,10 @@ const TEMPLATE_HANDLERS = {
   "fumadocs-i18n": emitFumadocsFiles,
   "wxt-i18n": emitWxtFiles,
   "expo-localization": emitExpoFiles,
+  "react-email-locale": ({ vfs, templates, config }) => {
+    if (!templates) return;
+    processEmailLocaleTemplates(vfs, templates, config);
+  },
 } satisfies IntegrationHandlers;
 
 const DEPENDENCY_HANDLERS = {
@@ -1078,6 +1083,7 @@ const DEPENDENCY_HANDLERS = {
   "pwa-manifest-lang": processPwaManifestLang,
   "wxt-i18n": processWxt,
   "expo-localization": processExpo,
+  "react-email-locale": ({ vfs, config }) => processEmailLocale(vfs, config),
 } satisfies IntegrationHandlers;
 
 function runHandlers(handlers: IntegrationHandlers, ctx: IntegrationContext): void {

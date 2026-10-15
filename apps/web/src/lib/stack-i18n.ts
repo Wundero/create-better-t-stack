@@ -23,6 +23,7 @@ export function getI18nConfigFromStack(stack: StackState): I18nConfigInput {
     api: stack.api,
     payments: stack.payments,
     addons: stack.addons,
+    emailRenderer: stack.emailRenderer,
   };
 }
 

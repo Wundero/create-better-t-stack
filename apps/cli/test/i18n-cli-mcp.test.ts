@@ -53,6 +53,8 @@ function getExplicitCreateInput(projectPath: string) {
     dbSetup: "none" as const,
     webDeploy: "none" as const,
     serverDeploy: "none" as const,
+    emailRenderer: "none" as const,
+    emailDeploy: "none" as const,
   };
 }
 
