@@ -2,7 +2,14 @@ import type { UrlKeys } from "nuqs";
 
 import type { StackState } from "@/lib/constant";
 
-type StackUrlState = StackState & { viewMode: string; selectedFile: string };
+type StackUrlState = StackState & {
+  viewMode: string;
+  selectedFile: string;
+  locales: string[];
+  sourceLocale: string;
+  routing: string;
+  domains: string;
+};
 
 export const stackUrlKeys: UrlKeys<StackUrlState> = {
   projectName: "name",
@@ -18,6 +25,12 @@ export const stackUrlKeys: UrlKeys<StackUrlState> = {
   payments: "pay",
   emailRenderer: "er",
   emailDeploy: "ed",
+  i18n: "i18n",
+  locales: "loc",
+  sourceLocale: "src",
+  // Design D1 names this `rt`, but `rt` is already the runtime key; `irt` avoids the clash.
+  routing: "irt",
+  domains: "dom",
   packageManager: "pm",
   addons: "add",
   examples: "ex",

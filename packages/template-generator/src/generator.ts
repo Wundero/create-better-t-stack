@@ -34,6 +34,7 @@ import {
   processEmailPackage,
   processAuthTemplates,
   processPaymentsTemplates,
+  processI18nTemplates,
   processAddonTemplates,
   processExampleTemplates,
   processExtrasTemplates,
@@ -132,6 +133,7 @@ export async function generate(
       await processEmailPackage(vfs, templates, config);
       await processAuthTemplates(vfs, templates, config);
       await processPaymentsTemplates(vfs, templates, config);
+      await processI18nTemplates(vfs, templates, config);
       await processAddonTemplates(vfs, templates, config);
       await processExampleTemplates(vfs, templates, config);
       await processExtrasTemplates(vfs, templates, config);

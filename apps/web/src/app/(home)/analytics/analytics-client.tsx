@@ -136,6 +136,7 @@ function buildFromPrecomputed(
   const webDeployDistribution = recordToDistribution(stats.webDeploy);
   const serverDeployDistribution = recordToDistribution(stats.serverDeploy);
   const paymentsDistribution = recordToDistribution(stats.payments);
+  const i18nDistribution = withShare(recordToDistribution(stats.i18n ?? {}));
   const gitDistribution = recordToDistribution(stats.git);
   const installDistribution = recordToDistribution(stats.install);
   const stackCombinationDistribution = withShare(
@@ -224,6 +225,7 @@ function buildFromPrecomputed(
     webDeployDistribution: withShare(webDeployDistribution, totalProjects),
     serverDeployDistribution: withShare(serverDeployDistribution, totalProjects),
     paymentsDistribution: withShare(paymentsDistribution, totalProjects),
+    i18nDistribution,
     nodeVersionDistribution,
     cliVersionDistribution,
     stackCombinationDistribution,
@@ -279,6 +281,7 @@ const emptyData: AggregatedAnalyticsData = {
   webDeployDistribution: [],
   serverDeployDistribution: [],
   paymentsDistribution: [],
+  i18nDistribution: [],
   nodeVersionDistribution: [],
   cliVersionDistribution: [],
   stackCombinationDistribution: [],

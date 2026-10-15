@@ -2,6 +2,9 @@
 import { ENV } from "../env{{#if (eq webDeploy "cloudflare")}}.public{{else}}.generated{{/if}}";
 {{/unless}}
 import { createAuthClient } from "better-auth/svelte";
+{{#if (and i18n (ne i18n "none"))}}
+import { localeFetch } from "@{{projectName}}/i18n/client";
+{{/if}}
 {{#if (eq payments "polar")}}
 import { polarClient } from "@polar-sh/better-auth/client";
 {{/if}}
@@ -26,6 +29,9 @@ import { commetClient } from "@commet/better-auth/client";
 
 {{/unless}}
 export const authClient = createAuthClient({
+{{#if (and i18n (ne i18n "none"))}}
+  fetchOptions: { customFetchImpl: localeFetch },
+{{/if}}
 {{#unless (eq backend "self")}}
 {{#if (and (eq webDeploy serverDeploy) (or (eq webDeploy "vercel") (eq webDeploy "docker")))}}
   baseURL: {{#if (eq webDeploy "vercel")}}`${getServerUrl(ENV.PUBLIC_SERVER_URL)}/auth`{{else}}new URL("/api/auth", getServerUrl(ENV.PUBLIC_SERVER_URL)).toString(){{/if}},

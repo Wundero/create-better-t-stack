@@ -21,7 +21,9 @@ export type {
   PlanWorkspaceAppResult,
   WorkspaceAppKind,
 } from "./generators/workspace-app";
+export { processI18nTemplates } from "./template-handlers/i18n";
 export { processAddonsDeps } from "./processors/addons-deps";
+export { processI18nDeps } from "./processors/i18n-deps";
 export { processPwaPlugins } from "./processors/pwa-plugins";
 export { processNxConfig } from "./processors/nx-generator";
 export { processOxlintConfig } from "./processors/oxlint-generator";

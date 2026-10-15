@@ -17,6 +17,8 @@ export type StackState = Pick<
   | "payments"
   | "emailRenderer"
   | "emailDeploy"
+  | "i18n"
+  | "i18nOptions"
   | "packageManager"
   | "addons"
   | "examples"
@@ -38,9 +40,10 @@ export type StackState = Pick<
   portless: "true" | "false";
 };
 
+// `i18nOptions` is a nested value object, not a selectable tech option.
 export type TechCategory = Exclude<
   keyof StackState,
-  "projectName" | "yolo" | "shadcnPreset" | "shadcnBase" | "shadcnRtl" | "shadcnPointer"
+  "projectName" | "yolo" | "shadcnPreset" | "shadcnBase" | "shadcnRtl" | "shadcnPointer" | "i18nOptions"
 >;
 type StackOptionIds = {
   [K in TechCategory]: Extract<StackState[K] extends (infer Id)[] ? Id : StackState[K], string>;

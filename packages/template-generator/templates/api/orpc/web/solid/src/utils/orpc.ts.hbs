@@ -6,6 +6,9 @@ import { QueryCache, QueryClient } from "@tanstack/solid-query";
 import { getRequestEvent } from "@solidjs/web";
 {{/unless}}
 import type { AppRouterClient } from "@{{projectName}}/api/routers/index";
+{{#if (and i18n (ne i18n "none"))}}
+import { localeFetch, localeInit } from "@{{projectName}}/i18n/client";
+{{/if}}
 {{#unless (eq backend "self")}}
 import { ENV } from "../env{{#if (eq webDeploy "cloudflare")}}.public{{/if}}";
 {{/unless}}
@@ -27,12 +30,15 @@ const link = new RPCLink({
 
 		return `${window.location.origin}/rpc`;
 	},
+{{#if (and i18n (ne i18n "none") (ne auth "better-auth"))}}
+	fetch: localeFetch,
+{{/if}}
 {{#if (eq auth "better-auth")}}
 	fetch(url, options) {
-		return fetch(url, {
+		return fetch(url, localeInit({
 			...options,
 			credentials: "include",
-		});
+		}));
 	},
 {{/if}}
 });
@@ -46,12 +52,15 @@ const link = new RPCLink({
 	url: `${ENV.VITE_SERVER_URL.replace(/\/$/, "")}/rpc`,
 {{/if}}
 	headers: () => getRequestEvent()?.request.headers ?? {},
+{{#if (and i18n (ne i18n "none") (ne auth "better-auth"))}}
+	fetch: localeFetch,
+{{/if}}
 {{#if (eq auth "better-auth")}}
 	fetch(url, options) {
-		return fetch(url, {
+		return fetch(url, localeInit({
 			...options,
 			credentials: "include",
-		});
+		}));
 	},
 {{/if}}
 });

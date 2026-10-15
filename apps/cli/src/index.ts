@@ -48,6 +48,9 @@ import {
   FrontendSchema,
   type GenerateInput,
   GenerateInputSchema,
+  I18nRoutingStrategySchema,
+  I18nOptionsSchema,
+  I18nSchema,
   type InitResult,
   type ORM,
   ORMSchema,
@@ -82,6 +85,7 @@ import {
   UserCancelledError,
 } from "./utils/errors";
 import { getLatestCLIVersion } from "./utils/get-latest-cli-version";
+import { normalizeResolvedI18n, resolveI18nCliFlags, type I18nCliInput } from "./utils/i18n-cli";
 import { type ProjectLauncher, ProjectLauncherSchema } from "./utils/project-launcher";
 import { validateResolvedConfigCompatibility } from "./validation";
 
@@ -103,6 +107,8 @@ export const SchemaNameSchema = z
     "payments",
     "emailRenderer",
     "emailDeploy",
+    "i18n",
+    "i18nOptions",
     "webDeploy",
     "serverDeploy",
     "directoryConflict",
@@ -291,6 +297,19 @@ export const router = os.router({
           payments: PaymentsSchema.optional(),
           emailRenderer: EmailRendererSchema.optional(),
           emailDeploy: EmailDeploySchema.optional(),
+          i18n: I18nSchema.optional(),
+          i18nOptions: I18nOptionsSchema.optional(),
+          i18nLocales: z
+            .string()
+            .optional()
+            .describe("Comma-separated locales; the first entry is the source locale"),
+          i18nSourceLocale: z.string().optional().describe("Canonical BCP-47 source locale"),
+          i18nRouting: I18nRoutingStrategySchema.optional(),
+          i18nDomain: z
+            .array(z.string())
+            .optional()
+            .describe("Locale to host mapping, repeatable (fr=fr.example.com)"),
+          i18nSkill: z.boolean().optional().describe("Generate the i18n-translate agent skill"),
           frontend: z.array(FrontendSchema).optional(),
           addons: z.array(AddonsSchema).optional(),
           examples: z.array(ExamplesSchema).optional(),
@@ -402,6 +421,19 @@ export const router = os.router({
         addons: z.array(AddonsSchema).optional().describe("Addons to add"),
         package: WorkspacePackageNameSchema.optional(),
         envValidation: z.boolean().optional().describe("Set up env var validation with varlock"),
+        i18n: I18nSchema.optional().describe("Add or adopt an i18n library"),
+        i18nOptions: I18nOptionsSchema.optional(),
+        i18nLocales: z
+          .string()
+          .optional()
+          .describe("Comma-separated locales to add; the first entry is the source locale"),
+        i18nSourceLocale: z.string().optional().describe("Canonical BCP-47 source locale"),
+        i18nRouting: I18nRoutingStrategySchema.optional(),
+        i18nDomain: z
+          .array(z.string())
+          .optional()
+          .describe("Locale to host mapping, repeatable (fr=fr.example.com)"),
+        i18nSkill: z.boolean().optional().describe("Generate the i18n-translate agent skill"),
         install: z
           .boolean()
           .optional()
@@ -418,7 +450,40 @@ export const router = os.router({
       }),
     )
     .handler(async ({ input }) => {
-      await addHandler(input);
+      const folded = resolveI18nCliFlags({
+        i18n: input.i18n,
+        i18nOptions: input.i18nOptions,
+        i18nLocales: input.i18nLocales,
+        i18nSourceLocale: input.i18nSourceLocale,
+        i18nRouting: input.i18nRouting,
+        i18nDomain: input.i18nDomain,
+        i18nSkill: input.i18nSkill,
+      } as I18nCliInput);
+      if (folded.isErr()) {
+        throw folded.error;
+      }
+
+      const {
+        i18nLocales: _i18nLocales,
+        i18nSourceLocale: _i18nSourceLocale,
+        i18nRouting: _i18nRouting,
+        i18nDomain: _i18nDomain,
+        i18nSkill: _i18nSkill,
+        ...rest
+      } = input;
+
+      // The raw `--i18n-*` flags ride along so the Add Path can tell which
+      // fields the caller set explicitly when it unions add-locales requests.
+      await addHandler({
+        ...rest,
+        i18n: folded.value.i18n,
+        i18nOptions: folded.value.i18nOptions,
+        i18nLocales: input.i18nLocales,
+        i18nSourceLocale: input.i18nSourceLocale,
+        i18nRouting: input.i18nRouting,
+        i18nDomain: input.i18nDomain,
+        i18nSkill: input.i18nSkill,
+      });
     }),
   addJson: command
     .meta({
@@ -646,6 +711,8 @@ export async function createVirtual(
     payments: virtualOptions.payments || "none",
     emailRenderer: virtualOptions.emailRenderer || "none",
     emailDeploy: virtualOptions.emailDeploy || "none",
+    i18n: virtualOptions.i18n || "none",
+    i18nOptions: virtualOptions.i18nOptions,
     git: virtualOptions.git ?? false,
     packageManager: virtualOptions.packageManager || "bun",
     install: false,
@@ -656,7 +723,8 @@ export async function createVirtual(
     serverDeploy: virtualOptions.serverDeploy || "none",
   };
 
-  const validationResult = validateResolvedConfigCompatibility(config);
+  const resolvedI18nConfig = normalizeResolvedI18n(config);
+  const validationResult = validateResolvedConfigCompatibility(resolvedI18nConfig);
   if (validationResult.isErr()) {
     return Result.err(
       new GeneratorError({
@@ -668,7 +736,7 @@ export async function createVirtual(
   }
 
   return generateProject({
-    config,
+    config: resolvedI18nConfig,
     templates: EMBEDDED_TEMPLATES,
   });
 }

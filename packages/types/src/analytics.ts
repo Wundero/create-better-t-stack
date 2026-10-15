@@ -13,6 +13,7 @@ import {
   ExamplesSchema,
   FRONTEND_VALUES,
   FrontendSchema,
+  I18N_VALUES,
   ORMSchema,
   PackageManagerSchema,
   PaymentsSchema,
@@ -23,6 +24,11 @@ import {
 
 /** Values emitted by supported CLIs plus retired values kept for historical ingestion. */
 export const ANALYTICS_ADDON_VALUES = [...ADDONS_VALUES, "ruler"] as const;
+
+/** Only the library and a bounded locale count are recorded; never locale lists or domains. */
+export const ANALYTICS_I18N_VALUES = I18N_VALUES;
+
+export const ANALYTICS_I18N_MAX_LOCALES = 100;
 
 export const ANALYTICS_PLATFORM_VALUES = [
   "aix",
@@ -148,6 +154,8 @@ export const AnalyticsEventSchema = z.object({
   payments: PaymentsSchema.optional(),
   emailRenderer: EmailRendererSchema.optional(),
   emailDeploy: EmailDeploySchema.optional(),
+  i18n: z.enum(ANALYTICS_I18N_VALUES).optional(),
+  i18nLocaleCount: z.number().int().min(0).max(ANALYTICS_I18N_MAX_LOCALES).optional(),
   git: z.boolean().optional(),
   packageManager: PackageManagerSchema.optional(),
   install: z.boolean().optional(),

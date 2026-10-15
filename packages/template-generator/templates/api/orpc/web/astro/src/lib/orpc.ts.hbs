@@ -2,11 +2,17 @@ import type { AppRouterClient } from "@{{projectName}}/api/routers/index";
 
 import { createORPCClient } from "@orpc/client";
 import { RPCLink } from "@orpc/client/fetch";
+{{#if (and i18n (ne i18n "none"))}}
+import { localeFetch, localeInit } from "@{{projectName}}/i18n/client";
+{{/if}}
 
 {{#if (eq backend "self")}}
 export const link = new RPCLink({
   // Lazy: this module is imported during SSR where window does not exist
   url: () => `${window.location.origin}/rpc`,
+{{#if (and i18n (ne i18n "none"))}}
+  fetch: localeFetch,
+{{/if}}
 });
 {{else}}
 import { ENV } from "../env{{#if (eq webDeploy "cloudflare")}}.public{{/if}}";
@@ -19,12 +25,15 @@ export const link = new RPCLink({
 {{else}}
   url: `${ENV.PUBLIC_SERVER_URL.replace(/\/$/, "")}/rpc`,
 {{/if}}
+{{#if (and i18n (ne i18n "none") (ne auth "better-auth"))}}
+  fetch: localeFetch,
+{{/if}}
 {{#if (eq auth "better-auth")}}
   fetch(url, options) {
-    return fetch(url, {
+    return fetch(url, localeInit({
       ...options,
       credentials: "include",
-    });
+    }));
   },
 {{/if}}
 });

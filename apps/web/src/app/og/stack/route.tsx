@@ -21,6 +21,7 @@ const categoryChipColors = {
   payments: "#eba0ac",
   emailRenderer: "#cba6f7",
   emailDeploy: "#f5c2e7",
+  i18n: "#f5c2e7",
   packageManager: "#f9e2af",
   addons: "#cba6f7",
   examples: "#94e2d5",

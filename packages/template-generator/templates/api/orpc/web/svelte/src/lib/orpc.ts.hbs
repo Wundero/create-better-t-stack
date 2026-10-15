@@ -6,6 +6,9 @@ import { RPCLink } from "@orpc/client/fetch";
 import { createTanstackQueryUtils } from "@orpc/tanstack-query";
 import { QueryCache, QueryClient } from "@tanstack/svelte-query";
 import type { AppRouterClient } from "@{{projectName}}/api/routers/index";
+{{#if (and i18n (ne i18n "none"))}}
+import { localeFetch, localeInit } from "@{{projectName}}/i18n/client";
+{{/if}}
 
 export const queryClient = new QueryClient({
 	queryCache: new QueryCache({
@@ -35,12 +38,15 @@ export const link = new RPCLink({
 	url: `${ENV.PUBLIC_SERVER_URL.replace(/\/$/, "")}/rpc`,
 {{/if}}
 	{{/if}}
+	{{#if (and i18n (ne i18n "none") (ne auth "better-auth"))}}
+	fetch: localeFetch,
+	{{/if}}
 	{{#if (eq auth "better-auth")}}
 	fetch(url, options) {
-		return fetch(url, {
+		return fetch(url, localeInit({
 			...options,
 			credentials: "include",
-		});
+		}));
 	},
 	{{/if}}
 });

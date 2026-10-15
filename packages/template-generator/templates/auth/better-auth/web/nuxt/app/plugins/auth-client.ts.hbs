@@ -1,4 +1,7 @@
 import { createAuthClient } from "better-auth/vue";
+{{#if (and i18n (ne i18n "none"))}}
+import { localeFetch, localeHeader } from "@{{projectName}}/i18n/client";
+{{/if}}
 {{#if (eq payments "polar")}}
 import { polarClient } from "@polar-sh/better-auth/client";
 {{/if}}
@@ -33,7 +36,15 @@ export default defineNuxtPlugin(() => {
 
   const authClient = createAuthClient({
     fetchOptions: {
+{{#if (and i18n (ne i18n "none"))}}
+      customFetchImpl: localeFetch,
+      headers: {
+        ...localeHeader(),
+        ...(import.meta.server ? useRequestHeaders(["cookie"]) : {}),
+      },
+{{else}}
       headers: import.meta.server ? useRequestHeaders(["cookie"]) : undefined,
+{{/if}}
     },
     {{#if (ne backend "self")}}
     baseURL: {{#if (and (eq webDeploy "vercel") (eq serverDeploy "vercel"))}}`${serverOrigin}/auth`{{else}}new URL("/api/auth", serverOrigin).toString(){{/if}},

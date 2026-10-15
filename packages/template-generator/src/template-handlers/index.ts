@@ -8,6 +8,7 @@ export { processConfigPackage, processUiPackage } from "./packages";
 export { processEmailPackage } from "./email";
 export { processAuthTemplates } from "./auth";
 export { processPaymentsTemplates } from "./payments";
+export { processI18nTemplates } from "./i18n";
 export { processAddonTemplates } from "./addons";
 export { processExampleTemplates } from "./examples";
 export { processExtrasTemplates } from "./extras";

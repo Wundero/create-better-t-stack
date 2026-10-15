@@ -8,3 +8,4 @@ export * from "./shadcn-presets";
 export * from "./types";
 export * from "./compatibility";
 export * from "./payment-providers";
+export * from "./i18n";

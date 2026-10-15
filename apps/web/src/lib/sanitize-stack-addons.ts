@@ -8,6 +8,7 @@ import {
 } from "@better-t-stack/types";
 
 import { DEFAULT_STACK, type StackState, TECH_OPTIONS } from "./constant";
+import { sanitizeI18nOptions } from "./stack-i18n";
 
 const validWebFrontendIds = TECH_OPTIONS.webFrontend.map((option) => option.id);
 const validNativeFrontendIds = TECH_OPTIONS.nativeFrontend.map((option) => option.id);
@@ -121,6 +122,7 @@ export function sanitizeStackState(stack: RawStackLists): StackState {
     nativeFrontend: sanitizeNativeFrontends(stack.nativeFrontend),
     addons: sanitizeAddons(stack.addons),
     examples: sanitizeExamples(stack.examples),
+    i18nOptions: sanitizeI18nOptions(stack.i18n, stack.i18nOptions),
   };
 }
 

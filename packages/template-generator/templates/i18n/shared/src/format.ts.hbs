@@ -1,0 +1,159 @@
+/**
+ * Library-agnostic formatters shared by every surface.
+ *
+ * Templates never use the i18n library for dates, numbers or lists: they call
+ * `createFormatters(locale)` so every library produces identical `Intl`
+ * output. On the server use `createFormatters(getRequestLocale())`.
+ */
+
+import { sourceLocale } from "./config";
+import type { Locale } from "./config";
+
+export type DateTimeValue = Date | number;
+
+export interface Formatters {
+  readonly locale: Locale;
+  date(value: DateTimeValue, options?: Intl.DateTimeFormatOptions): string;
+  time(value: DateTimeValue, options?: Intl.DateTimeFormatOptions): string;
+  dateTime(value: DateTimeValue, options?: Intl.DateTimeFormatOptions): string;
+  dateRange(
+    start: DateTimeValue,
+    end: DateTimeValue,
+    options?: Intl.DateTimeFormatOptions,
+  ): string;
+  relative(
+    value: number,
+    unit: Intl.RelativeTimeFormatUnit,
+    options?: Intl.RelativeTimeFormatOptions,
+  ): string;
+  /** Formats a date relative to now (or `base`) in the best-fitting unit. */
+  relativeFrom(value: DateTimeValue, base?: DateTimeValue): string;
+  number(value: number, options?: Intl.NumberFormatOptions): string;
+  currency(
+    value: number,
+    currencyCode: string,
+    options?: Intl.NumberFormatOptions,
+  ): string;
+  percent(value: number, options?: Intl.NumberFormatOptions): string;
+  unit(value: number, unitCode: string, options?: Intl.NumberFormatOptions): string;
+  compact(value: number, options?: Intl.NumberFormatOptions): string;
+  list(items: readonly string[], options?: Intl.ListFormatOptions): string;
+  plural(value: number, options?: Intl.PluralRulesOptions): Intl.LDMLPluralRule;
+  displayName(code: string, type?: Intl.DisplayNamesType): string | undefined;
+}
+
+const DATE_STYLE: Intl.DateTimeFormatOptions = { dateStyle: "medium" };
+const TIME_STYLE: Intl.DateTimeFormatOptions = { timeStyle: "medium" };
+const DATE_TIME_STYLE: Intl.DateTimeFormatOptions = {
+  dateStyle: "medium",
+  timeStyle: "medium",
+};
+const PERCENT_STYLE: Intl.NumberFormatOptions = { style: "percent" };
+
+const RELATIVE_UNITS = [
+  { unit: "year", milliseconds: 31_536_000_000 },
+  { unit: "month", milliseconds: 2_592_000_000 },
+  { unit: "week", milliseconds: 604_800_000 },
+  { unit: "day", milliseconds: 86_400_000 },
+  { unit: "hour", milliseconds: 3_600_000 },
+  { unit: "minute", milliseconds: 60_000 },
+] as const satisfies ReadonlyArray<{
+  unit: Intl.RelativeTimeFormatUnit;
+  milliseconds: number;
+}>;
+
+const formatterCache = new Map<string, Formatters>();
+
+function toMilliseconds(value: DateTimeValue): number {
+  return value instanceof Date ? value.getTime() : value;
+}
+
+/** Memoized per locale: repeated calls return the same bundle. */
+export function createFormatters(locale: Locale = sourceLocale): Formatters {
+  const cached = formatterCache.get(locale);
+  if (cached) return cached;
+
+  const dateFormat = new Intl.DateTimeFormat(locale, DATE_STYLE);
+  const timeFormat = new Intl.DateTimeFormat(locale, TIME_STYLE);
+  const dateTimeFormat = new Intl.DateTimeFormat(locale, DATE_TIME_STYLE);
+  const numberFormat = new Intl.NumberFormat(locale);
+  const percentFormat = new Intl.NumberFormat(locale, PERCENT_STYLE);
+  const relativeFormat = new Intl.RelativeTimeFormat(locale);
+  const listFormat = new Intl.ListFormat(locale);
+  const pluralRules = new Intl.PluralRules(locale);
+  const currencyFormats = new Map<string, Intl.NumberFormat>();
+  const displayNamesByType = new Map<Intl.DisplayNamesType, Intl.DisplayNames>();
+
+  const formatters: Formatters = {
+    locale,
+    date: (value, options) =>
+      options ? new Intl.DateTimeFormat(locale, options).format(value) : dateFormat.format(value),
+    time: (value, options) =>
+      options ? new Intl.DateTimeFormat(locale, options).format(value) : timeFormat.format(value),
+    dateTime: (value, options) =>
+      options
+        ? new Intl.DateTimeFormat(locale, options).format(value)
+        : dateTimeFormat.format(value),
+    dateRange: (start, end, options) =>
+      options
+        ? new Intl.DateTimeFormat(locale, options).formatRange(start, end)
+        : dateFormat.formatRange(start, end),
+    relative: (value, unit, options) =>
+      options
+        ? new Intl.RelativeTimeFormat(locale, options).format(value, unit)
+        : relativeFormat.format(value, unit),
+    relativeFrom: (value, base = Date.now()) => {
+      const delta = toMilliseconds(value) - toMilliseconds(base);
+      const magnitude = Math.abs(delta);
+      for (const { unit, milliseconds } of RELATIVE_UNITS) {
+        if (magnitude >= milliseconds) {
+          return relativeFormat.format(Math.round(delta / milliseconds), unit);
+        }
+      }
+      return relativeFormat.format(Math.round(delta / 1_000), "second");
+    },
+    number: (value, options) =>
+      options ? new Intl.NumberFormat(locale, options).format(value) : numberFormat.format(value),
+    currency: (value, currencyCode, options) => {
+      if (options) {
+        return new Intl.NumberFormat(locale, {
+          ...options,
+          style: "currency",
+          currency: currencyCode,
+        }).format(value);
+      }
+      let format = currencyFormats.get(currencyCode);
+      if (!format) {
+        format = new Intl.NumberFormat(locale, {
+          style: "currency",
+          currency: currencyCode,
+        });
+        currencyFormats.set(currencyCode, format);
+      }
+      return format.format(value);
+    },
+    percent: (value, options) =>
+      options ? new Intl.NumberFormat(locale, options).format(value) : percentFormat.format(value),
+    unit: (value, unitCode, options) =>
+      new Intl.NumberFormat(locale, { ...options, style: "unit", unit: unitCode }).format(value),
+    compact: (value, options) =>
+      new Intl.NumberFormat(locale, { ...options, notation: "compact" }).format(value),
+    list: (items, options) =>
+      options
+        ? new Intl.ListFormat(locale, options).format(items)
+        : listFormat.format(items),
+    plural: (value, options) =>
+      options ? new Intl.PluralRules(locale, options).select(value) : pluralRules.select(value),
+    displayName: (code, type = "language") => {
+      let displayNames = displayNamesByType.get(type);
+      if (!displayNames) {
+        displayNames = new Intl.DisplayNames(locale, { type });
+        displayNamesByType.set(type, displayNames);
+      }
+      return displayNames.of(code);
+    },
+  };
+
+  formatterCache.set(locale, formatters);
+  return formatters;
+}

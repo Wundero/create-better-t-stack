@@ -1,3 +1,4 @@
+import type { I18nOptions } from "@better-t-stack/types";
 import { CheckCircle2, InfoIcon, Terminal } from "lucide-react";
 
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -13,12 +14,14 @@ import type { TechCategory } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 import { TechIcon } from "../tech-icon";
+import { I18nOptionsEditor } from "./i18n-options";
 
 type TechCategoriesProps = {
   mode: "desktop" | "mobile";
   stack: StackState;
   compatibilityNotes: Record<string, { hasIssue: boolean; notes: string[] }>;
   onSelect: (category: keyof typeof TECH_OPTIONS, techId: string) => void;
+  onUpdateI18nOptions: (options: I18nOptions) => void;
   showAllCategories?: boolean;
 };
 
@@ -42,6 +45,7 @@ export function TechCategories({
   stack,
   compatibilityNotes,
   onSelect,
+  onUpdateI18nOptions,
   showAllCategories = false,
 }: TechCategoriesProps) {
   const isDesktop = mode === "desktop";
@@ -220,6 +224,10 @@ export function TechCategories({
                 );
               })}
             </div>
+
+            {categoryKey === "i18n" && (
+              <I18nOptionsEditor stack={stack} onChange={onUpdateI18nOptions} />
+            )}
           </section>
         );
       })}

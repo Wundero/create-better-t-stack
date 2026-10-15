@@ -15,6 +15,7 @@ import type { VirtualFileSystem } from "../core/virtual-fs";
 import { dependencyVersionMap } from "../utils/add-deps";
 import { getDbScriptSupport } from "../utils/db-scripts";
 import { getAllowedDependencyScripts } from "../utils/dependency-scripts";
+import { hasI18n, I18N_SCRIPT_NAMES } from "../utils/i18n";
 
 type PackageJson = {
   name?: string;
@@ -135,6 +136,20 @@ function updateRootPackageJson(vfs: VirtualFileSystem, config: ProjectConfig): v
 
   if (addons.includes("opentui")) {
     scripts["dev:tui"] = pmConfig.filter("tui", "dev");
+  }
+
+  if (hasI18n(config)) {
+    // Uniform i18n script contract (design D8), filtered to the shared package.
+    const i18nPackageName = `@${projectName}/i18n`;
+    for (const i18nScript of I18N_SCRIPT_NAMES) {
+      scripts[i18nScript] = pmConfig.filter(i18nPackageName, i18nScript);
+    }
+
+    // Catalogs must be compiled before a dev server starts or a production
+    // build runs, for every library in the contract.
+    const compileCommand = pmConfig.filter(i18nPackageName, "i18n:compile");
+    scripts.dev = `${compileCommand} && ${scripts.dev}`;
+    scripts.build = `${compileCommand} && ${scripts.build}`;
   }
 
   if (backend !== "self" && backend !== "none") {

@@ -87,6 +87,9 @@ const SKILL_SOURCES = {
   "haydenbleasel/ultracite": {
     label: "Ultracite",
   },
+  "lingui/skills": {
+    label: "Lingui",
+  },
   "https://www.evlog.dev": {
     label: "evlog",
   },
@@ -242,7 +245,7 @@ function hasNativeFrontend(frontend: ProjectConfig["frontend"]): boolean {
   );
 }
 
-function getRecommendedSourceKeys(config: ProjectConfig): SourceKey[] {
+export function getRecommendedSourceKeys(config: ProjectConfig): SourceKey[] {
   const sources: SourceKey[] = [];
   const { frontend, backend, dbSetup, auth, examples, addons, orm, webDeploy, serverDeploy } =
     config;
@@ -329,6 +332,10 @@ function getRecommendedSourceKeys(config: ProjectConfig): SourceKey[] {
 
   if (addons.includes("evlog") || addons.includes("axiom")) {
     sources.push("https://www.evlog.dev");
+  }
+
+  if (config.i18n === "lingui") {
+    sources.push("lingui/skills");
   }
 
   return sources;
@@ -448,6 +455,17 @@ const CURATED_SKILLS_BY_SOURCE = {
   ],
   "msmps/opentui-skill": () => ["opentui"],
   "haydenbleasel/ultracite": () => ["ultracite"],
+  "lingui/skills": (config) => {
+    const skills = [
+      "lingui-best-practices",
+      "lingui-framework-setup",
+      "enhanced-message-context",
+      "find-unwrapped-strings",
+    ];
+    // The SWC plugin is coupled to Next's bundled SWC; the skill covers the pin.
+    if (config.frontend.includes("next")) skills.push("swc-plugin-compatibility");
+    return skills;
+  },
   "https://www.evlog.dev": (config) => [
     "review-logging-patterns",
     "build-audit-logs",

@@ -1,9 +1,21 @@
 import { ALL_PAYMENT_IDS, getPaymentProvider } from "@better-t-stack/types";
+import type { I18nOptions } from "@better-t-stack/types";
 
 import type { StackState, TechOptions, TechCategory, StackOptionId } from "./types";
 export type { StackState } from "./types";
 
 export const ICON_BASE_URL = "https://r2.better-t-stack.dev/icons";
+
+type I18nOptionsDefaults = Omit<I18nOptions, "routing"> & {
+  routing: NonNullable<I18nOptions["routing"]>;
+};
+
+export const DEFAULT_I18N_OPTIONS: I18nOptionsDefaults = {
+  sourceLocale: "en",
+  locales: ["en", "es", "fr"],
+  routing: { strategy: "cookie", prefixDefaultLocale: false },
+  translateSkill: true,
+};
 
 export const TECH_OPTIONS: TechOptions = {
   api: [
@@ -810,6 +822,49 @@ export const TECH_OPTIONS: TechOptions = {
       default: false,
     },
   ],
+  i18n: [
+    {
+      id: "lingui",
+      name: "Lingui",
+      description: "Source-text message keys with PO catalogs",
+      icon: "",
+      color: "from-blue-400 to-blue-600",
+      default: false,
+    },
+    {
+      id: "paraglide",
+      name: "Paraglide",
+      description: "Compiled, tree-shakeable message functions",
+      icon: "",
+      color: "from-emerald-400 to-emerald-600",
+      default: false,
+    },
+    {
+      id: "i18next",
+      name: "i18next",
+      description: "The most-used i18n framework for JavaScript",
+      icon: "",
+      color: "from-violet-400 to-violet-600",
+      default: false,
+    },
+    {
+      id: "wuchale",
+      name: "wuchale",
+      description: "Implicit string extraction with no t() calls",
+      icon: "",
+      color: "from-amber-400 to-amber-600",
+      default: false,
+      experimental: true,
+    },
+    {
+      id: "none",
+      name: "No i18n",
+      description: "Ship English-only",
+      icon: "",
+      color: "from-gray-400 to-gray-600",
+      default: true,
+    },
+  ],
   examples: [
     {
       id: "todo",
@@ -918,6 +973,7 @@ export const PRESET_TEMPLATES: {
       payments: "none",
       emailRenderer: "none",
       emailDeploy: "none",
+      i18n: "none",
       packageManager: "bun",
       addons: ["turborepo"],
       examples: ["todo"],
@@ -951,6 +1007,7 @@ export const PRESET_TEMPLATES: {
       payments: "none",
       emailRenderer: "none",
       emailDeploy: "none",
+      i18n: "none",
       packageManager: "bun",
       addons: ["turborepo"],
       examples: ["todo"],
@@ -984,6 +1041,7 @@ export const PRESET_TEMPLATES: {
       payments: "none",
       emailRenderer: "none",
       emailDeploy: "none",
+      i18n: "none",
       packageManager: "bun",
       addons: ["biome", "turborepo"],
       examples: ["none"],
@@ -1017,6 +1075,7 @@ export const PRESET_TEMPLATES: {
       payments: "none",
       emailRenderer: "none",
       emailDeploy: "none",
+      i18n: "none",
       packageManager: "bun",
       addons: ["none"],
       examples: ["none"],
@@ -1048,6 +1107,7 @@ export const DEFAULT_STACK: StackState = {
   payments: "none",
   emailRenderer: "none",
   emailDeploy: "none",
+  i18n: "none",
   packageManager: "bun",
   addons: ["turborepo"],
   examples: ["none"],

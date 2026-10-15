@@ -16,6 +16,8 @@ export type StackSnapshot = {
   payments: string;
   emailRenderer: string;
   emailDeploy: string;
+  i18n: string;
+  i18nLocaleCount: number;
   addons: string;
   examples: string;
   packageManager: string;
@@ -232,6 +234,8 @@ export function stackSnapshot(stack: StackState): StackSnapshot {
     payments: stack.payments,
     emailRenderer: stack.emailRenderer,
     emailDeploy: stack.emailDeploy,
+    i18n: stack.i18n,
+    i18nLocaleCount: stack.i18nOptions?.locales.length ?? 0,
     addons: joinList(stack.addons),
     examples: joinList(stack.examples),
     packageManager: stack.packageManager,

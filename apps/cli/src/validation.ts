@@ -3,10 +3,10 @@ import { Result } from "better-result";
 import type { CLIInput, ProjectConfig } from "./types";
 import { getProvidedFlags, processFlags, validateArrayOptions } from "./utils/config-processing";
 import { validateConfigForProgrammaticUse, validateFullConfig } from "./utils/config-validation";
-import { ValidationError } from "./utils/errors";
+import { type CLIError, ValidationError } from "./utils/errors";
 import { extractAndValidateProjectName } from "./utils/project-name-validation";
 
-type ValidationResult<T> = Result<T, ValidationError>;
+type ValidationResult<T> = Result<T, ValidationError | CLIError>;
 
 const coreStackFlags = new Set([
   "database",
@@ -21,6 +21,8 @@ const coreStackFlags = new Set([
   "payments",
   "emailRenderer",
   "emailDeploy",
+  "i18n",
+  "i18nOptions",
   "api",
   "webDeploy",
   "serverDeploy",

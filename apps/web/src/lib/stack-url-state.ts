@@ -9,8 +9,14 @@ import {
   type UrlKeys,
 } from "nuqs/server";
 
-import { DEFAULT_STACK, type StackState, getStackOptionIds } from "@/lib/constant";
+import {
+  DEFAULT_I18N_OPTIONS,
+  DEFAULT_STACK,
+  type StackState,
+  getStackOptionIds,
+} from "@/lib/constant";
 import { resolveStackCompatibility } from "@/lib/stack-compatibility";
+import { composeI18nOptions, I18N_ROUTING_STRATEGIES } from "@/lib/stack-i18n";
 import { stackUrlKeys } from "@/lib/stack-url-keys";
 
 import { sanitizeStackState } from "./sanitize-stack-addons";
@@ -51,6 +57,15 @@ const serverStackParsers = {
   emailDeploy: parseAsStringEnumServer<StackState["emailDeploy"]>(
     getStackOptionIds("emailDeploy"),
   ).withDefault(DEFAULT_STACK.emailDeploy),
+  i18n: parseAsStringEnumServer<StackState["i18n"]>(getStackOptionIds("i18n")).withDefault(
+    DEFAULT_STACK.i18n,
+  ),
+  locales: parseAsArrayOfServer(parseAsStringServer).withDefault(DEFAULT_I18N_OPTIONS.locales),
+  sourceLocale: parseAsStringServer.withDefault(DEFAULT_I18N_OPTIONS.sourceLocale),
+  routing: parseAsStringEnumServer([...I18N_ROUTING_STRATEGIES]).withDefault(
+    DEFAULT_I18N_OPTIONS.routing.strategy,
+  ),
+  domains: parseAsStringServer.withDefault(""),
   packageManager: parseAsStringEnumServer<StackState["packageManager"]>(
     getStackOptionIds("packageManager"),
   ).withDefault(DEFAULT_STACK.packageManager),
@@ -91,7 +106,18 @@ export const serializeStackParams = createSerializer(serverStackParsers, {
 export async function loadStackParams(
   searchParams: Parameters<typeof rawLoadStackParams>[0],
 ): Promise<StackState> {
-  const stackState = await rawLoadStackParams(searchParams);
+  const { locales, sourceLocale, routing, domains, ...stackFields } =
+    await rawLoadStackParams(searchParams);
+  const stackState = {
+    ...stackFields,
+    i18nOptions: composeI18nOptions({
+      i18n: stackFields.i18n,
+      locales,
+      sourceLocale,
+      routing,
+      domains,
+    }),
+  };
   return resolveStackCompatibility(sanitizeStackState(stackState)).stack;
 }
 

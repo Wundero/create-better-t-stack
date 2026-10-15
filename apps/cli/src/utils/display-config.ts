@@ -1,7 +1,7 @@
 import { getPaymentProvider, isPaymentProviderId } from "@better-t-stack/types";
 import pc from "picocolors";
 
-import type { ProjectConfig } from "../types";
+import { getI18nIntegrations, I18N_LIBRARY_META, type ProjectConfig } from "../types";
 
 export type ConfigDisplayRow = {
   label: string;
@@ -146,6 +146,29 @@ function section(
   return rows.length > 0 ? { title, rows } : undefined;
 }
 
+function getI18nEntries(
+  config: Partial<ProjectConfig>,
+): Array<[label: string, value: ConfigDisplayValue, format?: "raw"]> {
+  const library = config.i18n;
+  if (library === undefined || library === "none") return [];
+
+  const entries: Array<[label: string, value: ConfigDisplayValue, format?: "raw"]> = [
+    ["i18n", I18N_LIBRARY_META[library].label],
+  ];
+  const options = config.i18nOptions;
+  if (options) {
+    entries.push(["Locales", options.locales.join(", "), "raw"]);
+    entries.push(["Routing", options.routing?.strategy ?? "cookie"]);
+  }
+
+  const integrations = getI18nIntegrations(config, library).map((integration) => integration.label);
+  if (integrations.length > 0) {
+    entries.push(["Also sets up", integrations.join(", "), "raw"]);
+  }
+
+  return entries;
+}
+
 export function getConfigSections(config: Partial<ProjectConfig>): ConfigDisplaySection[] {
   return [
     section("Project", [
@@ -169,6 +192,7 @@ export function getConfigSections(config: Partial<ProjectConfig>): ConfigDisplay
       ["Payments", config.payments],
       ["Email renderer", config.emailRenderer],
       ["Addons", config.addons],
+      ...getI18nEntries(config),
       ["Examples", config.examples],
       ["shadcn", config.shadcn ? formatShadcn(config.shadcn) : undefined, "raw"],
     ]),

@@ -1,0 +1,83 @@
+/**
+ * Lingui runtime for `@{{projectName}}/i18n`.
+ *
+ * The shared `i18n` instance is created by `@lingui/core` and activated by the
+ * surface glue in each app. Catalogs are compiled by `i18n:compile`
+ * (`lingui compile`, `compileNamespace: "ts"`) into `locales/<locale>/messages.ts`;
+ * the static loader map below keeps bundlers (Vite, Next, Metro, Bun) happy —
+ * no dynamic `import()` expressions with variables.
+ *
+ * Formatting is *not* part of this file: every surface formats dates, numbers,
+ * currencies and plurals through `createFormatters()` from `./format`.
+ */
+import { i18n, setupI18n as createI18n } from "@lingui/core";
+import type { I18n, Messages } from "@lingui/core";
+
+import { negotiateLocale, sourceLocale } from "./config";
+import type { Locale, NegotiateLocaleInput } from "./config";
+
+export { i18n };
+export type { I18n, Messages };
+
+/** One static loader per configured locale: `locales/<locale>/messages.ts`. */
+const catalogLoaders: Record<Locale, () => Promise<{ messages: Messages }>> = {
+{{#if i18nOptions.locales}}
+{{#each i18nOptions.locales}}  "{{this}}": () => import(`../locales/{{this}}/messages`),
+{{/each}}
+{{else}}
+  "en": () => import("../locales/en/messages"),
+  "es": () => import("../locales/es/messages"),
+  "fr": () => import("../locales/fr/messages"),
+{{/if}}
+};
+
+export function hasCatalogLoader(locale: string): locale is Locale {
+  return Object.prototype.hasOwnProperty.call(catalogLoaders, locale);
+}
+
+export async function loadCatalog(locale: Locale): Promise<Messages> {
+  const { messages } = await catalogLoaders[locale]();
+  return messages;
+}
+
+/** Loads and activates a locale on the shared instance. Idempotent per locale. */
+export async function activateLocale(locale: Locale): Promise<void> {
+  i18n.load(locale, await loadCatalog(locale));
+  i18n.activate(locale);
+}
+
+/**
+ * A fresh, isolated instance. Use it on the server for request-scoped
+ * rendering instead of mutating the shared instance, which is process-global.
+ */
+export async function setupI18n(locale: Locale = sourceLocale): Promise<I18n> {
+  const messages = await loadCatalog(locale);
+  return createI18n({ locale, messages: { [locale]: messages } });
+}
+
+/**
+ * Negotiates through the shared contract (`src/config.ts`) and activates the
+ * result. Client surfaces pass `stored` (localStorage/storage.local) so the
+ * user's choice wins over browser preferences; server surfaces pass the
+ * request headers. Returns the negotiated locale for persistence.
+ */
+export async function initializeLocale(input: NegotiateLocaleInput = {}): Promise<Locale> {
+  const locale = negotiateLocale(input);
+  await activateLocale(locale);
+  return locale;
+}
+
+/**
+ * Subscribes to locale changes and returns an unsubscribe function. Imports of
+ * framework glue (React `useLingui`, the Vue composable, Solid signals) build
+ * on this instead of re-implementing the listener.
+ */
+export function onLocaleChange(listener: (locale: Locale) => void): () => void {
+  const handler = (): void => {
+    if (hasCatalogLoader(i18n.locale)) listener(i18n.locale as Locale);
+  };
+  i18n.on("change", handler);
+  return () => {
+    i18n.removeListener("change", handler);
+  };
+}

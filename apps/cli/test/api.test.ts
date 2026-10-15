@@ -360,7 +360,8 @@ describe("API Configurations", () => {
           expected: [
             'import { getClerkAuthToken } from "@/utils/clerk-auth";',
             "const token = await getClerkAuthToken();",
-            "return token ? { Authorization: `Bearer ${token}` } : {};",
+            "Authorization: `Bearer ${token}`",
+            "localeHeader()",
             "fetch: expoFetch",
           ],
         },

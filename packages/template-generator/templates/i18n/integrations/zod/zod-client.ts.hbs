@@ -1,0 +1,35 @@
+/**
+ * Client-side Zod locale wiring (emitted only for projects that use Zod).
+ *
+ * Calling `z.config` is global: it is applied on the client when the locale
+ * changes and never on the server. The locale module is imported lazily and
+ * cached per export name, so only the active locale ships to the browser.
+ */
+
+import { zodLocaleExportName } from "./zod";
+
+type ZodModule = typeof import("zod");
+type ZodLocales = typeof import("zod/locales");
+
+const configuredLocales = new Set<string>();
+
+/**
+ * Applies the Zod locale for `locale` on the client. Resolves `false` when the
+ * locale has no Zod translation or when running on the server (where
+ * `z.config` must stay untouched — translate issues at the boundary instead).
+ */
+export async function applyZodLocale(locale: string): Promise<boolean> {
+  if (typeof window === "undefined") return false;
+  const exportName = zodLocaleExportName(locale);
+  if (exportName === undefined) return false;
+  if (configuredLocales.has(exportName)) return true;
+
+  const [zod, locales]: [ZodModule, ZodLocales] = await Promise.all([
+    import("zod"),
+    import("zod/locales"),
+  ]);
+  const factory = locales[exportName as keyof ZodLocales];
+  zod.z.config(factory());
+  configuredLocales.add(exportName);
+  return true;
+}

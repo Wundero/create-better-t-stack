@@ -1,0 +1,53 @@
+<script setup lang="ts">
+import { isLocale, locales } from "@{{projectName}}/i18n";
+import { currentLocale, setLocale } from "@{{projectName}}/i18n/runtime";
+import { useTranslation } from "i18next-vue";
+import { computed, onUnmounted, ref } from "vue";
+import { useFormat } from "~/composables/use-format";
+
+const { t, i18next } = useTranslation();
+const locale = ref(currentLocale());
+const syncLocale = () => {
+  locale.value = currentLocale();
+};
+i18next.on("languageChanged", syncLocale);
+onUnmounted(() => {
+  i18next.off("languageChanged", syncLocale);
+});
+
+const formatters = useFormat();
+const languageName = computed(() => formatters.value.displayName(locale.value) ?? locale.value);
+const count = 2;
+
+function changeLocale(option: string) {
+  if (isLocale(option)) void setLocale(option);
+}
+</script>
+
+<template>
+  <main class="container mx-auto max-w-2xl space-y-4 px-4 py-10">
+    <h1 class="text-2xl font-semibold">\{{ t("i18n demo") }}</h1>
+    <p>\{{ t("Hello, \{{name}}!", { name: "Ada" }) }}</p>
+    <p>\{{ t("You have \{{count}} new message", { count }) }}</p>
+    <dl class="grid grid-cols-2 gap-2 text-sm">
+      <dt class="text-muted-foreground">\{{ t("Language") }}</dt>
+      <dd>\{{ languageName }}</dd>
+      <dt class="text-muted-foreground">\{{ t("Current locale: \{{locale}}", { locale }) }}</dt>
+      <dd>
+        \{{ formatters.date(new Date("2026-10-14T12:00:00Z")) }} ·
+        \{{ formatters.currency(42.5, "EUR") }}
+      </dd>
+    </dl>
+    <div class="flex flex-wrap gap-2">
+      <button
+        v-for="option in locales"
+        :key="option"
+        type="button"
+        class="rounded-md border px-3 py-1 text-sm"
+        @click="changeLocale(option)"
+      >
+        \{{ option }}
+      </button>
+    </div>
+  </main>
+</template>

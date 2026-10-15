@@ -2,6 +2,7 @@ import { getStackCommandBase } from "@/lib/cli-commands";
 import { DEFAULT_STACK, isStackDefault, type StackState, TECH_OPTIONS } from "@/lib/constant";
 import { DEFAULT_SHADCN_BASE, DEFAULT_SHADCN_PRESET, getShadcnConfig } from "@/lib/shadcn-config";
 import { SITE_URL } from "@/lib/site";
+import { flattenI18nOptions } from "@/lib/stack-i18n";
 import { stackUrlKeys } from "@/lib/stack-url-keys";
 
 import { getStackBackend, getStackFrontends, isSelfHostedFullstackBackend } from "./stack-model";
@@ -23,6 +24,7 @@ const CATEGORY_ORDER: Array<keyof typeof TECH_OPTIONS> = [
   "emailDeploy",
   "packageManager",
   "addons",
+  "i18n",
   "examples",
   "git",
   "install",
@@ -200,6 +202,27 @@ export function generateStackCommand(stack: StackState) {
     }
   }
 
+  if (stack.i18n !== "none") {
+    flags.push(`--i18n ${stack.i18n}`);
+    const options = stack.i18nOptions;
+    if (options) {
+      flags.push(`--i18n-locales ${options.locales.join(",")}`);
+      if (options.sourceLocale !== options.locales[0]) {
+        flags.push(`--i18n-source-locale ${options.sourceLocale}`);
+      }
+      const strategy = options.routing?.strategy ?? "cookie";
+      flags.push(`--i18n-routing ${strategy}`);
+      if (strategy === "domain" && options.routing?.domains) {
+        for (const [locale, host] of Object.entries(options.routing.domains)) {
+          flags.push(`--i18n-domain ${locale}=${host}`);
+        }
+      }
+      if (options.translateSkill === false) {
+        flags.push("--no-i18n-skill");
+      }
+    }
+  }
+
   if (stack.yolo === "true") {
     flags.push("--yolo");
   }
@@ -221,10 +244,16 @@ export function generateStackUrlFromState(stack: StackState, baseUrl?: string) {
   return `${origin}/new${searchString ? `?${searchString}` : ""}`;
 }
 
+type UrlSerializableValue = string | string[] | null;
+type UrlSerializable = Partial<Record<keyof typeof stackUrlKeys, UrlSerializableValue>>;
+
 function serializeStackToSearchString(stack: StackState) {
   const stackParams = new URLSearchParams();
+  const { i18nOptions, ...stem } = stack;
+  const serializable: UrlSerializable =
+    stack.i18n === "none" ? stem : { ...stem, ...flattenI18nOptions(i18nOptions) };
   Object.entries(stackUrlKeys).forEach(([stackKey, urlKey]) => {
-    const value = stack[stackKey as keyof StackState];
+    const value = serializable[stackKey as keyof typeof stackUrlKeys];
     if (value !== undefined) {
       stackParams.set(urlKey as string, Array.isArray(value) ? value.join(",") : String(value));
     }

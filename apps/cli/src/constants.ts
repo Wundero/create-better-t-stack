@@ -23,6 +23,7 @@ export const DEFAULT_CONFIG_BASE = {
   payments: "none",
   emailRenderer: "none",
   emailDeploy: "none",
+  i18n: "none",
   addons: ["turborepo"],
   examples: [],
   git: true,

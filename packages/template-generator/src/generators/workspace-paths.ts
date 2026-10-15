@@ -15,6 +15,7 @@ export const WORKSPACE_PACKAGE_DIRS = [
   "packages/config",
   "packages/email",
   "packages/env",
+  "packages/i18n",
   "packages/infra",
   "packages/ui",
 ] as const;

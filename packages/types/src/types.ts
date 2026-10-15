@@ -15,6 +15,8 @@ import type {
   PaymentsSchema,
   EmailRendererSchema,
   EmailDeploySchema,
+  I18nSchema,
+  I18nOptionsSchema,
   WebDeploySchema,
   ServerDeploySchema,
   DirectoryConflictSchema,
@@ -51,6 +53,8 @@ export type Auth = z.infer<typeof AuthSchema>;
 export type Payments = z.infer<typeof PaymentsSchema>;
 export type EmailRenderer = z.infer<typeof EmailRendererSchema>;
 export type EmailDeploy = z.infer<typeof EmailDeploySchema>;
+export type I18n = z.infer<typeof I18nSchema>;
+export type I18nOptions = z.infer<typeof I18nOptionsSchema>;
 export type WebDeploy = z.infer<typeof WebDeploySchema>;
 export type ServerDeploy = z.infer<typeof ServerDeploySchema>;
 export type DirectoryConflict = z.infer<typeof DirectoryConflictSchema>;

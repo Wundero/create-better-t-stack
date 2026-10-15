@@ -19,6 +19,8 @@ import {
   EmailRendererSchema,
   ExamplesSchema,
   FrontendSchema,
+  I18nOptionsSchema,
+  I18nSchema,
   ORMSchema,
   PackageManagerSchema,
   PaymentsSchema,
@@ -54,6 +56,12 @@ const McpCreateProjectInputSchema = CreateInputSchema.safeExtend({
   payments: PaymentsSchema.describe("Explicit payments provider"),
   emailRenderer: EmailRendererSchema.describe("Explicit email renderer"),
   emailDeploy: EmailDeploySchema.describe("Explicit email deployment choice"),
+  i18n: I18nSchema.optional().describe(
+    "Explicit internationalization library. Pass 'none' when the project should stay English-only.",
+  ),
+  i18nOptions: I18nOptionsSchema.optional().describe(
+    "i18n options: sourceLocale, locales, routing, and translateSkill.",
+  ),
   addons: z.array(AddonsSchema).describe("Explicit addon list. Use [] when no addons are needed."),
   examples: z
     .array(ExamplesSchema)
@@ -158,8 +166,9 @@ function getStackGuidance() {
         "dbSetup",
         "webDeploy",
         "serverDeploy",
+        "i18n",
       ],
-      optionalFields: ["addonOptions", "dbSetupOptions", "shadcn", "directoryConflict"],
+      optionalFields: ["addonOptions", "dbSetupOptions", "shadcn", "i18nOptions", "directoryConflict"],
       rule: "Do not call bts_plan_project or bts_create_project with a partial payload. MCP project creation requires the full explicit stack config.",
     },
     fieldNotes: {
@@ -181,6 +190,7 @@ function getStackGuidance() {
         "packageManager is always required because installation and reproducible commands depend on it.",
       install:
         "install is always required. For MCP project creation, prefer false because many clients enforce request timeouts around long-running dependency installs.",
+      i18n: "i18n should be sent explicitly. Use 'none' when no internationalization is requested; when a library is selected, pass i18nOptions with locales and routing when the user cares about them.",
       git: "git is always required. Set it to true or false explicitly instead of relying on defaults.",
       shadcn:
         "shadcn is optional and only applies to React web frontends. When provided it must include a preset (code, named preset, or preset URL); base defaults to baseui.",

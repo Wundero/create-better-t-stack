@@ -1,4 +1,4 @@
-import { ProjectConfigSchema, SHADCN_BASE_VALUES } from "@better-t-stack/types";
+import { I18nOptionsSchema, ProjectConfigSchema, SHADCN_BASE_VALUES } from "@better-t-stack/types";
 import { z } from "zod";
 
 import { DEFAULT_STACK, TECH_OPTIONS, getStackOptionIds, type StackState } from "./constant";
@@ -22,6 +22,8 @@ const stackFields = {
   payments: option("payments"),
   emailRenderer: option("emailRenderer"),
   emailDeploy: option("emailDeploy"),
+  i18n: option("i18n"),
+  i18nOptions: I18nOptionsSchema,
   packageManager: option("packageManager"),
   addons: z.array(z.enum(["none", ...getStackOptionIds("addons")])),
   examples: z.array(z.enum(["none", ...getStackOptionIds("examples")])),
@@ -53,6 +55,8 @@ export const StackStateSchema = z.object({
   payments: stackFields.payments.default(DEFAULT_STACK.payments),
   emailRenderer: stackFields.emailRenderer.default(DEFAULT_STACK.emailRenderer),
   emailDeploy: stackFields.emailDeploy.default(DEFAULT_STACK.emailDeploy),
+  i18n: stackFields.i18n.default(DEFAULT_STACK.i18n),
+  i18nOptions: stackFields.i18nOptions.optional(),
   packageManager: stackFields.packageManager.default(DEFAULT_STACK.packageManager),
   addons: stackFields.addons.default(DEFAULT_STACK.addons),
   examples: stackFields.examples.default(DEFAULT_STACK.examples),
