@@ -17,6 +17,7 @@ import {
   validateI18nCompatibility,
   validateI18nOptions,
 } from "../src/i18n";
+import { getPaymentProvider, PAYMENT_PROVIDER_IDS } from "../src/payment-providers";
 import { I18nOptionsSchema } from "../src/schemas";
 
 const SUPPORT_LEVELS: readonly I18nSupportLevel[] = ["native", "adapter", "partial", "unsupported"];
@@ -424,6 +425,21 @@ describe("getI18nIntegrations", () => {
     expect(rendererOff).not.toContain("react-email-locale");
   });
 
+  test("enables payments-checkout-locale only for providers with a checkout locale", () => {
+    const activeFor = (payments?: "polar" | "stripe" | "autumn" | "dodo" | "commet"): string[] =>
+      getI18nIntegrations(
+        { frontend: ["next"], backend: "hono", auth: "better-auth", payments },
+        "lingui",
+      ).map((integration) => integration.id);
+
+    expect(activeFor("polar")).toContain("payments-checkout-locale");
+    expect(activeFor("stripe")).toContain("payments-checkout-locale");
+    expect(activeFor("dodo")).not.toContain("payments-checkout-locale");
+    expect(activeFor("autumn")).not.toContain("payments-checkout-locale");
+    expect(activeFor("commet")).not.toContain("payments-checkout-locale");
+    expect(activeFor()).not.toContain("payments-checkout-locale");
+  });
+
   test("labels every integration and keeps ids unique", () => {
     const ids = I18N_INTEGRATIONS.map((integration) => integration.id);
     expect(new Set(ids).size).toBe(ids.length);
@@ -438,6 +454,15 @@ describe("integration ids and libraries stay in sync with the registry", () => {
     for (const library of I18N_LIBRARIES as readonly I18nLibrary[]) {
       expect(I18N_LIBRARY_META[library]).toBeDefined();
       expect(I18N_SUPPORT[library]).toBeDefined();
+    }
+  });
+
+  test("marks only verified providers as locale-aware checkouts", () => {
+    expect(getPaymentProvider("polar").checkoutLocale).toBe("api");
+    expect(getPaymentProvider("stripe").checkoutLocale).toBe("api");
+    for (const id of PAYMENT_PROVIDER_IDS) {
+      if (id === "stripe") continue;
+      expect(getPaymentProvider(id).checkoutLocale).toBe("none");
     }
   });
 });

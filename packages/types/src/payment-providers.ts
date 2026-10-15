@@ -30,6 +30,14 @@ export type PaymentProviderEnvVar = {
   readonly value: string;
 };
 
+/**
+ * How a provider's checkout can receive the negotiated locale:
+ * `api` — the create-checkout request accepts a locale field;
+ * `query` — the hosted checkout URL accepts a `?locale=` query parameter;
+ * `none` — no verified mechanism (default until a provider is verified).
+ */
+export type CheckoutLocaleSupport = "api" | "query" | "none";
+
 export type PaymentProviderMeta = {
   readonly id: PaymentProviderId;
   readonly label: string;
@@ -55,6 +63,8 @@ export type PaymentProviderMeta = {
   readonly clientCheckout: boolean;
   /** provider's better-auth plugin extends the database schema (needs auth:generate + migrate). */
   readonly requiresMigration: boolean;
+  /** mechanism the i18n `payments-checkout-locale` integration uses to pass the locale. */
+  readonly checkoutLocale: CheckoutLocaleSupport;
   /** npm packages injected into the auth/server workspace package.json. */
   readonly serverDeps: readonly string[];
   /** npm packages injected into the web workspace package.json. */
@@ -76,6 +86,7 @@ export const PAYMENT_PROVIDERS = {
     reactWebOnly: false,
     clientCheckout: true,
     requiresMigration: false,
+    checkoutLocale: "api",
     serverDeps: ["@polar-sh/better-auth", "@polar-sh/sdk"],
     webDeps: ["@polar-sh/better-auth", "@polar-sh/sdk"],
     env: [
@@ -99,6 +110,7 @@ export const PAYMENT_PROVIDERS = {
     reactWebOnly: false,
     clientCheckout: true,
     requiresMigration: true,
+    checkoutLocale: "api",
     serverDeps: ["@better-auth/stripe", "stripe"],
     webDeps: ["@better-auth/stripe"],
     env: [
@@ -122,6 +134,7 @@ export const PAYMENT_PROVIDERS = {
     reactWebOnly: true,
     clientCheckout: true,
     requiresMigration: false,
+    checkoutLocale: "none",
     serverDeps: ["autumn-js"],
     webDeps: ["autumn-js"],
     env: [{ key: "AUTUMN_SECRET_KEY", comment: "Autumn secret key", value: "" }],
@@ -138,6 +151,7 @@ export const PAYMENT_PROVIDERS = {
     reactWebOnly: false,
     clientCheckout: true,
     requiresMigration: true,
+    checkoutLocale: "none",
     serverDeps: ["@dodopayments/better-auth", "dodopayments", "zod"],
     webDeps: ["@dodopayments/better-auth"],
     env: [
@@ -166,6 +180,7 @@ export const PAYMENT_PROVIDERS = {
     reactWebOnly: false,
     clientCheckout: true,
     requiresMigration: true,
+    checkoutLocale: "none",
     serverDeps: ["@creem_io/better-auth"],
     webDeps: ["@creem_io/better-auth"],
     env: [
@@ -189,6 +204,7 @@ export const PAYMENT_PROVIDERS = {
     reactWebOnly: false,
     clientCheckout: true,
     requiresMigration: true,
+    checkoutLocale: "none",
     serverDeps: ["@chargebee/better-auth", "chargebee"],
     webDeps: ["@chargebee/better-auth"],
     env: [
@@ -219,6 +235,7 @@ export const PAYMENT_PROVIDERS = {
     reactWebOnly: false,
     clientCheckout: false,
     requiresMigration: false,
+    checkoutLocale: "none",
     serverDeps: ["@commet/better-auth", "@commet/node"],
     webDeps: ["@commet/better-auth"],
     env: [
