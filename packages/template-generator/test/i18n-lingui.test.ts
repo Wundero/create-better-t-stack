@@ -348,6 +348,13 @@ describe("getLinguiDeps on native", () => {
     const babel = vfs.readFile("apps/native/babel.config.js") ?? "";
     expect(babel).toContain('"@lingui/babel-plugin-lingui-macro"');
 
+    // Babel/Metro discover the Lingui config by searching up from the app cwd,
+    // which never reaches `packages/i18n`; both opt in via `LINGUI_CONFIG`.
+    const linguiConfigEnv =
+      'process.env.LINGUI_CONFIG ??= require("node:path").resolve(__dirname, "../../packages/i18n/lingui.config.ts");';
+    expect(metro).toContain(linguiConfigEnv);
+    expect(babel).toContain(linguiConfigEnv);
+
     const index = vfs.readFile("apps/native/app/(drawer)/(tabs)/index.tsx") ?? "";
     expect(index).toContain("<I18nDemo />");
     expect(index).toContain('import { I18nDemo } from "@/components/i18n-demo";');
