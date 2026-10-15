@@ -1,14 +1,23 @@
-import type { Backend, Frontend, ProjectConfig } from "@better-t-stack/types";
+import type {
+  Backend,
+  Frontend,
+  I18nCompatibility,
+  I18nConfigInput,
+  ProjectConfig,
+} from "@better-t-stack/types";
+import { validateI18nCompatibility } from "@better-t-stack/types";
 
 import { VirtualFileSystem } from "../core/virtual-fs";
 import { processCatalogs } from "../post-process/catalogs";
 import { processEnvDeps } from "../processors/env-deps";
+import { processI18nDeps } from "../processors/i18n-deps";
 import { processVarlock } from "../processors/varlock";
 import { processWorkspaceDeps } from "../processors/workspace-deps";
 import { processAddonTemplates } from "../template-handlers/addons";
 import { processApiTemplates } from "../template-handlers/api";
 import { processBackendTemplates } from "../template-handlers/backend";
 import { processFrontendTemplates } from "../template-handlers/frontend";
+import { processI18nTemplates } from "../template-handlers/i18n";
 import { extractAndRenameSubtree } from "./extract-subtree";
 import type { RootPackageJson } from "./workspace-package";
 
@@ -73,6 +82,26 @@ function buildTempConfig(input: PlanWorkspaceAppInput): ProjectConfig {
 }
 
 /**
+ * i18n surfaces introduced by the app being planned. The app's own framework
+ * (or backend) is the only surface it adds, excluding surfaces the host project
+ * already owns.
+ */
+function newAppI18nConfig(input: PlanWorkspaceAppInput): I18nConfigInput {
+  if (input.kind === "backend") return { backend: input.backend };
+  return { frontend: input.frontend === undefined ? [] : [input.frontend] };
+}
+
+/**
+ * Compatibility of the new app's surface against the project's library (D9).
+ * `undefined` when the project has no i18n to inherit.
+ */
+function getNewAppI18nCompatibility(input: PlanWorkspaceAppInput): I18nCompatibility | undefined {
+  const library = input.config.i18n;
+  if (library === "none") return undefined;
+  return validateI18nCompatibility(library, newAppI18nConfig(input));
+}
+
+/**
  * Plans a single new app inside an existing monorepo. Reuses the canonical app
  * template handlers, then extracts and renames the generated subtree to
  * `apps/<name>`. Pure: all work happens in-memory on a VirtualFileSystem.
@@ -86,6 +115,10 @@ export function planWorkspaceApp(input: PlanWorkspaceAppInput): PlanWorkspaceApp
   }
 
   const config = buildTempConfig(input);
+  const i18nCompatibility = getNewAppI18nCompatibility(input);
+  if (i18nCompatibility !== undefined && !i18nCompatibility.isCompatible) {
+    throw new Error(i18nCompatibility.reason);
+  }
 
   // Handlers are declared async but perform entirely synchronous work, so the
   // voided calls complete before the extraction below reads the VFS.
@@ -95,11 +128,13 @@ export function planWorkspaceApp(input: PlanWorkspaceAppInput): PlanWorkspaceApp
     void processBackendTemplates(vfs, templates, config);
   }
   void processApiTemplates(vfs, templates, config);
+  void processI18nTemplates(vfs, templates, config);
   void processAddonTemplates(vfs, templates, config);
   processWorkspaceDeps(vfs, config);
   // Declare varlock (and the framework integration) on the generated app before
   // processVarlock wires its scripts, mirroring the full-generator deps order.
   processEnvDeps(vfs, config);
+  processI18nDeps(vfs, config);
   processVarlock(vfs, templates, config);
 
   // Handlers mutate root files for a full scaffold (varlock scripts, workspace
@@ -118,7 +153,8 @@ export function planWorkspaceApp(input: PlanWorkspaceAppInput): PlanWorkspaceApp
 
   const files = extractAndRenameSubtree(vfs, canonicalPath, `apps/${input.name}`, input.name);
 
-  const warnings: string[] = [];
+  const warnings: string[] =
+    i18nCompatibility?.isCompatible === true ? [...i18nCompatibility.warnings] : [];
   let envGeneratePath: string | undefined;
 
   if (files.has(`apps/${input.name}/.env.schema`)) {

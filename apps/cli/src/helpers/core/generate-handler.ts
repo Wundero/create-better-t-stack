@@ -99,6 +99,8 @@ function buildProjectConfig(
     examples: detected.examples,
     auth: detected.auth,
     payments: detected.payments,
+    i18n: detected.i18n ?? "none",
+    i18nOptions: detected.i18nOptions,
     git: false,
     packageManager,
     install: false,
