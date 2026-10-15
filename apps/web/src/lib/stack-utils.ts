@@ -244,7 +244,7 @@ export function generateStackUrlFromState(stack: StackState, baseUrl?: string) {
   return `${origin}/new${searchString ? `?${searchString}` : ""}`;
 }
 
-type UrlSerializableValue = string | string[] | null;
+type UrlSerializableValue = string | string[] | boolean | number | null;
 type UrlSerializable = Partial<Record<keyof typeof stackUrlKeys, UrlSerializableValue>>;
 
 function serializeStackToSearchString(stack: StackState) {
