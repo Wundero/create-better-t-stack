@@ -66,7 +66,7 @@ import {
   UserCancelledError,
 } from "./utils/errors";
 import { getLatestCLIVersion } from "./utils/get-latest-cli-version";
-import { normalizeResolvedI18n } from "./utils/i18n-cli";
+import { normalizeResolvedI18n, resolveI18nCliFlags, type I18nCliInput } from "./utils/i18n-cli";
 import { type ProjectLauncher, ProjectLauncherSchema } from "./utils/project-launcher";
 import { validateResolvedConfigCompatibility } from "./validation";
 
@@ -263,6 +263,19 @@ export const router = os.router({
       z.object({
         addons: z.array(AddonsSchema).optional().describe("Addons to add"),
         package: WorkspacePackageNameSchema.optional(),
+        i18n: I18nSchema.optional().describe("Add or adopt an i18n library"),
+        i18nOptions: I18nOptionsSchema.optional(),
+        i18nLocales: z
+          .string()
+          .optional()
+          .describe("Comma-separated locales to add; the first entry is the source locale"),
+        i18nSourceLocale: z.string().optional().describe("Canonical BCP-47 source locale"),
+        i18nRouting: I18nRoutingStrategySchema.optional(),
+        i18nDomain: z
+          .array(z.string())
+          .optional()
+          .describe("Locale to host mapping, repeatable (fr=fr.example.com)"),
+        i18nSkill: z.boolean().optional().describe("Generate the i18n-translate agent skill"),
         install: z
           .boolean()
           .optional()
@@ -279,7 +292,33 @@ export const router = os.router({
       }),
     )
     .handler(async ({ input }) => {
-      await addHandler(input);
+      const folded = resolveI18nCliFlags({
+        i18n: input.i18n,
+        i18nOptions: input.i18nOptions,
+        i18nLocales: input.i18nLocales,
+        i18nSourceLocale: input.i18nSourceLocale,
+        i18nRouting: input.i18nRouting,
+        i18nDomain: input.i18nDomain,
+        i18nSkill: input.i18nSkill,
+      } as I18nCliInput);
+      if (folded.isErr()) {
+        throw folded.error;
+      }
+
+      const {
+        i18nLocales: _i18nLocales,
+        i18nSourceLocale: _i18nSourceLocale,
+        i18nRouting: _i18nRouting,
+        i18nDomain: _i18nDomain,
+        i18nSkill: _i18nSkill,
+        ...rest
+      } = input;
+
+      await addHandler({
+        ...rest,
+        i18n: folded.value.i18n,
+        i18nOptions: folded.value.i18nOptions,
+      });
     }),
   addJson: command
     .meta({
