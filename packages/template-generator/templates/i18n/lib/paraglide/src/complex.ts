@@ -42,6 +42,16 @@ export function isComplexMessage(value: CatalogMessage): value is ComplexMessage
   return Array.isArray(value);
 }
 
+/**
+ * `Array.isArray` cannot subtract a `readonly` array member from a union, so a
+ * declared type guard is required to narrow `ComplexPattern` back to `string`
+ * (the generated `noUncheckedIndexedAccess`-era TypeScript rejects the inline
+ * check).
+ */
+function isComplexPattern(value: ComplexPattern): value is ComplexMessage {
+  return Array.isArray(value);
+}
+
 function categoryRank(category: string): number {
   const index = PLURAL_CATEGORY_ORDER.indexOf(category as (typeof PLURAL_CATEGORY_ORDER)[number]);
   return index === -1 ? PLURAL_CATEGORY_ORDER.length : index;
@@ -65,7 +75,7 @@ function matchPlaceholders(entry: ComplexMatch): string[] {
 }
 
 function placeholderNames(pattern: ComplexPattern): string[] {
-  if (Array.isArray(pattern)) return pattern.flatMap(matchPlaceholders);
+  if (isComplexPattern(pattern)) return pattern.flatMap(matchPlaceholders);
   return [...pattern.matchAll(PLACEHOLDER)].map((match) => match[1] as string);
 }
 
@@ -122,7 +132,7 @@ function validateComplex(
 
 /** Validates one catalog value (string ICU or complex message). */
 export function parseCatalogMessage(message: CatalogMessage): CatalogMessageParseResult {
-  if (Array.isArray(message)) {
+  if (isComplexMessage(message)) {
     const valid = validateComplex(message);
     return valid.ok
       ? { ok: true, arguments: collectArguments(message) }
@@ -137,7 +147,7 @@ export function parseCatalogMessage(message: CatalogMessage): CatalogMessagePars
 
 /** Placeholder names, for the pending report and placeholder comparison. */
 export function extractCatalogArguments(message: CatalogMessage): string[] {
-  return Array.isArray(message) ? collectArguments(message) : extractArgumentNames(message);
+  return isComplexMessage(message) ? collectArguments(message) : extractArgumentNames(message);
 }
 
 function compareComplex(
@@ -192,13 +202,13 @@ export function compareCatalogMessages(
     return { ok: false, error: `translation is invalid: ${parsedTranslation.error}` };
   }
 
-  if (Array.isArray(source)) {
-    if (!Array.isArray(translation)) {
+  if (isComplexMessage(source)) {
+    if (!isComplexMessage(translation)) {
       return { ok: false, error: "source and translation must use the same message shape" };
     }
     return compareComplex(source, translation);
   }
-  if (Array.isArray(translation)) {
+  if (isComplexMessage(translation)) {
     return { ok: false, error: "source and translation must use the same message shape" };
   }
 
@@ -211,7 +221,7 @@ export function compareCatalogMessages(
  * of a pending item (one form per plural category, in canonical order).
  */
 export function messageForms(message: CatalogMessage): string[] {
-  if (!Array.isArray(message)) return [message];
+  if (!isComplexMessage(message)) return [message];
   const [first] = message;
   if (!first) return [];
 
@@ -219,7 +229,7 @@ export function messageForms(message: CatalogMessage): string[] {
   return Object.entries(first.match)
     .filter(([key]) => key.startsWith(`${selector}=`))
     .sort(([firstKey], [secondKey]) => compareCategoryKeys(selector, firstKey, secondKey))
-    .map(([, pattern]) => (Array.isArray(pattern) ? JSON.stringify(pattern) : pattern));
+    .map(([, pattern]) => (isComplexPattern(pattern) ? JSON.stringify(pattern) : pattern));
 }
 
 /**
@@ -267,7 +277,7 @@ export function complexMessageToIcu(message: ComplexMessage): string {
     .sort(([firstKey], [secondKey]) => compareCategoryKeys(selector, firstKey, secondKey))
     .map(([key, pattern]) => {
       const category = key.slice(selector.length + 1);
-      const body = Array.isArray(pattern) ? complexMessageToIcu(pattern) : pattern;
+      const body = isComplexPattern(pattern) ? complexMessageToIcu(pattern) : pattern;
       return `${category} {${body.replaceAll(`{${input}}`, "#")}}`;
     });
 
@@ -276,5 +286,5 @@ export function complexMessageToIcu(message: ComplexMessage): string {
 
 /** Converts any catalog message to its ICU string form (for normalization). */
 export function catalogMessageToIcu(message: CatalogMessage): string {
-  return Array.isArray(message) ? complexMessageToIcu(message) : message;
+  return isComplexMessage(message) ? complexMessageToIcu(message) : message;
 }

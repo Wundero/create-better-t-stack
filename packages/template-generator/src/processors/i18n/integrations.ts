@@ -208,7 +208,12 @@ function replaceOnce(content: string, anchor: string, replacement: string): stri
 
 function appendAfterLastImport(content: string, statement: string): string {
   const imports = [...content.matchAll(/^import [^\n]*;$/gm)];
-  const last = imports[imports.length - 1];
+  // Re-export-only modules (e.g. the Paraglide runtime) have no `import` line;
+  // anchor after the last `export … from` so the injected import is not dropped
+  // into the leading JSDoc block.
+  const anchors =
+    imports.length > 0 ? imports : [...content.matchAll(/^export [^\n]*\bfrom\b[^\n]*;$/gm)];
+  const last = anchors[anchors.length - 1];
   if (last && last.index !== undefined) {
     const index = last.index + last[0].length;
     return `${content.slice(0, index)}\n${statement}${content.slice(index)}`;
@@ -917,7 +922,7 @@ function intlPolyfillsContent(config: ProjectConfig): string {
   const localeData = languages
     .map(
       (language) =>
-        `import "@formatjs/intl-pluralrules/locale-data/${language}";\nimport "@formatjs/intl-numberformat/locale-data/${language}";\nimport "@formatjs/intl-datetimeformat/locale-data/${language}";\nimport "@formatjs/intl-relativetimeformat/locale-data/${language}";\nimport "@formatjs/intl-listformat/locale-data/${language}";\nimport "@formatjs/intl-displaynames/locale-data/${language}";`,
+        `import "@formatjs/intl-pluralrules/locale-data/${language}.js";\nimport "@formatjs/intl-numberformat/locale-data/${language}.js";\nimport "@formatjs/intl-datetimeformat/locale-data/${language}.js";\nimport "@formatjs/intl-relativetimeformat/locale-data/${language}.js";\nimport "@formatjs/intl-listformat/locale-data/${language}.js";\nimport "@formatjs/intl-displaynames/locale-data/${language}.js";`,
     )
     .join("\n");
   return [
