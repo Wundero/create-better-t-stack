@@ -1,5 +1,6 @@
 import { I18N_SERVER_BACKENDS, type ProjectConfig } from "@better-t-stack/types";
 
+import { processTemplateString } from "../../core/template-processor";
 import type { VirtualFileSystem } from "../../core/virtual-fs";
 import type { TemplateData } from "../../template-handlers/utils";
 import { processSingleTemplate, processTemplatesFromPrefix } from "../../template-handlers/utils";
@@ -97,9 +98,88 @@ export function processI18nRoutingTemplates(
     );
   }
 
+  // Paraglide resolves the request locale through `paraglideMiddleware`
+  // (AsyncLocalStorage), which is what makes SSR render the negotiated locale.
+  // It is required for every strategy, including the default `cookie`, so it is
+  // emitted before the prefix/domain-only surface glue below.
+  emitParaglideSsrHooks(vfs, templates, config);
+
   if (routingStrategy(config) === "cookie") return;
 
   emitSurfaceRoutingTemplates(vfs, templates, config);
+}
+
+/**
+ * Wires Paraglide's SSR locale negotiation (D5/D6).
+ *
+ * SvelteKit runs `paraglideMiddleware` from `hooks.server.ts`; Astro runs it
+ * from `src/middleware.ts`. Both are needed for the SSR HTML to reflect the
+ * cookie / `Accept-Language` / domain / prefix locale, not just client
+ * hydration, so they are emitted for the `cookie` strategy too.
+ */
+function emitParaglideSsrHooks(
+  vfs: VirtualFileSystem,
+  templates: TemplateData,
+  config: ProjectConfig,
+): void {
+  if (config.i18n !== "paraglide") return;
+
+  const frontends = config.frontend;
+
+  if (frontends.includes("svelte")) {
+    const webSrc = "apps/web/src";
+    processSingleTemplate(
+      vfs,
+      templates,
+      "i18n/routing/surface/svelte/hooks.client.ts",
+      `${webSrc}/hooks.client.ts`,
+      config,
+    );
+    mergeSvelteServerHook(vfs, templates, config, `${webSrc}/hooks.server.ts`);
+  }
+
+  if (frontends.includes("astro")) {
+    // A project-owned `src/middleware.ts` (better-auth fullstack) already owns
+    // the request pipeline; only add the Paraglide middleware when it is absent.
+    if (!vfs.exists("apps/web/src/middleware.ts")) {
+      processSingleTemplate(
+        vfs,
+        templates,
+        "i18n/routing/surface/astro/middleware.ts",
+        "apps/web/src/middleware.ts",
+        config,
+      );
+    }
+  }
+}
+
+/**
+ * Writes the SvelteKit server hook, preserving a project-owned request
+ * pipeline.
+ *
+ * A bare side-effect `hooks.server.ts` (oRPC's SSR client setup) keeps its
+ * import and gains the Paraglide handler. A project-owned `handle` export
+ * (better-auth fullstack) owns the pipeline and is left untouched.
+ */
+function mergeSvelteServerHook(
+  vfs: VirtualFileSystem,
+  templates: TemplateData,
+  config: ProjectConfig,
+  path: string,
+): void {
+  const template = templates.get("i18n/routing/surface/svelte/hooks.server.ts.hbs");
+  if (template === undefined) return;
+  const rendered = processTemplateString(template, config);
+
+  const existing = vfs.readFile(path);
+  if (existing === undefined) {
+    vfs.writeFile(path, rendered);
+    return;
+  }
+  if (existing.includes("paraglideMiddleware") || existing.includes("export const handle")) {
+    return;
+  }
+  vfs.writeFile(path, `${existing.trimEnd()}\n\n${rendered}`);
 }
 
 const WEB_FRONTENDS = [
@@ -120,7 +200,6 @@ function emitSurfaceRoutingTemplates(
   templates: TemplateData,
   config: ProjectConfig,
 ): void {
-  const library = config.i18n;
   const frontends = config.frontend;
   const webSrc = "apps/web/src";
 
@@ -223,27 +302,6 @@ function emitSurfaceRoutingTemplates(
       `${webSrc}/i18n-middleware.ts`,
       config,
     );
-  }
-
-  if (frontends.includes("svelte") && library === "paraglide") {
-    processSingleTemplate(
-      vfs,
-      templates,
-      "i18n/routing/surface/svelte/hooks.client.ts",
-      `${webSrc}/hooks.client.ts`,
-      config,
-    );
-    // A project-owned `hooks.server.ts` (better-auth fullstack) already owns
-    // the request pipeline; only add the SSR reroute when it is absent.
-    if (!vfs.exists(`${webSrc}/hooks.server.ts`)) {
-      processSingleTemplate(
-        vfs,
-        templates,
-        "i18n/routing/surface/svelte/hooks.server.ts",
-        `${webSrc}/hooks.server.ts`,
-        config,
-      );
-    }
   }
 }
 
