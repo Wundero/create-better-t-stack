@@ -25,6 +25,7 @@ const TEMPLATES: TemplateData = new Map([
   ["i18n/integrations/fumadocs/lib/i18n.ts.hbs", "fumadocs-i18n"],
   ["i18n/integrations/wxt/sync-wxt.ts.hbs", "sync-wxt"],
   ["i18n/integrations/expo/device-locale.ts.hbs", "device-locale"],
+  ["i18n/integrations/turnstile/turnstile.ts.hbs", "turnstile-language"],
 ]);
 
 function baseConfig(overrides: Partial<ProjectConfig> = {}): ProjectConfig {
@@ -649,6 +650,20 @@ describe("expo-localization", () => {
       vfs.readJson<{ dependencies?: Record<string, string> }>("apps/native/package.json")
         ?.dependencies,
     ).toBeUndefined();
+  });
+});
+
+describe("turnstile-language", () => {
+  const helperPath = "packages/i18n/src/integrations/turnstile.ts";
+
+  test("emits the Turnstile language helper only when the turnstile addon is selected", () => {
+    const vfs = withFiles({});
+    run(vfs, baseConfig({ addons: ["turborepo", "turnstile"] }));
+    expect(vfs.readFile(helperPath)).toBe("turnstile-language");
+
+    const withoutAddon = withFiles({});
+    run(withoutAddon, baseConfig({ addons: ["turborepo"] }));
+    expect(withoutAddon.exists(helperPath)).toBe(false);
   });
 });
 

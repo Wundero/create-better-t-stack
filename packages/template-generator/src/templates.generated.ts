@@ -429,11 +429,19 @@ const { action } = Astro.props;
 <div class="cf-turnstile-container" data-action={action}></div>
 
 <script>
+{{#if (and i18n (ne i18n "none"))}}
+  import { LOCALE_COOKIE, negotiateLocale } from "@{{projectName}}/i18n/config";
+  import { getTurnstileLanguage } from "@{{projectName}}/i18n/integrations/turnstile";
+
+{{/if}}
   type TurnstileWidgetId = string;
 
   interface TurnstileRenderOptions {
     sitekey: string;
     action?: string;
+{{#if (and i18n (ne i18n "none"))}}
+    language?: string;
+{{/if}}
     callback: (token: string) => void;
     "expired-callback": () => void;
     "error-callback": () => void;
@@ -496,6 +504,22 @@ const { action } = Astro.props;
     return turnstileScriptPromise;
   }
 
+{{#if (and i18n (ne i18n "none"))}}
+  function turnstileLanguage(): string {
+    if (typeof window === "undefined") {
+      return "auto";
+    }
+    return getTurnstileLanguage(
+      negotiateLocale({
+        pathname: window.location.pathname,
+        host: window.location.host,
+        stored: window.localStorage.getItem(LOCALE_COOKIE) ?? undefined,
+        system: navigator.language,
+      }),
+    );
+  }
+
+{{/if}}
   function renderWidget(container: HTMLElement): void {
     if (container.dataset.turnstileRendered === "true") {
       return;
@@ -512,6 +536,9 @@ const { action } = Astro.props;
         const widgetId = window.turnstile.render(container, {
           sitekey: import.meta.env.PUBLIC_TURNSTILE_SITE_KEY,
           action: container.dataset.action,
+{{#if (and i18n (ne i18n "none"))}}
+          language: turnstileLanguage(),
+{{/if}}
           callback: (token) => {
             document.dispatchEvent(
               new CustomEvent("turnstile-token", { detail: { token } }),
@@ -558,6 +585,11 @@ const { action } = Astro.props;
 `],
   ["addons/turnstile/nuxt/apps/web/app/components/Turnstile.client.vue.hbs", `{{#if (includes addons "turnstile")}}
 <script setup lang="ts">
+{{#if (and i18n (ne i18n "none"))}}
+import { LOCALE_COOKIE, negotiateLocale } from "@{{projectName}}/i18n/config"
+import { getTurnstileLanguage } from "@{{projectName}}/i18n/integrations/turnstile"
+{{/if}}
+
 const props = withDefaults(
   defineProps<{
     siteKey: string
@@ -578,6 +610,9 @@ type TurnstileWidgetId = string
 interface TurnstileRenderOptions {
   sitekey: string
   action?: string
+{{#if (and i18n (ne i18n "none"))}}
+  language?: string
+{{/if}}
   callback: (token: string) => void
   "expired-callback": () => void
   "error-callback": () => void
@@ -643,6 +678,22 @@ function loadTurnstileScript(): Promise<void> {
   return turnstileScriptPromise
 }
 
+{{#if (and i18n (ne i18n "none"))}}
+function turnstileLanguage(): string {
+  if (typeof window === "undefined") {
+    return "auto"
+  }
+  return getTurnstileLanguage(
+    negotiateLocale({
+      pathname: window.location.pathname,
+      host: window.location.host,
+      stored: window.localStorage.getItem(LOCALE_COOKIE) ?? undefined,
+      system: navigator.language,
+    }),
+  )
+}
+{{/if}}
+
 const container = ref<HTMLDivElement | null>(null)
 let widgetId: TurnstileWidgetId | null = null
 
@@ -662,6 +713,9 @@ onMounted(() => {
       widgetId = turnstile.render(container.value, {
         sitekey: props.siteKey,
         action: props.action,
+{{#if (and i18n (ne i18n "none"))}}
+        language: turnstileLanguage(),
+{{/if}}
         callback: (token) => emit("update:token", token),
         "expired-callback": () => emit("update:token", null),
         "error-callback": () => emit("update:token", null),
@@ -704,6 +758,10 @@ watch(
   ["addons/turnstile/react/apps/web/src/components/turnstile-widget.tsx.hbs", `"use client";
 
 import { useEffect, useRef } from "react";
+{{#if (and i18n (ne i18n "none"))}}
+import { LOCALE_COOKIE, negotiateLocale } from "@{{projectName}}/i18n/config";
+import { getTurnstileLanguage } from "@{{projectName}}/i18n/integrations/turnstile";
+{{/if}}
 
 const TURNSTILE_SCRIPT_SRC =
   "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
@@ -713,6 +771,9 @@ type TurnstileWidgetId = string;
 interface TurnstileRenderOptions {
   sitekey: string;
   action?: string;
+{{#if (and i18n (ne i18n "none"))}}
+  language?: string;
+{{/if}}
   callback: (token: string) => void;
   "expired-callback": () => void;
   "error-callback": () => void;
@@ -781,6 +842,22 @@ function loadTurnstileScript(): Promise<void> {
   return turnstileScriptPromise;
 }
 
+{{#if (and i18n (ne i18n "none"))}}
+function turnstileLanguage(): string {
+  if (typeof window === "undefined") {
+    return "auto";
+  }
+  return getTurnstileLanguage(
+    negotiateLocale({
+      pathname: window.location.pathname,
+      host: window.location.host,
+      stored: window.localStorage.getItem(LOCALE_COOKIE) ?? undefined,
+      system: navigator.language,
+    }),
+  );
+}
+{{/if}}
+
 export function TurnstileWidget({ siteKey, action, onToken, resetKey }: TurnstileWidgetProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const widgetIdRef = useRef<TurnstileWidgetId | null>(null);
@@ -807,6 +884,9 @@ export function TurnstileWidget({ siteKey, action, onToken, resetKey }: Turnstil
         widgetIdRef.current = window.turnstile.render(containerRef.current, {
           sitekey: siteKey,
           action,
+{{#if (and i18n (ne i18n "none"))}}
+          language: turnstileLanguage(),
+{{/if}}
           callback: (token) => onTokenRef.current(token),
           "expired-callback": () => onTokenRef.current(null),
           "error-callback": () => onTokenRef.current(null),
@@ -842,10 +922,17 @@ export function TurnstileWidget({ siteKey, action, onToken, resetKey }: Turnstil
 }
 `],
   ["addons/turnstile/solid/apps/web/src/components/Turnstile.tsx.hbs", `import { createEffect, on, onCleanup, onMount } from "solid-js";
+{{#if (and i18n (ne i18n "none"))}}
+import { LOCALE_COOKIE, negotiateLocale } from "@{{projectName}}/i18n/config";
+import { getTurnstileLanguage } from "@{{projectName}}/i18n/integrations/turnstile";
+{{/if}}
 
 type TurnstileWidgetOptions = {
   sitekey: string;
   action?: string;
+{{#if (and i18n (ne i18n "none"))}}
+  language?: string;
+{{/if}}
   callback?: (token: string) => void;
   "expired-callback"?: () => void;
   "error-callback"?: () => void;
@@ -894,6 +981,20 @@ function loadScript(): Promise<void> {
   return scriptPromise;
 }
 
+{{#if (and i18n (ne i18n "none"))}}
+function turnstileLanguage(): string {
+  if (typeof window === "undefined") return "auto";
+  return getTurnstileLanguage(
+    negotiateLocale({
+      pathname: window.location.pathname,
+      host: window.location.host,
+      stored: window.localStorage.getItem(LOCALE_COOKIE) ?? undefined,
+      system: navigator.language,
+    }),
+  );
+}
+{{/if}}
+
 export default function Turnstile(props: {
   siteKey: string;
   action?: string;
@@ -913,6 +1014,9 @@ export default function Turnstile(props: {
         widgetId = window.turnstile.render(container, {
           sitekey: props.siteKey,
           action: props.action,
+{{#if (and i18n (ne i18n "none"))}}
+          language: turnstileLanguage(),
+{{/if}}
           callback: (token) => props.onToken(token),
           "expired-callback": () => props.onToken(null),
           "error-callback": () => props.onToken(null),
@@ -945,6 +1049,10 @@ export default function Turnstile(props: {
 `],
   ["addons/turnstile/svelte/apps/web/src/components/Turnstile.svelte.hbs", `<script lang="ts">
 	import { onDestroy, onMount } from 'svelte';
+{{#if (and i18n (ne i18n "none"))}}
+	import { LOCALE_COOKIE, negotiateLocale } from '@{{projectName}}/i18n/config';
+	import { getTurnstileLanguage } from '@{{projectName}}/i18n/integrations/turnstile';
+{{/if}}
 
 	export let siteKey: string;
 	export let action: string | undefined = undefined;
@@ -954,6 +1062,9 @@ export default function Turnstile(props: {
 	type TurnstileWidgetOptions = {
 		sitekey: string;
 		action?: string;
+{{#if (and i18n (ne i18n "none"))}}
+		language?: string;
+{{/if}}
 		callback?: (token: string) => void;
 		'expired-callback'?: () => void;
 		'error-callback'?: () => void;
@@ -1004,6 +1115,20 @@ export default function Turnstile(props: {
 		return scriptPromise;
 	}
 
+{{#if (and i18n (ne i18n "none"))}}
+	function turnstileLanguage(): string {
+		if (typeof window === 'undefined') return 'auto';
+		return getTurnstileLanguage(
+			negotiateLocale({
+				pathname: window.location.pathname,
+				host: window.location.host,
+				stored: window.localStorage.getItem(LOCALE_COOKIE) ?? undefined,
+				system: navigator.language,
+			}),
+		);
+	}
+{{/if}}
+
 	onMount(() => {
 		let cancelled = false;
 
@@ -1015,6 +1140,9 @@ export default function Turnstile(props: {
 				widgetId = window.turnstile.render(container, {
 					sitekey: siteKey,
 					action,
+{{#if (and i18n (ne i18n "none"))}}
+					language: turnstileLanguage(),
+{{/if}}
 					callback: (token) => onToken(token),
 					'expired-callback': () => onToken(null),
 					'error-callback': () => onToken(null),
@@ -35222,6 +35350,78 @@ export function useUiLocale() {
   });
 }
 `],
+  ["i18n/integrations/turnstile/turnstile.ts.hbs", `/**
+ * Turnstile language support.
+ *
+ * Cloudflare Turnstile ships its own widget translations. The widget's
+ * \`language\` option is bound to the locale negotiated by \`@{{projectName}}/i18n/config\`;
+ * a locale without a Turnstile translation falls back to \`"auto"\`, which lets
+ * Turnstile use the visitor's browser language.
+ *
+ * Reference: https://developers.cloudflare.com/turnstile/reference/supported-languages/
+ */
+
+/** Turnstile language codes: the documented 2-letter forms, \`zh-tw\` and \`tlh\`. */
+export const TURNSTILE_LANGUAGES: ReadonlySet<string> = new Set([
+  "ar",
+  "bg",
+  "cs",
+  "da",
+  "de",
+  "el",
+  "en",
+  "es",
+  "fa",
+  "fi",
+  "fr",
+  "he",
+  "hi",
+  "hr",
+  "hu",
+  "id",
+  "it",
+  "ja",
+  "ko",
+  "lt",
+  "ms",
+  "nb",
+  "nl",
+  "pl",
+  "pt",
+  "ro",
+  "ru",
+  "sk",
+  "sl",
+  "sr",
+  "sv",
+  "th",
+  "tl",
+  "tlh",
+  "tr",
+  "uk",
+  "vi",
+  "zh",
+  "zh-tw",
+]);
+
+/**
+ * Turnstile \`language\` value for a BCP-47 locale. An exact match wins
+ * (\`zh-tw\`, \`en\`), then a region-only truncation (\`en-us\` → \`en\`,
+ * \`zh-cn\` → \`zh\`). Script variants are never truncated (\`zh-hant\` is not
+ * Simplified Chinese), so unsupported locales fall back to \`"auto"\`.
+ */
+export function getTurnstileLanguage(locale: string): string {
+  const normalized = locale.trim().toLowerCase();
+  if (TURNSTILE_LANGUAGES.has(normalized)) return normalized;
+
+  const [language, ...subtags] = normalized.split("-");
+  const regionOnly = subtags.length === 1 && /^([a-z]{2}|[0-9]{3})$/.test(subtags[0] ?? "");
+  if (regionOnly && language !== undefined && TURNSTILE_LANGUAGES.has(language)) {
+    return language;
+  }
+  return "auto";
+}
+`],
   ["i18n/integrations/wxt/sync-wxt.ts.hbs", `/**
  * \`i18n:sync-wxt\` — writes \`apps/extension/locales/<locale>.yml\` from the
  * reserved \`extension.*\` section of the normalized catalog
@@ -48097,4 +48297,4 @@ export default function Success() {
 `]
 ]);
 
-export const TEMPLATE_COUNT = 762;
+export const TEMPLATE_COUNT = 763;

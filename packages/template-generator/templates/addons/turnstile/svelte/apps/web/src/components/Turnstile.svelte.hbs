@@ -1,5 +1,9 @@
 <script lang="ts">
 	import { onDestroy, onMount } from 'svelte';
+{{#if (and i18n (ne i18n "none"))}}
+	import { LOCALE_COOKIE, negotiateLocale } from '@{{projectName}}/i18n/config';
+	import { getTurnstileLanguage } from '@{{projectName}}/i18n/integrations/turnstile';
+{{/if}}
 
 	export let siteKey: string;
 	export let action: string | undefined = undefined;
@@ -9,6 +13,9 @@
 	type TurnstileWidgetOptions = {
 		sitekey: string;
 		action?: string;
+{{#if (and i18n (ne i18n "none"))}}
+		language?: string;
+{{/if}}
 		callback?: (token: string) => void;
 		'expired-callback'?: () => void;
 		'error-callback'?: () => void;
@@ -59,6 +66,20 @@
 		return scriptPromise;
 	}
 
+{{#if (and i18n (ne i18n "none"))}}
+	function turnstileLanguage(): string {
+		if (typeof window === 'undefined') return 'auto';
+		return getTurnstileLanguage(
+			negotiateLocale({
+				pathname: window.location.pathname,
+				host: window.location.host,
+				stored: window.localStorage.getItem(LOCALE_COOKIE) ?? undefined,
+				system: navigator.language,
+			}),
+		);
+	}
+{{/if}}
+
 	onMount(() => {
 		let cancelled = false;
 
@@ -70,6 +91,9 @@
 				widgetId = window.turnstile.render(container, {
 					sitekey: siteKey,
 					action,
+{{#if (and i18n (ne i18n "none"))}}
+					language: turnstileLanguage(),
+{{/if}}
 					callback: (token) => onToken(token),
 					'expired-callback': () => onToken(null),
 					'error-callback': () => onToken(null),

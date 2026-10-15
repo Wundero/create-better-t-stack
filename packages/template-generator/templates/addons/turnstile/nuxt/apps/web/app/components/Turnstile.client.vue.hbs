@@ -1,5 +1,10 @@
 {{#if (includes addons "turnstile")}}
 <script setup lang="ts">
+{{#if (and i18n (ne i18n "none"))}}
+import { LOCALE_COOKIE, negotiateLocale } from "@{{projectName}}/i18n/config"
+import { getTurnstileLanguage } from "@{{projectName}}/i18n/integrations/turnstile"
+{{/if}}
+
 const props = withDefaults(
   defineProps<{
     siteKey: string
@@ -20,6 +25,9 @@ type TurnstileWidgetId = string
 interface TurnstileRenderOptions {
   sitekey: string
   action?: string
+{{#if (and i18n (ne i18n "none"))}}
+  language?: string
+{{/if}}
   callback: (token: string) => void
   "expired-callback": () => void
   "error-callback": () => void
@@ -85,6 +93,22 @@ function loadTurnstileScript(): Promise<void> {
   return turnstileScriptPromise
 }
 
+{{#if (and i18n (ne i18n "none"))}}
+function turnstileLanguage(): string {
+  if (typeof window === "undefined") {
+    return "auto"
+  }
+  return getTurnstileLanguage(
+    negotiateLocale({
+      pathname: window.location.pathname,
+      host: window.location.host,
+      stored: window.localStorage.getItem(LOCALE_COOKIE) ?? undefined,
+      system: navigator.language,
+    }),
+  )
+}
+{{/if}}
+
 const container = ref<HTMLDivElement | null>(null)
 let widgetId: TurnstileWidgetId | null = null
 
@@ -104,6 +128,9 @@ onMounted(() => {
       widgetId = turnstile.render(container.value, {
         sitekey: props.siteKey,
         action: props.action,
+{{#if (and i18n (ne i18n "none"))}}
+        language: turnstileLanguage(),
+{{/if}}
         callback: (token) => emit("update:token", token),
         "expired-callback": () => emit("update:token", null),
         "error-callback": () => emit("update:token", null),
