@@ -22,24 +22,116 @@ import pc from "picocolors";
 import z from "zod";
 
 import { getAddonsToAdd } from "../../prompts/addons";
-import type { AddInput, Addons, AddonOptions, AnalyticsMode, ProjectConfig } from "../../types";
+import { getI18nLibraryChoice, getI18nOptionsChoice } from "../../prompts/i18n";
+import { isGoBack } from "../../prompts/navigable";
+import type {
+  AddInput,
+  Addons,
+  AddonOptions,
+  AnalyticsMode,
+  I18nConfigInput,
+  I18nLibrary,
+  I18nOptions,
+  ProjectConfig,
+} from "../../types";
+import { I18N_LIBRARY_META, I18nOptionsSchema } from "../../types";
 import { updateBtsConfig } from "../../utils/bts-config";
 import { TASK_RUNNER_ADDONS, validateAddonsAgainstConfig } from "../../utils/compatibility-rules";
 import { isSilent, resolveInvocationMode, runWithContextAsync } from "../../utils/context";
 import { errorClass, failureStage, reportDiagnostic, scrubReason } from "../../utils/diagnostics";
 import { formatConfigValue } from "../../utils/display-config";
 import { CLIError, UserCancelledError, displayError } from "../../utils/errors";
+import {
+  toI18nConfigInput,
+  validateI18nConfig,
+  type I18nCliFlagFields,
+} from "../../utils/i18n-cli";
 import { validateAgentSafePathInput } from "../../utils/input-hardening";
 import { beginInterruptibleScope, endInterruptibleScope } from "../../utils/interrupt";
 import { renderTitle } from "../../utils/render-title";
 import { checkLocalRequirements } from "../../utils/requirements";
 import { setupAddons } from "../addons/addons-setup";
 import { detectProjectConfig } from "./detect-project-config";
+import {
+  i18nLibrarySwitchError,
+  renderPlan,
+  runI18nRetrofit,
+  writeI18nToBtsConfig,
+  type RetrofitResult,
+} from "./i18n-retrofit";
 import { installDependencies } from "./install-dependencies";
 
 export interface AddHandlerOptions {
   silent?: boolean;
   mode?: AnalyticsMode;
+}
+
+/**
+ * Add Path input. On top of `AddInput` the CLI folds the flat `--i18n-*` flags
+ * into a fully resolved `i18nOptions`, so the raw flags are carried alongside
+ * for the add-locales merge to know which fields the caller set explicitly.
+ */
+export type AddHandlerInput = AddInput & Partial<I18nCliFlagFields>;
+
+/** Which i18n fields the caller set explicitly (vs. schema defaults). */
+interface I18nFlagIntent {
+  locales: boolean;
+  sourceLocale: boolean;
+  routing: boolean;
+  translateSkill: boolean;
+}
+
+function resolveI18nFlagIntent(input: AddHandlerInput): I18nFlagIntent {
+  const hasFlatFlags =
+    input.i18nLocales !== undefined ||
+    input.i18nSourceLocale !== undefined ||
+    input.i18nRouting !== undefined ||
+    input.i18nDomain !== undefined ||
+    input.i18nSkill !== undefined;
+
+  if (hasFlatFlags) {
+    return {
+      locales: input.i18nLocales !== undefined,
+      sourceLocale: input.i18nSourceLocale !== undefined,
+      routing: input.i18nRouting !== undefined || input.i18nDomain !== undefined,
+      translateSkill: input.i18nSkill !== undefined,
+    };
+  }
+
+  return {
+    locales: input.i18nOptions?.locales !== undefined,
+    sourceLocale: input.i18nOptions?.sourceLocale !== undefined,
+    routing: input.i18nOptions?.routing !== undefined,
+    translateSkill: input.i18nOptions?.translateSkill !== undefined,
+  };
+}
+
+/**
+ * Add-locales merge (design D9): `bts add` never removes locales, so a request
+ * is unioned onto the existing set (existing order preserved, new locales
+ * appended). Source locale, routing and the translate-skill toggle are kept
+ * from the existing config unless the caller flagged them explicitly.
+ */
+function mergeAddLocalesOptions(
+  existing: I18nOptions | undefined,
+  requested: I18nOptions,
+  intent: I18nFlagIntent,
+): I18nOptions {
+  const base = I18nOptionsSchema.parse(existing ?? {});
+  const locales = [...base.locales];
+  for (const locale of requested.locales) {
+    if (!locales.includes(locale)) locales.push(locale);
+  }
+
+  const merged: I18nOptions = {
+    sourceLocale: intent.sourceLocale ? requested.sourceLocale : base.sourceLocale,
+    locales,
+    translateSkill: intent.translateSkill ? requested.translateSkill : base.translateSkill,
+  };
+  const routing = intent.routing ? requested.routing : base.routing;
+  if (routing !== undefined) merged.routing = routing;
+
+  return I18nOptionsSchema.parse(merged);
 }
 
 export interface AddResult {
@@ -288,7 +380,7 @@ function updateViteConfigImportsForVitePlus(vfs: VirtualFileSystem): void {
 }
 
 export async function addHandler(
-  input: AddInput,
+  input: AddHandlerInput,
   options: AddHandlerOptions = {},
 ): Promise<AddResult | undefined> {
   const { silent = false, mode } = options;
@@ -337,6 +429,75 @@ export async function addHandler(
   );
 }
 
+interface ResolveI18nRequestArgs {
+  input: AddInput;
+  existingLibrary: I18nLibrary | "none";
+  compatInput: I18nConfigInput;
+  allowPrompt: boolean;
+}
+
+async function resolveI18nRequest(
+  args: ResolveI18nRequestArgs,
+): Promise<
+  Result<{ library: I18nLibrary; options: I18nOptions } | undefined, UserCancelledError | CLIError>
+> {
+  const { input, existingLibrary, compatInput, allowPrompt } = args;
+
+  if (input.i18n !== undefined) {
+    if (input.i18n === "none") {
+      if (existingLibrary !== "none") {
+        return Result.err(
+          new CLIError({
+            message: `This project already uses ${I18N_LIBRARY_META[existingLibrary].label}. Disabling i18n through \`bts add\` is not supported; set \`i18n\` to "none" in bts.jsonc and remove the generated i18n files manually.`,
+          }),
+        );
+      }
+      return Result.ok(undefined);
+    }
+    return Result.ok({
+      library: input.i18n,
+      options: I18nOptionsSchema.parse(input.i18nOptions ?? {}),
+    });
+  }
+
+  if (input.i18nOptions !== undefined) {
+    if (existingLibrary === "none") {
+      return Result.err(
+        new CLIError({
+          message: "`i18nOptions` requires `i18n` when the project has no i18n library yet.",
+        }),
+      );
+    }
+    return Result.ok({
+      library: existingLibrary,
+      options: I18nOptionsSchema.parse(input.i18nOptions),
+    });
+  }
+
+  if (!allowPrompt || existingLibrary !== "none") return Result.ok(undefined);
+
+  const promptResult = await Result.tryPromise({
+    try: async () => {
+      const library = await getI18nLibraryChoice(undefined, compatInput);
+      if (isGoBack(library)) return undefined;
+      if (library === "none") return undefined;
+      const options = await getI18nOptionsChoice(library, undefined, compatInput);
+      if (options === undefined) return undefined;
+      if (isGoBack(options)) return undefined;
+      return { library, options };
+    },
+    catch: (cause: unknown) => {
+      if (UserCancelledError.is(cause)) return cause;
+      return new CLIError({
+        message: cause instanceof Error ? cause.message : String(cause),
+        cause,
+      });
+    },
+  });
+
+  return promptResult;
+}
+
 async function reportAddOutcome(
   input: AddInput,
   result: Result<AddResult, UserCancelledError | CLIError>,
@@ -357,7 +518,7 @@ async function reportAddOutcome(
 }
 
 async function addHandlerInternal(
-  input: AddInput,
+  input: AddHandlerInput,
 ): Promise<Result<AddResult, UserCancelledError | CLIError>> {
   const projectDirInput = input.projectDir || process.cwd();
   const hardeningResult = validateAgentSafePathInput(projectDirInput, "projectDir");
@@ -392,6 +553,9 @@ async function addHandlerInternal(
     log.info(pc.dim(`Detected project: ${existingConfig.projectName}`));
   }
 
+  const existingLibrary: I18nLibrary | "none" = existingConfig.i18n ?? "none";
+  const hasI18nFlags = input.i18n !== undefined || input.i18nOptions !== undefined;
+
   // Determine which addons to add
   let addonsToAdd: Addons[];
 
@@ -401,7 +565,7 @@ async function addHandlerInternal(
       (addon) => addon !== "none" && !existingConfig.addons.includes(addon),
     );
 
-    if (addonsToAdd.length === 0 && !input.package) {
+    if (addonsToAdd.length === 0 && !input.package && !hasI18nFlags) {
       if (!isSilent()) {
         log.warn(pc.yellow("Nothing to add — those addons are already installed"));
         outro(pc.dim("Project unchanged"));
@@ -415,11 +579,16 @@ async function addHandlerInternal(
   } else if (input.package) {
     addonsToAdd = [];
   } else if (isSilent()) {
-    return Result.err(
-      new CLIError({
-        message: "Addons or a package are required in silent mode.",
-      }),
-    );
+    if (!hasI18nFlags) {
+      return Result.err(
+        new CLIError({
+          message: "Addons, a package, or i18n options are required in silent mode.",
+        }),
+      );
+    }
+    addonsToAdd = [];
+  } else if (hasI18nFlags) {
+    addonsToAdd = [];
   } else {
     // Interactive mode - prompt user to select addons
     const promptResult = await Result.tryPromise({
@@ -437,20 +606,7 @@ async function addHandlerInternal(
       return Result.err(promptResult.error);
     }
 
-    const selectedAddons = promptResult.value;
-
-    if (selectedAddons.length === 0) {
-      if (!isSilent()) {
-        outro(pc.dim("Nothing selected · project unchanged"));
-      }
-      return Result.ok({
-        success: true,
-        addedAddons: [],
-        projectDir,
-      });
-    }
-
-    addonsToAdd = selectedAddons;
+    addonsToAdd = promptResult.value;
   }
 
   if (addonsToAdd.includes("axiom")) {
@@ -461,6 +617,62 @@ async function addHandlerInternal(
       }),
     );
   }
+
+  const mergedAddonOptions = mergeAddonOptions(existingConfig.addonOptions, input.addonOptions);
+  const compatInput = toI18nConfigInput({
+    frontend: existingConfig.frontend,
+    backend: existingConfig.backend,
+    runtime: existingConfig.runtime,
+    auth: existingConfig.auth,
+    api: existingConfig.api,
+    payments: existingConfig.payments,
+    addons: [...existingConfig.addons, ...addonsToAdd],
+    addonOptions: mergedAddonOptions,
+  });
+  const i18nRequestResult = await resolveI18nRequest({
+    input,
+    existingLibrary,
+    compatInput,
+    allowPrompt: !isSilent() && !input.package,
+  });
+  if (i18nRequestResult.isErr()) {
+    return Result.err(i18nRequestResult.error);
+  }
+  const requestedI18n = i18nRequestResult.value;
+
+  if (addonsToAdd.length === 0 && !input.package && requestedI18n === undefined) {
+    if (!isSilent()) {
+      outro(pc.dim("Nothing selected · project unchanged"));
+    }
+    return Result.ok({
+      success: true,
+      addedAddons: [],
+      projectDir,
+    });
+  }
+
+  if (
+    requestedI18n !== undefined &&
+    existingLibrary !== "none" &&
+    requestedI18n.library !== existingLibrary
+  ) {
+    return Result.err(i18nLibrarySwitchError(existingLibrary, requestedI18n.library));
+  }
+
+  // Add-locales (design D9): union the request onto the existing options so
+  // `bts add --i18n-locales fr,de` extends the locale set instead of replacing
+  // it, and never clobbers sourceLocale/routing/translateSkill.
+  const mergedRequestedI18n =
+    requestedI18n !== undefined && existingLibrary !== "none"
+      ? {
+          ...requestedI18n,
+          options: mergeAddLocalesOptions(
+            existingConfig.i18nOptions,
+            requestedI18n.options,
+            resolveI18nFlagIntent(input),
+          ),
+        }
+      : requestedI18n;
 
   // Build config for addon setup
   const updatedAddons = [...existingConfig.addons, ...addonsToAdd];
@@ -477,7 +689,6 @@ async function addHandlerInternal(
     log.info(`${pc.dim("Adding")} ${pc.cyan(additions.join(" and "))}`);
   }
 
-  const mergedAddonOptions = mergeAddonOptions(existingConfig.addonOptions, input.addonOptions);
   const config: ProjectConfig = {
     projectName: existingConfig.projectName,
     projectDir,
@@ -492,7 +703,7 @@ async function addHandlerInternal(
     examples: existingConfig.examples,
     auth: existingConfig.auth,
     payments: existingConfig.payments,
-    i18n: existingConfig.i18n,
+    i18n: mergedRequestedI18n?.library ?? existingConfig.i18n,
     git: false,
     packageManager: input.packageManager || existingConfig.packageManager,
     install: input.install ?? false,
@@ -505,6 +716,22 @@ async function addHandlerInternal(
     ...config,
     addons: updatedAddons,
   };
+
+  const i18nConfig: ProjectConfig | undefined =
+    mergedRequestedI18n !== undefined
+      ? {
+          ...updatedConfig,
+          i18n: mergedRequestedI18n.library,
+          i18nOptions: mergedRequestedI18n.options,
+        }
+      : undefined;
+
+  if (i18nConfig !== undefined) {
+    const i18nValidation = validateI18nConfig(i18nConfig);
+    if (i18nValidation.isErr()) {
+      return Result.err(i18nValidation.error);
+    }
+  }
 
   if (addonsToAdd.length > 0) {
     const requirementsResult = await checkLocalRequirements(updatedConfig);
@@ -611,9 +838,25 @@ async function addHandlerInternal(
   };
 
   if (input.dryRun) {
+    let i18nPlanned = 0;
+    if (i18nConfig !== undefined) {
+      const dryResult = await runI18nRetrofit({
+        projectDir,
+        config: i18nConfig,
+        existingLibrary,
+        existingOptions: existingConfig.i18nOptions,
+        dryRun: true,
+      });
+      if (dryResult.isErr()) return Result.err(dryResult.error);
+      i18nPlanned = dryResult.value.summary.created + dryResult.value.summary.edited;
+      if (!isSilent()) {
+        for (const line of renderPlan(dryResult.value.plan)) log.message(pc.dim(line));
+      }
+    }
+
     if (!isSilent()) {
       log.success(pc.green("Dry run passed · no files written"));
-      log.message(pc.dim(`${vfs.getFileCount()} files planned`));
+      log.message(pc.dim(`${vfs.getFileCount() + i18nPlanned} files planned`));
       outro(pc.dim("Project unchanged"));
     }
 
@@ -622,7 +865,7 @@ async function addHandlerInternal(
       addedAddons: addonsToAdd,
       projectDir,
       dryRun: true,
-      plannedFileCount: vfs.getFileCount(),
+      plannedFileCount: vfs.getFileCount() + i18nPlanned,
       addedPackage: input.package,
     });
   }
@@ -696,6 +939,30 @@ async function addHandlerInternal(
     return Result.err(setupResult.error);
   }
 
+  let i18nResult: RetrofitResult | undefined;
+  if (i18nConfig !== undefined && mergedRequestedI18n !== undefined) {
+    const retrofit = await runI18nRetrofit({
+      projectDir,
+      config: i18nConfig,
+      existingLibrary,
+      existingOptions: existingConfig.i18nOptions,
+      dryRun: false,
+    });
+    if (retrofit.isErr()) {
+      return Result.err(retrofit.error);
+    }
+    i18nResult = retrofit.value;
+
+    const i18nBtsResult = await writeI18nToBtsConfig(
+      projectDir,
+      mergedRequestedI18n.library,
+      mergedRequestedI18n.options,
+    );
+    if (i18nBtsResult.isErr()) {
+      return Result.err(i18nBtsResult.error);
+    }
+  }
+
   // Update bts.jsonc with new addons
   if (addonsToAdd.length > 0) {
     const configResult = await updateBtsConfig(projectDir, {
@@ -714,8 +981,23 @@ async function addHandlerInternal(
     const additions = [
       addonsToAdd.length > 0 ? formatConfigValue(addonsToAdd) : undefined,
       input.package ? `package ${input.package}` : undefined,
+      mergedRequestedI18n !== undefined
+        ? `i18n (${I18N_LIBRARY_META[mergedRequestedI18n.library].label})`
+        : undefined,
     ].filter(Boolean);
     log.success(pc.green(`Added ${additions.join(" and ")}`));
+
+    if (i18nResult !== undefined && i18nResult.summary.manual > 0) {
+      log.message(
+        pc.yellow(`${i18nResult.summary.manual} manual step(s) required — see I18N_SETUP.md`),
+      );
+    }
+
+    if (mergedRequestedI18n !== undefined) {
+      log.message(
+        `${pc.dim("Next")} ${pc.cyan("Run the i18n-adopt skill to wrap your existing strings")}`,
+      );
+    }
 
     if (!input.install) {
       const installCommand =

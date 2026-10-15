@@ -397,11 +397,11 @@ Static and SPA builds can't do domain routing, so it is blocked for them with a 
 **Rules:**
 
 - **Compatibility.** The detected config plus the requested i18n go through `validateI18nCompatibility`. Requesting a different library than the one in `bts.jsonc` is an error with guidance. Removing locales isn't supported through `add`.
-- **Planning.** Edits are planned in the existing VFS flow (`writePlannedTree` with snapshot and restore). Every edit is one of:
+- **Planning.** Edits are planned in the existing VFS flow. The `writePlannedTree` helper (snapshot and restore) lives in `apps/cli/src/helpers/core/i18n-retrofit/write.ts`. Every edit is one of:
   1. `create` — a new file. Skipped if the path exists, and reported.
-  2. `config-edit` — an AST edit of config files (`vite.config.*`, `nuxt.config.ts`, `astro.config.*`, `next.config.*`, `metro.config.js`, `svelte.config.js`, `wxt.config.ts`, `app.config.ts`) via `magicast`, plus `package.json`/`bunfig.toml` structured edits.
+  2. `config-edit` — a structured edit of a config/JSON/TOML file (`package.json`, `bunfig.toml`, `tsconfig.json`, and the integration configs). `magicast` is not a direct dependency, so these are applied with the create path's single-occurrence-anchor string rewrites (`processors/i18n/**`), never an AST rewrite.
   3. `anchored-insert` — for app root and provider files (layouts, `__root.tsx`, `root.tsx`, `app.vue`, `+layout.svelte`, `_layout.tsx`, auth server `index.ts`, email `render.ts`). Applied only when a known anchor from the generated template is found **exactly once**.
-  4. `manual` — anything else. It is reported in the outro and written to `I18N_SETUP.md` with the exact snippet.
+  4. `manual` — anything else. It is reported in the outro and written to `I18N_SETUP.md` with the exact snippet. A registered integration/config target that is read during the patch phase but left unchanged (its anchor was missing or ambiguous) is surfaced here instead of being silently skipped.
 - **Safety.** No existing file is overwritten or deleted. `--dry-run` prints the full plan, including manual steps. Re-running is idempotent.
 - **Retrofit coverage.** Retrofitting uses the same integrations map. Built-in localization (Better Auth, Clerk, Zod …) is retrofitted with the same edit kinds. The Better Auth `locale` field prints the migrate command.
 - **After a successful add:** `bts.jsonc` gains `i18n` and `i18nOptions`, and the outro points at the `i18n-adopt` skill.
