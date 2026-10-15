@@ -130,6 +130,10 @@ Deferred / verification items:
 
 Residual (non-blocking, for L11): the add-locales integration rewriters re-encode L7's block formats (drift fails safe to `manual`); two L10 test-coverage gaps (interactive addon+i18n prompt path; starlight/fumadocs/expo rewriters); WXT/OpenTUI create-path post-scaffold glue and demo route-mounting remain open.
 
+**L11 (verification + delivery) — done on `wt/i18n`.** Tasks 11.1–11.4. Curated build cases (D10, Tauri case dropped) + two Matrix Smoke rows + MCP contract tests + docs (`options.mdx`, `compatibility.mdx` with a matrix-parity guard, `bts-config.mdx`) — commits `602a1bfd`, `d8b2bf65`. Running the curated set exposed four real defects (i18next extractor scanning `node_modules`; invalid paraglide plural seeds; lingui Next SSR rendering the source locale; wuchale crashing on Vite 8) — all fixed (`f7cf1200`), with the wuchale Vite-plugin path unwired and its cells softened to `partial`/`adapter` (upstream fix unmerged). A consolidation pass single-sourced `DEFAULT_LOCALES` and the server-backend list and corrected stale design.md matrix cells (`f07f250e`). Final gate: `packages/types` 47/47; `packages/template-generator` 194/194; `apps/web` 89/89; `apps/cli` 943 pass / 2 toolchain-preflight fails / 88 skip. Whole-change diff vs `origin/main`: 340 files, +39,189/−135. A whole-change review found **no blockers**.
+
+**⛔3 pending (no stacked branches or PRs created).** Two deferred product items: WXT/OpenTUI create-path post-scaffold glue (their curated cases are `it.skip`); wuchale on Vite surfaces (upstream wuchale#484 unmerged — `i18n-solid-wuchale` deferred). The full curated build set could not execute in this environment (generated stacks require Node ≥22.18‖≥24.11 and npm ≥11.16; sandbox is Node 22.14 / npm 10.9) — it is proven at unit level, including a real `@inlang/paraglide-js compile` against the shipped seeds.
+
 ## Goals / Non-Goals
 
 **Goals**

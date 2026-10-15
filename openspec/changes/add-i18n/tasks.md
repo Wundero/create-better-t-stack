@@ -116,10 +116,10 @@ For each library, the subtasks are: runtime, catalogs, the extract/compile/pendi
 
 ## 11. Verification and Delivery
 
-- [ ] 11.1 Add the Curated Build Set cases (design D10) and the two Matrix Smoke rows.
-- [ ] 11.2 Add the MCP contract tests for the i18n fields and reasons.
-- [ ] 11.3 Write the docs: `cli/options.mdx`, `compatibility.mdx` (the table generated from `I18N_SUPPORT` or guarded by a test) and `bts-config.mdx`.
-- [ ] 11.4 Run `bun run check`, CLI tests, web tests, template regeneration and the full curated build. Review the diff for duplicated compatibility logic outside `i18n.ts`.
+- [x] 11.1 Add the Curated Build Set cases (design D10) and the two Matrix Smoke rows.
+- [x] 11.2 Add the MCP contract tests for the i18n fields and reasons.
+- [x] 11.3 Write the docs: `cli/options.mdx`, `compatibility.mdx` (the table generated from `I18N_SUPPORT` or guarded by a test) and `bts-config.mdx`.
+- [x] 11.4 Run `bun run check`, CLI tests, web tests, template regeneration and the full curated build. Review the diff for duplicated compatibility logic outside `i18n.ts`.
 
 ## 12. Stacked Dependency Branches (design D11)
 
