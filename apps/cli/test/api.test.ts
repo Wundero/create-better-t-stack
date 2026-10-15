@@ -361,7 +361,6 @@ describe("API Configurations", () => {
             'import { getClerkAuthToken } from "@/utils/clerk-auth";',
             "const token = await getClerkAuthToken();",
             "Authorization: `Bearer ${token}`",
-            "localeHeader()",
             "fetch: expoFetch",
           ],
         },
@@ -399,6 +398,7 @@ describe("API Configurations", () => {
         for (const expected of testCase.expected) {
           expect(orpcFile).toContain(expected);
         }
+        expect(orpcFile).not.toContain("localeHeader");
       }
     });
 

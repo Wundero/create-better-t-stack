@@ -630,6 +630,8 @@ export type AddOptions = Pick<
   | "projectDir"
   | "dryRun"
   | "disableAnalytics"
+  | "i18n"
+  | "i18nOptions"
 >;
 
 /**
