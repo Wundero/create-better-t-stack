@@ -7,7 +7,12 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 
-import { interpolationNames } from "./icu";
+import {
+  exportCatalogEntries,
+  interpolationNames,
+  type CatalogEntry,
+  type IcuMessage,
+} from "./icu";
 
 export const DEFAULT_NAMESPACE = "common";
 
@@ -106,6 +111,15 @@ export function readCatalogSet(
     catalogs.set(locale, readCatalog(root, locale, namespace));
   }
   return catalogs;
+}
+
+function entriesOf(catalog: Catalog): CatalogEntry[] {
+  return Object.entries(catalog).map(([id, value]) => ({ id, value }));
+}
+
+/** ICU messages for one locale, keyed by the i18next source-text id. */
+export function icuMessagesById(catalog: Catalog): IcuMessage[] {
+  return exportCatalogEntries(entriesOf(catalog));
 }
 
 function targetLocales(config: I18nScriptConfig, options: PendingOptions): string[] {

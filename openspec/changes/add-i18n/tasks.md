@@ -58,7 +58,7 @@
 
 Surface order for each library: next → tanstack-start → server (incl. nitro) → native → solid → nuxt → svelte → astro → tanstack-router → react-router → wxt-* → opentui-* → electrobun-host.
 
-For each library, the subtasks are: runtime, catalogs, the extract/compile/pending/apply/check scripts, surface glue for every non-unsupported surface, and the demo.
+For each library, the subtasks are: runtime, catalogs, the extract/compile/pending/apply/check/export scripts, surface glue for every non-unsupported surface, and the demo.
 
 - [x] 5.1 Lingui, including the Bun preload macro plugin for Bun hosts.
 - [x] 5.2 Paraglide, including `outdir` and ignore patterns per app, and CLI compile for non-Vite surfaces.
@@ -94,7 +94,7 @@ For each library, the subtasks are: runtime, catalogs, the extract/compile/pendi
 
 ## 8. Rust / Tauri — removed: Rust dropped at ⛔2
 
-- [ ] 8.1 Implement `i18n:export` normalized catalog generation for every library, with strict ICU-subset validation. — removed: Rust dropped at ⛔2
+- [x] 8.1 Implement `i18n:export` normalized catalog generation for every library, with strict ICU-subset validation. — reinstated as JS-first tooling (no Rust) after the drop at ⛔2; the Rust crate/macro/extractor half stays removed
 - [ ] 8.2 Generate the `packages/i18n/rust` crate: `build.rs` codegen, the runtime, the `t!` proc-macro with ID parity and missing-ID compile errors, Paraglide `m::*` functions, and ICU4X plurals and formatting. — removed: Rust dropped at ⛔2
 - [ ] 8.3 Build the `syn`-based Rust extractor and merge it into each library's `i18n:extract`. — removed: Rust dropped at ⛔2
 - [ ] 8.4 Add the `tauri-setup.ts` post-step: Cargo dependency, `set_locale` command, `sys-locale` init, menu rebuild, and `beforeDev/BuildCommand` export. — removed: Rust dropped at ⛔2

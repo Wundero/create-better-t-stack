@@ -1,5 +1,6 @@
 /**
- * ICU MessageFormat subset used by `i18n:pending`, `i18n:apply` and `i18n:check`.
+ * ICU MessageFormat subset used by `i18n:pending`, `i18n:apply`, `i18n:check`
+ * and `i18n:export`.
  *
  * The supported subset is arguments (`{name}`), `plural` and `selectordinal`
  * with `#`, `select`, and arbitrarily nested messages. Anything else —

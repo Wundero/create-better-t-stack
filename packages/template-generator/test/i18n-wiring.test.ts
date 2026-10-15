@@ -119,6 +119,7 @@ describe("root package scripts", () => {
     const scripts =
       vfs.readJson<{ scripts: Record<string, string> }>("package.json")?.scripts ?? {};
     expect(scripts["i18n:extract"]).toBe("turbo run i18n:extract -F @demo/i18n --");
+    expect(scripts["i18n:export"]).toBe("turbo run i18n:export -F @demo/i18n --");
     expect(scripts.dev).toBe("turbo run i18n:compile -F @demo/i18n -- && turbo run dev");
     expect(scripts.build).toBe("turbo run i18n:compile -F @demo/i18n -- && turbo run build");
   });

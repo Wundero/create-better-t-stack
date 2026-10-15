@@ -17,7 +17,12 @@ import {
   collectPending,
   writeCatalog,
 } from "../templates/i18n/lib/i18next/scripts/lib/catalogs";
-import { interpolationNames } from "../templates/i18n/lib/i18next/scripts/lib/icu";
+import {
+  IcuConversionError,
+  exportCatalogEntries,
+  importCatalogEntries,
+  interpolationNames,
+} from "../templates/i18n/lib/i18next/scripts/lib/icu";
 
 function baseConfig(overrides: Partial<ProjectConfig> = {}): ProjectConfig {
   return {
@@ -191,6 +196,7 @@ describe("i18next templates", () => {
     expect(vfs.exists("packages/i18n/scripts/pending.ts")).toBe(true);
     expect(vfs.exists("packages/i18n/scripts/apply.ts")).toBe(true);
     expect(vfs.exists("packages/i18n/scripts/check.ts")).toBe(true);
+    expect(vfs.exists("packages/i18n/scripts/export.ts")).toBe(true);
 
     const glue = vfs.readFile("apps/web/src/i18n.ts") ?? "";
     expect(glue).toContain("initReactI18next");
@@ -326,7 +332,42 @@ describe("i18next templates", () => {
   });
 });
 
-describe("placeholder extraction", () => {
+describe("ICU export round-trip", () => {
+  const ENTRIES = [
+    { id: "i18n demo", value: "i18n demo" },
+    { id: "Hello, {{name}}!", value: "Hello, {{name}}!" },
+    { id: "You have {{count}} new message_one", value: "You have {{count}} new message" },
+    { id: "You have {{count}} new message_other", value: "You have {{count}} new messages" },
+  ];
+
+  test("maps interpolation and plural suffixes into the ICU subset", () => {
+    const messages = exportCatalogEntries(ENTRIES);
+    const byId = new Map(messages.map((message) => [message.id, message.icu]));
+
+    expect(byId.get("Hello, {{name}}!")).toBe("Hello, {name}!");
+    expect(byId.get("You have {{count}} new message")).toBe(
+      "{count, plural, one {You have {count} new message} other {You have {count} new messages}}",
+    );
+  });
+
+  test("importing the exported ICU restores every catalog entry", () => {
+    const messages = exportCatalogEntries(ENTRIES);
+    const restored = importCatalogEntries(messages);
+    const sort = (entries: readonly { id: string; value: string }[]) =>
+      [...entries].sort((first, second) => first.id.localeCompare(second.id));
+
+    expect(sort(restored)).toEqual(sort(ENTRIES));
+  });
+
+  test("reports unsupported syntax with the message id", () => {
+    expect(() => exportCatalogEntries([{ id: "Nested", value: "See $t(other.message)" }])).toThrow(
+      IcuConversionError,
+    );
+    expect(() => exportCatalogEntries([{ id: "Broken_one", value: "only one form" }])).toThrow(
+      IcuConversionError,
+    );
+  });
+
   test("extracts placeholder names for validation", () => {
     expect(interpolationNames("Hello, {{name}}! You have {{count}} messages")).toEqual([
       "name",

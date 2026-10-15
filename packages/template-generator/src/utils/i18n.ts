@@ -11,6 +11,7 @@ export const I18N_SCRIPT_NAMES = [
   "i18n:pending",
   "i18n:apply",
   "i18n:check",
+  "i18n:export",
 ] as const;
 
 export function hasI18n(config: ProjectConfig): boolean {

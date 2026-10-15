@@ -541,7 +541,7 @@ describe("wxt-i18n", () => {
       vfs.readJson<{ scripts?: Record<string, string> }>("packages/i18n/package.json")?.scripts?.[
         "i18n:sync-wxt"
       ],
-    ).toBe("bun run scripts/sync-wxt.ts");
+    ).toBe("bun run scripts/export.ts && bun run scripts/sync-wxt.ts");
     expect(
       vfs.readJson<{ scripts?: Record<string, string> }>("package.json")?.scripts?.[
         "i18n:sync-wxt"

@@ -1,9 +1,9 @@
 /**
  * ICU MessageFormat subset analysis shared by the Lingui `i18n:*` scripts.
  *
- * `i18n:apply` rejects translations whose argument sets differ from the
- * source, and `i18n:pending` reports the placeholders a translator must keep.
- * Both use the analyzer here.
+ * `i18n:export` must fail loudly when a message uses constructs outside the
+ * exported ICU subset, and `i18n:apply` must reject translations whose
+ * argument sets differ from the source. Both use the analyzer here.
  */
 
 const SUPPORTED_TYPES = new Set(["plural", "selectordinal", "select", "number", "date", "time"]);

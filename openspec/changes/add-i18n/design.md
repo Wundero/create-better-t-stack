@@ -123,7 +123,9 @@ Deferred / verification items:
 - The shared package's scripts hardcode `bun` — settle before release.
 - `processors/i18n/routing.ts` ownership table gap: `test/i18n-routing.test.ts` and `readme-generator.ts` edits were authorized ad hoc (recorded here).
 
-**Rust/Tauri translations dropped at ⛔2 (JS-first only).** The L8 lane (Rust/Tauri i18n) was never merged and its branch is deleted. The Rust/Tauri-i18n seams merged into L1/L4/L5/L6/L7/L9 were stripped: the `tauri-host` surface and its matrix cells, the `tauri-rust-i18n` integration, `I18N_LIBRARY_META.rustMacro`, `processors/i18n/rust.ts`, the `i18n:export` scripts with their ICU-export helpers, and every Rust/Tauri-i18n mention in templates, README and docs. The JS-first workflow (`i18n:extract | compile | pending | apply | check`, skills, routing, integrations) is unchanged, decision D7 is deleted, and the `tauri` addon itself remains.
+**Rust/Tauri translations dropped at ⛔2 (JS-first only).** The L8 lane (Rust/Tauri i18n) was never merged and its branch is deleted. The Rust/Tauri-i18n seams merged into L1/L4/L5/L6/L7/L9 were stripped: the `tauri-host` surface and its matrix cells, the `tauri-rust-i18n` integration, `I18N_LIBRARY_META.rustMacro`, `processors/i18n/rust.ts`, and every Rust/Tauri-i18n mention in templates, README and docs. The JS-first workflow (`i18n:extract | compile | pending | apply | check | export`, skills, routing, integrations) is unchanged, decision D7 is deleted, and the `tauri` addon itself remains.
+
+**`i18n:export` reinstated as JS-first tooling (after the Rust drop).** The normalized-catalog exporter was restored for all four libraries as plain JS tooling — it feeds `i18n:sync-wxt` and general tooling with no Rust/Tauri dependency (D8). The old tauri-gated `i18n:compile` → `i18n:export` chaining stays removed; `i18n:sync-wxt` runs the export first so the catalog always exists.
 
 ## Goals / Non-Goals
 
@@ -301,7 +303,7 @@ packages/i18n/
   src/server.ts      AsyncLocalStorage runWithLocale/getRequestLocale
   src/runtime.ts     library-specific instance/helpers
   src/integrations/  better-auth.ts, zod.ts (BCP-47→zod locale map), clerk.ts …
-  scripts/           extract | compile | pending | apply | check (uniform contract, library-specific impl)
+  scripts/           extract | compile | pending | apply | check | export (uniform contract, library-specific impl)
   GLOSSARY.md
   <catalogs>         lingui: locales/{l}/messages.po · paraglide: messages/{l}.json + project.inlang · i18next: locales/{l}/{ns}.json · wuchale: per adapter .po
 ```
@@ -369,6 +371,7 @@ Static and SPA builds can't do domain routing, so it is blocked for them with a 
 **Uniform scripts** (root `package.json` plus task-runner wiring):
 
 - `i18n:extract` and `i18n:compile`.
+- `i18n:export` writes the normalized catalog (`packages/i18n/dist/catalog.json`) consumed by JS tooling — it feeds `i18n:sync-wxt` and general tooling. JS-first: it does not depend on Rust/Tauri.
 - `i18n:pending --locale <l> | --all [--limit N]` emits `{ library, sourceLocale, items: [{ id, locale, source, context, comments, references, placeholders, status }] }`.
 - `i18n:apply <file>`:
   - validates that the placeholder and ICU argument sets match the source;

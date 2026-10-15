@@ -38,7 +38,7 @@ Doing this once in the generator, from one compatibility map, removes a large an
   - library-agnostic `Intl` formatters;
   - request-scoped locale;
   - library runtime;
-  - a uniform script contract (`i18n:extract | compile | pending | apply | check`).
+  - a uniform script contract (`i18n:extract | compile | pending | apply | check | export`).
 - Generate an agent skill (`i18n-translate`) that translates pending messages only through the script contract, so it works the same for every library and catalog format. Also generate an optional `i18n-adopt` skill for wrapping existing hard-coded strings.
 - Support **Add Path retrofitting**:
   - `bts add --i18n <library>` adds i18n to an existing project.

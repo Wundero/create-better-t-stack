@@ -1,10 +1,11 @@
 /**
  * `i18n:sync-wxt` — writes `apps/extension/locales/<locale>.yml` from the
  * reserved `extension.*` section of the normalized catalog
- * (`packages/i18n/dist/catalog.json`).
+ * (`packages/i18n/dist/catalog.json`, produced by `i18n:export`).
  *
  * `@wxt-dev/i18n` reads these YAML files for the runtime API and for the
- * manifest `name`/`description` localization.
+ * manifest `name`/`description` localization. The package's `i18n:sync-wxt`
+ * script runs `i18n:export` first, so the catalog is always fresh.
  */
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
@@ -30,7 +31,7 @@ const localeDir = resolve(packageRoot, "../../apps/extension/locales");
 
 function readCatalog(): Catalog | undefined {
   if (!existsSync(catalogPath)) {
-    console.warn(`i18n:sync-wxt: ${catalogPath} is missing; nothing to sync.`);
+    console.warn(`i18n:sync-wxt: ${catalogPath} is missing. Run \`i18n:export\` first.`);
     return undefined;
   }
   return JSON.parse(readFileSync(catalogPath, "utf8")) as Catalog;

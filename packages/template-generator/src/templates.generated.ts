@@ -34183,10 +34183,11 @@ export function useUiLocale() {
   ["i18n/integrations/wxt/sync-wxt.ts.hbs", `/**
  * \`i18n:sync-wxt\` — writes \`apps/extension/locales/<locale>.yml\` from the
  * reserved \`extension.*\` section of the normalized catalog
- * (\`packages/i18n/dist/catalog.json\`).
+ * (\`packages/i18n/dist/catalog.json\`, produced by \`i18n:export\`).
  *
  * \`@wxt-dev/i18n\` reads these YAML files for the runtime API and for the
- * manifest \`name\`/\`description\` localization.
+ * manifest \`name\`/\`description\` localization. The package's \`i18n:sync-wxt\`
+ * script runs \`i18n:export\` first, so the catalog is always fresh.
  */
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
@@ -34212,7 +34213,7 @@ const localeDir = resolve(packageRoot, "../../apps/extension/locales");
 
 function readCatalog(): Catalog | undefined {
   if (!existsSync(catalogPath)) {
-    console.warn(\`i18n:sync-wxt: \${catalogPath} is missing; nothing to sync.\`);
+    console.warn(\`i18n:sync-wxt: \${catalogPath} is missing. Run \\\`i18n:export\\\` first.\`);
     return undefined;
   }
   return JSON.parse(readFileSync(catalogPath, "utf8")) as Catalog;
@@ -34669,6 +34670,66 @@ export function decodeApplyFile(text: string, options: ApplyFileOptions): ApplyF
   return { items: decoded };
 }
 `],
+  ["i18n/lib/i18next/scripts/export.ts", `/**
+ * \`i18n:export\` — writes the normalized catalog (\`dist/catalog.json\`) consumed
+ * by JS tooling (e.g. \`i18n:sync-wxt\`): one message per source-text id with
+ * every locale converted to the ICU subset.
+ */
+
+import { mkdirSync, writeFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+
+import { locales, sourceLocale } from "../src/config";
+import { icuMessagesById, packageRoot, readCatalogSet } from "./lib/catalogs";
+
+export interface NormalizedMessage {
+  /** The source-locale ICU message. */
+  readonly source: string;
+  readonly context: null;
+  readonly translations: Readonly<Record<string, string>>;
+}
+
+export interface NormalizedCatalog {
+  readonly sourceLocale: string;
+  readonly locales: readonly string[];
+  readonly messages: Readonly<Record<string, NormalizedMessage>>;
+}
+
+export function buildNormalizedCatalog(root: string = packageRoot()): NormalizedCatalog {
+  const catalogs = readCatalogSet(root, { locales, sourceLocale });
+  const icuByLocale = new Map<string, Map<string, string>>();
+  for (const locale of locales) {
+    const messages = new Map<string, string>();
+    for (const message of icuMessagesById(catalogs.get(locale) ?? {})) {
+      messages.set(message.id, message.icu);
+    }
+    icuByLocale.set(locale, messages);
+  }
+
+  const sourceMessages = icuMessagesById(catalogs.get(sourceLocale) ?? {});
+  const messages: Record<string, NormalizedMessage> = {};
+  for (const sourceMessage of sourceMessages) {
+    const translations: Record<string, string> = {};
+    for (const locale of locales) {
+      translations[locale] = icuByLocale.get(locale)?.get(sourceMessage.id) ?? sourceMessage.icu;
+    }
+    messages[sourceMessage.id] = { source: sourceMessage.icu, context: null, translations };
+  }
+
+  return { sourceLocale, locales, messages };
+}
+
+export function runExport(root: string = packageRoot()): string {
+  const output = join(root, "dist", "catalog.json");
+  mkdirSync(dirname(output), { recursive: true });
+  writeFileSync(output, \`\${JSON.stringify(buildNormalizedCatalog(root), null, 2)}\\n\`);
+  return output;
+}
+
+if (import.meta.main) {
+  console.log(\`i18n:export wrote \${runExport()}\`);
+}
+`],
   ["i18n/lib/i18next/scripts/extract.ts", `/**
  * \`i18n:extract\` — runs the i18next-cli extractor over the app sources and
  * updates \`locales/<locale>/common.json\` with natural-language keys.
@@ -34700,7 +34761,12 @@ if (exitCode !== 0) process.exit(exitCode);
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 
-import { interpolationNames } from "./icu";
+import {
+  exportCatalogEntries,
+  interpolationNames,
+  type CatalogEntry,
+  type IcuMessage,
+} from "./icu";
 
 export const DEFAULT_NAMESPACE = "common";
 
@@ -34799,6 +34865,15 @@ export function readCatalogSet(
     catalogs.set(locale, readCatalog(root, locale, namespace));
   }
   return catalogs;
+}
+
+function entriesOf(catalog: Catalog): CatalogEntry[] {
+  return Object.entries(catalog).map(([id, value]) => ({ id, value }));
+}
+
+/** ICU messages for one locale, keyed by the i18next source-text id. */
+export function icuMessagesById(catalog: Catalog): IcuMessage[] {
+  return exportCatalogEntries(entriesOf(catalog));
 }
 
 function targetLocales(config: I18nScriptConfig, options: PendingOptions): string[] {
@@ -34940,12 +35015,61 @@ export function checkCatalogs(
 }
 `],
   ["i18n/lib/i18next/scripts/lib/icu.ts", `/**
- * Placeholder extraction for the i18next uniform script contract: \`i18n:pending\`,
- * \`i18n:apply\` and \`i18n:check\` compare the \`{{placeholders}}\` of a source
- * message with its translations.
+ * i18next ⇄ ICU message conversion for the normalized catalog (\`i18n:export\`).
+ *
+ * The supported subset is exactly: \`{{name}}\` interpolation and i18next v4
+ * plural suffixes (\`_one\`, \`_other\`, …). Anything else — nesting via \`$t(...)\`,
+ * a stray brace, or a non-identifier argument — fails with the message id.
+ *
+ * \`importCatalogEntries\` is the inverse of \`exportCatalogEntries\`; the
+ * generator's ICU round-trip test asserts the two are lossless.
  */
 
+export const PLURAL_CATEGORIES = ["zero", "one", "two", "few", "many", "other"] as const;
+export type PluralCategory = (typeof PLURAL_CATEGORIES)[number];
+
+export interface CatalogEntry {
+  readonly id: string;
+  readonly value: string;
+}
+
+/** One normalized message: the source-text id and its ICU form. */
+export interface IcuMessage {
+  readonly id: string;
+  readonly icu: string;
+}
+
+export class IcuConversionError extends Error {
+  readonly messageId: string;
+
+  constructor(messageId: string, reason: string) {
+    super(\`Cannot convert "\${messageId}" to ICU: \${reason}\`);
+    this.name = "IcuConversionError";
+    this.messageId = messageId;
+  }
+}
+
 const INTERPOLATION_PATTERN = /\\{\\{\\s*([A-Za-z][A-Za-z0-9_$]*)\\s*\\}\\}/g;
+const SHORT_ARGUMENT_PATTERN = /\\{([A-Za-z][A-Za-z0-9_$]*)\\}/g;
+const PLURAL_OPTION_PATTERN =
+  /(zero|one|two|few|many|other) \\{((?:[^{}]|\\{[A-Za-z][A-Za-z0-9_$]*\\})*)\\}/g;
+
+function isPluralCategory(value: string): value is PluralCategory {
+  return (PLURAL_CATEGORIES as readonly string[]).includes(value);
+}
+
+interface PluralId {
+  readonly base: string;
+  readonly category: PluralCategory | null;
+}
+
+export function splitPluralId(id: string): PluralId {
+  const separator = id.lastIndexOf("_");
+  if (separator === -1) return { base: id, category: null };
+  const suffix = id.slice(separator + 1);
+  if (!isPluralCategory(suffix)) return { base: id, category: null };
+  return { base: id.slice(0, separator), category: suffix };
+}
 
 /** Names of the \`{{placeholders}}\` in a message, in first-seen order. */
 export function interpolationNames(message: string): string[] {
@@ -34955,6 +35079,109 @@ export function interpolationNames(message: string): string[] {
     if (name && !names.includes(name)) names.push(name);
   }
   return names;
+}
+
+/** i18next template → ICU. Throws \`IcuConversionError\` outside the subset. */
+export function toIcuMessage(id: string, message: string): string {
+  if (message.includes("$t("))
+    throw new IcuConversionError(id, "nesting via $t() is not supported");
+  const icu = message.replace(INTERPOLATION_PATTERN, "{$1}");
+  const withoutArguments = icu.replace(SHORT_ARGUMENT_PATTERN, "");
+  if (withoutArguments.includes("{") || withoutArguments.includes("}")) {
+    throw new IcuConversionError(id, "contains braces that are not {{placeholders}}");
+  }
+  return icu;
+}
+
+/** ICU → i18next template. Throws \`IcuConversionError\` outside the subset. */
+const FORMATTED_ARGUMENT_PATTERN = /\\{[A-Za-z][A-Za-z0-9_$]*\\s*,/;
+
+export function fromIcuMessage(id: string, icu: string): string {
+  if (FORMATTED_ARGUMENT_PATTERN.test(icu) || icu.includes("#")) {
+    throw new IcuConversionError(id, "ICU arguments other than {name} are not supported");
+  }
+  return icu.replace(SHORT_ARGUMENT_PATTERN, "{{$1}}");
+}
+
+interface PluralMember {
+  readonly id: string;
+  readonly category: PluralCategory | null;
+  readonly value: string;
+}
+
+function comparePluralCategories(first: PluralCategory, second: PluralCategory): number {
+  return PLURAL_CATEGORIES.indexOf(first) - PLURAL_CATEGORIES.indexOf(second);
+}
+
+function exportFamily(base: string, family: readonly PluralMember[]): IcuMessage {
+  if (family.length === 1) {
+    const [only] = family;
+    if (!only) throw new IcuConversionError(base, "empty plural family");
+    if (only.category !== null) {
+      throw new IcuConversionError(base, \`has _\${only.category} but no other plural forms\`);
+    }
+    return { id: base, icu: toIcuMessage(only.id, only.value) };
+  }
+
+  const forms: PluralMember[] = [];
+  for (const member of family) {
+    if (member.category === null) {
+      throw new IcuConversionError(base, "mixes a plural family with a plain key of the same name");
+    }
+    forms.push(member);
+  }
+  if (!forms.some((form) => form.category === "other")) {
+    throw new IcuConversionError(base, "is missing the \`other\` plural category");
+  }
+
+  forms.sort((first, second) =>
+    comparePluralCategories(first.category ?? "other", second.category ?? "other"),
+  );
+  const options = forms
+    .map((form) => \`\${form.category} {\${toIcuMessage(form.id, form.value)}}\`)
+    .join(" ");
+  return { id: base, icu: \`{count, plural, \${options}}\` };
+}
+
+/**
+ * Source-text catalog entries → normalized ICU messages. Plural families
+ * (\`id_one\`, \`id_other\`, …) collapse into one \`{count, plural, …}\` message.
+ */
+export function exportCatalogEntries(entries: readonly CatalogEntry[]): IcuMessage[] {
+  const families = new Map<string, PluralMember[]>();
+  for (const entry of entries) {
+    const { base, category } = splitPluralId(entry.id);
+    const family = families.get(base) ?? [];
+    family.push({ id: entry.id, category, value: entry.value });
+    families.set(base, family);
+  }
+  return [...families.entries()].map(([base, family]) => exportFamily(base, family));
+}
+
+/** Inverse of \`exportCatalogEntries\`, used by the ICU round-trip test. */
+export function importCatalogEntries(messages: readonly IcuMessage[]): CatalogEntry[] {
+  const entries: CatalogEntry[] = [];
+  for (const message of messages) {
+    const pluralMatch = /^\\{count, plural, (.*)\\}$/s.exec(message.icu);
+    if (!pluralMatch?.[1]) {
+      entries.push({ id: message.id, value: fromIcuMessage(message.id, message.icu) });
+      continue;
+    }
+    const forms = [...pluralMatch[1].matchAll(PLURAL_OPTION_PATTERN)];
+    if (forms.length === 0) throw new IcuConversionError(message.id, "plural has no options");
+    for (const form of forms) {
+      const category = form[1];
+      const body = form[2];
+      if (!category || body === undefined) {
+        throw new IcuConversionError(message.id, "plural option is malformed");
+      }
+      entries.push({
+        id: \`\${message.id}_\${category}\`,
+        value: fromIcuMessage(\`\${message.id}_\${category}\`, body),
+      });
+    }
+  }
+  return entries;
 }
 `],
   ["i18n/lib/i18next/scripts/pending.ts", `/**
@@ -35616,6 +35843,112 @@ export function decodeApplyFile(text: string, options: ApplyFileOptions): ApplyF
   return { items: decoded };
 }
 `],
+  ["i18n/lib/lingui/scripts/export.ts", `/**
+ * \`i18n:export\` — normalizes every PO catalog into the shared normalized
+ * catalog that JS tooling consumes (e.g. \`i18n:sync-wxt\`):
+ *
+ *   { sourceLocale, locales, messages: { "<id>": { source, context, translations } } }
+ *
+ * Message IDs are the library's own IDs (\`generateMessageId(source, context)\`
+ * for generated-ID entries, the literal \`msgid\` for explicit-ID ones). Every
+ * translation is validated as an ICU MessageFormat subset; a construct outside
+ * the subset makes the script fail and names the message ID.
+ */
+import { mkdirSync, writeFileSync } from "node:fs";
+import path from "node:path";
+
+import { packageRoot, readCatalog, sourceLocale, targetLocales } from "./catalogs";
+import { validateIcuSubset } from "./icu";
+import { catalogId, sourceTextOf } from "./po";
+
+export interface NormalizedMessage {
+  source: string;
+  context: string | null;
+  translations: Record<string, string>;
+}
+
+export interface NormalizedCatalog {
+  sourceLocale: string;
+  locales: string[];
+  messages: Record<string, NormalizedMessage>;
+}
+
+export interface ExportResult {
+  ok: boolean;
+  messages?: number;
+  errors: string[];
+}
+
+export interface CatalogBuildResult {
+  catalog: NormalizedCatalog;
+  errors: string[];
+}
+
+export function buildCatalog(): CatalogBuildResult {
+  const errors: string[] = [];
+  const source = readCatalog(sourceLocale);
+  const targets = targetLocales().map((locale) => ({ locale, catalog: readCatalog(locale) }));
+
+  const messages: Record<string, NormalizedMessage> = {};
+
+  for (const entry of source.entries) {
+    if (entry.obsolete) continue;
+    const id = catalogId(entry);
+    const sourceText = sourceTextOf(entry);
+    const translations: Record<string, string> = {};
+
+    for (const problem of validateIcuSubset(sourceText)) {
+      errors.push(\`\${id} (\${sourceLocale}): \${problem}\`);
+    }
+    translations[sourceLocale] = sourceText;
+
+    for (const { locale, catalog } of targets) {
+      const translated = catalog.entries.find(
+        (candidate) => !candidate.obsolete && catalogId(candidate) === id,
+      );
+      const value = translated?.msgstr.trim() ? translated.msgstr : sourceText;
+      for (const problem of validateIcuSubset(value)) {
+        errors.push(\`\${id} (\${locale}): \${problem}\`);
+      }
+      translations[locale] = value;
+    }
+
+    messages[id] = {
+      source: sourceText,
+      context: entry.msgctxt ?? null,
+      translations,
+    };
+  }
+
+  return {
+    catalog: { sourceLocale, locales: [sourceLocale, ...targetLocales()], messages },
+    errors,
+  };
+}
+
+export function exportCatalog(
+  outFile = path.join(packageRoot, "dist", "catalog.json"),
+): ExportResult {
+  const { catalog, errors } = buildCatalog();
+  if (errors.length > 0) {
+    return { ok: false, errors };
+  }
+
+  mkdirSync(path.dirname(outFile), { recursive: true });
+  writeFileSync(outFile, \`\${JSON.stringify(catalog, null, 2)}\\n\`);
+  return { ok: true, messages: Object.keys(catalog.messages).length, errors: [] };
+}
+
+if (import.meta.main) {
+  const result = exportCatalog();
+  if (!result.ok) {
+    console.error("i18n:export failed:");
+    for (const error of result.errors) console.error(\`  - \${error}\`);
+    process.exit(1);
+  }
+  console.log(\`Exported \${result.messages} messages to dist/catalog.json\`);
+}
+`],
   ["i18n/lib/lingui/scripts/extract.ts", `/**
  * \`i18n:extract\` — scans every app for Lingui macros and refreshes
  * \`locales/<locale>/messages.po\`, removing obsolete entries.
@@ -35627,9 +35960,9 @@ process.exitCode = runLinguiCli(["extract", "--clean"]);
   ["i18n/lib/lingui/scripts/icu.ts", `/**
  * ICU MessageFormat subset analysis shared by the Lingui \`i18n:*\` scripts.
  *
- * \`i18n:apply\` rejects translations whose argument sets differ from the
- * source, and \`i18n:pending\` reports the placeholders a translator must keep.
- * Both use the analyzer here.
+ * \`i18n:export\` must fail loudly when a message uses constructs outside the
+ * exported ICU subset, and \`i18n:apply\` must reject translations whose
+ * argument sets differ from the source. Both use the analyzer here.
  */
 
 const SUPPORTED_TYPES = new Set(["plural", "selectordinal", "select", "number", "date", "time"]);
@@ -36987,6 +37320,129 @@ export function decodeApplyFile(text: string, options: ApplyFileOptions): ApplyF
   return { items: decoded };
 }
 `],
+  ["i18n/lib/paraglide/scripts/export.ts", `/**
+ * \`i18n:export\`
+ *
+ * Writes the normalized catalog consumed by JS tooling (e.g. \`i18n:sync-wxt\`):
+ *
+ *   packages/i18n/dist/catalog.json
+ *   {
+ *     "sourceLocale": "en",
+ *     "locales": ["en", "fr"],
+ *     "messages": {
+ *       "<id>": {
+ *         "source": "…",
+ *         "context": null,
+ *         "translations": { "en": "<ICU>", "fr": "<ICU>" }
+ *       }
+ *     }
+ *   }
+ *
+ * Message IDs are the Paraglide keys. Every message must stay inside the ICU
+ * subset in \`src/icu.ts\`; anything else fails with the message ID instead of
+ * writing a catalog outside the supported subset. A locale without a
+ * translation fails the export unless \`I18N_EXPORT_ALLOW_MISSING=1\` is set,
+ * which omits that locale from the message instead.
+ */
+
+import { mkdir, writeFile } from "node:fs/promises";
+import path from "node:path";
+
+import { loadCatalogs, resolveFromScript } from "../src/catalogs";
+import { compareMessages, parseMessage } from "../src/icu";
+
+interface NormalizedMessage {
+  readonly source: string;
+  readonly context: null;
+  readonly translations: Record<string, string>;
+}
+
+interface NormalizedCatalog {
+  readonly sourceLocale: string;
+  readonly locales: readonly string[];
+  readonly messages: Record<string, NormalizedMessage>;
+}
+
+export async function runExport(): Promise<number> {
+  const packageRoot = resolveFromScript(import.meta.url);
+  const allowMissing = process.env.I18N_EXPORT_ALLOW_MISSING === "1";
+
+  try {
+    const { sourceLocale, locales, source, catalogs } = await loadCatalogs(packageRoot);
+    const messages: Record<string, NormalizedMessage> = {};
+    const skipped: string[] = [];
+
+    for (const id of Object.keys(source).sort()) {
+      const sourceMessage = source[id] as string;
+      const parsedSource = parseMessage(sourceMessage);
+      if (!parsedSource.ok) {
+        throw new Error(\`cannot export "\${id}": \${parsedSource.error}\`);
+      }
+
+      const translations: Record<string, string> = {};
+      for (const locale of locales) {
+        const translated = catalogs.get(locale)?.[id];
+        if (translated === undefined || translated === "") {
+          if (locale === sourceLocale) {
+            throw new Error(\`cannot export "\${id}": the source catalog has no message\`);
+          }
+          if (!allowMissing) {
+            throw new Error(
+              \`cannot export "\${id}": no \${locale} translation yet (set I18N_EXPORT_ALLOW_MISSING=1 to skip it)\`,
+            );
+          }
+          skipped.push(\`\${id} (\${locale})\`);
+          continue;
+        }
+
+        const comparison = compareMessages(sourceMessage, translated);
+        if (!comparison.ok) {
+          throw new Error(\`cannot export "\${id}" for \${locale}: \${comparison.error}\`);
+        }
+        translations[locale] = translated;
+      }
+
+      messages[id] = { source: sourceMessage, context: null, translations };
+    }
+
+    const catalog: NormalizedCatalog = { sourceLocale, locales, messages };
+    const outputDirectory = path.join(packageRoot, "dist");
+    const outputPath = path.join(outputDirectory, "catalog.json");
+
+    await mkdir(outputDirectory, { recursive: true });
+    await writeFile(outputPath, \`\${JSON.stringify(catalog, null, 2)}\\n\`, "utf8");
+
+    if (skipped.length > 0) {
+      console.warn(\`i18n:export skipped \${skipped.length} untranslated message(s):\`);
+      for (const entry of skipped) console.warn(\`  - \${entry}\`);
+    }
+
+    console.log(
+      JSON.stringify(
+        {
+          library: "paraglide",
+          output: path.relative(packageRoot, outputPath),
+          sourceLocale,
+          locales,
+          messages: Object.keys(messages).length,
+          skipped: skipped.length,
+        },
+        null,
+        2,
+      ),
+    );
+
+    return 0;
+  } catch (error) {
+    console.error(\`i18n:export failed: \${error instanceof Error ? error.message : String(error)}\`);
+    return 1;
+  }
+}
+
+if (import.meta.main) {
+  process.exitCode = await runExport();
+}
+`],
   ["i18n/lib/paraglide/scripts/extract.ts", `/**
  * \`i18n:extract\`
  *
@@ -37328,7 +37784,8 @@ export async function loadCatalogs(packageRoot: string): Promise<LoadedCatalogs>
 }
 `],
   ["i18n/lib/paraglide/src/icu.ts", `/**
- * ICU MessageFormat subset used by \`i18n:pending\`, \`i18n:apply\` and \`i18n:check\`.
+ * ICU MessageFormat subset used by \`i18n:pending\`, \`i18n:apply\`, \`i18n:check\`
+ * and \`i18n:export\`.
  *
  * The supported subset is arguments (\`{name}\`), \`plural\` and \`selectordinal\`
  * with \`#\`, \`select\`, and arbitrarily nested messages. Anything else —
@@ -37604,7 +38061,7 @@ export { paraglideMiddleware } from "./paraglide/server.js";
   ["i18n/lib/wuchale/_gitignore", `# wuchale build output (compiled catalogs, proxies, generated loaders)
 locales/.wuchale/
 
-# normalized export used by the Rust host
+# normalized catalog export (JS tooling)
 dist/
 `],
   ["i18n/lib/wuchale/scripts/apply.ts.hbs", `/**
@@ -37716,7 +38173,7 @@ process.exit(outcome.rejected.length > 0 ? 1 : 0);
 `],
   ["i18n/lib/wuchale/scripts/catalog.ts", `/**
  * Shared helpers for the wuchale uniform scripts
- * (\`i18n:extract | compile | pending | apply | check\`).
+ * (\`i18n:extract | compile | pending | apply | check | export\`).
  *
  * Everything here is pure or filesystem-only: the CLI entrypoints add argv
  * handling and JSON output. Catalogs are the per-adapter \`.po\` files wuchale
@@ -37759,6 +38216,26 @@ export interface PendingReport {
   readonly sourceLocale: string;
   readonly items: PendingItem[];
 }
+
+export interface NormalizedMessage {
+  readonly source: string;
+  readonly context: string | null;
+  readonly translations: Record<string, string>;
+}
+
+export interface NormalizedCatalog {
+  readonly sourceLocale: string;
+  readonly locales: string[];
+  readonly messages: Record<string, NormalizedMessage>;
+}
+
+export type IcuResult =
+  | { readonly isOk: true; readonly message: string }
+  | { readonly isOk: false; readonly error: string };
+
+export type ExportResult =
+  | { readonly isOk: true; readonly catalog: NormalizedCatalog }
+  | { readonly isOk: false; readonly errors: string[] };
 
 /** \`packages/i18n\` root, resolved from a script in \`packages/i18n/scripts\`. */
 export function resolvePackageRoot(importMetaUrl: string): string {
@@ -37867,9 +38344,48 @@ export function validatePlaceholders(item: PoItem, forms: readonly string[]): st
   return null;
 }
 
-/** A stable context-qualified message id. */
+/** A stable id for the normalized export: context-qualified source text. */
 export function normalizeMessageId(item: PoItem): string {
   return item.context === null ? item.id : \`\${item.context}|\${item.id}\`;
+}
+
+function balancedBraces(text: string): string | null {
+  const withoutPlaceholders = text.replace(PLACEHOLDER, "");
+  let depth = 0;
+  for (const char of withoutPlaceholders) {
+    if (char === "{") depth += 1;
+    else if (char === "}") {
+      depth -= 1;
+      if (depth < 0) return "unbalanced brace";
+    }
+  }
+  return depth === 0 ? null : "unbalanced brace";
+}
+
+/**
+ * Converts a wuchale catalog item to the ICU subset used by \`i18n:export\`:
+ * positional arguments, \`plural\` with \`#\`, \`select\` and nesting. Wuchale
+ * already writes positional \`{n}\` placeholders, so the conversion keeps them
+ * as ICU arguments; a plural item becomes one \`{count, plural, ...}\` message
+ * whose categories follow the locale's CLDR order.
+ */
+export function toIcuMessage(item: PoItem, forms: readonly string[], locale: string): IcuResult {
+  if (item.pluralId === null) {
+    const message = forms[0] ?? item.id;
+    const error = balancedBraces(message);
+    return error === null ? { isOk: true, message } : { isOk: false, error };
+  }
+
+  const categories = pluralCategories(locale);
+  const parts: string[] = [];
+  for (const [index, category] of categories.entries()) {
+    const form = forms[index] ?? forms[forms.length - 1] ?? item.id;
+    const error = balancedBraces(form);
+    if (error !== null) return { isOk: false, error };
+    parts.push(\`\${category} {\${form}}\`);
+  }
+
+  return { isOk: true, message: \`{count, plural, \${parts.join(" ")}}\` };
 }
 
 /** Pending items for one locale, or for every non-source locale. */
@@ -37931,6 +38447,83 @@ export function findItem(
 export function setTranslation(item: PoItem, forms: readonly string[]): void {
   item.translations = [...forms];
   item.obsolete = false;
+}
+
+export interface NormalizeOptions {
+  readonly locales: readonly string[];
+  readonly sourceLocale: string;
+}
+
+/**
+ * Builds the normalized catalog (\`dist/catalog.json\`) from every parsed
+ * per-adapter catalog.
+ * Fails with the offending message id when a message is outside the ICU
+ * subset.
+ */
+export function buildNormalizedCatalog(
+  catalogs: readonly CatalogRead[],
+  options: NormalizeOptions,
+): ExportResult {
+  const errors: string[] = [];
+  const messages = new Map<
+    string,
+    { source: string; context: string | null; translations: Map<string, string> }
+  >();
+  const sourceByKey = new Map<string, PoItem>();
+
+  for (const read of catalogs) {
+    for (const item of read.catalog.items) {
+      if (item.id.length === 0 && item.pluralId === null) continue;
+      const id = normalizeMessageId(item);
+      const existingSource = sourceByKey.get(id);
+      if (existingSource === undefined) {
+        sourceByKey.set(id, item);
+      } else if (sourceForms(existingSource).join(" ") !== sourceForms(item).join(" ")) {
+        errors.push(\`"\${id}" has conflicting source text across adapters\`);
+        continue;
+      }
+
+      const entry = messages.get(id) ?? {
+        source: sourceForms(item).join(" || "),
+        context: item.context,
+        translations: new Map<string, string>(),
+      };
+      messages.set(id, entry);
+
+      const forms = isUntranslated(item.translations) ? sourceForms(item) : item.translations;
+      const locale = read.source.locale;
+      const converted = toIcuMessage(item, forms, locale);
+      if (!converted.isOk) {
+        errors.push(\`"\${id}" (\${locale}): \${converted.error}\`);
+        continue;
+      }
+      if (!entry.translations.has(locale)) {
+        entry.translations.set(locale, converted.message);
+      }
+    }
+  }
+
+  if (errors.length > 0) return { isOk: false, errors };
+
+  const normalizedMessages: Record<string, NormalizedMessage> = {};
+  for (const [id, entry] of messages) {
+    const translations: Record<string, string> = {};
+    for (const locale of options.locales) {
+      const message =
+        entry.translations.get(locale) ?? entry.translations.get(options.sourceLocale);
+      if (message !== undefined) translations[locale] = message;
+    }
+    normalizedMessages[id] = { source: entry.source, context: entry.context, translations };
+  }
+
+  return {
+    isOk: true,
+    catalog: {
+      sourceLocale: options.sourceLocale,
+      locales: [...options.locales],
+      messages: normalizedMessages,
+    },
+  };
 }
 
 /**
@@ -38255,6 +38848,40 @@ export function decodeApplyFile(text: string, options: ApplyFileOptions): ApplyF
   });
 
   return { items: decoded };
+}
+`],
+  ["i18n/lib/wuchale/scripts/export.ts.hbs", `/**
+ * \`i18n:export\` — write the normalized catalog (\`dist/catalog.json\`) consumed
+ * by JS tooling (e.g. \`i18n:sync-wxt\`), converting every message to the ICU
+ * subset (arguments, \`plural\` with \`#\`, \`select\`, nesting).
+ */
+
+import { mkdir, writeFile } from "node:fs/promises";
+import { join } from "node:path";
+
+import { locales, sourceLocale } from "../src/config";
+import { buildNormalizedCatalog, readCatalogs, resolvePackageRoot } from "./catalog";
+
+export async function writeNormalizedCatalog(packageRoot: string): Promise<number> {
+  const catalogs = await readCatalogs(packageRoot);
+  const result = buildNormalizedCatalog(catalogs, { locales, sourceLocale });
+
+  if (!result.isOk) {
+    for (const error of result.errors) console.error(\`i18n:export: \${error}\`);
+    return 1;
+  }
+
+  const outputPath = join(packageRoot, "dist", "catalog.json");
+  await mkdir(join(packageRoot, "dist"), { recursive: true });
+  await writeFile(outputPath, \`\${JSON.stringify(result.catalog, null, 2)}\\n\`, "utf8");
+  console.log(
+    \`i18n:export: wrote \${Object.keys(result.catalog.messages).length} messages to \${outputPath}\`,
+  );
+  return 0;
+}
+
+if (import.meta.main) {
+  process.exit(await writeNormalizedCatalog(resolvePackageRoot(import.meta.url)));
 }
 `],
   ["i18n/lib/wuchale/scripts/extract.ts.hbs", `/**
@@ -38809,6 +39436,7 @@ invent.
 | \`i18n:pending --locale <l> \\| --all [--limit N]\` | Lists untranslated items as JSON. |
 | \`i18n:apply <file>\` | Validates placeholders and writes translations back. |
 | \`i18n:check\` | Fails on missing or invalid entries; \`I18N_CHECK_ALLOW_MISSING=1\` allows missing ones. |
+| \`i18n:export\` | Writes the normalized ICU catalog to \`dist/catalog.json\` for JS tooling (e.g. \`i18n:sync-wxt\`). |
 
 ## AI translation is disabled
 
@@ -39547,7 +40175,8 @@ Source locale: {{#if i18nOptions.sourceLocale}}\`{{i18nOptions.sourceLocale}}\`{
     "i18n:compile": "bun run scripts/compile.ts",
     "i18n:pending": "bun run scripts/pending.ts",
     "i18n:apply": "bun run scripts/apply.ts",
-    "i18n:check": "bun run scripts/check.ts"
+    "i18n:check": "bun run scripts/check.ts",
+    "i18n:export": "bun run scripts/export.ts"
   },
   "devDependencies": {
     "@types/node": "^26.4.1"
@@ -40405,6 +41034,7 @@ With npm and pnpm, add \`--\` before the script flags, e.g. \`{{packageManager}}
 | \`i18n:apply <file>\` | Validate and write a translation batch |
 | \`i18n:compile\` | Compile catalogs for the app runtimes |
 | \`i18n:check\` | Fail on missing or invalid entries (\`I18N_CHECK_ALLOW_MISSING=1\` allows missing) |
+| \`i18n:export\` | Write the normalized catalog (\`dist/catalog.json\`) for JS tooling |
 
 The JSON shapes above are defined in \`packages/i18n/scripts/contract.ts\` — read it if a shape is unclear.
 `],
@@ -45999,4 +46629,4 @@ export default function Success() {
 `]
 ]);
 
-export const TEMPLATE_COUNT = 751;
+export const TEMPLATE_COUNT = 755;

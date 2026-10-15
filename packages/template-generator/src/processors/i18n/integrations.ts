@@ -885,7 +885,12 @@ function registerSyncWxtScript(vfs: VirtualFileSystem, config: ProjectConfig): v
   const packagePath = "packages/i18n/package.json";
   const pkg = vfs.readJson<{ scripts?: Record<string, string> }>(packagePath);
   if (pkg === undefined) return;
-  pkg.scripts = { ...pkg.scripts, "i18n:sync-wxt": "bun run scripts/sync-wxt.ts" };
+  // The sync reads `dist/catalog.json`, so the package script runs `i18n:export`
+  // first; the root script (below) only forwards to this package script.
+  pkg.scripts = {
+    ...pkg.scripts,
+    "i18n:sync-wxt": "bun run scripts/export.ts && bun run scripts/sync-wxt.ts",
+  };
   vfs.writeJson(packagePath, pkg);
 
   const rootPath = "package.json";
