@@ -1,4 +1,5 @@
 import { DEFAULT_STACK, isStackDefault, type StackState, TECH_OPTIONS } from "@/lib/constant";
+import { DEFAULT_SHADCN_BASE, DEFAULT_SHADCN_PRESET, getShadcnConfig } from "@/lib/shadcn-config";
 import { SITE_URL } from "@/lib/site";
 import { flattenI18nOptions } from "@/lib/stack-i18n";
 import { stackUrlKeys } from "@/lib/stack-url-keys";
@@ -207,6 +208,20 @@ export function generateStackCommand(stack: StackState) {
       if (options.translateSkill === false) {
         flags.push("--no-i18n-skill");
       }
+    }
+  }
+
+  const shadcn = getShadcnConfig(stack);
+  if (shadcn) {
+    flags.push(`--shadcn-preset ${shadcn.preset ?? DEFAULT_SHADCN_PRESET}`);
+    if (shadcn.base && shadcn.base !== DEFAULT_SHADCN_BASE) {
+      flags.push(`--shadcn-base ${shadcn.base}`);
+    }
+    if (shadcn.rtl) {
+      flags.push("--shadcn-rtl");
+    }
+    if (shadcn.pointer) {
+      flags.push("--shadcn-pointer");
     }
   }
 

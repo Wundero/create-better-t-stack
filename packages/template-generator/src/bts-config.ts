@@ -20,6 +20,7 @@ export function writeBtsConfigToVfs(
     reproducibleCommand,
     addonOptions: projectConfig.addonOptions,
     dbSetupOptions: projectConfig.dbSetupOptions,
+    shadcn: projectConfig.shadcn,
     database: projectConfig.database,
     orm: projectConfig.orm,
     backend: projectConfig.backend,

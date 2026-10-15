@@ -24,6 +24,7 @@ import {
   PaymentsSchema,
   RuntimeSchema,
   ServerDeploySchema,
+  ShadcnConfigSchema,
   WebDeploySchema,
 } from "./types";
 import { setProcessMode } from "./utils/context";
@@ -69,6 +70,9 @@ const McpCreateProjectInputSchema = CreateInputSchema.safeExtend({
   serverDeploy: ServerDeploySchema.describe("Explicit server deployment choice"),
   addonOptions: AddonOptionsSchema.optional(),
   dbSetupOptions: DbSetupOptionsSchema.optional(),
+  shadcn: ShadcnConfigSchema.optional().describe(
+    "shadcn theme configuration. Set preset to a preset code, named preset, or preset URL.",
+  ),
   directoryConflict: DirectoryConflictSchema.optional(),
 }).describe(
   "Explicit Better T Stack project configuration for MCP use. Provide the full stack config instead of relying on inferred defaults.",
@@ -158,7 +162,13 @@ function getStackGuidance() {
         "serverDeploy",
         "i18n",
       ],
-      optionalFields: ["addonOptions", "dbSetupOptions", "i18nOptions", "directoryConflict"],
+      optionalFields: [
+        "addonOptions",
+        "dbSetupOptions",
+        "i18nOptions",
+        "shadcn",
+        "directoryConflict",
+      ],
       rule: "Do not call bts_plan_project or bts_create_project with a partial payload. MCP project creation requires the full explicit stack config.",
     },
     fieldNotes: {
@@ -178,6 +188,8 @@ function getStackGuidance() {
         "install is always required. For MCP project creation, prefer false because many clients enforce request timeouts around long-running dependency installs.",
       i18n: "i18n should be sent explicitly. Use 'none' when no internationalization is requested; when a library is selected, pass i18nOptions with locales and routing when the user cares about them.",
       git: "git is always required. Set it to true or false explicitly instead of relying on defaults.",
+      shadcn:
+        "shadcn is optional and only applies to React web frontends. When provided it must include a preset (code, named preset, or preset URL); base defaults to baseui.",
     },
     ambiguityRules: [
       "If the user request leaves major stack choices unspecified, stop and resolve them before calling bts_plan_project.",

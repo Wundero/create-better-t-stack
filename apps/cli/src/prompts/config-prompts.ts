@@ -18,6 +18,7 @@ import type {
   ProjectConfig,
   Runtime,
   ServerDeploy,
+  ShadcnConfig,
   WebDeploy,
 } from "../types";
 import { isSilent } from "../utils/context";
@@ -40,6 +41,7 @@ import { getPackageManagerChoice } from "./package-manager";
 import { getPaymentsChoice } from "./payments";
 import { getRuntimeChoice } from "./runtime";
 import { getServerDeploymentChoice } from "./server-deploy";
+import { getShadcnChoice } from "./shadcn";
 import { getDeploymentChoice } from "./web-deploy";
 
 type PromptGroupResults = {
@@ -61,6 +63,7 @@ type PromptGroupResults = {
   install: boolean;
   webDeploy: WebDeploy;
   serverDeploy: ServerDeploy;
+  shadcn: ShadcnConfig | undefined;
   dbSetupMode: DbSetupOptions["mode"];
 };
 
@@ -96,6 +99,7 @@ export async function gatherConfig(
       api: flags.api ?? DEFAULT_CONFIG.api,
       webDeploy: flags.webDeploy ?? DEFAULT_CONFIG.webDeploy,
       serverDeploy: flags.serverDeploy ?? DEFAULT_CONFIG.serverDeploy,
+      shadcn: flags.shadcn,
     };
   }
 
@@ -186,6 +190,8 @@ export async function gatherConfig(
           results.webDeploy,
           previousAnswer,
         ),
+      shadcn: ({ results, previousAnswer }) =>
+        getShadcnChoice(flags.shadcn, results.frontend ?? [], previousAnswer),
       dbSetupMode: ({ results, previousAnswer }) =>
         getDbProvisioningChoice(
           flags.dbSetupOptions?.mode ?? (options.manualDb === true ? "manual" : undefined),
@@ -209,7 +215,7 @@ export async function gatherConfig(
         { label: "Data", prompts: ["database", "orm", "dbSetup"] },
         {
           label: "Product",
-          prompts: ["auth", "payments", "addons", "i18n", "i18nOptions", "examples"],
+          prompts: ["auth", "payments", "addons", "i18n", "i18nOptions", "examples", "shadcn"],
         },
         {
           label: "Ship",
@@ -246,5 +252,6 @@ export async function gatherConfig(
     api: result.api,
     webDeploy: result.webDeploy,
     serverDeploy: result.serverDeploy,
+    shadcn: result.shadcn,
   };
 }

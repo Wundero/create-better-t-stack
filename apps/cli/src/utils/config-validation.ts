@@ -41,6 +41,7 @@ import {
 } from "./compatibility-rules";
 import { CLIError, ValidationError } from "./errors";
 import { validateI18nConfig } from "./i18n-cli";
+import { hasReactWebFrontend, isValidShadcnPresetValue } from "./shadcn";
 
 type ValidationResult = Result<void, ValidationError>;
 type ConfigValidationResult = Result<void, ValidationError | CLIError>;
@@ -234,6 +235,31 @@ export function validateDatabaseProvisioningMode(config: Partial<ProjectConfig>)
   ) {
     return validationErr(
       "Alchemy database provisioning requires Neon, PlanetScale, or Prisma Postgres and an Alchemy deployment target for the app that consumes the database.",
+    );
+  }
+
+  return Result.ok(undefined);
+}
+
+export function validateShadcn(config: Partial<ProjectConfig>): ValidationResult {
+  const shadcn = config.shadcn;
+  if (!shadcn) return Result.ok(undefined);
+
+  if (!shadcn.preset) {
+    return validationErr(
+      "shadcn theming requires a preset. Provide '--shadcn-preset <code|name|url>' or omit shadcn options.",
+    );
+  }
+
+  if (!isValidShadcnPresetValue(shadcn.preset)) {
+    return validationErr(
+      `Invalid shadcn preset "${shadcn.preset}". Use a preset code, a named preset, or a preset URL.`,
+    );
+  }
+
+  if (config.frontend !== undefined && !hasReactWebFrontend(config.frontend)) {
+    return validationErr(
+      "shadcn theming requires a React web frontend (next, tanstack-start, tanstack-router, or react-router).",
     );
   }
 
@@ -440,6 +466,8 @@ export function validateFullConfig(
     yield* validateBackendConstraints(config, providedFlags, options);
 
     yield* validateFrontendConstraints(config, providedFlags);
+
+    yield* validateShadcn(config);
 
     yield* validateApiConstraints(config, options);
 

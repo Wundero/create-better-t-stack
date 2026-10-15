@@ -3,6 +3,7 @@ import type {
   FullstackFrontend,
   NativeFrontend,
   ProjectConfig,
+  ShadcnBase,
   WebFrontend,
 } from "@better-t-stack/types";
 
@@ -30,10 +31,23 @@ export type StackState = Pick<
   git: "true" | "false";
   install: "true" | "false";
   yolo: "true" | "false";
+  shadcnPreset: string;
+  shadcnBase: ShadcnBase;
+  shadcnRtl: boolean;
+  shadcnPointer: boolean;
 };
 
 // `i18nOptions` is a nested value object, not a selectable tech option.
-export type TechCategory = Exclude<keyof StackState, "projectName" | "yolo" | "i18nOptions">;
+export type TechCategory = Exclude<
+  keyof StackState,
+  | "projectName"
+  | "yolo"
+  | "i18nOptions"
+  | "shadcnPreset"
+  | "shadcnBase"
+  | "shadcnRtl"
+  | "shadcnPointer"
+>;
 type StackOptionIds = {
   [K in TechCategory]: Extract<StackState[K] extends (infer Id)[] ? Id : StackState[K], string>;
 };
