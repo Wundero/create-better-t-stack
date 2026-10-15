@@ -373,6 +373,9 @@ describe("i18n CLI flags end to end", () => {
           "en=example.com",
           "--i18n-domain",
           "fr=fr.example.com",
+          // Keeps the interactive shadcn theme prompt out of this flag-only run.
+          "--shadcn-preset",
+          "nova",
         ],
         logger: { info: () => {}, error: () => {} },
         process: { exit: () => 0 as never },

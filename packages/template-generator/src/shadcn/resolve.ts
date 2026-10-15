@@ -15,6 +15,7 @@ import {
   decodePreset,
   encodePreset,
   isPresetCode,
+  usesShadcnLocaleDirection,
   type PresetConfig,
   type ProjectConfig,
 } from "@better-t-stack/types";
@@ -248,7 +249,15 @@ export async function resolveShadcnTheme(
   if (presetResult.isErr()) return Result.err(presetResult.error);
   const { params, code } = presetResult.value;
 
-  const rtl = shadcn?.rtl ?? false;
+  // RTL support is auto-enabled when a configured i18n locale is RTL; an
+  // explicit `shadcn.rtl` always selects it (design D3, `shadcn-direction`).
+  const rtl =
+    (shadcn?.rtl ?? false) ||
+    usesShadcnLocaleDirection({
+      shadcn,
+      i18n: config.i18n,
+      i18nOptions: config.i18nOptions,
+    });
   const pointer = shadcn?.pointer ?? false;
 
   const input: ResolveBaseInput = {

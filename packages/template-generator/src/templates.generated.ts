@@ -14983,6 +14983,17 @@ Disallow:
 },"useData":true}],
   ["frontend/react/next/src/app/favicon.ico", { kind: "raw", content: `[Binary file]` }],
   ["frontend/react/next/src/app/layout.tsx.hbs", { kind: "template", "0":function(container,depth0,helpers,partials,data) {
+    return "import { LocaleDirectionProvider } from \"@/components/locale-direction-provider\";\n";
+},"1":function(container,depth0,helpers,partials,data) {
+    var stack1, lookupProperty = container.lookupProperty || function(parent: any, propertyName: any) {
+        if (Object.prototype.hasOwnProperty.call(parent, propertyName)) {
+          return parent[propertyName];
+        }
+        return undefined
+    };
+
+  return ((stack1 = lookupProperty(helpers,"if").call(depth0 != null ? depth0 : (container.nullContext || {}),((stack1 = (depth0 != null ? lookupProperty(depth0,"shadcn") : depth0)) != null ? lookupProperty(stack1,"rtl") : stack1),{"name":"if","hash":{},"fn":container.program(2, data, 0),"inverse":container.noop,"data":data,"loc":{"start":{"line":6,"column":0},"end":{"line":7,"column":0}}})) != null ? stack1 : "");
+},"2":function(container,depth0,helpers,partials,data) {
     var helper, lookupProperty = container.lookupProperty || function(parent: any, propertyName: any) {
         if (Object.prototype.hasOwnProperty.call(parent, propertyName)) {
           return parent[propertyName];
@@ -14991,14 +15002,14 @@ Disallow:
     };
 
   return "import { DirectionProvider } from \"@"
-    + container.escapeExpression(((helper = (helper = lookupProperty(helpers,"projectName") || (depth0 != null ? lookupProperty(depth0,"projectName") : depth0)) != null ? helper : container.hooks.helperMissing),(typeof helper === "function" ? helper.call(depth0 != null ? depth0 : (container.nullContext || {}),{"name":"projectName","hash":{},"data":data,"loc":{"start":{"line":5,"column":54},"end":{"line":5,"column":69}}}) : helper)))
+    + container.escapeExpression(((helper = (helper = lookupProperty(helpers,"projectName") || (depth0 != null ? lookupProperty(depth0,"projectName") : depth0)) != null ? helper : container.hooks.helperMissing),(typeof helper === "function" ? helper.call(depth0 != null ? depth0 : (container.nullContext || {}),{"name":"projectName","hash":{},"data":data,"loc":{"start":{"line":6,"column":58},"end":{"line":6,"column":73}}}) : helper)))
     + "/ui/components/direction\";\n";
-},"1":function(container,depth0,helpers,partials,data) {
-    return "import { ClerkProvider } from \"@clerk/nextjs\";\n";
-},"2":function(container,depth0,helpers,partials,data) {
-    return "\nimport { getToken } from \"@/lib/auth-server\";\n";
 },"3":function(container,depth0,helpers,partials,data) {
-    var stack1, alias1=depth0 != null ? depth0 : (container.nullContext || {}), lookupProperty = container.lookupProperty || function(parent: any, propertyName: any) {
+    return "import { ClerkProvider } from \"@clerk/nextjs\";\n";
+},"4":function(container,depth0,helpers,partials,data) {
+    return "\nimport { getToken } from \"@/lib/auth-server\";\n";
+},"5":function(container,depth0,helpers,partials,data) {
+    var stack1, alias1=depth0 != null ? depth0 : (container.nullContext || {}), alias2=container.hooks.helperMissing, lookupProperty = container.lookupProperty || function(parent: any, propertyName: any) {
         if (Object.prototype.hasOwnProperty.call(parent, propertyName)) {
           return parent[propertyName];
         }
@@ -15006,20 +15017,51 @@ Disallow:
     };
 
   return "export default async function RootLayout({\n  children,\n}: Readonly<{\n  children: React.ReactNode;\n}>) {\n  const token = await getToken();\n  return (\n    <html lang=\"en\" suppressHydrationWarning"
-    + ((stack1 = lookupProperty(helpers,"if").call(alias1,((stack1 = (depth0 != null ? lookupProperty(depth0,"shadcn") : depth0)) != null ? lookupProperty(stack1,"rtl") : stack1),{"name":"if","hash":{},"fn":container.program(4, data, 0),"inverse":container.noop,"data":data,"loc":{"start":{"line":27,"column":44},"end":{"line":27,"column":79}}})) != null ? stack1 : "")
+    + ((stack1 = lookupProperty(helpers,"unless").call(alias1,(lookupProperty(helpers,"usesShadcnDirection")||(depth0 && lookupProperty(depth0,"usesShadcnDirection"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"shadcn") : depth0),(depth0 != null ? lookupProperty(depth0,"i18n") : depth0),(depth0 != null ? lookupProperty(depth0,"i18nOptions") : depth0),{"name":"usesShadcnDirection","hash":{},"data":data,"loc":{"start":{"line":28,"column":54},"end":{"line":28,"column":99}}}),{"name":"unless","hash":{},"fn":container.program(6, data, 0),"inverse":container.noop,"data":data,"loc":{"start":{"line":28,"column":44},"end":{"line":28,"column":147}}})) != null ? stack1 : "")
     + ">\n      <body\n        className={`${GeistSans.variable} ${GeistMono.variable} antialiased`}\n      >\n        <ThemeProvider\n          attribute=\"class\"\n          defaultTheme=\"system\"\n          enableSystem\n          disableTransitionOnChange\n          storage=\"hybrid\"\n        >\n          "
-    + ((stack1 = lookupProperty(helpers,"if").call(alias1,((stack1 = (depth0 != null ? lookupProperty(depth0,"shadcn") : depth0)) != null ? lookupProperty(stack1,"rtl") : stack1),{"name":"if","hash":{},"fn":container.program(5, data, 0),"inverse":container.noop,"data":data,"loc":{"start":{"line":38,"column":10},"end":{"line":39,"column":17}}})) != null ? stack1 : "")
+    + ((stack1 = lookupProperty(helpers,"if").call(alias1,(lookupProperty(helpers,"usesShadcnDirection")||(depth0 && lookupProperty(depth0,"usesShadcnDirection"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"shadcn") : depth0),(depth0 != null ? lookupProperty(depth0,"i18n") : depth0),(depth0 != null ? lookupProperty(depth0,"i18nOptions") : depth0),{"name":"usesShadcnDirection","hash":{},"data":data,"loc":{"start":{"line":39,"column":16},"end":{"line":39,"column":61}}}),{"name":"if","hash":{},"fn":container.program(8, data, 0),"inverse":container.program(9, data, 0),"data":data,"loc":{"start":{"line":39,"column":10},"end":{"line":41,"column":17}}})) != null ? stack1 : "")
     + "<Providers initialToken={token}>\n            <div className=\"grid grid-rows-[auto_1fr] h-svh\">\n              <Header />\n              {children}\n            </div>\n          </Providers>"
-    + ((stack1 = lookupProperty(helpers,"if").call(alias1,((stack1 = (depth0 != null ? lookupProperty(depth0,"shadcn") : depth0)) != null ? lookupProperty(stack1,"rtl") : stack1),{"name":"if","hash":{},"fn":container.program(6, data, 0),"inverse":container.noop,"data":data,"loc":{"start":{"line":44,"column":22},"end":{"line":45,"column":37}}})) != null ? stack1 : "")
+    + ((stack1 = lookupProperty(helpers,"if").call(alias1,(lookupProperty(helpers,"usesShadcnDirection")||(depth0 && lookupProperty(depth0,"usesShadcnDirection"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"shadcn") : depth0),(depth0 != null ? lookupProperty(depth0,"i18n") : depth0),(depth0 != null ? lookupProperty(depth0,"i18nOptions") : depth0),{"name":"usesShadcnDirection","hash":{},"data":data,"loc":{"start":{"line":46,"column":28},"end":{"line":46,"column":73}}}),{"name":"if","hash":{},"fn":container.program(11, data, 0),"inverse":container.program(12, data, 0),"data":data,"loc":{"start":{"line":46,"column":22},"end":{"line":49,"column":37}}})) != null ? stack1 : "")
     + "\n        </ThemeProvider>\n      </body>\n    </html>\n  );\n}\n";
-},"4":function(container,depth0,helpers,partials,data) {
-    return " dir=\"rtl\"";
-},"5":function(container,depth0,helpers,partials,data) {
-    return "<DirectionProvider direction=\"rtl\">\n          ";
 },"6":function(container,depth0,helpers,partials,data) {
-    return "\n          </DirectionProvider>";
+    var stack1, lookupProperty = container.lookupProperty || function(parent: any, propertyName: any) {
+        if (Object.prototype.hasOwnProperty.call(parent, propertyName)) {
+          return parent[propertyName];
+        }
+        return undefined
+    };
+
+  return ((stack1 = lookupProperty(helpers,"if").call(depth0 != null ? depth0 : (container.nullContext || {}),((stack1 = (depth0 != null ? lookupProperty(depth0,"shadcn") : depth0)) != null ? lookupProperty(stack1,"rtl") : stack1),{"name":"if","hash":{},"fn":container.program(7, data, 0),"inverse":container.noop,"data":data,"loc":{"start":{"line":28,"column":101},"end":{"line":28,"column":136}}})) != null ? stack1 : "");
 },"7":function(container,depth0,helpers,partials,data) {
-    var stack1, alias1=depth0 != null ? depth0 : (container.nullContext || {}), lookupProperty = container.lookupProperty || function(parent: any, propertyName: any) {
+    return " dir=\"rtl\"";
+},"8":function(container,depth0,helpers,partials,data) {
+    return "<LocaleDirectionProvider>\n          ";
+},"9":function(container,depth0,helpers,partials,data) {
+    var stack1, lookupProperty = container.lookupProperty || function(parent: any, propertyName: any) {
+        if (Object.prototype.hasOwnProperty.call(parent, propertyName)) {
+          return parent[propertyName];
+        }
+        return undefined
+    };
+
+  return ((stack1 = lookupProperty(helpers,"if").call(depth0 != null ? depth0 : (container.nullContext || {}),((stack1 = (depth0 != null ? lookupProperty(depth0,"shadcn") : depth0)) != null ? lookupProperty(stack1,"rtl") : stack1),{"name":"if","hash":{},"fn":container.program(10, data, 0),"inverse":container.noop,"data":data,"loc":{"start":{"line":40,"column":10},"end":{"line":41,"column":10}}})) != null ? stack1 : "");
+},"10":function(container,depth0,helpers,partials,data) {
+    return "<DirectionProvider direction=\"rtl\">\n          ";
+},"11":function(container,depth0,helpers,partials,data) {
+    return "\n          </LocaleDirectionProvider>\n";
+},"12":function(container,depth0,helpers,partials,data) {
+    var stack1, lookupProperty = container.lookupProperty || function(parent: any, propertyName: any) {
+        if (Object.prototype.hasOwnProperty.call(parent, propertyName)) {
+          return parent[propertyName];
+        }
+        return undefined
+    };
+
+  return ((stack1 = lookupProperty(helpers,"if").call(depth0 != null ? depth0 : (container.nullContext || {}),((stack1 = (depth0 != null ? lookupProperty(depth0,"shadcn") : depth0)) != null ? lookupProperty(stack1,"rtl") : stack1),{"name":"if","hash":{},"fn":container.program(13, data, 0),"inverse":container.noop,"data":data,"loc":{"start":{"line":48,"column":10},"end":{"line":49,"column":30}}})) != null ? stack1 : "");
+},"13":function(container,depth0,helpers,partials,data) {
+    return "          </DirectionProvider>";
+},"14":function(container,depth0,helpers,partials,data) {
+    var stack1, alias1=depth0 != null ? depth0 : (container.nullContext || {}), alias2=container.hooks.helperMissing, lookupProperty = container.lookupProperty || function(parent: any, propertyName: any) {
         if (Object.prototype.hasOwnProperty.call(parent, propertyName)) {
           return parent[propertyName];
         }
@@ -15027,20 +15069,42 @@ Disallow:
     };
 
   return "export default function RootLayout({\n  children,\n}: Readonly<{\n  children: React.ReactNode;\n}>) {\n\treturn (\n\t\t<html lang=\"en\" suppressHydrationWarning"
-    + ((stack1 = lookupProperty(helpers,"if").call(alias1,((stack1 = (depth0 != null ? lookupProperty(depth0,"shadcn") : depth0)) != null ? lookupProperty(stack1,"rtl") : stack1),{"name":"if","hash":{},"fn":container.program(4, data, 0),"inverse":container.noop,"data":data,"loc":{"start":{"line":58,"column":42},"end":{"line":58,"column":77}}})) != null ? stack1 : "")
+    + ((stack1 = lookupProperty(helpers,"unless").call(alias1,(lookupProperty(helpers,"usesShadcnDirection")||(depth0 && lookupProperty(depth0,"usesShadcnDirection"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"shadcn") : depth0),(depth0 != null ? lookupProperty(depth0,"i18n") : depth0),(depth0 != null ? lookupProperty(depth0,"i18nOptions") : depth0),{"name":"usesShadcnDirection","hash":{},"data":data,"loc":{"start":{"line":62,"column":52},"end":{"line":62,"column":97}}}),{"name":"unless","hash":{},"fn":container.program(6, data, 0),"inverse":container.noop,"data":data,"loc":{"start":{"line":62,"column":42},"end":{"line":62,"column":145}}})) != null ? stack1 : "")
     + ">\n\t\t\t<body\n\t\t\t\tclassName={`${GeistSans.variable} ${GeistMono.variable} antialiased`}\n\t\t\t>\n\t\t\t\t<ThemeProvider\n\t\t\t\t\tattribute=\"class\"\n\t\t\t\t\tdefaultTheme=\"system\"\n\t\t\t\t\tenableSystem\n\t\t\t\t\tdisableTransitionOnChange\n\t\t\t\t\tstorage=\"hybrid\"\n\t\t\t\t>\n\t\t\t\t\t"
-    + ((stack1 = lookupProperty(helpers,"if").call(alias1,((stack1 = (depth0 != null ? lookupProperty(depth0,"shadcn") : depth0)) != null ? lookupProperty(stack1,"rtl") : stack1),{"name":"if","hash":{},"fn":container.program(8, data, 0),"inverse":container.noop,"data":data,"loc":{"start":{"line":69,"column":5},"end":{"line":70,"column":12}}})) != null ? stack1 : "")
-    + ((stack1 = lookupProperty(helpers,"if").call(alias1,(lookupProperty(helpers,"eq")||(depth0 && lookupProperty(depth0,"eq"))||container.hooks.helperMissing).call(alias1,(depth0 != null ? lookupProperty(depth0,"auth") : depth0),"clerk",{"name":"eq","hash":{},"data":data,"loc":{"start":{"line":70,"column":18},"end":{"line":70,"column":35}}}),{"name":"if","hash":{},"fn":container.program(9, data, 0),"inverse":container.program(10, data, 0),"data":data,"loc":{"start":{"line":70,"column":12},"end":{"line":82,"column":24}}})) != null ? stack1 : "")
-    + ((stack1 = lookupProperty(helpers,"if").call(alias1,((stack1 = (depth0 != null ? lookupProperty(depth0,"shadcn") : depth0)) != null ? lookupProperty(stack1,"rtl") : stack1),{"name":"if","hash":{},"fn":container.program(11, data, 0),"inverse":container.noop,"data":data,"loc":{"start":{"line":82,"column":24},"end":{"line":83,"column":32}}})) != null ? stack1 : "")
+    + ((stack1 = lookupProperty(helpers,"if").call(alias1,(lookupProperty(helpers,"usesShadcnDirection")||(depth0 && lookupProperty(depth0,"usesShadcnDirection"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"shadcn") : depth0),(depth0 != null ? lookupProperty(depth0,"i18n") : depth0),(depth0 != null ? lookupProperty(depth0,"i18nOptions") : depth0),{"name":"usesShadcnDirection","hash":{},"data":data,"loc":{"start":{"line":73,"column":11},"end":{"line":73,"column":56}}}),{"name":"if","hash":{},"fn":container.program(15, data, 0),"inverse":container.program(16, data, 0),"data":data,"loc":{"start":{"line":73,"column":5},"end":{"line":75,"column":12}}})) != null ? stack1 : "")
+    + ((stack1 = lookupProperty(helpers,"if").call(alias1,(lookupProperty(helpers,"eq")||(depth0 && lookupProperty(depth0,"eq"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"auth") : depth0),"clerk",{"name":"eq","hash":{},"data":data,"loc":{"start":{"line":75,"column":18},"end":{"line":75,"column":35}}}),{"name":"if","hash":{},"fn":container.program(18, data, 0),"inverse":container.program(19, data, 0),"data":data,"loc":{"start":{"line":75,"column":12},"end":{"line":87,"column":24}}})) != null ? stack1 : "")
+    + ((stack1 = lookupProperty(helpers,"if").call(alias1,(lookupProperty(helpers,"usesShadcnDirection")||(depth0 && lookupProperty(depth0,"usesShadcnDirection"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"shadcn") : depth0),(depth0 != null ? lookupProperty(depth0,"i18n") : depth0),(depth0 != null ? lookupProperty(depth0,"i18nOptions") : depth0),{"name":"usesShadcnDirection","hash":{},"data":data,"loc":{"start":{"line":87,"column":30},"end":{"line":87,"column":75}}}),{"name":"if","hash":{},"fn":container.program(20, data, 0),"inverse":container.program(21, data, 0),"data":data,"loc":{"start":{"line":87,"column":24},"end":{"line":90,"column":32}}})) != null ? stack1 : "")
     + "\n\t\t\t\t</ThemeProvider>\n\t\t\t</body>\n\t\t</html>\n\t);\n}\n";
-},"8":function(container,depth0,helpers,partials,data) {
+},"15":function(container,depth0,helpers,partials,data) {
+    return "<LocaleDirectionProvider>\n\t\t\t\t\t";
+},"16":function(container,depth0,helpers,partials,data) {
+    var stack1, lookupProperty = container.lookupProperty || function(parent: any, propertyName: any) {
+        if (Object.prototype.hasOwnProperty.call(parent, propertyName)) {
+          return parent[propertyName];
+        }
+        return undefined
+    };
+
+  return ((stack1 = lookupProperty(helpers,"if").call(depth0 != null ? depth0 : (container.nullContext || {}),((stack1 = (depth0 != null ? lookupProperty(depth0,"shadcn") : depth0)) != null ? lookupProperty(stack1,"rtl") : stack1),{"name":"if","hash":{},"fn":container.program(17, data, 0),"inverse":container.noop,"data":data,"loc":{"start":{"line":74,"column":5},"end":{"line":75,"column":5}}})) != null ? stack1 : "");
+},"17":function(container,depth0,helpers,partials,data) {
     return "<DirectionProvider direction=\"rtl\">\n\t\t\t\t\t";
-},"9":function(container,depth0,helpers,partials,data) {
+},"18":function(container,depth0,helpers,partials,data) {
     return "<ClerkProvider>\n\t\t\t\t\t\t<Providers>\n\t\t\t\t\t\t\t<div className=\"grid grid-rows-[auto_1fr] h-svh\">\n\t\t\t\t\t\t\t\t<Header />\n\t\t\t\t\t\t\t\t{children}\n\t\t\t\t\t\t\t</div>\n\t\t\t\t\t\t</Providers>\n\t\t\t\t\t</ClerkProvider>";
-},"10":function(container,depth0,helpers,partials,data) {
+},"19":function(container,depth0,helpers,partials,data) {
     return "<Providers>\n\t\t\t\t\t\t<div className=\"grid grid-rows-[auto_1fr] h-svh\">\n\t\t\t\t\t\t\t<Header />\n\t\t\t\t\t\t\t{children}\n\t\t\t\t\t\t</div>\n\t\t\t\t\t</Providers>";
-},"11":function(container,depth0,helpers,partials,data) {
-    return "\n\t\t\t\t\t</DirectionProvider>";
+},"20":function(container,depth0,helpers,partials,data) {
+    return "\n\t\t\t\t\t</LocaleDirectionProvider>\n";
+},"21":function(container,depth0,helpers,partials,data) {
+    var stack1, lookupProperty = container.lookupProperty || function(parent: any, propertyName: any) {
+        if (Object.prototype.hasOwnProperty.call(parent, propertyName)) {
+          return parent[propertyName];
+        }
+        return undefined
+    };
+
+  return ((stack1 = lookupProperty(helpers,"if").call(depth0 != null ? depth0 : (container.nullContext || {}),((stack1 = (depth0 != null ? lookupProperty(depth0,"shadcn") : depth0)) != null ? lookupProperty(stack1,"rtl") : stack1),{"name":"if","hash":{},"fn":container.program(22, data, 0),"inverse":container.noop,"data":data,"loc":{"start":{"line":89,"column":5},"end":{"line":90,"column":25}}})) != null ? stack1 : "");
+},"22":function(container,depth0,helpers,partials,data) {
+    return "\t\t\t\t\t</DirectionProvider>";
 },"compiler":[8,">= 4.3.0"],"main":function(container,depth0,helpers,partials,data) {
     var stack1, helper, alias1=depth0 != null ? depth0 : (container.nullContext || {}), alias2=container.hooks.helperMissing, alias3="function", alias4=container.escapeExpression, lookupProperty = container.lookupProperty || function(parent: any, propertyName: any) {
         if (Object.prototype.hasOwnProperty.call(parent, propertyName)) {
@@ -15050,15 +15114,15 @@ Disallow:
     };
 
   return "import type { Metadata } from \"next\";\nimport { GeistMono } from \"geist/font/mono\";\nimport { GeistSans } from \"geist/font/sans\";\nimport \"../index.css\";\n"
-    + ((stack1 = lookupProperty(helpers,"if").call(alias1,((stack1 = (depth0 != null ? lookupProperty(depth0,"shadcn") : depth0)) != null ? lookupProperty(stack1,"rtl") : stack1),{"name":"if","hash":{},"fn":container.program(0, data, 0),"inverse":container.noop,"data":data,"loc":{"start":{"line":5,"column":0},"end":{"line":6,"column":7}}})) != null ? stack1 : "")
-    + ((stack1 = lookupProperty(helpers,"if").call(alias1,(lookupProperty(helpers,"eq")||(depth0 && lookupProperty(depth0,"eq"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"auth") : depth0),"clerk",{"name":"eq","hash":{},"data":data,"loc":{"start":{"line":6,"column":13},"end":{"line":6,"column":30}}}),{"name":"if","hash":{},"fn":container.program(1, data, 0),"inverse":container.noop,"data":data,"loc":{"start":{"line":6,"column":7},"end":{"line":7,"column":7}}})) != null ? stack1 : "")
-    + ((stack1 = lookupProperty(helpers,"if").call(alias1,(lookupProperty(helpers,"and")||(depth0 && lookupProperty(depth0,"and"))||alias2).call(alias1,(lookupProperty(helpers,"eq")||(depth0 && lookupProperty(depth0,"eq"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"backend") : depth0),"convex",{"name":"eq","hash":{},"data":data,"loc":{"start":{"line":7,"column":18},"end":{"line":7,"column":39}}}),(lookupProperty(helpers,"eq")||(depth0 && lookupProperty(depth0,"eq"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"auth") : depth0),"better-auth",{"name":"eq","hash":{},"data":data,"loc":{"start":{"line":7,"column":40},"end":{"line":7,"column":63}}}),{"name":"and","hash":{},"data":data,"loc":{"start":{"line":7,"column":13},"end":{"line":7,"column":64}}}),{"name":"if","hash":{},"fn":container.program(2, data, 0),"inverse":container.noop,"data":data,"loc":{"start":{"line":7,"column":7},"end":{"line":9,"column":7}}})) != null ? stack1 : "")
+    + ((stack1 = lookupProperty(helpers,"if").call(alias1,(lookupProperty(helpers,"usesShadcnDirection")||(depth0 && lookupProperty(depth0,"usesShadcnDirection"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"shadcn") : depth0),(depth0 != null ? lookupProperty(depth0,"i18n") : depth0),(depth0 != null ? lookupProperty(depth0,"i18nOptions") : depth0),{"name":"usesShadcnDirection","hash":{},"data":data,"loc":{"start":{"line":5,"column":6},"end":{"line":5,"column":51}}}),{"name":"if","hash":{},"fn":container.program(0, data, 0),"inverse":container.program(1, data, 0),"data":data,"loc":{"start":{"line":5,"column":0},"end":{"line":7,"column":7}}})) != null ? stack1 : "")
+    + ((stack1 = lookupProperty(helpers,"if").call(alias1,(lookupProperty(helpers,"eq")||(depth0 && lookupProperty(depth0,"eq"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"auth") : depth0),"clerk",{"name":"eq","hash":{},"data":data,"loc":{"start":{"line":7,"column":13},"end":{"line":7,"column":30}}}),{"name":"if","hash":{},"fn":container.program(3, data, 0),"inverse":container.noop,"data":data,"loc":{"start":{"line":7,"column":7},"end":{"line":8,"column":7}}})) != null ? stack1 : "")
+    + ((stack1 = lookupProperty(helpers,"if").call(alias1,(lookupProperty(helpers,"and")||(depth0 && lookupProperty(depth0,"and"))||alias2).call(alias1,(lookupProperty(helpers,"eq")||(depth0 && lookupProperty(depth0,"eq"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"backend") : depth0),"convex",{"name":"eq","hash":{},"data":data,"loc":{"start":{"line":8,"column":18},"end":{"line":8,"column":39}}}),(lookupProperty(helpers,"eq")||(depth0 && lookupProperty(depth0,"eq"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"auth") : depth0),"better-auth",{"name":"eq","hash":{},"data":data,"loc":{"start":{"line":8,"column":40},"end":{"line":8,"column":63}}}),{"name":"and","hash":{},"data":data,"loc":{"start":{"line":8,"column":13},"end":{"line":8,"column":64}}}),{"name":"if","hash":{},"fn":container.program(4, data, 0),"inverse":container.noop,"data":data,"loc":{"start":{"line":8,"column":7},"end":{"line":10,"column":7}}})) != null ? stack1 : "")
     + "import Providers from \"@/components/providers\";\nimport Header from \"@/components/header\";\nimport { ThemeProvider } from \"@wrksz/themes/next\";\n\nexport const metadata: Metadata = {\n  title: \""
-    + alias4(((helper = (helper = lookupProperty(helpers,"projectName") || (depth0 != null ? lookupProperty(depth0,"projectName") : depth0)) != null ? helper : alias2),(typeof helper === alias3 ? helper.call(alias1,{"name":"projectName","hash":{},"data":data,"loc":{"start":{"line":15,"column":10},"end":{"line":15,"column":25}}}) : helper)))
+    + alias4(((helper = (helper = lookupProperty(helpers,"projectName") || (depth0 != null ? lookupProperty(depth0,"projectName") : depth0)) != null ? helper : alias2),(typeof helper === alias3 ? helper.call(alias1,{"name":"projectName","hash":{},"data":data,"loc":{"start":{"line":16,"column":10},"end":{"line":16,"column":25}}}) : helper)))
     + "\",\n  description: \""
-    + alias4(((helper = (helper = lookupProperty(helpers,"projectName") || (depth0 != null ? lookupProperty(depth0,"projectName") : depth0)) != null ? helper : alias2),(typeof helper === alias3 ? helper.call(alias1,{"name":"projectName","hash":{},"data":data,"loc":{"start":{"line":16,"column":16},"end":{"line":16,"column":31}}}) : helper)))
+    + alias4(((helper = (helper = lookupProperty(helpers,"projectName") || (depth0 != null ? lookupProperty(depth0,"projectName") : depth0)) != null ? helper : alias2),(typeof helper === alias3 ? helper.call(alias1,{"name":"projectName","hash":{},"data":data,"loc":{"start":{"line":17,"column":16},"end":{"line":17,"column":31}}}) : helper)))
     + "\",\n};\n\n"
-    + ((stack1 = lookupProperty(helpers,"if").call(alias1,(lookupProperty(helpers,"and")||(depth0 && lookupProperty(depth0,"and"))||alias2).call(alias1,(lookupProperty(helpers,"eq")||(depth0 && lookupProperty(depth0,"eq"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"backend") : depth0),"convex",{"name":"eq","hash":{},"data":data,"loc":{"start":{"line":19,"column":11},"end":{"line":19,"column":32}}}),(lookupProperty(helpers,"eq")||(depth0 && lookupProperty(depth0,"eq"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"auth") : depth0),"better-auth",{"name":"eq","hash":{},"data":data,"loc":{"start":{"line":19,"column":33},"end":{"line":19,"column":56}}}),{"name":"and","hash":{},"data":data,"loc":{"start":{"line":19,"column":6},"end":{"line":19,"column":57}}}),{"name":"if","hash":{},"fn":container.program(3, data, 0),"inverse":container.program(7, data, 0),"data":data,"loc":{"start":{"line":19,"column":0},"end":{"line":89,"column":7}}})) != null ? stack1 : "");
+    + ((stack1 = lookupProperty(helpers,"if").call(alias1,(lookupProperty(helpers,"and")||(depth0 && lookupProperty(depth0,"and"))||alias2).call(alias1,(lookupProperty(helpers,"eq")||(depth0 && lookupProperty(depth0,"eq"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"backend") : depth0),"convex",{"name":"eq","hash":{},"data":data,"loc":{"start":{"line":20,"column":11},"end":{"line":20,"column":32}}}),(lookupProperty(helpers,"eq")||(depth0 && lookupProperty(depth0,"eq"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"auth") : depth0),"better-auth",{"name":"eq","hash":{},"data":data,"loc":{"start":{"line":20,"column":33},"end":{"line":20,"column":56}}}),{"name":"and","hash":{},"data":data,"loc":{"start":{"line":20,"column":6},"end":{"line":20,"column":57}}}),{"name":"if","hash":{},"fn":container.program(5, data, 0),"inverse":container.program(14, data, 0),"data":data,"loc":{"start":{"line":20,"column":0},"end":{"line":96,"column":7}}})) != null ? stack1 : "");
 },"useData":true}],
   ["frontend/react/next/src/app/page.tsx.hbs", { kind: "template", "0":function(container,depth0,helpers,partials,data) {
     var helper, lookupProperty = container.lookupProperty || function(parent: any, propertyName: any) {
@@ -15425,6 +15489,17 @@ Disallow:
     return "import * as React from \"react\";\nimport { ClientThemeProvider } from \"@wrksz/themes/client\";\n\nexport function ThemeProvider({\n  children,\n  ...props\n}: React.ComponentProps<typeof ClientThemeProvider>) {\n  return <ClientThemeProvider {...props}>{children}</ClientThemeProvider>;\n}\n\nexport { useTheme } from \"@wrksz/themes/client\";\n";
 },"useData":true}],
   ["frontend/react/react-router/src/root.tsx.hbs", { kind: "template", "0":function(container,depth0,helpers,partials,data) {
+    return "import { LocaleDirectionProvider } from \"./components/locale-direction-provider\";\n";
+},"1":function(container,depth0,helpers,partials,data) {
+    var stack1, lookupProperty = container.lookupProperty || function(parent: any, propertyName: any) {
+        if (Object.prototype.hasOwnProperty.call(parent, propertyName)) {
+          return parent[propertyName];
+        }
+        return undefined
+    };
+
+  return ((stack1 = lookupProperty(helpers,"if").call(depth0 != null ? depth0 : (container.nullContext || {}),((stack1 = (depth0 != null ? lookupProperty(depth0,"shadcn") : depth0)) != null ? lookupProperty(stack1,"rtl") : stack1),{"name":"if","hash":{},"fn":container.program(2, data, 0),"inverse":container.noop,"data":data,"loc":{"start":{"line":16,"column":0},"end":{"line":17,"column":0}}})) != null ? stack1 : "");
+},"2":function(container,depth0,helpers,partials,data) {
     var helper, lookupProperty = container.lookupProperty || function(parent: any, propertyName: any) {
         if (Object.prototype.hasOwnProperty.call(parent, propertyName)) {
           return parent[propertyName];
@@ -15433,11 +15508,11 @@ Disallow:
     };
 
   return "import { DirectionProvider } from \"@"
-    + container.escapeExpression(((helper = (helper = lookupProperty(helpers,"projectName") || (depth0 != null ? lookupProperty(depth0,"projectName") : depth0)) != null ? helper : container.hooks.helperMissing),(typeof helper === "function" ? helper.call(depth0 != null ? depth0 : (container.nullContext || {}),{"name":"projectName","hash":{},"data":data,"loc":{"start":{"line":15,"column":54},"end":{"line":15,"column":69}}}) : helper)))
+    + container.escapeExpression(((helper = (helper = lookupProperty(helpers,"projectName") || (depth0 != null ? lookupProperty(depth0,"projectName") : depth0)) != null ? helper : container.hooks.helperMissing),(typeof helper === "function" ? helper.call(depth0 != null ? depth0 : (container.nullContext || {}),{"name":"projectName","hash":{},"data":data,"loc":{"start":{"line":16,"column":58},"end":{"line":16,"column":73}}}) : helper)))
     + "/ui/components/direction\";\n";
-},"1":function(container,depth0,helpers,partials,data) {
+},"3":function(container,depth0,helpers,partials,data) {
     return "\nimport { AutumnProvider } from \"autumn-js/react\";\n";
-},"2":function(container,depth0,helpers,partials,data) {
+},"4":function(container,depth0,helpers,partials,data) {
     var stack1, alias1=depth0 != null ? depth0 : (container.nullContext || {}), alias2=container.hooks.helperMissing, lookupProperty = container.lookupProperty || function(parent: any, propertyName: any) {
         if (Object.prototype.hasOwnProperty.call(parent, propertyName)) {
           return parent[propertyName];
@@ -15446,13 +15521,13 @@ Disallow:
     };
 
   return "import { ClerkProvider"
-    + ((stack1 = lookupProperty(helpers,"if").call(alias1,(lookupProperty(helpers,"or")||(depth0 && lookupProperty(depth0,"or"))||alias2).call(alias1,(lookupProperty(helpers,"eq")||(depth0 && lookupProperty(depth0,"eq"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"backend") : depth0),"convex",{"name":"eq","hash":{},"data":data,"loc":{"start":{"line":20,"column":32},"end":{"line":20,"column":53}}}),(lookupProperty(helpers,"ne")||(depth0 && lookupProperty(depth0,"ne"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"api") : depth0),"none",{"name":"ne","hash":{},"data":data,"loc":{"start":{"line":20,"column":54},"end":{"line":20,"column":69}}}),{"name":"or","hash":{},"data":data,"loc":{"start":{"line":20,"column":28},"end":{"line":20,"column":70}}}),{"name":"if","hash":{},"fn":container.program(3, data, 0),"inverse":container.noop,"data":data,"loc":{"start":{"line":20,"column":22},"end":{"line":20,"column":88}}})) != null ? stack1 : "")
+    + ((stack1 = lookupProperty(helpers,"if").call(alias1,(lookupProperty(helpers,"or")||(depth0 && lookupProperty(depth0,"or"))||alias2).call(alias1,(lookupProperty(helpers,"eq")||(depth0 && lookupProperty(depth0,"eq"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"backend") : depth0),"convex",{"name":"eq","hash":{},"data":data,"loc":{"start":{"line":21,"column":32},"end":{"line":21,"column":53}}}),(lookupProperty(helpers,"ne")||(depth0 && lookupProperty(depth0,"ne"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"api") : depth0),"none",{"name":"ne","hash":{},"data":data,"loc":{"start":{"line":21,"column":54},"end":{"line":21,"column":69}}}),{"name":"or","hash":{},"data":data,"loc":{"start":{"line":21,"column":28},"end":{"line":21,"column":70}}}),{"name":"if","hash":{},"fn":container.program(5, data, 0),"inverse":container.noop,"data":data,"loc":{"start":{"line":21,"column":22},"end":{"line":21,"column":88}}})) != null ? stack1 : "")
     + " } from \"@clerk/react-router\";\nimport { clerkMiddleware, rootAuthLoader } from \"@clerk/react-router/server\";\n";
-},"3":function(container,depth0,helpers,partials,data) {
-    return ", useAuth";
-},"4":function(container,depth0,helpers,partials,data) {
-    return "import { useEffect } from \"react\";\nimport { setClerkAuthTokenGetter } from \"@/utils/clerk-auth\";\n";
 },"5":function(container,depth0,helpers,partials,data) {
+    return ", useAuth";
+},"6":function(container,depth0,helpers,partials,data) {
+    return "import { useEffect } from \"react\";\nimport { setClerkAuthTokenGetter } from \"@/utils/clerk-auth\";\n";
+},"7":function(container,depth0,helpers,partials,data) {
     var stack1, alias1=depth0 != null ? depth0 : (container.nullContext || {}), alias2=container.hooks.helperMissing, lookupProperty = container.lookupProperty || function(parent: any, propertyName: any) {
         if (Object.prototype.hasOwnProperty.call(parent, propertyName)) {
           return parent[propertyName];
@@ -15461,27 +15536,14 @@ Disallow:
     };
 
   return "import { ConvexReactClient } from \"convex/react\";\nimport { ENV } from \"./env"
-    + ((stack1 = lookupProperty(helpers,"if").call(alias1,(lookupProperty(helpers,"eq")||(depth0 && lookupProperty(depth0,"eq"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"webDeploy") : depth0),"cloudflare",{"name":"eq","hash":{},"data":data,"loc":{"start":{"line":30,"column":32},"end":{"line":30,"column":59}}}),{"name":"if","hash":{},"fn":container.program(6, data, 0),"inverse":container.noop,"data":data,"loc":{"start":{"line":30,"column":26},"end":{"line":30,"column":75}}})) != null ? stack1 : "")
+    + ((stack1 = lookupProperty(helpers,"if").call(alias1,(lookupProperty(helpers,"eq")||(depth0 && lookupProperty(depth0,"eq"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"webDeploy") : depth0),"cloudflare",{"name":"eq","hash":{},"data":data,"loc":{"start":{"line":31,"column":32},"end":{"line":31,"column":59}}}),{"name":"if","hash":{},"fn":container.program(8, data, 0),"inverse":container.noop,"data":data,"loc":{"start":{"line":31,"column":26},"end":{"line":31,"column":75}}})) != null ? stack1 : "")
     + "\";\n"
-    + ((stack1 = lookupProperty(helpers,"if").call(alias1,(lookupProperty(helpers,"eq")||(depth0 && lookupProperty(depth0,"eq"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"auth") : depth0),"clerk",{"name":"eq","hash":{},"data":data,"loc":{"start":{"line":31,"column":8},"end":{"line":31,"column":25}}}),{"name":"if","hash":{},"fn":container.program(7, data, 0),"inverse":container.program(8, data, 0),"data":data,"loc":{"start":{"line":31,"column":2},"end":{"line":38,"column":9}}})) != null ? stack1 : "");
-},"6":function(container,depth0,helpers,partials,data) {
-    return ".public";
-},"7":function(container,depth0,helpers,partials,data) {
-    return "import { ConvexProviderWithClerk } from \"convex/react-clerk\";\n";
+    + ((stack1 = lookupProperty(helpers,"if").call(alias1,(lookupProperty(helpers,"eq")||(depth0 && lookupProperty(depth0,"eq"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"auth") : depth0),"clerk",{"name":"eq","hash":{},"data":data,"loc":{"start":{"line":32,"column":8},"end":{"line":32,"column":25}}}),{"name":"if","hash":{},"fn":container.program(9, data, 0),"inverse":container.program(10, data, 0),"data":data,"loc":{"start":{"line":32,"column":2},"end":{"line":39,"column":9}}})) != null ? stack1 : "");
 },"8":function(container,depth0,helpers,partials,data) {
-    var stack1, alias1=depth0 != null ? depth0 : (container.nullContext || {}), lookupProperty = container.lookupProperty || function(parent: any, propertyName: any) {
-        if (Object.prototype.hasOwnProperty.call(parent, propertyName)) {
-          return parent[propertyName];
-        }
-        return undefined
-    };
-
-  return ((stack1 = lookupProperty(helpers,"if").call(alias1,(lookupProperty(helpers,"eq")||(depth0 && lookupProperty(depth0,"eq"))||container.hooks.helperMissing).call(alias1,(depth0 != null ? lookupProperty(depth0,"auth") : depth0),"better-auth",{"name":"eq","hash":{},"data":data,"loc":{"start":{"line":33,"column":12},"end":{"line":33,"column":35}}}),{"name":"if","hash":{},"fn":container.program(9, data, 0),"inverse":container.program(10, data, 0),"data":data,"loc":{"start":{"line":33,"column":2},"end":{"line":38,"column":2}}})) != null ? stack1 : "");
+    return ".public";
 },"9":function(container,depth0,helpers,partials,data) {
-    return "import { ConvexBetterAuthProvider } from \"@convex-dev/better-auth/react\";\nimport { authClient } from \"@/lib/auth-client\";\n";
+    return "import { ConvexProviderWithClerk } from \"convex/react-clerk\";\n";
 },"10":function(container,depth0,helpers,partials,data) {
-    return "import { ConvexProvider } from \"convex/react\";\n  ";
-},"11":function(container,depth0,helpers,partials,data) {
     var stack1, alias1=depth0 != null ? depth0 : (container.nullContext || {}), lookupProperty = container.lookupProperty || function(parent: any, propertyName: any) {
         if (Object.prototype.hasOwnProperty.call(parent, propertyName)) {
           return parent[propertyName];
@@ -15489,8 +15551,21 @@ Disallow:
         return undefined
     };
 
-  return ((stack1 = lookupProperty(helpers,"unless").call(alias1,(lookupProperty(helpers,"eq")||(depth0 && lookupProperty(depth0,"eq"))||container.hooks.helperMissing).call(alias1,(depth0 != null ? lookupProperty(depth0,"api") : depth0),"none",{"name":"eq","hash":{},"data":data,"loc":{"start":{"line":40,"column":12},"end":{"line":40,"column":27}}}),{"name":"unless","hash":{},"fn":container.program(12, data, 0),"inverse":container.noop,"data":data,"loc":{"start":{"line":40,"column":2},"end":{"line":49,"column":13}}})) != null ? stack1 : "");
+  return ((stack1 = lookupProperty(helpers,"if").call(alias1,(lookupProperty(helpers,"eq")||(depth0 && lookupProperty(depth0,"eq"))||container.hooks.helperMissing).call(alias1,(depth0 != null ? lookupProperty(depth0,"auth") : depth0),"better-auth",{"name":"eq","hash":{},"data":data,"loc":{"start":{"line":34,"column":12},"end":{"line":34,"column":35}}}),{"name":"if","hash":{},"fn":container.program(11, data, 0),"inverse":container.program(12, data, 0),"data":data,"loc":{"start":{"line":34,"column":2},"end":{"line":39,"column":2}}})) != null ? stack1 : "");
+},"11":function(container,depth0,helpers,partials,data) {
+    return "import { ConvexBetterAuthProvider } from \"@convex-dev/better-auth/react\";\nimport { authClient } from \"@/lib/auth-client\";\n";
 },"12":function(container,depth0,helpers,partials,data) {
+    return "import { ConvexProvider } from \"convex/react\";\n  ";
+},"13":function(container,depth0,helpers,partials,data) {
+    var stack1, alias1=depth0 != null ? depth0 : (container.nullContext || {}), lookupProperty = container.lookupProperty || function(parent: any, propertyName: any) {
+        if (Object.prototype.hasOwnProperty.call(parent, propertyName)) {
+          return parent[propertyName];
+        }
+        return undefined
+    };
+
+  return ((stack1 = lookupProperty(helpers,"unless").call(alias1,(lookupProperty(helpers,"eq")||(depth0 && lookupProperty(depth0,"eq"))||container.hooks.helperMissing).call(alias1,(depth0 != null ? lookupProperty(depth0,"api") : depth0),"none",{"name":"eq","hash":{},"data":data,"loc":{"start":{"line":41,"column":12},"end":{"line":41,"column":27}}}),{"name":"unless","hash":{},"fn":container.program(14, data, 0),"inverse":container.noop,"data":data,"loc":{"start":{"line":41,"column":2},"end":{"line":50,"column":13}}})) != null ? stack1 : "");
+},"14":function(container,depth0,helpers,partials,data) {
     var stack1, alias1=depth0 != null ? depth0 : (container.nullContext || {}), alias2=container.hooks.helperMissing, lookupProperty = container.lookupProperty || function(parent: any, propertyName: any) {
         if (Object.prototype.hasOwnProperty.call(parent, propertyName)) {
           return parent[propertyName];
@@ -15499,76 +15574,58 @@ Disallow:
     };
 
   return "import { QueryClientProvider } from \"@tanstack/react-query\";\nimport { ReactQueryDevtools } from \"@tanstack/react-query-devtools\";\n"
-    + ((stack1 = lookupProperty(helpers,"if").call(alias1,(lookupProperty(helpers,"eq")||(depth0 && lookupProperty(depth0,"eq"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"api") : depth0),"orpc",{"name":"eq","hash":{},"data":data,"loc":{"start":{"line":43,"column":10},"end":{"line":43,"column":25}}}),{"name":"if","hash":{},"fn":container.program(13, data, 0),"inverse":container.noop,"data":data,"loc":{"start":{"line":43,"column":4},"end":{"line":45,"column":11}}})) != null ? stack1 : "")
-    + ((stack1 = lookupProperty(helpers,"if").call(alias1,(lookupProperty(helpers,"eq")||(depth0 && lookupProperty(depth0,"eq"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"api") : depth0),"trpc",{"name":"eq","hash":{},"data":data,"loc":{"start":{"line":46,"column":10},"end":{"line":46,"column":25}}}),{"name":"if","hash":{},"fn":container.program(14, data, 0),"inverse":container.noop,"data":data,"loc":{"start":{"line":46,"column":4},"end":{"line":48,"column":11}}})) != null ? stack1 : "");
-},"13":function(container,depth0,helpers,partials,data) {
-    return "import { queryClient } from \"./utils/orpc\";\n";
-},"14":function(container,depth0,helpers,partials,data) {
-    return "import { queryClient } from \"./utils/trpc\";\n";
+    + ((stack1 = lookupProperty(helpers,"if").call(alias1,(lookupProperty(helpers,"eq")||(depth0 && lookupProperty(depth0,"eq"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"api") : depth0),"orpc",{"name":"eq","hash":{},"data":data,"loc":{"start":{"line":44,"column":10},"end":{"line":44,"column":25}}}),{"name":"if","hash":{},"fn":container.program(15, data, 0),"inverse":container.noop,"data":data,"loc":{"start":{"line":44,"column":4},"end":{"line":46,"column":11}}})) != null ? stack1 : "")
+    + ((stack1 = lookupProperty(helpers,"if").call(alias1,(lookupProperty(helpers,"eq")||(depth0 && lookupProperty(depth0,"eq"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"api") : depth0),"trpc",{"name":"eq","hash":{},"data":data,"loc":{"start":{"line":47,"column":10},"end":{"line":47,"column":25}}}),{"name":"if","hash":{},"fn":container.program(16, data, 0),"inverse":container.noop,"data":data,"loc":{"start":{"line":47,"column":4},"end":{"line":49,"column":11}}})) != null ? stack1 : "");
 },"15":function(container,depth0,helpers,partials,data) {
-    return "export const middleware: Route.MiddlewareFunction[] = [clerkMiddleware()];\n\nexport const loader = (args: Route.LoaderArgs) => rootAuthLoader(args);\n";
+    return "import { queryClient } from \"./utils/orpc\";\n";
 },"16":function(container,depth0,helpers,partials,data) {
-    return "function ClerkApiAuthBridge() {\n  const { getToken } = useAuth();\n\n  useEffect(() => {\n    setClerkAuthTokenGetter(getToken);\n\n    return () => {\n      setClerkAuthTokenGetter(null);\n    };\n  }, [getToken]);\n\n  return null;\n}\n";
+    return "import { queryClient } from \"./utils/trpc\";\n";
 },"17":function(container,depth0,helpers,partials,data) {
-    return " dir=\"rtl\"";
+    return "export const middleware: Route.MiddlewareFunction[] = [clerkMiddleware()];\n\nexport const loader = (args: Route.LoaderArgs) => rootAuthLoader(args);\n";
 },"18":function(container,depth0,helpers,partials,data) {
-    return "<DirectionProvider direction=\"rtl\">\n        ";
+    return "function ClerkApiAuthBridge() {\n  const { getToken } = useAuth();\n\n  useEffect(() => {\n    setClerkAuthTokenGetter(getToken);\n\n    return () => {\n      setClerkAuthTokenGetter(null);\n    };\n  }, [getToken]);\n\n  return null;\n}\n";
 },"19":function(container,depth0,helpers,partials,data) {
-    return "<AutumnProvider useBetterAuth={true}>\n";
+    var stack1, lookupProperty = container.lookupProperty || function(parent: any, propertyName: any) {
+        if (Object.prototype.hasOwnProperty.call(parent, propertyName)) {
+          return parent[propertyName];
+        }
+        return undefined
+    };
+
+  return ((stack1 = lookupProperty(helpers,"if").call(depth0 != null ? depth0 : (container.nullContext || {}),((stack1 = (depth0 != null ? lookupProperty(depth0,"shadcn") : depth0)) != null ? lookupProperty(stack1,"rtl") : stack1),{"name":"if","hash":{},"fn":container.program(20, data, 0),"inverse":container.noop,"data":data,"loc":{"start":{"line":87,"column":76},"end":{"line":87,"column":111}}})) != null ? stack1 : "");
 },"20":function(container,depth0,helpers,partials,data) {
-    return "\n        </AutumnProvider>";
+    return " dir=\"rtl\"";
 },"21":function(container,depth0,helpers,partials,data) {
-    return "\n        </DirectionProvider>";
+    return "<LocaleDirectionProvider>\n        ";
 },"22":function(container,depth0,helpers,partials,data) {
-    var stack1, alias1=depth0 != null ? depth0 : (container.nullContext || {}), alias2=container.hooks.helperMissing, lookupProperty = container.lookupProperty || function(parent: any, propertyName: any) {
+    var stack1, lookupProperty = container.lookupProperty || function(parent: any, propertyName: any) {
         if (Object.prototype.hasOwnProperty.call(parent, propertyName)) {
           return parent[propertyName];
         }
         return undefined
     };
 
-  return ((stack1 = lookupProperty(helpers,"if").call(alias1,(lookupProperty(helpers,"eq")||(depth0 && lookupProperty(depth0,"eq"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"auth") : depth0),"clerk",{"name":"eq","hash":{},"data":data,"loc":{"start":{"line":109,"column":6},"end":{"line":109,"column":23}}}),{"name":"if","hash":{},"fn":container.program(23, data, 0),"inverse":container.program(24, data, 0),"data":data,"loc":{"start":{"line":109,"column":0},"end":{"line":115,"column":7}}})) != null ? stack1 : "")
-    + "  const convex = new ConvexReactClient(ENV.VITE_CONVEX_URL);\n"
-    + ((stack1 = lookupProperty(helpers,"if").call(alias1,(lookupProperty(helpers,"eq")||(depth0 && lookupProperty(depth0,"eq"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"auth") : depth0),"clerk",{"name":"eq","hash":{},"data":data,"loc":{"start":{"line":117,"column":8},"end":{"line":117,"column":25}}}),{"name":"if","hash":{},"fn":container.program(26, data, 0),"inverse":container.program(27, data, 0),"data":data,"loc":{"start":{"line":117,"column":2},"end":{"line":170,"column":9}}})) != null ? stack1 : "")
-    + "}\n";
+  return ((stack1 = lookupProperty(helpers,"if").call(depth0 != null ? depth0 : (container.nullContext || {}),((stack1 = (depth0 != null ? lookupProperty(depth0,"shadcn") : depth0)) != null ? lookupProperty(stack1,"rtl") : stack1),{"name":"if","hash":{},"fn":container.program(23, data, 0),"inverse":container.noop,"data":data,"loc":{"start":{"line":97,"column":8},"end":{"line":98,"column":8}}})) != null ? stack1 : "");
 },"23":function(container,depth0,helpers,partials,data) {
-    return "export default function App({ loaderData }: Route.ComponentProps) {\n";
+    return "<DirectionProvider direction=\"rtl\">\n        ";
 },"24":function(container,depth0,helpers,partials,data) {
-    var stack1, alias1=depth0 != null ? depth0 : (container.nullContext || {}), lookupProperty = container.lookupProperty || function(parent: any, propertyName: any) {
-        if (Object.prototype.hasOwnProperty.call(parent, propertyName)) {
-          return parent[propertyName];
-        }
-        return undefined
-    };
-
-  return ((stack1 = lookupProperty(helpers,"if").call(alias1,(lookupProperty(helpers,"eq")||(depth0 && lookupProperty(depth0,"eq"))||container.hooks.helperMissing).call(alias1,(depth0 != null ? lookupProperty(depth0,"auth") : depth0),"better-auth",{"name":"eq","hash":{},"data":data,"loc":{"start":{"line":111,"column":10},"end":{"line":111,"column":33}}}),{"name":"if","hash":{},"fn":container.program(25, data, 0),"inverse":container.program(25, data, 0),"data":data,"loc":{"start":{"line":111,"column":0},"end":{"line":115,"column":0}}})) != null ? stack1 : "");
+    return "<AutumnProvider useBetterAuth={true}>\n";
 },"25":function(container,depth0,helpers,partials,data) {
-    return "export default function App() {\n";
+    return "\n        </AutumnProvider>";
 },"26":function(container,depth0,helpers,partials,data) {
-    return "  return (\n    <ClerkProvider loaderData={loaderData}>\n      <ConvexProviderWithClerk client={convex} useAuth={useAuth}>\n        <ThemeProvider\n          attribute=\"class\"\n          defaultTheme=\"dark\"\n          disableTransitionOnChange\n          storageKey=\"vite-ui-theme\"\n        >\n          <div className=\"grid grid-rows-[auto_1fr] h-svh\">\n            <Header />\n            <Outlet />\n          </div>\n          <Toaster richColors />\n        </ThemeProvider>\n      </ConvexProviderWithClerk>\n    </ClerkProvider>\n  );\n";
+    return "\n        </LocaleDirectionProvider>\n";
 },"27":function(container,depth0,helpers,partials,data) {
-    var stack1, alias1=depth0 != null ? depth0 : (container.nullContext || {}), lookupProperty = container.lookupProperty || function(parent: any, propertyName: any) {
+    var stack1, lookupProperty = container.lookupProperty || function(parent: any, propertyName: any) {
         if (Object.prototype.hasOwnProperty.call(parent, propertyName)) {
           return parent[propertyName];
         }
         return undefined
     };
 
-  return ((stack1 = lookupProperty(helpers,"if").call(alias1,(lookupProperty(helpers,"eq")||(depth0 && lookupProperty(depth0,"eq"))||container.hooks.helperMissing).call(alias1,(depth0 != null ? lookupProperty(depth0,"auth") : depth0),"better-auth",{"name":"eq","hash":{},"data":data,"loc":{"start":{"line":136,"column":12},"end":{"line":136,"column":35}}}),{"name":"if","hash":{},"fn":container.program(28, data, 0),"inverse":container.program(29, data, 0),"data":data,"loc":{"start":{"line":136,"column":2},"end":{"line":170,"column":2}}})) != null ? stack1 : "");
+  return ((stack1 = lookupProperty(helpers,"if").call(depth0 != null ? depth0 : (container.nullContext || {}),((stack1 = (depth0 != null ? lookupProperty(depth0,"shadcn") : depth0)) != null ? lookupProperty(stack1,"rtl") : stack1),{"name":"if","hash":{},"fn":container.program(28, data, 0),"inverse":container.noop,"data":data,"loc":{"start":{"line":105,"column":8},"end":{"line":106,"column":28}}})) != null ? stack1 : "");
 },"28":function(container,depth0,helpers,partials,data) {
-    return "  return (\n    <ConvexBetterAuthProvider client={convex} authClient={authClient}>\n      <ThemeProvider\n        attribute=\"class\"\n        defaultTheme=\"dark\"\n        disableTransitionOnChange\n        storageKey=\"vite-ui-theme\"\n      >\n        <div className=\"grid grid-rows-[auto_1fr] h-svh\">\n          <Header />\n          <Outlet />\n        </div>\n        <Toaster richColors />\n      </ThemeProvider>\n    </ConvexBetterAuthProvider>\n  );\n";
+    return "        </DirectionProvider>";
 },"29":function(container,depth0,helpers,partials,data) {
-    return "  return (\n    <ConvexProvider client={convex}>\n      <ThemeProvider\n        attribute=\"class\"\n        defaultTheme=\"dark\"\n        disableTransitionOnChange\n        storageKey=\"vite-ui-theme\"\n      >\n        <div className=\"grid grid-rows-[auto_1fr] h-svh\">\n          <Header />\n          <Outlet />\n        </div>\n        <Toaster richColors />\n      </ThemeProvider>\n    </ConvexProvider>\n  );\n  ";
-},"30":function(container,depth0,helpers,partials,data) {
-    var stack1, alias1=depth0 != null ? depth0 : (container.nullContext || {}), lookupProperty = container.lookupProperty || function(parent: any, propertyName: any) {
-        if (Object.prototype.hasOwnProperty.call(parent, propertyName)) {
-          return parent[propertyName];
-        }
-        return undefined
-    };
-
-  return ((stack1 = lookupProperty(helpers,"if").call(alias1,(lookupProperty(helpers,"eq")||(depth0 && lookupProperty(depth0,"eq"))||container.hooks.helperMissing).call(alias1,(depth0 != null ? lookupProperty(depth0,"auth") : depth0),"clerk",{"name":"eq","hash":{},"data":data,"loc":{"start":{"line":172,"column":10},"end":{"line":172,"column":27}}}),{"name":"if","hash":{},"fn":container.program(31, data, 0),"inverse":container.program(36, data, 0),"data":data,"loc":{"start":{"line":172,"column":0},"end":{"line":285,"column":0}}})) != null ? stack1 : "");
-},"31":function(container,depth0,helpers,partials,data) {
     var stack1, alias1=depth0 != null ? depth0 : (container.nullContext || {}), alias2=container.hooks.helperMissing, lookupProperty = container.lookupProperty || function(parent: any, propertyName: any) {
         if (Object.prototype.hasOwnProperty.call(parent, propertyName)) {
           return parent[propertyName];
@@ -15576,14 +15633,25 @@ Disallow:
         return undefined
     };
 
-  return "export default function App({ loaderData }: Route.ComponentProps) {\n  return (\n    <ClerkProvider loaderData={loaderData}>\n"
-    + ((stack1 = lookupProperty(helpers,"unless").call(alias1,(lookupProperty(helpers,"eq")||(depth0 && lookupProperty(depth0,"eq"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"api") : depth0),"none",{"name":"eq","hash":{},"data":data,"loc":{"start":{"line":176,"column":16},"end":{"line":176,"column":31}}}),{"name":"unless","hash":{},"fn":container.program(32, data, 0),"inverse":container.noop,"data":data,"loc":{"start":{"line":176,"column":6},"end":{"line":178,"column":17}}})) != null ? stack1 : "")
-    + ((stack1 = lookupProperty(helpers,"if").call(alias1,(lookupProperty(helpers,"eq")||(depth0 && lookupProperty(depth0,"eq"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"api") : depth0),"orpc",{"name":"eq","hash":{},"data":data,"loc":{"start":{"line":179,"column":12},"end":{"line":179,"column":27}}}),{"name":"if","hash":{},"fn":container.program(33, data, 0),"inverse":container.program(34, data, 0),"data":data,"loc":{"start":{"line":179,"column":6},"end":{"line":224,"column":13}}})) != null ? stack1 : "")
-    + "    </ClerkProvider>\n  );\n}\n";
+  return ((stack1 = lookupProperty(helpers,"if").call(alias1,(lookupProperty(helpers,"eq")||(depth0 && lookupProperty(depth0,"eq"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"auth") : depth0),"clerk",{"name":"eq","hash":{},"data":data,"loc":{"start":{"line":113,"column":6},"end":{"line":113,"column":23}}}),{"name":"if","hash":{},"fn":container.program(30, data, 0),"inverse":container.program(31, data, 0),"data":data,"loc":{"start":{"line":113,"column":0},"end":{"line":119,"column":7}}})) != null ? stack1 : "")
+    + "  const convex = new ConvexReactClient(ENV.VITE_CONVEX_URL);\n"
+    + ((stack1 = lookupProperty(helpers,"if").call(alias1,(lookupProperty(helpers,"eq")||(depth0 && lookupProperty(depth0,"eq"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"auth") : depth0),"clerk",{"name":"eq","hash":{},"data":data,"loc":{"start":{"line":121,"column":8},"end":{"line":121,"column":25}}}),{"name":"if","hash":{},"fn":container.program(33, data, 0),"inverse":container.program(34, data, 0),"data":data,"loc":{"start":{"line":121,"column":2},"end":{"line":174,"column":9}}})) != null ? stack1 : "")
+    + "}\n";
+},"30":function(container,depth0,helpers,partials,data) {
+    return "export default function App({ loaderData }: Route.ComponentProps) {\n";
+},"31":function(container,depth0,helpers,partials,data) {
+    var stack1, alias1=depth0 != null ? depth0 : (container.nullContext || {}), lookupProperty = container.lookupProperty || function(parent: any, propertyName: any) {
+        if (Object.prototype.hasOwnProperty.call(parent, propertyName)) {
+          return parent[propertyName];
+        }
+        return undefined
+    };
+
+  return ((stack1 = lookupProperty(helpers,"if").call(alias1,(lookupProperty(helpers,"eq")||(depth0 && lookupProperty(depth0,"eq"))||container.hooks.helperMissing).call(alias1,(depth0 != null ? lookupProperty(depth0,"auth") : depth0),"better-auth",{"name":"eq","hash":{},"data":data,"loc":{"start":{"line":115,"column":10},"end":{"line":115,"column":33}}}),{"name":"if","hash":{},"fn":container.program(32, data, 0),"inverse":container.program(32, data, 0),"data":data,"loc":{"start":{"line":115,"column":0},"end":{"line":119,"column":0}}})) != null ? stack1 : "");
 },"32":function(container,depth0,helpers,partials,data) {
-    return "      <ClerkApiAuthBridge />\n";
+    return "export default function App() {\n";
 },"33":function(container,depth0,helpers,partials,data) {
-    return "      <QueryClientProvider client={queryClient}>\n        <ThemeProvider\n          attribute=\"class\"\n          defaultTheme=\"dark\"\n          disableTransitionOnChange\n          storageKey=\"vite-ui-theme\"\n        >\n          <div className=\"grid grid-rows-[auto_1fr] h-svh\">\n            <Header />\n            <Outlet />\n          </div>\n          <Toaster richColors />\n        </ThemeProvider>\n        <ReactQueryDevtools position=\"bottom\" buttonPosition=\"bottom-right\" />\n      </QueryClientProvider>\n";
+    return "  return (\n    <ClerkProvider loaderData={loaderData}>\n      <ConvexProviderWithClerk client={convex} useAuth={useAuth}>\n        <ThemeProvider\n          attribute=\"class\"\n          defaultTheme=\"dark\"\n          disableTransitionOnChange\n          storageKey=\"vite-ui-theme\"\n        >\n          <div className=\"grid grid-rows-[auto_1fr] h-svh\">\n            <Header />\n            <Outlet />\n          </div>\n          <Toaster richColors />\n        </ThemeProvider>\n      </ConvexProviderWithClerk>\n    </ClerkProvider>\n  );\n";
 },"34":function(container,depth0,helpers,partials,data) {
     var stack1, alias1=depth0 != null ? depth0 : (container.nullContext || {}), lookupProperty = container.lookupProperty || function(parent: any, propertyName: any) {
         if (Object.prototype.hasOwnProperty.call(parent, propertyName)) {
@@ -15592,21 +15660,12 @@ Disallow:
         return undefined
     };
 
-  return ((stack1 = lookupProperty(helpers,"if").call(alias1,(lookupProperty(helpers,"eq")||(depth0 && lookupProperty(depth0,"eq"))||container.hooks.helperMissing).call(alias1,(depth0 != null ? lookupProperty(depth0,"api") : depth0),"trpc",{"name":"eq","hash":{},"data":data,"loc":{"start":{"line":195,"column":16},"end":{"line":195,"column":31}}}),{"name":"if","hash":{},"fn":container.program(33, data, 0),"inverse":container.program(35, data, 0),"data":data,"loc":{"start":{"line":195,"column":6},"end":{"line":224,"column":6}}})) != null ? stack1 : "");
+  return ((stack1 = lookupProperty(helpers,"if").call(alias1,(lookupProperty(helpers,"eq")||(depth0 && lookupProperty(depth0,"eq"))||container.hooks.helperMissing).call(alias1,(depth0 != null ? lookupProperty(depth0,"auth") : depth0),"better-auth",{"name":"eq","hash":{},"data":data,"loc":{"start":{"line":140,"column":12},"end":{"line":140,"column":35}}}),{"name":"if","hash":{},"fn":container.program(35, data, 0),"inverse":container.program(36, data, 0),"data":data,"loc":{"start":{"line":140,"column":2},"end":{"line":174,"column":2}}})) != null ? stack1 : "");
 },"35":function(container,depth0,helpers,partials,data) {
-    return "      <ThemeProvider\n        attribute=\"class\"\n        defaultTheme=\"dark\"\n        disableTransitionOnChange\n        storageKey=\"vite-ui-theme\"\n      >\n        <div className=\"grid grid-rows-[auto_1fr] h-svh\">\n          <Header />\n          <Outlet />\n        </div>\n        <Toaster richColors />\n      </ThemeProvider>\n      ";
+    return "  return (\n    <ConvexBetterAuthProvider client={convex} authClient={authClient}>\n      <ThemeProvider\n        attribute=\"class\"\n        defaultTheme=\"dark\"\n        disableTransitionOnChange\n        storageKey=\"vite-ui-theme\"\n      >\n        <div className=\"grid grid-rows-[auto_1fr] h-svh\">\n          <Header />\n          <Outlet />\n        </div>\n        <Toaster richColors />\n      </ThemeProvider>\n    </ConvexBetterAuthProvider>\n  );\n";
 },"36":function(container,depth0,helpers,partials,data) {
-    var stack1, alias1=depth0 != null ? depth0 : (container.nullContext || {}), lookupProperty = container.lookupProperty || function(parent: any, propertyName: any) {
-        if (Object.prototype.hasOwnProperty.call(parent, propertyName)) {
-          return parent[propertyName];
-        }
-        return undefined
-    };
-
-  return ((stack1 = lookupProperty(helpers,"if").call(alias1,(lookupProperty(helpers,"eq")||(depth0 && lookupProperty(depth0,"eq"))||container.hooks.helperMissing).call(alias1,(depth0 != null ? lookupProperty(depth0,"api") : depth0),"orpc",{"name":"eq","hash":{},"data":data,"loc":{"start":{"line":228,"column":10},"end":{"line":228,"column":25}}}),{"name":"if","hash":{},"fn":container.program(37, data, 0),"inverse":container.program(38, data, 0),"data":data,"loc":{"start":{"line":228,"column":0},"end":{"line":285,"column":0}}})) != null ? stack1 : "");
+    return "  return (\n    <ConvexProvider client={convex}>\n      <ThemeProvider\n        attribute=\"class\"\n        defaultTheme=\"dark\"\n        disableTransitionOnChange\n        storageKey=\"vite-ui-theme\"\n      >\n        <div className=\"grid grid-rows-[auto_1fr] h-svh\">\n          <Header />\n          <Outlet />\n        </div>\n        <Toaster richColors />\n      </ThemeProvider>\n    </ConvexProvider>\n  );\n  ";
 },"37":function(container,depth0,helpers,partials,data) {
-    return "export default function App() {\n  return (\n    <QueryClientProvider client={queryClient}>\n      <ThemeProvider\n        attribute=\"class\"\n        defaultTheme=\"dark\"\n        disableTransitionOnChange\n        storageKey=\"vite-ui-theme\"\n      >\n        <div className=\"grid grid-rows-[auto_1fr] h-svh\">\n          <Header />\n          <Outlet />\n        </div>\n        <Toaster richColors />\n      </ThemeProvider>\n      <ReactQueryDevtools position=\"bottom\" buttonPosition=\"bottom-right\" />\n    </QueryClientProvider>\n  );\n}\n";
-},"38":function(container,depth0,helpers,partials,data) {
     var stack1, alias1=depth0 != null ? depth0 : (container.nullContext || {}), lookupProperty = container.lookupProperty || function(parent: any, propertyName: any) {
         if (Object.prototype.hasOwnProperty.call(parent, propertyName)) {
           return parent[propertyName];
@@ -15614,8 +15673,55 @@ Disallow:
         return undefined
     };
 
-  return ((stack1 = lookupProperty(helpers,"if").call(alias1,(lookupProperty(helpers,"eq")||(depth0 && lookupProperty(depth0,"eq"))||container.hooks.helperMissing).call(alias1,(depth0 != null ? lookupProperty(depth0,"api") : depth0),"trpc",{"name":"eq","hash":{},"data":data,"loc":{"start":{"line":248,"column":10},"end":{"line":248,"column":25}}}),{"name":"if","hash":{},"fn":container.program(37, data, 0),"inverse":container.program(39, data, 0),"data":data,"loc":{"start":{"line":248,"column":0},"end":{"line":285,"column":0}}})) != null ? stack1 : "");
+  return ((stack1 = lookupProperty(helpers,"if").call(alias1,(lookupProperty(helpers,"eq")||(depth0 && lookupProperty(depth0,"eq"))||container.hooks.helperMissing).call(alias1,(depth0 != null ? lookupProperty(depth0,"auth") : depth0),"clerk",{"name":"eq","hash":{},"data":data,"loc":{"start":{"line":176,"column":10},"end":{"line":176,"column":27}}}),{"name":"if","hash":{},"fn":container.program(38, data, 0),"inverse":container.program(43, data, 0),"data":data,"loc":{"start":{"line":176,"column":0},"end":{"line":289,"column":0}}})) != null ? stack1 : "");
+},"38":function(container,depth0,helpers,partials,data) {
+    var stack1, alias1=depth0 != null ? depth0 : (container.nullContext || {}), alias2=container.hooks.helperMissing, lookupProperty = container.lookupProperty || function(parent: any, propertyName: any) {
+        if (Object.prototype.hasOwnProperty.call(parent, propertyName)) {
+          return parent[propertyName];
+        }
+        return undefined
+    };
+
+  return "export default function App({ loaderData }: Route.ComponentProps) {\n  return (\n    <ClerkProvider loaderData={loaderData}>\n"
+    + ((stack1 = lookupProperty(helpers,"unless").call(alias1,(lookupProperty(helpers,"eq")||(depth0 && lookupProperty(depth0,"eq"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"api") : depth0),"none",{"name":"eq","hash":{},"data":data,"loc":{"start":{"line":180,"column":16},"end":{"line":180,"column":31}}}),{"name":"unless","hash":{},"fn":container.program(39, data, 0),"inverse":container.noop,"data":data,"loc":{"start":{"line":180,"column":6},"end":{"line":182,"column":17}}})) != null ? stack1 : "")
+    + ((stack1 = lookupProperty(helpers,"if").call(alias1,(lookupProperty(helpers,"eq")||(depth0 && lookupProperty(depth0,"eq"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"api") : depth0),"orpc",{"name":"eq","hash":{},"data":data,"loc":{"start":{"line":183,"column":12},"end":{"line":183,"column":27}}}),{"name":"if","hash":{},"fn":container.program(40, data, 0),"inverse":container.program(41, data, 0),"data":data,"loc":{"start":{"line":183,"column":6},"end":{"line":228,"column":13}}})) != null ? stack1 : "")
+    + "    </ClerkProvider>\n  );\n}\n";
 },"39":function(container,depth0,helpers,partials,data) {
+    return "      <ClerkApiAuthBridge />\n";
+},"40":function(container,depth0,helpers,partials,data) {
+    return "      <QueryClientProvider client={queryClient}>\n        <ThemeProvider\n          attribute=\"class\"\n          defaultTheme=\"dark\"\n          disableTransitionOnChange\n          storageKey=\"vite-ui-theme\"\n        >\n          <div className=\"grid grid-rows-[auto_1fr] h-svh\">\n            <Header />\n            <Outlet />\n          </div>\n          <Toaster richColors />\n        </ThemeProvider>\n        <ReactQueryDevtools position=\"bottom\" buttonPosition=\"bottom-right\" />\n      </QueryClientProvider>\n";
+},"41":function(container,depth0,helpers,partials,data) {
+    var stack1, alias1=depth0 != null ? depth0 : (container.nullContext || {}), lookupProperty = container.lookupProperty || function(parent: any, propertyName: any) {
+        if (Object.prototype.hasOwnProperty.call(parent, propertyName)) {
+          return parent[propertyName];
+        }
+        return undefined
+    };
+
+  return ((stack1 = lookupProperty(helpers,"if").call(alias1,(lookupProperty(helpers,"eq")||(depth0 && lookupProperty(depth0,"eq"))||container.hooks.helperMissing).call(alias1,(depth0 != null ? lookupProperty(depth0,"api") : depth0),"trpc",{"name":"eq","hash":{},"data":data,"loc":{"start":{"line":199,"column":16},"end":{"line":199,"column":31}}}),{"name":"if","hash":{},"fn":container.program(40, data, 0),"inverse":container.program(42, data, 0),"data":data,"loc":{"start":{"line":199,"column":6},"end":{"line":228,"column":6}}})) != null ? stack1 : "");
+},"42":function(container,depth0,helpers,partials,data) {
+    return "      <ThemeProvider\n        attribute=\"class\"\n        defaultTheme=\"dark\"\n        disableTransitionOnChange\n        storageKey=\"vite-ui-theme\"\n      >\n        <div className=\"grid grid-rows-[auto_1fr] h-svh\">\n          <Header />\n          <Outlet />\n        </div>\n        <Toaster richColors />\n      </ThemeProvider>\n      ";
+},"43":function(container,depth0,helpers,partials,data) {
+    var stack1, alias1=depth0 != null ? depth0 : (container.nullContext || {}), lookupProperty = container.lookupProperty || function(parent: any, propertyName: any) {
+        if (Object.prototype.hasOwnProperty.call(parent, propertyName)) {
+          return parent[propertyName];
+        }
+        return undefined
+    };
+
+  return ((stack1 = lookupProperty(helpers,"if").call(alias1,(lookupProperty(helpers,"eq")||(depth0 && lookupProperty(depth0,"eq"))||container.hooks.helperMissing).call(alias1,(depth0 != null ? lookupProperty(depth0,"api") : depth0),"orpc",{"name":"eq","hash":{},"data":data,"loc":{"start":{"line":232,"column":10},"end":{"line":232,"column":25}}}),{"name":"if","hash":{},"fn":container.program(44, data, 0),"inverse":container.program(45, data, 0),"data":data,"loc":{"start":{"line":232,"column":0},"end":{"line":289,"column":0}}})) != null ? stack1 : "");
+},"44":function(container,depth0,helpers,partials,data) {
+    return "export default function App() {\n  return (\n    <QueryClientProvider client={queryClient}>\n      <ThemeProvider\n        attribute=\"class\"\n        defaultTheme=\"dark\"\n        disableTransitionOnChange\n        storageKey=\"vite-ui-theme\"\n      >\n        <div className=\"grid grid-rows-[auto_1fr] h-svh\">\n          <Header />\n          <Outlet />\n        </div>\n        <Toaster richColors />\n      </ThemeProvider>\n      <ReactQueryDevtools position=\"bottom\" buttonPosition=\"bottom-right\" />\n    </QueryClientProvider>\n  );\n}\n";
+},"45":function(container,depth0,helpers,partials,data) {
+    var stack1, alias1=depth0 != null ? depth0 : (container.nullContext || {}), lookupProperty = container.lookupProperty || function(parent: any, propertyName: any) {
+        if (Object.prototype.hasOwnProperty.call(parent, propertyName)) {
+          return parent[propertyName];
+        }
+        return undefined
+    };
+
+  return ((stack1 = lookupProperty(helpers,"if").call(alias1,(lookupProperty(helpers,"eq")||(depth0 && lookupProperty(depth0,"eq"))||container.hooks.helperMissing).call(alias1,(depth0 != null ? lookupProperty(depth0,"api") : depth0),"trpc",{"name":"eq","hash":{},"data":data,"loc":{"start":{"line":252,"column":10},"end":{"line":252,"column":25}}}),{"name":"if","hash":{},"fn":container.program(44, data, 0),"inverse":container.program(46, data, 0),"data":data,"loc":{"start":{"line":252,"column":0},"end":{"line":289,"column":0}}})) != null ? stack1 : "");
+},"46":function(container,depth0,helpers,partials,data) {
     return "export default function App() {\n  return (\n    <ThemeProvider\n      attribute=\"class\"\n      defaultTheme=\"dark\"\n      disableTransitionOnChange\n      storageKey=\"vite-ui-theme\"\n    >\n      <div className=\"grid grid-rows-[auto_1fr] h-svh\">\n        <Header />\n        <Outlet />\n      </div>\n      <Toaster richColors />\n    </ThemeProvider>\n  );\n}\n";
 },"compiler":[8,">= 4.3.0"],"main":function(container,depth0,helpers,partials,data) {
     var stack1, helper, alias1=depth0 != null ? depth0 : (container.nullContext || {}), alias2=container.hooks.helperMissing, lookupProperty = container.lookupProperty || function(parent: any, propertyName: any) {
@@ -15628,26 +15734,26 @@ Disallow:
   return "import {\n  isRouteErrorResponse,\n  Links,\n  Meta,\n  Outlet,\n  Scripts,\n  ScrollRestoration,\n} from \"react-router\";\nimport type { Route } from \"./+types/root\";\nimport \"./index.css\";\nimport Header from \"./components/header\";\nimport { ThemeProvider } from \"./components/theme-provider\";\nimport { ThemeScript } from \"@wrksz/themes/script\";\nimport { Toaster } from \"@"
     + container.escapeExpression(((helper = (helper = lookupProperty(helpers,"projectName") || (depth0 != null ? lookupProperty(depth0,"projectName") : depth0)) != null ? helper : alias2),(typeof helper === "function" ? helper.call(alias1,{"name":"projectName","hash":{},"data":data,"loc":{"start":{"line":14,"column":26},"end":{"line":14,"column":41}}}) : helper)))
     + "/ui/components/sonner\";\n"
-    + ((stack1 = lookupProperty(helpers,"if").call(alias1,((stack1 = (depth0 != null ? lookupProperty(depth0,"shadcn") : depth0)) != null ? lookupProperty(stack1,"rtl") : stack1),{"name":"if","hash":{},"fn":container.program(0, data, 0),"inverse":container.noop,"data":data,"loc":{"start":{"line":15,"column":0},"end":{"line":16,"column":7}}})) != null ? stack1 : "")
-    + ((stack1 = lookupProperty(helpers,"if").call(alias1,(lookupProperty(helpers,"eq")||(depth0 && lookupProperty(depth0,"eq"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"payments") : depth0),"autumn",{"name":"eq","hash":{},"data":data,"loc":{"start":{"line":16,"column":13},"end":{"line":16,"column":35}}}),{"name":"if","hash":{},"fn":container.program(1, data, 0),"inverse":container.noop,"data":data,"loc":{"start":{"line":16,"column":7},"end":{"line":18,"column":7}}})) != null ? stack1 : "")
-    + ((stack1 = lookupProperty(helpers,"if").call(alias1,(lookupProperty(helpers,"eq")||(depth0 && lookupProperty(depth0,"eq"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"auth") : depth0),"clerk",{"name":"eq","hash":{},"data":data,"loc":{"start":{"line":19,"column":6},"end":{"line":19,"column":23}}}),{"name":"if","hash":{},"fn":container.program(2, data, 0),"inverse":container.noop,"data":data,"loc":{"start":{"line":19,"column":0},"end":{"line":22,"column":7}}})) != null ? stack1 : "")
-    + ((stack1 = lookupProperty(helpers,"if").call(alias1,(lookupProperty(helpers,"and")||(depth0 && lookupProperty(depth0,"and"))||alias2).call(alias1,(lookupProperty(helpers,"eq")||(depth0 && lookupProperty(depth0,"eq"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"auth") : depth0),"clerk",{"name":"eq","hash":{},"data":data,"loc":{"start":{"line":23,"column":11},"end":{"line":23,"column":28}}}),(lookupProperty(helpers,"ne")||(depth0 && lookupProperty(depth0,"ne"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"backend") : depth0),"convex",{"name":"ne","hash":{},"data":data,"loc":{"start":{"line":23,"column":29},"end":{"line":23,"column":50}}}),(lookupProperty(helpers,"ne")||(depth0 && lookupProperty(depth0,"ne"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"api") : depth0),"none",{"name":"ne","hash":{},"data":data,"loc":{"start":{"line":23,"column":51},"end":{"line":23,"column":66}}}),{"name":"and","hash":{},"data":data,"loc":{"start":{"line":23,"column":6},"end":{"line":23,"column":67}}}),{"name":"if","hash":{},"fn":container.program(4, data, 0),"inverse":container.noop,"data":data,"loc":{"start":{"line":23,"column":0},"end":{"line":26,"column":7}}})) != null ? stack1 : "")
+    + ((stack1 = lookupProperty(helpers,"if").call(alias1,(lookupProperty(helpers,"usesShadcnDirection")||(depth0 && lookupProperty(depth0,"usesShadcnDirection"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"shadcn") : depth0),(depth0 != null ? lookupProperty(depth0,"i18n") : depth0),(depth0 != null ? lookupProperty(depth0,"i18nOptions") : depth0),{"name":"usesShadcnDirection","hash":{},"data":data,"loc":{"start":{"line":15,"column":6},"end":{"line":15,"column":51}}}),{"name":"if","hash":{},"fn":container.program(0, data, 0),"inverse":container.program(1, data, 0),"data":data,"loc":{"start":{"line":15,"column":0},"end":{"line":17,"column":7}}})) != null ? stack1 : "")
+    + ((stack1 = lookupProperty(helpers,"if").call(alias1,(lookupProperty(helpers,"eq")||(depth0 && lookupProperty(depth0,"eq"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"payments") : depth0),"autumn",{"name":"eq","hash":{},"data":data,"loc":{"start":{"line":17,"column":13},"end":{"line":17,"column":35}}}),{"name":"if","hash":{},"fn":container.program(3, data, 0),"inverse":container.noop,"data":data,"loc":{"start":{"line":17,"column":7},"end":{"line":19,"column":7}}})) != null ? stack1 : "")
+    + ((stack1 = lookupProperty(helpers,"if").call(alias1,(lookupProperty(helpers,"eq")||(depth0 && lookupProperty(depth0,"eq"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"auth") : depth0),"clerk",{"name":"eq","hash":{},"data":data,"loc":{"start":{"line":20,"column":6},"end":{"line":20,"column":23}}}),{"name":"if","hash":{},"fn":container.program(4, data, 0),"inverse":container.noop,"data":data,"loc":{"start":{"line":20,"column":0},"end":{"line":23,"column":7}}})) != null ? stack1 : "")
+    + ((stack1 = lookupProperty(helpers,"if").call(alias1,(lookupProperty(helpers,"and")||(depth0 && lookupProperty(depth0,"and"))||alias2).call(alias1,(lookupProperty(helpers,"eq")||(depth0 && lookupProperty(depth0,"eq"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"auth") : depth0),"clerk",{"name":"eq","hash":{},"data":data,"loc":{"start":{"line":24,"column":11},"end":{"line":24,"column":28}}}),(lookupProperty(helpers,"ne")||(depth0 && lookupProperty(depth0,"ne"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"backend") : depth0),"convex",{"name":"ne","hash":{},"data":data,"loc":{"start":{"line":24,"column":29},"end":{"line":24,"column":50}}}),(lookupProperty(helpers,"ne")||(depth0 && lookupProperty(depth0,"ne"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"api") : depth0),"none",{"name":"ne","hash":{},"data":data,"loc":{"start":{"line":24,"column":51},"end":{"line":24,"column":66}}}),{"name":"and","hash":{},"data":data,"loc":{"start":{"line":24,"column":6},"end":{"line":24,"column":67}}}),{"name":"if","hash":{},"fn":container.program(6, data, 0),"inverse":container.noop,"data":data,"loc":{"start":{"line":24,"column":0},"end":{"line":27,"column":7}}})) != null ? stack1 : "")
     + "\n"
-    + ((stack1 = lookupProperty(helpers,"if").call(alias1,(lookupProperty(helpers,"eq")||(depth0 && lookupProperty(depth0,"eq"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"backend") : depth0),"convex",{"name":"eq","hash":{},"data":data,"loc":{"start":{"line":28,"column":6},"end":{"line":28,"column":27}}}),{"name":"if","hash":{},"fn":container.program(5, data, 0),"inverse":container.program(11, data, 0),"data":data,"loc":{"start":{"line":28,"column":0},"end":{"line":50,"column":7}}})) != null ? stack1 : "")
+    + ((stack1 = lookupProperty(helpers,"if").call(alias1,(lookupProperty(helpers,"eq")||(depth0 && lookupProperty(depth0,"eq"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"backend") : depth0),"convex",{"name":"eq","hash":{},"data":data,"loc":{"start":{"line":29,"column":6},"end":{"line":29,"column":27}}}),{"name":"if","hash":{},"fn":container.program(7, data, 0),"inverse":container.program(13, data, 0),"data":data,"loc":{"start":{"line":29,"column":0},"end":{"line":51,"column":7}}})) != null ? stack1 : "")
     + "\n"
-    + ((stack1 = lookupProperty(helpers,"if").call(alias1,(lookupProperty(helpers,"eq")||(depth0 && lookupProperty(depth0,"eq"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"auth") : depth0),"clerk",{"name":"eq","hash":{},"data":data,"loc":{"start":{"line":52,"column":6},"end":{"line":52,"column":23}}}),{"name":"if","hash":{},"fn":container.program(15, data, 0),"inverse":container.noop,"data":data,"loc":{"start":{"line":52,"column":0},"end":{"line":56,"column":7}}})) != null ? stack1 : "")
+    + ((stack1 = lookupProperty(helpers,"if").call(alias1,(lookupProperty(helpers,"eq")||(depth0 && lookupProperty(depth0,"eq"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"auth") : depth0),"clerk",{"name":"eq","hash":{},"data":data,"loc":{"start":{"line":53,"column":6},"end":{"line":53,"column":23}}}),{"name":"if","hash":{},"fn":container.program(17, data, 0),"inverse":container.noop,"data":data,"loc":{"start":{"line":53,"column":0},"end":{"line":57,"column":7}}})) != null ? stack1 : "")
     + "\n"
-    + ((stack1 = lookupProperty(helpers,"if").call(alias1,(lookupProperty(helpers,"and")||(depth0 && lookupProperty(depth0,"and"))||alias2).call(alias1,(lookupProperty(helpers,"eq")||(depth0 && lookupProperty(depth0,"eq"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"auth") : depth0),"clerk",{"name":"eq","hash":{},"data":data,"loc":{"start":{"line":58,"column":11},"end":{"line":58,"column":28}}}),(lookupProperty(helpers,"ne")||(depth0 && lookupProperty(depth0,"ne"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"backend") : depth0),"convex",{"name":"ne","hash":{},"data":data,"loc":{"start":{"line":58,"column":29},"end":{"line":58,"column":50}}}),(lookupProperty(helpers,"ne")||(depth0 && lookupProperty(depth0,"ne"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"api") : depth0),"none",{"name":"ne","hash":{},"data":data,"loc":{"start":{"line":58,"column":51},"end":{"line":58,"column":66}}}),{"name":"and","hash":{},"data":data,"loc":{"start":{"line":58,"column":6},"end":{"line":58,"column":67}}}),{"name":"if","hash":{},"fn":container.program(16, data, 0),"inverse":container.noop,"data":data,"loc":{"start":{"line":58,"column":0},"end":{"line":72,"column":7}}})) != null ? stack1 : "")
-    + "\nexport const links: Route.LinksFunction = () => [\n  { rel: \"preconnect\", href: \"https://fonts.googleapis.com\" },\n  { rel: \"preconnect\", href: \"https://fonts.gstatic.com\", crossOrigin: \"anonymous\" },\n  {\n    rel: \"stylesheet\",\n    href:\n      \"https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap\",\n  },\n];\n\nexport function Layout({ children }: { children: React.ReactNode }) {\n  return (\n    <html lang=\"en\" suppressHydrationWarning"
-    + ((stack1 = lookupProperty(helpers,"if").call(alias1,((stack1 = (depth0 != null ? lookupProperty(depth0,"shadcn") : depth0)) != null ? lookupProperty(stack1,"rtl") : stack1),{"name":"if","hash":{},"fn":container.program(17, data, 0),"inverse":container.noop,"data":data,"loc":{"start":{"line":86,"column":44},"end":{"line":86,"column":79}}})) != null ? stack1 : "")
-    + ">\n      <head>\n        <meta charSet=\"utf-8\" />\n        <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\" />\n        <Meta />\n        <Links />\n        <ThemeScript attribute=\"class\" defaultTheme=\"dark\" storageKey=\"vite-ui-theme\" />\n      </head>\n      <body>\n        "
-    + ((stack1 = lookupProperty(helpers,"if").call(alias1,((stack1 = (depth0 != null ? lookupProperty(depth0,"shadcn") : depth0)) != null ? lookupProperty(stack1,"rtl") : stack1),{"name":"if","hash":{},"fn":container.program(18, data, 0),"inverse":container.noop,"data":data,"loc":{"start":{"line":95,"column":8},"end":{"line":96,"column":15}}})) != null ? stack1 : "")
-    + ((stack1 = lookupProperty(helpers,"if").call(alias1,(lookupProperty(helpers,"eq")||(depth0 && lookupProperty(depth0,"eq"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"payments") : depth0),"autumn",{"name":"eq","hash":{},"data":data,"loc":{"start":{"line":96,"column":21},"end":{"line":96,"column":43}}}),{"name":"if","hash":{},"fn":container.program(19, data, 0),"inverse":container.noop,"data":data,"loc":{"start":{"line":96,"column":15},"end":{"line":97,"column":7}}})) != null ? stack1 : "")
+    + ((stack1 = lookupProperty(helpers,"if").call(alias1,(lookupProperty(helpers,"and")||(depth0 && lookupProperty(depth0,"and"))||alias2).call(alias1,(lookupProperty(helpers,"eq")||(depth0 && lookupProperty(depth0,"eq"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"auth") : depth0),"clerk",{"name":"eq","hash":{},"data":data,"loc":{"start":{"line":59,"column":11},"end":{"line":59,"column":28}}}),(lookupProperty(helpers,"ne")||(depth0 && lookupProperty(depth0,"ne"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"backend") : depth0),"convex",{"name":"ne","hash":{},"data":data,"loc":{"start":{"line":59,"column":29},"end":{"line":59,"column":50}}}),(lookupProperty(helpers,"ne")||(depth0 && lookupProperty(depth0,"ne"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"api") : depth0),"none",{"name":"ne","hash":{},"data":data,"loc":{"start":{"line":59,"column":51},"end":{"line":59,"column":66}}}),{"name":"and","hash":{},"data":data,"loc":{"start":{"line":59,"column":6},"end":{"line":59,"column":67}}}),{"name":"if","hash":{},"fn":container.program(18, data, 0),"inverse":container.noop,"data":data,"loc":{"start":{"line":59,"column":0},"end":{"line":73,"column":7}}})) != null ? stack1 : "")
+    + "\nexport const links: Route.LinksFunction = () => [\n  { rel: \"preconnect\", href: \"https://fonts.googleapis.com\" },\n  { rel: \"preconnect\", href: \"https://fonts.gstatic.com\", crossOrigin: \"anonymous\" },\n  {\n    rel: \"stylesheet\",\n    href:\n      \"https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap\",\n  },\n];\n\nexport function Layout({ children }: { children: React.ReactNode }) {\n  return (\n    <html lang=\"en\""
+    + ((stack1 = lookupProperty(helpers,"unless").call(alias1,(lookupProperty(helpers,"usesShadcnDirection")||(depth0 && lookupProperty(depth0,"usesShadcnDirection"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"shadcn") : depth0),(depth0 != null ? lookupProperty(depth0,"i18n") : depth0),(depth0 != null ? lookupProperty(depth0,"i18nOptions") : depth0),{"name":"usesShadcnDirection","hash":{},"data":data,"loc":{"start":{"line":87,"column":29},"end":{"line":87,"column":74}}}),{"name":"unless","hash":{},"fn":container.program(19, data, 0),"inverse":container.noop,"data":data,"loc":{"start":{"line":87,"column":19},"end":{"line":87,"column":122}}})) != null ? stack1 : "")
+    + " suppressHydrationWarning>\n      <head>\n        <meta charSet=\"utf-8\" />\n        <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\" />\n        <Meta />\n        <Links />\n        <ThemeScript attribute=\"class\" defaultTheme=\"dark\" storageKey=\"vite-ui-theme\" />\n      </head>\n      <body>\n        "
+    + ((stack1 = lookupProperty(helpers,"if").call(alias1,(lookupProperty(helpers,"usesShadcnDirection")||(depth0 && lookupProperty(depth0,"usesShadcnDirection"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"shadcn") : depth0),(depth0 != null ? lookupProperty(depth0,"i18n") : depth0),(depth0 != null ? lookupProperty(depth0,"i18nOptions") : depth0),{"name":"usesShadcnDirection","hash":{},"data":data,"loc":{"start":{"line":96,"column":14},"end":{"line":96,"column":59}}}),{"name":"if","hash":{},"fn":container.program(21, data, 0),"inverse":container.program(22, data, 0),"data":data,"loc":{"start":{"line":96,"column":8},"end":{"line":98,"column":15}}})) != null ? stack1 : "")
+    + ((stack1 = lookupProperty(helpers,"if").call(alias1,(lookupProperty(helpers,"eq")||(depth0 && lookupProperty(depth0,"eq"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"payments") : depth0),"autumn",{"name":"eq","hash":{},"data":data,"loc":{"start":{"line":98,"column":21},"end":{"line":98,"column":43}}}),{"name":"if","hash":{},"fn":container.program(24, data, 0),"inverse":container.noop,"data":data,"loc":{"start":{"line":98,"column":15},"end":{"line":99,"column":7}}})) != null ? stack1 : "")
     + "        {children}\n        <ScrollRestoration />\n        \u003CScripts />"
-    + ((stack1 = lookupProperty(helpers,"if").call(alias1,(lookupProperty(helpers,"eq")||(depth0 && lookupProperty(depth0,"eq"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"payments") : depth0),"autumn",{"name":"eq","hash":{},"data":data,"loc":{"start":{"line":100,"column":25},"end":{"line":100,"column":47}}}),{"name":"if","hash":{},"fn":container.program(20, data, 0),"inverse":container.noop,"data":data,"loc":{"start":{"line":100,"column":19},"end":{"line":101,"column":32}}})) != null ? stack1 : "")
-    + ((stack1 = lookupProperty(helpers,"if").call(alias1,((stack1 = (depth0 != null ? lookupProperty(depth0,"shadcn") : depth0)) != null ? lookupProperty(stack1,"rtl") : stack1),{"name":"if","hash":{},"fn":container.program(21, data, 0),"inverse":container.noop,"data":data,"loc":{"start":{"line":101,"column":32},"end":{"line":102,"column":35}}})) != null ? stack1 : "")
+    + ((stack1 = lookupProperty(helpers,"if").call(alias1,(lookupProperty(helpers,"eq")||(depth0 && lookupProperty(depth0,"eq"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"payments") : depth0),"autumn",{"name":"eq","hash":{},"data":data,"loc":{"start":{"line":102,"column":25},"end":{"line":102,"column":47}}}),{"name":"if","hash":{},"fn":container.program(25, data, 0),"inverse":container.noop,"data":data,"loc":{"start":{"line":102,"column":19},"end":{"line":103,"column":32}}})) != null ? stack1 : "")
+    + ((stack1 = lookupProperty(helpers,"if").call(alias1,(lookupProperty(helpers,"usesShadcnDirection")||(depth0 && lookupProperty(depth0,"usesShadcnDirection"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"shadcn") : depth0),(depth0 != null ? lookupProperty(depth0,"i18n") : depth0),(depth0 != null ? lookupProperty(depth0,"i18nOptions") : depth0),{"name":"usesShadcnDirection","hash":{},"data":data,"loc":{"start":{"line":103,"column":38},"end":{"line":103,"column":83}}}),{"name":"if","hash":{},"fn":container.program(26, data, 0),"inverse":container.program(27, data, 0),"data":data,"loc":{"start":{"line":103,"column":32},"end":{"line":106,"column":35}}})) != null ? stack1 : "")
     + "\n      </body>\n    </html>\n  );\n}\n\n"
-    + ((stack1 = lookupProperty(helpers,"if").call(alias1,(lookupProperty(helpers,"eq")||(depth0 && lookupProperty(depth0,"eq"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"backend") : depth0),"convex",{"name":"eq","hash":{},"data":data,"loc":{"start":{"line":108,"column":6},"end":{"line":108,"column":27}}}),{"name":"if","hash":{},"fn":container.program(22, data, 0),"inverse":container.program(30, data, 0),"data":data,"loc":{"start":{"line":108,"column":0},"end":{"line":285,"column":7}}})) != null ? stack1 : "")
+    + ((stack1 = lookupProperty(helpers,"if").call(alias1,(lookupProperty(helpers,"eq")||(depth0 && lookupProperty(depth0,"eq"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"backend") : depth0),"convex",{"name":"eq","hash":{},"data":data,"loc":{"start":{"line":112,"column":6},"end":{"line":112,"column":27}}}),{"name":"if","hash":{},"fn":container.program(29, data, 0),"inverse":container.program(37, data, 0),"data":data,"loc":{"start":{"line":112,"column":0},"end":{"line":289,"column":7}}})) != null ? stack1 : "")
     + "\nexport function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {\n  let message = \"Oops!\";\n  let details = \"An unexpected error occurred.\";\n  let stack: string | undefined;\n  if (isRouteErrorResponse(error)) {\n    message = error.status === 404 ? \"404\" : \"Error\";\n    details =\n      error.status === 404\n        ? \"The requested page could not be found.\"\n        : error.statusText || details;\n  } else if (import.meta.env.DEV && error && error instanceof Error) {\n    details = error.message;\n    stack = error.stack;\n  }\n  return (\n    <main className=\"pt-16 p-4 container mx-auto\">\n      <h1>{message}</h1>\n      <p>{details}</p>\n      {stack && (\n        <pre className=\"w-full p-4 overflow-x-auto\">\n          <code>{stack}</code>\n        </pre>\n      )}\n    </main>\n  );\n}\n";
 },"useData":true}],
   ["frontend/react/react-router/src/routes.ts", { kind: "raw", content: `import { type RouteConfig } from "@react-router/dev/routes";
@@ -15821,9 +15927,18 @@ export default flatRoutes() satisfies RouteConfig;
     + ");\n";
 },"useData":true}],
   ["frontend/react/tanstack-router/index.html.hbs", { kind: "template", "0":function(container,depth0,helpers,partials,data) {
+    var stack1, lookupProperty = container.lookupProperty || function(parent: any, propertyName: any) {
+        if (Object.prototype.hasOwnProperty.call(parent, propertyName)) {
+          return parent[propertyName];
+        }
+        return undefined
+    };
+
+  return ((stack1 = lookupProperty(helpers,"if").call(depth0 != null ? depth0 : (container.nullContext || {}),((stack1 = (depth0 != null ? lookupProperty(depth0,"shadcn") : depth0)) != null ? lookupProperty(stack1,"rtl") : stack1),{"name":"if","hash":{},"fn":container.program(1, data, 0),"inverse":container.noop,"data":data,"loc":{"start":{"line":2,"column":72},"end":{"line":2,"column":107}}})) != null ? stack1 : "");
+},"1":function(container,depth0,helpers,partials,data) {
     return " dir=\"rtl\"";
 },"compiler":[8,">= 4.3.0"],"main":function(container,depth0,helpers,partials,data) {
-    var stack1, helper, alias1=depth0 != null ? depth0 : (container.nullContext || {}), lookupProperty = container.lookupProperty || function(parent: any, propertyName: any) {
+    var stack1, helper, alias1=depth0 != null ? depth0 : (container.nullContext || {}), alias2=container.hooks.helperMissing, lookupProperty = container.lookupProperty || function(parent: any, propertyName: any) {
         if (Object.prototype.hasOwnProperty.call(parent, propertyName)) {
           return parent[propertyName];
         }
@@ -15831,9 +15946,9 @@ export default flatRoutes() satisfies RouteConfig;
     };
 
   return "<!DOCTYPE html>\n<html lang=\"en\""
-    + ((stack1 = lookupProperty(helpers,"if").call(alias1,((stack1 = (depth0 != null ? lookupProperty(depth0,"shadcn") : depth0)) != null ? lookupProperty(stack1,"rtl") : stack1),{"name":"if","hash":{},"fn":container.program(0, data, 0),"inverse":container.noop,"data":data,"loc":{"start":{"line":2,"column":15},"end":{"line":2,"column":50}}})) != null ? stack1 : "")
+    + ((stack1 = lookupProperty(helpers,"unless").call(alias1,(lookupProperty(helpers,"usesShadcnDirection")||(depth0 && lookupProperty(depth0,"usesShadcnDirection"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"shadcn") : depth0),(depth0 != null ? lookupProperty(depth0,"i18n") : depth0),(depth0 != null ? lookupProperty(depth0,"i18nOptions") : depth0),{"name":"usesShadcnDirection","hash":{},"data":data,"loc":{"start":{"line":2,"column":25},"end":{"line":2,"column":70}}}),{"name":"unless","hash":{},"fn":container.program(0, data, 0),"inverse":container.noop,"data":data,"loc":{"start":{"line":2,"column":15},"end":{"line":2,"column":118}}})) != null ? stack1 : "")
     + ">\n  <head>\n    <meta charset=\"UTF-8\" />\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\" />\n    <title>"
-    + container.escapeExpression(((helper = (helper = lookupProperty(helpers,"projectName") || (depth0 != null ? lookupProperty(depth0,"projectName") : depth0)) != null ? helper : container.hooks.helperMissing),(typeof helper === "function" ? helper.call(alias1,{"name":"projectName","hash":{},"data":data,"loc":{"start":{"line":6,"column":11},"end":{"line":6,"column":26}}}) : helper)))
+    + container.escapeExpression(((helper = (helper = lookupProperty(helpers,"projectName") || (depth0 != null ? lookupProperty(depth0,"projectName") : depth0)) != null ? helper : alias2),(typeof helper === "function" ? helper.call(alias1,{"name":"projectName","hash":{},"data":data,"loc":{"start":{"line":6,"column":11},"end":{"line":6,"column":26}}}) : helper)))
     + "</title>\n  </head>\n\n  <body>\n    <div id=\"app\"></div>\n    \u003Cscript type=\"module\" src=\"/src/main.tsx\">\u003C/script>\n  </body>\n</html>\n";
 },"useData":true}],
   ["frontend/react/tanstack-router/package.json.hbs", { kind: "template", "0":function(container,depth0,helpers,partials,data) {
@@ -16043,18 +16158,16 @@ export default flatRoutes() satisfies RouteConfig;
     + "});\n\ndeclare module \"@tanstack/react-router\" {\n  interface Register {\n    router: typeof router;\n  }\n}\n\nconst rootElement = document.getElementById(\"app\");\n\nif (!rootElement) {\n  throw new Error(\"Root element not found\");\n}\n\nif (!rootElement.innerHTML) {\n  const root = ReactDOM.createRoot(rootElement);\n  root.render(<RouterProvider router={router} />);\n}\n";
 },"useData":true}],
   ["frontend/react/tanstack-router/src/routes/__root.tsx.hbs", { kind: "template", "0":function(container,depth0,helpers,partials,data) {
-    var helper, lookupProperty = container.lookupProperty || function(parent: any, propertyName: any) {
+    return "import { LocaleDirectionProvider } from \"@/components/locale-direction-provider\";\n";
+},"1":function(container,depth0,helpers,partials,data) {
+    var stack1, lookupProperty = container.lookupProperty || function(parent: any, propertyName: any) {
         if (Object.prototype.hasOwnProperty.call(parent, propertyName)) {
           return parent[propertyName];
         }
         return undefined
     };
 
-  return "import { DirectionProvider } from \"@"
-    + container.escapeExpression(((helper = (helper = lookupProperty(helpers,"projectName") || (depth0 != null ? lookupProperty(depth0,"projectName") : depth0)) != null ? helper : container.hooks.helperMissing),(typeof helper === "function" ? helper.call(depth0 != null ? depth0 : (container.nullContext || {}),{"name":"projectName","hash":{},"data":data,"loc":{"start":{"line":4,"column":54},"end":{"line":4,"column":69}}}) : helper)))
-    + "/ui/components/direction\";\n";
-},"1":function(container,depth0,helpers,partials,data) {
-    return "\nimport { AutumnProvider } from \"autumn-js/react\";\n";
+  return ((stack1 = lookupProperty(helpers,"if").call(depth0 != null ? depth0 : (container.nullContext || {}),((stack1 = (depth0 != null ? lookupProperty(depth0,"shadcn") : depth0)) != null ? lookupProperty(stack1,"rtl") : stack1),{"name":"if","hash":{},"fn":container.program(2, data, 0),"inverse":container.noop,"data":data,"loc":{"start":{"line":5,"column":0},"end":{"line":6,"column":0}}})) != null ? stack1 : "");
 },"2":function(container,depth0,helpers,partials,data) {
     var helper, lookupProperty = container.lookupProperty || function(parent: any, propertyName: any) {
         if (Object.prototype.hasOwnProperty.call(parent, propertyName)) {
@@ -16063,14 +16176,27 @@ export default flatRoutes() satisfies RouteConfig;
         return undefined
     };
 
-  return "import { link, orpc } from \"@/utils/orpc\";\nimport type { QueryClient } from \"@tanstack/react-query\";\nimport { ReactQueryDevtools } from \"@tanstack/react-query-devtools\";\nimport { useState } from \"react\";\nimport { createTanstackQueryUtils } from \"@orpc/tanstack-query\";\nimport type { AppRouterClient } from \"@"
-    + container.escapeExpression(((helper = (helper = lookupProperty(helpers,"projectName") || (depth0 != null ? lookupProperty(depth0,"projectName") : depth0)) != null ? helper : container.hooks.helperMissing),(typeof helper === "function" ? helper.call(depth0 != null ? depth0 : (container.nullContext || {}),{"name":"projectName","hash":{},"data":data,"loc":{"start":{"line":14,"column":39},"end":{"line":14,"column":54}}}) : helper)))
-    + "/api/routers/index\";\nimport { createORPCClient } from \"@orpc/client\";\n";
+  return "import { DirectionProvider } from \"@"
+    + container.escapeExpression(((helper = (helper = lookupProperty(helpers,"projectName") || (depth0 != null ? lookupProperty(depth0,"projectName") : depth0)) != null ? helper : container.hooks.helperMissing),(typeof helper === "function" ? helper.call(depth0 != null ? depth0 : (container.nullContext || {}),{"name":"projectName","hash":{},"data":data,"loc":{"start":{"line":5,"column":58},"end":{"line":5,"column":73}}}) : helper)))
+    + "/ui/components/direction\";\n";
 },"3":function(container,depth0,helpers,partials,data) {
-    return "import type { trpc } from \"@/utils/trpc\";\nimport type { QueryClient } from \"@tanstack/react-query\";\nimport { ReactQueryDevtools } from \"@tanstack/react-query-devtools\";\n";
+    return "\nimport { AutumnProvider } from \"autumn-js/react\";\n";
 },"4":function(container,depth0,helpers,partials,data) {
-    return "export interface RouterAppContext {\n  orpc: typeof orpc;\n  queryClient: QueryClient;\n}\n";
+    var helper, lookupProperty = container.lookupProperty || function(parent: any, propertyName: any) {
+        if (Object.prototype.hasOwnProperty.call(parent, propertyName)) {
+          return parent[propertyName];
+        }
+        return undefined
+    };
+
+  return "import { link, orpc } from \"@/utils/orpc\";\nimport type { QueryClient } from \"@tanstack/react-query\";\nimport { ReactQueryDevtools } from \"@tanstack/react-query-devtools\";\nimport { useState } from \"react\";\nimport { createTanstackQueryUtils } from \"@orpc/tanstack-query\";\nimport type { AppRouterClient } from \"@"
+    + container.escapeExpression(((helper = (helper = lookupProperty(helpers,"projectName") || (depth0 != null ? lookupProperty(depth0,"projectName") : depth0)) != null ? helper : container.hooks.helperMissing),(typeof helper === "function" ? helper.call(depth0 != null ? depth0 : (container.nullContext || {}),{"name":"projectName","hash":{},"data":data,"loc":{"start":{"line":15,"column":39},"end":{"line":15,"column":54}}}) : helper)))
+    + "/api/routers/index\";\nimport { createORPCClient } from \"@orpc/client\";\n";
 },"5":function(container,depth0,helpers,partials,data) {
+    return "import type { trpc } from \"@/utils/trpc\";\nimport type { QueryClient } from \"@tanstack/react-query\";\nimport { ReactQueryDevtools } from \"@tanstack/react-query-devtools\";\n";
+},"6":function(container,depth0,helpers,partials,data) {
+    return "export interface RouterAppContext {\n  orpc: typeof orpc;\n  queryClient: QueryClient;\n}\n";
+},"7":function(container,depth0,helpers,partials,data) {
     var stack1, alias1=depth0 != null ? depth0 : (container.nullContext || {}), lookupProperty = container.lookupProperty || function(parent: any, propertyName: any) {
         if (Object.prototype.hasOwnProperty.call(parent, propertyName)) {
           return parent[propertyName];
@@ -16078,27 +16204,49 @@ export default flatRoutes() satisfies RouteConfig;
         return undefined
     };
 
-  return ((stack1 = lookupProperty(helpers,"if").call(alias1,(lookupProperty(helpers,"eq")||(depth0 && lookupProperty(depth0,"eq"))||container.hooks.helperMissing).call(alias1,(depth0 != null ? lookupProperty(depth0,"api") : depth0),"trpc",{"name":"eq","hash":{},"data":data,"loc":{"start":{"line":35,"column":10},"end":{"line":35,"column":25}}}),{"name":"if","hash":{},"fn":container.program(6, data, 0),"inverse":container.program(7, data, 0),"data":data,"loc":{"start":{"line":35,"column":0},"end":{"line":42,"column":0}}})) != null ? stack1 : "");
-},"6":function(container,depth0,helpers,partials,data) {
-    return "export interface RouterAppContext {\n  trpc: typeof trpc;\n  queryClient: QueryClient;\n}\n";
-},"7":function(container,depth0,helpers,partials,data) {
-    return "export interface RouterAppContext {}\n";
+  return ((stack1 = lookupProperty(helpers,"if").call(alias1,(lookupProperty(helpers,"eq")||(depth0 && lookupProperty(depth0,"eq"))||container.hooks.helperMissing).call(alias1,(depth0 != null ? lookupProperty(depth0,"api") : depth0),"trpc",{"name":"eq","hash":{},"data":data,"loc":{"start":{"line":36,"column":10},"end":{"line":36,"column":25}}}),{"name":"if","hash":{},"fn":container.program(8, data, 0),"inverse":container.program(9, data, 0),"data":data,"loc":{"start":{"line":36,"column":0},"end":{"line":43,"column":0}}})) != null ? stack1 : "");
 },"8":function(container,depth0,helpers,partials,data) {
-    return "  const [client] = useState<AppRouterClient>(() => createORPCClient(link));\n  const [orpcUtils] = useState(() => createTanstackQueryUtils(client));\n";
+    return "export interface RouterAppContext {\n  trpc: typeof trpc;\n  queryClient: QueryClient;\n}\n";
 },"9":function(container,depth0,helpers,partials,data) {
-    return "<DirectionProvider direction=\"rtl\">\n    ";
+    return "export interface RouterAppContext {}\n";
 },"10":function(container,depth0,helpers,partials,data) {
-    return "      <AutumnProvider useBetterAuth={true}>\n";
+    return "  const [client] = useState<AppRouterClient>(() => createORPCClient(link));\n  const [orpcUtils] = useState(() => createTanstackQueryUtils(client));\n";
 },"11":function(container,depth0,helpers,partials,data) {
-    return "        <ThemeProvider\n          attribute=\"class\"\n          defaultTheme=\"dark\"\n          disableTransitionOnChange\n          storageKey=\"vite-ui-theme\"\n        >\n          <div className=\"grid grid-rows-[auto_1fr] h-svh\">\n            <Header />\n            <Outlet />\n          </div>\n          <Toaster richColors />\n        </ThemeProvider>\n";
+    return "<LocaleDirectionProvider>\n    ";
 },"12":function(container,depth0,helpers,partials,data) {
-    return "      <ThemeProvider\n        attribute=\"class\"\n        defaultTheme=\"dark\"\n        disableTransitionOnChange\n        storageKey=\"vite-ui-theme\"\n      >\n        <div className=\"grid grid-rows-[auto_1fr] h-svh\">\n          <Header />\n          <Outlet />\n        </div>\n        <Toaster richColors />\n      </ThemeProvider>\n";
+    var stack1, lookupProperty = container.lookupProperty || function(parent: any, propertyName: any) {
+        if (Object.prototype.hasOwnProperty.call(parent, propertyName)) {
+          return parent[propertyName];
+        }
+        return undefined
+    };
+
+  return ((stack1 = lookupProperty(helpers,"if").call(depth0 != null ? depth0 : (container.nullContext || {}),((stack1 = (depth0 != null ? lookupProperty(depth0,"shadcn") : depth0)) != null ? lookupProperty(stack1,"rtl") : stack1),{"name":"if","hash":{},"fn":container.program(13, data, 0),"inverse":container.noop,"data":data,"loc":{"start":{"line":74,"column":4},"end":{"line":75,"column":4}}})) != null ? stack1 : "");
 },"13":function(container,depth0,helpers,partials,data) {
-    return "      </AutumnProvider>\n";
+    return "<DirectionProvider direction=\"rtl\">\n    ";
 },"14":function(container,depth0,helpers,partials,data) {
-    return "      <ReactQueryDevtools position=\"bottom\" buttonPosition=\"bottom-right\" />\n";
+    return "      <AutumnProvider useBetterAuth={true}>\n";
 },"15":function(container,depth0,helpers,partials,data) {
-    return "\n    </DirectionProvider>";
+    return "        <ThemeProvider\n          attribute=\"class\"\n          defaultTheme=\"dark\"\n          disableTransitionOnChange\n          storageKey=\"vite-ui-theme\"\n        >\n          <div className=\"grid grid-rows-[auto_1fr] h-svh\">\n            <Header />\n            <Outlet />\n          </div>\n          <Toaster richColors />\n        </ThemeProvider>\n";
+},"16":function(container,depth0,helpers,partials,data) {
+    return "      <ThemeProvider\n        attribute=\"class\"\n        defaultTheme=\"dark\"\n        disableTransitionOnChange\n        storageKey=\"vite-ui-theme\"\n      >\n        <div className=\"grid grid-rows-[auto_1fr] h-svh\">\n          <Header />\n          <Outlet />\n        </div>\n        <Toaster richColors />\n      </ThemeProvider>\n";
+},"17":function(container,depth0,helpers,partials,data) {
+    return "      </AutumnProvider>\n";
+},"18":function(container,depth0,helpers,partials,data) {
+    return "      <ReactQueryDevtools position=\"bottom\" buttonPosition=\"bottom-right\" />\n";
+},"19":function(container,depth0,helpers,partials,data) {
+    return "\n    </LocaleDirectionProvider>\n";
+},"20":function(container,depth0,helpers,partials,data) {
+    var stack1, lookupProperty = container.lookupProperty || function(parent: any, propertyName: any) {
+        if (Object.prototype.hasOwnProperty.call(parent, propertyName)) {
+          return parent[propertyName];
+        }
+        return undefined
+    };
+
+  return ((stack1 = lookupProperty(helpers,"if").call(depth0 != null ? depth0 : (container.nullContext || {}),((stack1 = (depth0 != null ? lookupProperty(depth0,"shadcn") : depth0)) != null ? lookupProperty(stack1,"rtl") : stack1),{"name":"if","hash":{},"fn":container.program(21, data, 0),"inverse":container.noop,"data":data,"loc":{"start":{"line":116,"column":4},"end":{"line":117,"column":24}}})) != null ? stack1 : "");
+},"21":function(container,depth0,helpers,partials,data) {
+    return "    </DirectionProvider>";
 },"compiler":[8,">= 4.3.0"],"main":function(container,depth0,helpers,partials,data) {
     var stack1, helper, alias1=depth0 != null ? depth0 : (container.nullContext || {}), alias2=container.hooks.helperMissing, alias3="function", alias4=container.escapeExpression, lookupProperty = container.lookupProperty || function(parent: any, propertyName: any) {
         if (Object.prototype.hasOwnProperty.call(parent, propertyName)) {
@@ -16110,28 +16258,28 @@ export default flatRoutes() satisfies RouteConfig;
   return "import Header from \"@/components/header\";\nimport { ThemeProvider } from \"@/components/theme-provider\";\nimport { Toaster } from \"@"
     + alias4(((helper = (helper = lookupProperty(helpers,"projectName") || (depth0 != null ? lookupProperty(depth0,"projectName") : depth0)) != null ? helper : alias2),(typeof helper === alias3 ? helper.call(alias1,{"name":"projectName","hash":{},"data":data,"loc":{"start":{"line":3,"column":26},"end":{"line":3,"column":41}}}) : helper)))
     + "/ui/components/sonner\";\n"
-    + ((stack1 = lookupProperty(helpers,"if").call(alias1,((stack1 = (depth0 != null ? lookupProperty(depth0,"shadcn") : depth0)) != null ? lookupProperty(stack1,"rtl") : stack1),{"name":"if","hash":{},"fn":container.program(0, data, 0),"inverse":container.noop,"data":data,"loc":{"start":{"line":4,"column":0},"end":{"line":5,"column":7}}})) != null ? stack1 : "")
-    + ((stack1 = lookupProperty(helpers,"if").call(alias1,(lookupProperty(helpers,"eq")||(depth0 && lookupProperty(depth0,"eq"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"payments") : depth0),"autumn",{"name":"eq","hash":{},"data":data,"loc":{"start":{"line":5,"column":13},"end":{"line":5,"column":35}}}),{"name":"if","hash":{},"fn":container.program(1, data, 0),"inverse":container.noop,"data":data,"loc":{"start":{"line":5,"column":7},"end":{"line":7,"column":7}}})) != null ? stack1 : "")
-    + ((stack1 = lookupProperty(helpers,"if").call(alias1,(lookupProperty(helpers,"eq")||(depth0 && lookupProperty(depth0,"eq"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"api") : depth0),"orpc",{"name":"eq","hash":{},"data":data,"loc":{"start":{"line":8,"column":6},"end":{"line":8,"column":21}}}),{"name":"if","hash":{},"fn":container.program(2, data, 0),"inverse":container.noop,"data":data,"loc":{"start":{"line":8,"column":0},"end":{"line":16,"column":7}}})) != null ? stack1 : "")
-    + ((stack1 = lookupProperty(helpers,"if").call(alias1,(lookupProperty(helpers,"eq")||(depth0 && lookupProperty(depth0,"eq"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"api") : depth0),"trpc",{"name":"eq","hash":{},"data":data,"loc":{"start":{"line":17,"column":6},"end":{"line":17,"column":21}}}),{"name":"if","hash":{},"fn":container.program(3, data, 0),"inverse":container.noop,"data":data,"loc":{"start":{"line":17,"column":0},"end":{"line":21,"column":7}}})) != null ? stack1 : "")
+    + ((stack1 = lookupProperty(helpers,"if").call(alias1,(lookupProperty(helpers,"usesShadcnDirection")||(depth0 && lookupProperty(depth0,"usesShadcnDirection"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"shadcn") : depth0),(depth0 != null ? lookupProperty(depth0,"i18n") : depth0),(depth0 != null ? lookupProperty(depth0,"i18nOptions") : depth0),{"name":"usesShadcnDirection","hash":{},"data":data,"loc":{"start":{"line":4,"column":6},"end":{"line":4,"column":51}}}),{"name":"if","hash":{},"fn":container.program(0, data, 0),"inverse":container.program(1, data, 0),"data":data,"loc":{"start":{"line":4,"column":0},"end":{"line":6,"column":7}}})) != null ? stack1 : "")
+    + ((stack1 = lookupProperty(helpers,"if").call(alias1,(lookupProperty(helpers,"eq")||(depth0 && lookupProperty(depth0,"eq"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"payments") : depth0),"autumn",{"name":"eq","hash":{},"data":data,"loc":{"start":{"line":6,"column":13},"end":{"line":6,"column":35}}}),{"name":"if","hash":{},"fn":container.program(3, data, 0),"inverse":container.noop,"data":data,"loc":{"start":{"line":6,"column":7},"end":{"line":8,"column":7}}})) != null ? stack1 : "")
+    + ((stack1 = lookupProperty(helpers,"if").call(alias1,(lookupProperty(helpers,"eq")||(depth0 && lookupProperty(depth0,"eq"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"api") : depth0),"orpc",{"name":"eq","hash":{},"data":data,"loc":{"start":{"line":9,"column":6},"end":{"line":9,"column":21}}}),{"name":"if","hash":{},"fn":container.program(4, data, 0),"inverse":container.noop,"data":data,"loc":{"start":{"line":9,"column":0},"end":{"line":17,"column":7}}})) != null ? stack1 : "")
+    + ((stack1 = lookupProperty(helpers,"if").call(alias1,(lookupProperty(helpers,"eq")||(depth0 && lookupProperty(depth0,"eq"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"api") : depth0),"trpc",{"name":"eq","hash":{},"data":data,"loc":{"start":{"line":18,"column":6},"end":{"line":18,"column":21}}}),{"name":"if","hash":{},"fn":container.program(5, data, 0),"inverse":container.noop,"data":data,"loc":{"start":{"line":18,"column":0},"end":{"line":22,"column":7}}})) != null ? stack1 : "")
     + "import {\n  HeadContent,\n  Outlet,\n  createRootRouteWithContext,\n} from \"@tanstack/react-router\";\nimport { TanStackRouterDevtools } from \"@tanstack/react-router-devtools\";\nimport \"../index.css\";\n\n"
-    + ((stack1 = lookupProperty(helpers,"if").call(alias1,(lookupProperty(helpers,"eq")||(depth0 && lookupProperty(depth0,"eq"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"api") : depth0),"orpc",{"name":"eq","hash":{},"data":data,"loc":{"start":{"line":30,"column":6},"end":{"line":30,"column":21}}}),{"name":"if","hash":{},"fn":container.program(4, data, 0),"inverse":container.program(5, data, 0),"data":data,"loc":{"start":{"line":30,"column":0},"end":{"line":42,"column":7}}})) != null ? stack1 : "")
+    + ((stack1 = lookupProperty(helpers,"if").call(alias1,(lookupProperty(helpers,"eq")||(depth0 && lookupProperty(depth0,"eq"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"api") : depth0),"orpc",{"name":"eq","hash":{},"data":data,"loc":{"start":{"line":31,"column":6},"end":{"line":31,"column":21}}}),{"name":"if","hash":{},"fn":container.program(6, data, 0),"inverse":container.program(7, data, 0),"data":data,"loc":{"start":{"line":31,"column":0},"end":{"line":43,"column":7}}})) != null ? stack1 : "")
     + "\nexport const Route = createRootRouteWithContext<RouterAppContext>()({\n  component: RootComponent,\n  head: () => ({\n    meta: [\n      {\n        title: \""
-    + alias4(((helper = (helper = lookupProperty(helpers,"projectName") || (depth0 != null ? lookupProperty(depth0,"projectName") : depth0)) != null ? helper : alias2),(typeof helper === alias3 ? helper.call(alias1,{"name":"projectName","hash":{},"data":data,"loc":{"start":{"line":49,"column":16},"end":{"line":49,"column":31}}}) : helper)))
+    + alias4(((helper = (helper = lookupProperty(helpers,"projectName") || (depth0 != null ? lookupProperty(depth0,"projectName") : depth0)) != null ? helper : alias2),(typeof helper === alias3 ? helper.call(alias1,{"name":"projectName","hash":{},"data":data,"loc":{"start":{"line":50,"column":16},"end":{"line":50,"column":31}}}) : helper)))
     + "\",\n      },\n      {\n        name: \"description\",\n        content: \""
-    + alias4(((helper = (helper = lookupProperty(helpers,"projectName") || (depth0 != null ? lookupProperty(depth0,"projectName") : depth0)) != null ? helper : alias2),(typeof helper === alias3 ? helper.call(alias1,{"name":"projectName","hash":{},"data":data,"loc":{"start":{"line":53,"column":18},"end":{"line":53,"column":33}}}) : helper)))
+    + alias4(((helper = (helper = lookupProperty(helpers,"projectName") || (depth0 != null ? lookupProperty(depth0,"projectName") : depth0)) != null ? helper : alias2),(typeof helper === alias3 ? helper.call(alias1,{"name":"projectName","hash":{},"data":data,"loc":{"start":{"line":54,"column":18},"end":{"line":54,"column":33}}}) : helper)))
     + " is a web application\",\n      },\n    ],\n    links: [\n      {\n        rel: \"icon\",\n        href: \"/favicon.ico\",\n      },\n    ],\n  }),\n});\n\nfunction RootComponent() {\n"
-    + ((stack1 = lookupProperty(helpers,"if").call(alias1,(lookupProperty(helpers,"eq")||(depth0 && lookupProperty(depth0,"eq"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"api") : depth0),"orpc",{"name":"eq","hash":{},"data":data,"loc":{"start":{"line":66,"column":8},"end":{"line":66,"column":23}}}),{"name":"if","hash":{},"fn":container.program(8, data, 0),"inverse":container.noop,"data":data,"loc":{"start":{"line":66,"column":2},"end":{"line":69,"column":9}}})) != null ? stack1 : "")
+    + ((stack1 = lookupProperty(helpers,"if").call(alias1,(lookupProperty(helpers,"eq")||(depth0 && lookupProperty(depth0,"eq"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"api") : depth0),"orpc",{"name":"eq","hash":{},"data":data,"loc":{"start":{"line":67,"column":8},"end":{"line":67,"column":23}}}),{"name":"if","hash":{},"fn":container.program(10, data, 0),"inverse":container.noop,"data":data,"loc":{"start":{"line":67,"column":2},"end":{"line":70,"column":9}}})) != null ? stack1 : "")
     + "\n  return (\n    "
-    + ((stack1 = lookupProperty(helpers,"if").call(alias1,((stack1 = (depth0 != null ? lookupProperty(depth0,"shadcn") : depth0)) != null ? lookupProperty(stack1,"rtl") : stack1),{"name":"if","hash":{},"fn":container.program(9, data, 0),"inverse":container.noop,"data":data,"loc":{"start":{"line":72,"column":4},"end":{"line":73,"column":11}}})) != null ? stack1 : "")
+    + ((stack1 = lookupProperty(helpers,"if").call(alias1,(lookupProperty(helpers,"usesShadcnDirection")||(depth0 && lookupProperty(depth0,"usesShadcnDirection"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"shadcn") : depth0),(depth0 != null ? lookupProperty(depth0,"i18n") : depth0),(depth0 != null ? lookupProperty(depth0,"i18nOptions") : depth0),{"name":"usesShadcnDirection","hash":{},"data":data,"loc":{"start":{"line":73,"column":10},"end":{"line":73,"column":55}}}),{"name":"if","hash":{},"fn":container.program(11, data, 0),"inverse":container.program(12, data, 0),"data":data,"loc":{"start":{"line":73,"column":4},"end":{"line":75,"column":11}}})) != null ? stack1 : "")
     + "<>\n      <HeadContent />\n"
-    + ((stack1 = lookupProperty(helpers,"if").call(alias1,(lookupProperty(helpers,"eq")||(depth0 && lookupProperty(depth0,"eq"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"payments") : depth0),"autumn",{"name":"eq","hash":{},"data":data,"loc":{"start":{"line":75,"column":6},"end":{"line":75,"column":28}}}),{"name":"if","hash":{},"fn":container.program(10, data, 0),"inverse":container.noop,"data":data,"loc":{"start":{"line":75,"column":0},"end":{"line":77,"column":7}}})) != null ? stack1 : "")
-    + ((stack1 = lookupProperty(helpers,"if").call(alias1,(lookupProperty(helpers,"eq")||(depth0 && lookupProperty(depth0,"eq"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"api") : depth0),"orpc",{"name":"eq","hash":{},"data":data,"loc":{"start":{"line":78,"column":12},"end":{"line":78,"column":27}}}),{"name":"if","hash":{},"fn":container.program(11, data, 0),"inverse":container.program(12, data, 0),"data":data,"loc":{"start":{"line":78,"column":6},"end":{"line":104,"column":13}}})) != null ? stack1 : "")
-    + ((stack1 = lookupProperty(helpers,"if").call(alias1,(lookupProperty(helpers,"eq")||(depth0 && lookupProperty(depth0,"eq"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"payments") : depth0),"autumn",{"name":"eq","hash":{},"data":data,"loc":{"start":{"line":105,"column":6},"end":{"line":105,"column":28}}}),{"name":"if","hash":{},"fn":container.program(13, data, 0),"inverse":container.noop,"data":data,"loc":{"start":{"line":105,"column":0},"end":{"line":107,"column":7}}})) != null ? stack1 : "")
+    + ((stack1 = lookupProperty(helpers,"if").call(alias1,(lookupProperty(helpers,"eq")||(depth0 && lookupProperty(depth0,"eq"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"payments") : depth0),"autumn",{"name":"eq","hash":{},"data":data,"loc":{"start":{"line":77,"column":6},"end":{"line":77,"column":28}}}),{"name":"if","hash":{},"fn":container.program(14, data, 0),"inverse":container.noop,"data":data,"loc":{"start":{"line":77,"column":0},"end":{"line":79,"column":7}}})) != null ? stack1 : "")
+    + ((stack1 = lookupProperty(helpers,"if").call(alias1,(lookupProperty(helpers,"eq")||(depth0 && lookupProperty(depth0,"eq"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"api") : depth0),"orpc",{"name":"eq","hash":{},"data":data,"loc":{"start":{"line":80,"column":12},"end":{"line":80,"column":27}}}),{"name":"if","hash":{},"fn":container.program(15, data, 0),"inverse":container.program(16, data, 0),"data":data,"loc":{"start":{"line":80,"column":6},"end":{"line":106,"column":13}}})) != null ? stack1 : "")
+    + ((stack1 = lookupProperty(helpers,"if").call(alias1,(lookupProperty(helpers,"eq")||(depth0 && lookupProperty(depth0,"eq"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"payments") : depth0),"autumn",{"name":"eq","hash":{},"data":data,"loc":{"start":{"line":107,"column":6},"end":{"line":107,"column":28}}}),{"name":"if","hash":{},"fn":container.program(17, data, 0),"inverse":container.noop,"data":data,"loc":{"start":{"line":107,"column":0},"end":{"line":109,"column":7}}})) != null ? stack1 : "")
     + "      <TanStackRouterDevtools position=\"bottom-left\" />\n"
-    + ((stack1 = lookupProperty(helpers,"if").call(alias1,(lookupProperty(helpers,"or")||(depth0 && lookupProperty(depth0,"or"))||alias2).call(alias1,(lookupProperty(helpers,"eq")||(depth0 && lookupProperty(depth0,"eq"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"api") : depth0),"orpc",{"name":"eq","hash":{},"data":data,"loc":{"start":{"line":109,"column":16},"end":{"line":109,"column":31}}}),(lookupProperty(helpers,"eq")||(depth0 && lookupProperty(depth0,"eq"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"api") : depth0),"trpc",{"name":"eq","hash":{},"data":data,"loc":{"start":{"line":109,"column":32},"end":{"line":109,"column":47}}}),{"name":"or","hash":{},"data":data,"loc":{"start":{"line":109,"column":12},"end":{"line":109,"column":48}}}),{"name":"if","hash":{},"fn":container.program(14, data, 0),"inverse":container.noop,"data":data,"loc":{"start":{"line":109,"column":6},"end":{"line":111,"column":13}}})) != null ? stack1 : "")
+    + ((stack1 = lookupProperty(helpers,"if").call(alias1,(lookupProperty(helpers,"or")||(depth0 && lookupProperty(depth0,"or"))||alias2).call(alias1,(lookupProperty(helpers,"eq")||(depth0 && lookupProperty(depth0,"eq"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"api") : depth0),"orpc",{"name":"eq","hash":{},"data":data,"loc":{"start":{"line":111,"column":16},"end":{"line":111,"column":31}}}),(lookupProperty(helpers,"eq")||(depth0 && lookupProperty(depth0,"eq"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"api") : depth0),"trpc",{"name":"eq","hash":{},"data":data,"loc":{"start":{"line":111,"column":32},"end":{"line":111,"column":47}}}),{"name":"or","hash":{},"data":data,"loc":{"start":{"line":111,"column":12},"end":{"line":111,"column":48}}}),{"name":"if","hash":{},"fn":container.program(18, data, 0),"inverse":container.noop,"data":data,"loc":{"start":{"line":111,"column":6},"end":{"line":113,"column":13}}})) != null ? stack1 : "")
     + "    </>"
-    + ((stack1 = lookupProperty(helpers,"if").call(alias1,((stack1 = (depth0 != null ? lookupProperty(depth0,"shadcn") : depth0)) != null ? lookupProperty(stack1,"rtl") : stack1),{"name":"if","hash":{},"fn":container.program(15, data, 0),"inverse":container.noop,"data":data,"loc":{"start":{"line":112,"column":7},"end":{"line":113,"column":31}}})) != null ? stack1 : "")
+    + ((stack1 = lookupProperty(helpers,"if").call(alias1,(lookupProperty(helpers,"usesShadcnDirection")||(depth0 && lookupProperty(depth0,"usesShadcnDirection"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"shadcn") : depth0),(depth0 != null ? lookupProperty(depth0,"i18n") : depth0),(depth0 != null ? lookupProperty(depth0,"i18nOptions") : depth0),{"name":"usesShadcnDirection","hash":{},"data":data,"loc":{"start":{"line":114,"column":13},"end":{"line":114,"column":58}}}),{"name":"if","hash":{},"fn":container.program(19, data, 0),"inverse":container.program(20, data, 0),"data":data,"loc":{"start":{"line":114,"column":7},"end":{"line":117,"column":31}}})) != null ? stack1 : "")
     + "\n  );\n}\n";
 },"useData":true}],
   ["frontend/react/tanstack-router/src/routes/index.tsx.hbs", { kind: "template", "0":function(container,depth0,helpers,partials,data) {
@@ -16454,6 +16602,17 @@ Disallow:
     + "\ndeclare module \"@tanstack/react-router\" {\n\tinterface Register {\n\t\trouter: ReturnType<typeof getRouter>;\n\t}\n}\n";
 },"usePartial":true,"useData":true}],
   ["frontend/react/tanstack-start/src/routes/__root.tsx.hbs", { kind: "template", "0":function(container,depth0,helpers,partials,data) {
+    return "import { LocaleDirectionProvider } from \"@/components/locale-direction-provider\";\n";
+},"1":function(container,depth0,helpers,partials,data) {
+    var stack1, lookupProperty = container.lookupProperty || function(parent: any, propertyName: any) {
+        if (Object.prototype.hasOwnProperty.call(parent, propertyName)) {
+          return parent[propertyName];
+        }
+        return undefined
+    };
+
+  return ((stack1 = lookupProperty(helpers,"if").call(depth0 != null ? depth0 : (container.nullContext || {}),((stack1 = (depth0 != null ? lookupProperty(depth0,"shadcn") : depth0)) != null ? lookupProperty(stack1,"rtl") : stack1),{"name":"if","hash":{},"fn":container.program(2, data, 0),"inverse":container.noop,"data":data,"loc":{"start":{"line":3,"column":0},"end":{"line":4,"column":0}}})) != null ? stack1 : "");
+},"2":function(container,depth0,helpers,partials,data) {
     var helper, lookupProperty = container.lookupProperty || function(parent: any, propertyName: any) {
         if (Object.prototype.hasOwnProperty.call(parent, propertyName)) {
           return parent[propertyName];
@@ -16462,9 +16621,9 @@ Disallow:
     };
 
   return "import { DirectionProvider } from \"@"
-    + container.escapeExpression(((helper = (helper = lookupProperty(helpers,"projectName") || (depth0 != null ? lookupProperty(depth0,"projectName") : depth0)) != null ? helper : container.hooks.helperMissing),(typeof helper === "function" ? helper.call(depth0 != null ? depth0 : (container.nullContext || {}),{"name":"projectName","hash":{},"data":data,"loc":{"start":{"line":2,"column":54},"end":{"line":2,"column":69}}}) : helper)))
+    + container.escapeExpression(((helper = (helper = lookupProperty(helpers,"projectName") || (depth0 != null ? lookupProperty(depth0,"projectName") : depth0)) != null ? helper : container.hooks.helperMissing),(typeof helper === "function" ? helper.call(depth0 != null ? depth0 : (container.nullContext || {}),{"name":"projectName","hash":{},"data":data,"loc":{"start":{"line":3,"column":58},"end":{"line":3,"column":73}}}) : helper)))
     + "/ui/components/direction\";\n";
-},"1":function(container,depth0,helpers,partials,data) {
+},"3":function(container,depth0,helpers,partials,data) {
     var stack1, alias1=depth0 != null ? depth0 : (container.nullContext || {}), lookupProperty = container.lookupProperty || function(parent: any, propertyName: any) {
         if (Object.prototype.hasOwnProperty.call(parent, propertyName)) {
           return parent[propertyName];
@@ -16473,27 +16632,16 @@ Disallow:
     };
 
   return " "
-    + ((stack1 = lookupProperty(helpers,"unless").call(alias1,(lookupProperty(helpers,"eq")||(depth0 && lookupProperty(depth0,"eq"))||container.hooks.helperMissing).call(alias1,(depth0 != null ? lookupProperty(depth0,"api") : depth0),"none",{"name":"eq","hash":{},"data":data,"loc":{"start":{"line":3,"column":51},"end":{"line":3,"column":66}}}),{"name":"unless","hash":{},"fn":container.program(2, data, 0),"inverse":container.noop,"data":data,"loc":{"start":{"line":3,"column":41},"end":{"line":5,"column":11}}})) != null ? stack1 : "")
+    + ((stack1 = lookupProperty(helpers,"unless").call(alias1,(lookupProperty(helpers,"eq")||(depth0 && lookupProperty(depth0,"eq"))||container.hooks.helperMissing).call(alias1,(depth0 != null ? lookupProperty(depth0,"api") : depth0),"none",{"name":"eq","hash":{},"data":data,"loc":{"start":{"line":4,"column":51},"end":{"line":4,"column":66}}}),{"name":"unless","hash":{},"fn":container.program(4, data, 0),"inverse":container.noop,"data":data,"loc":{"start":{"line":4,"column":41},"end":{"line":6,"column":11}}})) != null ? stack1 : "")
     + " ";
-},"2":function(container,depth0,helpers,partials,data) {
-    return "\nimport { ReactQueryDevtools } from \"@tanstack/react-query-devtools\";\n";
-},"3":function(container,depth0,helpers,partials,data) {
-    return "  useRouteContext,\n";
 },"4":function(container,depth0,helpers,partials,data) {
-    return "import { AutumnProvider } from \"autumn-js/react\";\n";
+    return "\nimport { ReactQueryDevtools } from \"@tanstack/react-query-devtools\";\n";
 },"5":function(container,depth0,helpers,partials,data) {
-    return "import type { QueryClient } from \"@tanstack/react-query\";\nimport type { ConvexQueryClient } from \"@convex-dev/react-query\";\n";
+    return "  useRouteContext,\n";
 },"6":function(container,depth0,helpers,partials,data) {
-    var stack1, alias1=depth0 != null ? depth0 : (container.nullContext || {}), alias2=container.hooks.helperMissing, lookupProperty = container.lookupProperty || function(parent: any, propertyName: any) {
-        if (Object.prototype.hasOwnProperty.call(parent, propertyName)) {
-          return parent[propertyName];
-        }
-        return undefined
-    };
-
-  return ((stack1 = lookupProperty(helpers,"if").call(alias1,(lookupProperty(helpers,"or")||(depth0 && lookupProperty(depth0,"or"))||alias2).call(alias1,(lookupProperty(helpers,"eq")||(depth0 && lookupProperty(depth0,"eq"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"api") : depth0),"trpc",{"name":"eq","hash":{},"data":data,"loc":{"start":{"line":25,"column":10},"end":{"line":25,"column":25}}}),(lookupProperty(helpers,"eq")||(depth0 && lookupProperty(depth0,"eq"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"api") : depth0),"orpc",{"name":"eq","hash":{},"data":data,"loc":{"start":{"line":25,"column":26},"end":{"line":25,"column":41}}}),{"name":"or","hash":{},"data":data,"loc":{"start":{"line":25,"column":6},"end":{"line":25,"column":42}}}),{"name":"if","hash":{},"fn":container.program(7, data, 0),"inverse":container.noop,"data":data,"loc":{"start":{"line":25,"column":0},"end":{"line":27,"column":7}}})) != null ? stack1 : "");
+    return "import { AutumnProvider } from \"autumn-js/react\";\n";
 },"7":function(container,depth0,helpers,partials,data) {
-    return "import type { QueryClient } from \"@tanstack/react-query\";\n";
+    return "import type { QueryClient } from \"@tanstack/react-query\";\nimport type { ConvexQueryClient } from \"@convex-dev/react-query\";\n";
 },"8":function(container,depth0,helpers,partials,data) {
     var stack1, alias1=depth0 != null ? depth0 : (container.nullContext || {}), alias2=container.hooks.helperMissing, lookupProperty = container.lookupProperty || function(parent: any, propertyName: any) {
         if (Object.prototype.hasOwnProperty.call(parent, propertyName)) {
@@ -16502,16 +16650,10 @@ Disallow:
         return undefined
     };
 
-  return "import { ClerkProvider"
-    + ((stack1 = lookupProperty(helpers,"if").call(alias1,(lookupProperty(helpers,"or")||(depth0 && lookupProperty(depth0,"or"))||alias2).call(alias1,(lookupProperty(helpers,"eq")||(depth0 && lookupProperty(depth0,"eq"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"backend") : depth0),"convex",{"name":"eq","hash":{},"data":data,"loc":{"start":{"line":31,"column":32},"end":{"line":31,"column":53}}}),(lookupProperty(helpers,"ne")||(depth0 && lookupProperty(depth0,"ne"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"api") : depth0),"none",{"name":"ne","hash":{},"data":data,"loc":{"start":{"line":31,"column":54},"end":{"line":31,"column":69}}}),{"name":"or","hash":{},"data":data,"loc":{"start":{"line":31,"column":28},"end":{"line":31,"column":70}}}),{"name":"if","hash":{},"fn":container.program(9, data, 0),"inverse":container.noop,"data":data,"loc":{"start":{"line":31,"column":22},"end":{"line":31,"column":88}}})) != null ? stack1 : "")
-    + " } from \"@clerk/tanstack-react-start\";\n";
+  return ((stack1 = lookupProperty(helpers,"if").call(alias1,(lookupProperty(helpers,"or")||(depth0 && lookupProperty(depth0,"or"))||alias2).call(alias1,(lookupProperty(helpers,"eq")||(depth0 && lookupProperty(depth0,"eq"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"api") : depth0),"trpc",{"name":"eq","hash":{},"data":data,"loc":{"start":{"line":26,"column":10},"end":{"line":26,"column":25}}}),(lookupProperty(helpers,"eq")||(depth0 && lookupProperty(depth0,"eq"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"api") : depth0),"orpc",{"name":"eq","hash":{},"data":data,"loc":{"start":{"line":26,"column":26},"end":{"line":26,"column":41}}}),{"name":"or","hash":{},"data":data,"loc":{"start":{"line":26,"column":6},"end":{"line":26,"column":42}}}),{"name":"if","hash":{},"fn":container.program(9, data, 0),"inverse":container.noop,"data":data,"loc":{"start":{"line":26,"column":0},"end":{"line":28,"column":7}}})) != null ? stack1 : "");
 },"9":function(container,depth0,helpers,partials,data) {
-    return ", useAuth";
+    return "import type { QueryClient } from \"@tanstack/react-query\";\n";
 },"10":function(container,depth0,helpers,partials,data) {
-    return "import { useEffect } from \"react\";\nimport { setClerkAuthTokenGetter } from \"@/utils/clerk-auth\";\n";
-},"11":function(container,depth0,helpers,partials,data) {
-    return "import { auth } from \"@clerk/tanstack-react-start/server\";\nimport { createServerFn } from \"@tanstack/react-start\";\nimport { ConvexProviderWithClerk } from \"convex/react-clerk\";\n\nconst fetchClerkAuth = createServerFn({ method: \"GET\" }).handler(async () => {\n  const { userId, getToken } = await auth();\n  const token = await getToken();\n  return { userId, token };\n});\n";
-},"12":function(container,depth0,helpers,partials,data) {
     var stack1, alias1=depth0 != null ? depth0 : (container.nullContext || {}), alias2=container.hooks.helperMissing, lookupProperty = container.lookupProperty || function(parent: any, propertyName: any) {
         if (Object.prototype.hasOwnProperty.call(parent, propertyName)) {
           return parent[propertyName];
@@ -16519,25 +16661,27 @@ Disallow:
         return undefined
     };
 
-  return ((stack1 = lookupProperty(helpers,"if").call(alias1,(lookupProperty(helpers,"and")||(depth0 && lookupProperty(depth0,"and"))||alias2).call(alias1,(lookupProperty(helpers,"eq")||(depth0 && lookupProperty(depth0,"eq"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"backend") : depth0),"convex",{"name":"eq","hash":{},"data":data,"loc":{"start":{"line":47,"column":15},"end":{"line":47,"column":36}}}),(lookupProperty(helpers,"eq")||(depth0 && lookupProperty(depth0,"eq"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"auth") : depth0),"better-auth",{"name":"eq","hash":{},"data":data,"loc":{"start":{"line":47,"column":37},"end":{"line":47,"column":60}}}),{"name":"and","hash":{},"data":data,"loc":{"start":{"line":47,"column":10},"end":{"line":47,"column":61}}}),{"name":"if","hash":{},"fn":container.program(13, data, 0),"inverse":container.program(14, data, 0),"data":data,"loc":{"start":{"line":47,"column":0},"end":{"line":58,"column":0}}})) != null ? stack1 : "");
+  return "import { ClerkProvider"
+    + ((stack1 = lookupProperty(helpers,"if").call(alias1,(lookupProperty(helpers,"or")||(depth0 && lookupProperty(depth0,"or"))||alias2).call(alias1,(lookupProperty(helpers,"eq")||(depth0 && lookupProperty(depth0,"eq"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"backend") : depth0),"convex",{"name":"eq","hash":{},"data":data,"loc":{"start":{"line":32,"column":32},"end":{"line":32,"column":53}}}),(lookupProperty(helpers,"ne")||(depth0 && lookupProperty(depth0,"ne"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"api") : depth0),"none",{"name":"ne","hash":{},"data":data,"loc":{"start":{"line":32,"column":54},"end":{"line":32,"column":69}}}),{"name":"or","hash":{},"data":data,"loc":{"start":{"line":32,"column":28},"end":{"line":32,"column":70}}}),{"name":"if","hash":{},"fn":container.program(11, data, 0),"inverse":container.noop,"data":data,"loc":{"start":{"line":32,"column":22},"end":{"line":32,"column":88}}})) != null ? stack1 : "")
+    + " } from \"@clerk/tanstack-react-start\";\n";
+},"11":function(container,depth0,helpers,partials,data) {
+    return ", useAuth";
+},"12":function(container,depth0,helpers,partials,data) {
+    return "import { useEffect } from \"react\";\nimport { setClerkAuthTokenGetter } from \"@/utils/clerk-auth\";\n";
 },"13":function(container,depth0,helpers,partials,data) {
-    return "import { createServerFn } from \"@tanstack/react-start\";\nimport { ConvexBetterAuthProvider } from \"@convex-dev/better-auth/react\";\nimport { authClient } from \"@/lib/auth-client\";\nimport { getToken } from \"@/lib/auth-server\";\n\nconst getAuth = createServerFn({ method: \"GET\" }).handler(async () => {\n  return await getToken();\n});\n";
+    return "import { auth } from \"@clerk/tanstack-react-start/server\";\nimport { createServerFn } from \"@tanstack/react-start\";\nimport { ConvexProviderWithClerk } from \"convex/react-clerk\";\n\nconst fetchClerkAuth = createServerFn({ method: \"GET\" }).handler(async () => {\n  const { userId, getToken } = await auth();\n  const token = await getToken();\n  return { userId, token };\n});\n";
 },"14":function(container,depth0,helpers,partials,data) {
-    var stack1, alias1=depth0 != null ? depth0 : (container.nullContext || {}), lookupProperty = container.lookupProperty || function(parent: any, propertyName: any) {
+    var stack1, alias1=depth0 != null ? depth0 : (container.nullContext || {}), alias2=container.hooks.helperMissing, lookupProperty = container.lookupProperty || function(parent: any, propertyName: any) {
         if (Object.prototype.hasOwnProperty.call(parent, propertyName)) {
           return parent[propertyName];
         }
         return undefined
     };
 
-  return ((stack1 = lookupProperty(helpers,"if").call(alias1,(lookupProperty(helpers,"eq")||(depth0 && lookupProperty(depth0,"eq"))||container.hooks.helperMissing).call(alias1,(depth0 != null ? lookupProperty(depth0,"backend") : depth0),"convex",{"name":"eq","hash":{},"data":data,"loc":{"start":{"line":56,"column":10},"end":{"line":56,"column":31}}}),{"name":"if","hash":{},"fn":container.program(15, data, 0),"inverse":container.noop,"data":data,"loc":{"start":{"line":56,"column":0},"end":{"line":58,"column":0}}})) != null ? stack1 : "");
+  return ((stack1 = lookupProperty(helpers,"if").call(alias1,(lookupProperty(helpers,"and")||(depth0 && lookupProperty(depth0,"and"))||alias2).call(alias1,(lookupProperty(helpers,"eq")||(depth0 && lookupProperty(depth0,"eq"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"backend") : depth0),"convex",{"name":"eq","hash":{},"data":data,"loc":{"start":{"line":48,"column":15},"end":{"line":48,"column":36}}}),(lookupProperty(helpers,"eq")||(depth0 && lookupProperty(depth0,"eq"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"auth") : depth0),"better-auth",{"name":"eq","hash":{},"data":data,"loc":{"start":{"line":48,"column":37},"end":{"line":48,"column":60}}}),{"name":"and","hash":{},"data":data,"loc":{"start":{"line":48,"column":10},"end":{"line":48,"column":61}}}),{"name":"if","hash":{},"fn":container.program(15, data, 0),"inverse":container.program(16, data, 0),"data":data,"loc":{"start":{"line":48,"column":0},"end":{"line":59,"column":0}}})) != null ? stack1 : "");
 },"15":function(container,depth0,helpers,partials,data) {
-    return "import { ConvexProvider } from \"convex/react\";\n";
+    return "import { createServerFn } from \"@tanstack/react-start\";\nimport { ConvexBetterAuthProvider } from \"@convex-dev/better-auth/react\";\nimport { authClient } from \"@/lib/auth-client\";\nimport { getToken } from \"@/lib/auth-server\";\n\nconst getAuth = createServerFn({ method: \"GET\" }).handler(async () => {\n  return await getToken();\n});\n";
 },"16":function(container,depth0,helpers,partials,data) {
-    return "function ClerkApiAuthBridge() {\n  const { getToken } = useAuth();\n\n  useEffect(() => {\n    setClerkAuthTokenGetter(getToken);\n\n    return () => {\n      setClerkAuthTokenGetter(null);\n    };\n  }, [getToken]);\n\n  return null;\n}\n";
-},"17":function(container,depth0,helpers,partials,data) {
-    return "export interface RouterAppContext {\n  queryClient: QueryClient;\n  convexQueryClient: ConvexQueryClient;\n}\n";
-},"18":function(container,depth0,helpers,partials,data) {
     var stack1, alias1=depth0 != null ? depth0 : (container.nullContext || {}), lookupProperty = container.lookupProperty || function(parent: any, propertyName: any) {
         if (Object.prototype.hasOwnProperty.call(parent, propertyName)) {
           return parent[propertyName];
@@ -16545,18 +16689,13 @@ Disallow:
         return undefined
     };
 
-  return ((stack1 = lookupProperty(helpers,"if").call(alias1,(lookupProperty(helpers,"eq")||(depth0 && lookupProperty(depth0,"eq"))||container.hooks.helperMissing).call(alias1,(depth0 != null ? lookupProperty(depth0,"api") : depth0),"trpc",{"name":"eq","hash":{},"data":data,"loc":{"start":{"line":82,"column":8},"end":{"line":82,"column":23}}}),{"name":"if","hash":{},"fn":container.program(19, data, 0),"inverse":container.program(20, data, 0),"data":data,"loc":{"start":{"line":82,"column":2},"end":{"line":98,"column":9}}})) != null ? stack1 : "");
+  return ((stack1 = lookupProperty(helpers,"if").call(alias1,(lookupProperty(helpers,"eq")||(depth0 && lookupProperty(depth0,"eq"))||container.hooks.helperMissing).call(alias1,(depth0 != null ? lookupProperty(depth0,"backend") : depth0),"convex",{"name":"eq","hash":{},"data":data,"loc":{"start":{"line":57,"column":10},"end":{"line":57,"column":31}}}),{"name":"if","hash":{},"fn":container.program(17, data, 0),"inverse":container.noop,"data":data,"loc":{"start":{"line":57,"column":0},"end":{"line":59,"column":0}}})) != null ? stack1 : "");
+},"17":function(container,depth0,helpers,partials,data) {
+    return "import { ConvexProvider } from \"convex/react\";\n";
+},"18":function(container,depth0,helpers,partials,data) {
+    return "function ClerkApiAuthBridge() {\n  const { getToken } = useAuth();\n\n  useEffect(() => {\n    setClerkAuthTokenGetter(getToken);\n\n    return () => {\n      setClerkAuthTokenGetter(null);\n    };\n  }, [getToken]);\n\n  return null;\n}\n";
 },"19":function(container,depth0,helpers,partials,data) {
-    var helper, lookupProperty = container.lookupProperty || function(parent: any, propertyName: any) {
-        if (Object.prototype.hasOwnProperty.call(parent, propertyName)) {
-          return parent[propertyName];
-        }
-        return undefined
-    };
-
-  return "import type { TRPCOptionsProxy } from \"@trpc/tanstack-react-query\";\nimport type { AppRouter } from \"@"
-    + container.escapeExpression(((helper = (helper = lookupProperty(helpers,"projectName") || (depth0 != null ? lookupProperty(depth0,"projectName") : depth0)) != null ? helper : container.hooks.helperMissing),(typeof helper === "function" ? helper.call(depth0 != null ? depth0 : (container.nullContext || {}),{"name":"projectName","hash":{},"data":data,"loc":{"start":{"line":84,"column":33},"end":{"line":84,"column":48}}}) : helper)))
-    + "/api/routers/index\";\nexport interface RouterAppContext {\n  trpc: TRPCOptionsProxy<AppRouter>;\n  queryClient: QueryClient;\n}\n";
+    return "export interface RouterAppContext {\n  queryClient: QueryClient;\n  convexQueryClient: ConvexQueryClient;\n}\n";
 },"20":function(container,depth0,helpers,partials,data) {
     var stack1, alias1=depth0 != null ? depth0 : (container.nullContext || {}), lookupProperty = container.lookupProperty || function(parent: any, propertyName: any) {
         if (Object.prototype.hasOwnProperty.call(parent, propertyName)) {
@@ -16565,14 +16704,34 @@ Disallow:
         return undefined
     };
 
-  return ((stack1 = lookupProperty(helpers,"if").call(alias1,(lookupProperty(helpers,"eq")||(depth0 && lookupProperty(depth0,"eq"))||container.hooks.helperMissing).call(alias1,(depth0 != null ? lookupProperty(depth0,"api") : depth0),"orpc",{"name":"eq","hash":{},"data":data,"loc":{"start":{"line":89,"column":12},"end":{"line":89,"column":27}}}),{"name":"if","hash":{},"fn":container.program(21, data, 0),"inverse":container.program(22, data, 0),"data":data,"loc":{"start":{"line":89,"column":2},"end":{"line":98,"column":2}}})) != null ? stack1 : "");
+  return ((stack1 = lookupProperty(helpers,"if").call(alias1,(lookupProperty(helpers,"eq")||(depth0 && lookupProperty(depth0,"eq"))||container.hooks.helperMissing).call(alias1,(depth0 != null ? lookupProperty(depth0,"api") : depth0),"trpc",{"name":"eq","hash":{},"data":data,"loc":{"start":{"line":83,"column":8},"end":{"line":83,"column":23}}}),{"name":"if","hash":{},"fn":container.program(21, data, 0),"inverse":container.program(22, data, 0),"data":data,"loc":{"start":{"line":83,"column":2},"end":{"line":99,"column":9}}})) != null ? stack1 : "");
 },"21":function(container,depth0,helpers,partials,data) {
-    return "import type { orpc } from \"@/utils/orpc\";\nexport interface RouterAppContext {\n  orpc: typeof orpc;\n  queryClient: QueryClient;\n}\n";
+    var helper, lookupProperty = container.lookupProperty || function(parent: any, propertyName: any) {
+        if (Object.prototype.hasOwnProperty.call(parent, propertyName)) {
+          return parent[propertyName];
+        }
+        return undefined
+    };
+
+  return "import type { TRPCOptionsProxy } from \"@trpc/tanstack-react-query\";\nimport type { AppRouter } from \"@"
+    + container.escapeExpression(((helper = (helper = lookupProperty(helpers,"projectName") || (depth0 != null ? lookupProperty(depth0,"projectName") : depth0)) != null ? helper : container.hooks.helperMissing),(typeof helper === "function" ? helper.call(depth0 != null ? depth0 : (container.nullContext || {}),{"name":"projectName","hash":{},"data":data,"loc":{"start":{"line":85,"column":33},"end":{"line":85,"column":48}}}) : helper)))
+    + "/api/routers/index\";\nexport interface RouterAppContext {\n  trpc: TRPCOptionsProxy<AppRouter>;\n  queryClient: QueryClient;\n}\n";
 },"22":function(container,depth0,helpers,partials,data) {
-    return "export interface RouterAppContext {\n}\n  ";
+    var stack1, alias1=depth0 != null ? depth0 : (container.nullContext || {}), lookupProperty = container.lookupProperty || function(parent: any, propertyName: any) {
+        if (Object.prototype.hasOwnProperty.call(parent, propertyName)) {
+          return parent[propertyName];
+        }
+        return undefined
+    };
+
+  return ((stack1 = lookupProperty(helpers,"if").call(alias1,(lookupProperty(helpers,"eq")||(depth0 && lookupProperty(depth0,"eq"))||container.hooks.helperMissing).call(alias1,(depth0 != null ? lookupProperty(depth0,"api") : depth0),"orpc",{"name":"eq","hash":{},"data":data,"loc":{"start":{"line":90,"column":12},"end":{"line":90,"column":27}}}),{"name":"if","hash":{},"fn":container.program(23, data, 0),"inverse":container.program(24, data, 0),"data":data,"loc":{"start":{"line":90,"column":2},"end":{"line":99,"column":2}}})) != null ? stack1 : "");
 },"23":function(container,depth0,helpers,partials,data) {
-    return "  beforeLoad: async (ctx) => {\n    const { userId, token } = await fetchClerkAuth();\n    if (token) {\n      ctx.context.convexQueryClient.serverHttpClient?.setAuth(token);\n    }\n    return { userId, token };\n  },\n";
+    return "import type { orpc } from \"@/utils/orpc\";\nexport interface RouterAppContext {\n  orpc: typeof orpc;\n  queryClient: QueryClient;\n}\n";
 },"24":function(container,depth0,helpers,partials,data) {
+    return "export interface RouterAppContext {\n}\n  ";
+},"25":function(container,depth0,helpers,partials,data) {
+    return "  beforeLoad: async (ctx) => {\n    const { userId, token } = await fetchClerkAuth();\n    if (token) {\n      ctx.context.convexQueryClient.serverHttpClient?.setAuth(token);\n    }\n    return { userId, token };\n  },\n";
+},"26":function(container,depth0,helpers,partials,data) {
     var stack1, alias1=depth0 != null ? depth0 : (container.nullContext || {}), alias2=container.hooks.helperMissing, lookupProperty = container.lookupProperty || function(parent: any, propertyName: any) {
         if (Object.prototype.hasOwnProperty.call(parent, propertyName)) {
           return parent[propertyName];
@@ -16580,11 +16739,11 @@ Disallow:
         return undefined
     };
 
-  return ((stack1 = lookupProperty(helpers,"if").call(alias1,(lookupProperty(helpers,"and")||(depth0 && lookupProperty(depth0,"and"))||alias2).call(alias1,(lookupProperty(helpers,"eq")||(depth0 && lookupProperty(depth0,"eq"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"backend") : depth0),"convex",{"name":"eq","hash":{},"data":data,"loc":{"start":{"line":132,"column":17},"end":{"line":132,"column":38}}}),(lookupProperty(helpers,"eq")||(depth0 && lookupProperty(depth0,"eq"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"auth") : depth0),"better-auth",{"name":"eq","hash":{},"data":data,"loc":{"start":{"line":132,"column":39},"end":{"line":132,"column":62}}}),{"name":"and","hash":{},"data":data,"loc":{"start":{"line":132,"column":12},"end":{"line":132,"column":63}}}),{"name":"if","hash":{},"fn":container.program(25, data, 0),"inverse":container.noop,"data":data,"loc":{"start":{"line":132,"column":2},"end":{"line":143,"column":2}}})) != null ? stack1 : "");
-},"25":function(container,depth0,helpers,partials,data) {
+  return ((stack1 = lookupProperty(helpers,"if").call(alias1,(lookupProperty(helpers,"and")||(depth0 && lookupProperty(depth0,"and"))||alias2).call(alias1,(lookupProperty(helpers,"eq")||(depth0 && lookupProperty(depth0,"eq"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"backend") : depth0),"convex",{"name":"eq","hash":{},"data":data,"loc":{"start":{"line":133,"column":17},"end":{"line":133,"column":38}}}),(lookupProperty(helpers,"eq")||(depth0 && lookupProperty(depth0,"eq"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"auth") : depth0),"better-auth",{"name":"eq","hash":{},"data":data,"loc":{"start":{"line":133,"column":39},"end":{"line":133,"column":62}}}),{"name":"and","hash":{},"data":data,"loc":{"start":{"line":133,"column":12},"end":{"line":133,"column":63}}}),{"name":"if","hash":{},"fn":container.program(27, data, 0),"inverse":container.noop,"data":data,"loc":{"start":{"line":133,"column":2},"end":{"line":144,"column":2}}})) != null ? stack1 : "");
+},"27":function(container,depth0,helpers,partials,data) {
     return "  beforeLoad: async (ctx) => {\n    const token = await getAuth();\n    if (token) {\n      ctx.context.convexQueryClient.serverHttpClient?.setAuth(token);\n    }\n    return {\n      isAuthenticated: !!token,\n      token,\n    };\n  },\n  ";
-},"26":function(container,depth0,helpers,partials,data) {
-    var stack1, alias1=depth0 != null ? depth0 : (container.nullContext || {}), lookupProperty = container.lookupProperty || function(parent: any, propertyName: any) {
+},"28":function(container,depth0,helpers,partials,data) {
+    var stack1, alias1=depth0 != null ? depth0 : (container.nullContext || {}), alias2=container.hooks.helperMissing, lookupProperty = container.lookupProperty || function(parent: any, propertyName: any) {
         if (Object.prototype.hasOwnProperty.call(parent, propertyName)) {
           return parent[propertyName];
         }
@@ -16592,19 +16751,50 @@ Disallow:
     };
 
   return "  const context = useRouteContext({ from: Route.id });\n  return (\n    <ClerkProvider>\n      <ConvexProviderWithClerk client={context.convexQueryClient.convexClient} useAuth={useAuth}>\n        <html lang=\"en\" className=\"dark\""
-    + ((stack1 = lookupProperty(helpers,"if").call(alias1,((stack1 = (depth0 != null ? lookupProperty(depth0,"shadcn") : depth0)) != null ? lookupProperty(stack1,"rtl") : stack1),{"name":"if","hash":{},"fn":container.program(27, data, 0),"inverse":container.noop,"data":data,"loc":{"start":{"line":152,"column":40},"end":{"line":152,"column":75}}})) != null ? stack1 : "")
+    + ((stack1 = lookupProperty(helpers,"unless").call(alias1,(lookupProperty(helpers,"usesShadcnDirection")||(depth0 && lookupProperty(depth0,"usesShadcnDirection"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"shadcn") : depth0),(depth0 != null ? lookupProperty(depth0,"i18n") : depth0),(depth0 != null ? lookupProperty(depth0,"i18nOptions") : depth0),{"name":"usesShadcnDirection","hash":{},"data":data,"loc":{"start":{"line":153,"column":50},"end":{"line":153,"column":95}}}),{"name":"unless","hash":{},"fn":container.program(29, data, 0),"inverse":container.noop,"data":data,"loc":{"start":{"line":153,"column":40},"end":{"line":153,"column":143}}})) != null ? stack1 : "")
     + ">\n          <head>\n            <HeadContent />\n          </head>\n          <body>\n            "
-    + ((stack1 = lookupProperty(helpers,"if").call(alias1,((stack1 = (depth0 != null ? lookupProperty(depth0,"shadcn") : depth0)) != null ? lookupProperty(stack1,"rtl") : stack1),{"name":"if","hash":{},"fn":container.program(28, data, 0),"inverse":container.noop,"data":data,"loc":{"start":{"line":157,"column":12},"end":{"line":158,"column":19}}})) != null ? stack1 : "")
+    + ((stack1 = lookupProperty(helpers,"if").call(alias1,(lookupProperty(helpers,"usesShadcnDirection")||(depth0 && lookupProperty(depth0,"usesShadcnDirection"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"shadcn") : depth0),(depth0 != null ? lookupProperty(depth0,"i18n") : depth0),(depth0 != null ? lookupProperty(depth0,"i18nOptions") : depth0),{"name":"usesShadcnDirection","hash":{},"data":data,"loc":{"start":{"line":158,"column":18},"end":{"line":158,"column":63}}}),{"name":"if","hash":{},"fn":container.program(31, data, 0),"inverse":container.program(32, data, 0),"data":data,"loc":{"start":{"line":158,"column":12},"end":{"line":160,"column":19}}})) != null ? stack1 : "")
     + "<div className=\"grid h-svh grid-rows-[auto_1fr]\">\n              <Header />\n              <Outlet />\n            </div>\n            <Toaster richColors />\n            <TanStackRouterDevtools position=\"bottom-left\" />\n            \u003CScripts />"
-    + ((stack1 = lookupProperty(helpers,"if").call(alias1,((stack1 = (depth0 != null ? lookupProperty(depth0,"shadcn") : depth0)) != null ? lookupProperty(stack1,"rtl") : stack1),{"name":"if","hash":{},"fn":container.program(29, data, 0),"inverse":container.noop,"data":data,"loc":{"start":{"line":164,"column":23},"end":{"line":165,"column":39}}})) != null ? stack1 : "")
+    + ((stack1 = lookupProperty(helpers,"if").call(alias1,(lookupProperty(helpers,"usesShadcnDirection")||(depth0 && lookupProperty(depth0,"usesShadcnDirection"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"shadcn") : depth0),(depth0 != null ? lookupProperty(depth0,"i18n") : depth0),(depth0 != null ? lookupProperty(depth0,"i18nOptions") : depth0),{"name":"usesShadcnDirection","hash":{},"data":data,"loc":{"start":{"line":166,"column":29},"end":{"line":166,"column":74}}}),{"name":"if","hash":{},"fn":container.program(34, data, 0),"inverse":container.program(35, data, 0),"data":data,"loc":{"start":{"line":166,"column":23},"end":{"line":169,"column":39}}})) != null ? stack1 : "")
     + "\n          </body>\n        </html>\n      </ConvexProviderWithClerk>\n    </ClerkProvider>\n  );\n";
-},"27":function(container,depth0,helpers,partials,data) {
-    return " dir=\"rtl\"";
-},"28":function(container,depth0,helpers,partials,data) {
-    return "<DirectionProvider direction=\"rtl\">\n            ";
 },"29":function(container,depth0,helpers,partials,data) {
-    return "\n            </DirectionProvider>";
+    var stack1, lookupProperty = container.lookupProperty || function(parent: any, propertyName: any) {
+        if (Object.prototype.hasOwnProperty.call(parent, propertyName)) {
+          return parent[propertyName];
+        }
+        return undefined
+    };
+
+  return ((stack1 = lookupProperty(helpers,"if").call(depth0 != null ? depth0 : (container.nullContext || {}),((stack1 = (depth0 != null ? lookupProperty(depth0,"shadcn") : depth0)) != null ? lookupProperty(stack1,"rtl") : stack1),{"name":"if","hash":{},"fn":container.program(30, data, 0),"inverse":container.noop,"data":data,"loc":{"start":{"line":153,"column":97},"end":{"line":153,"column":132}}})) != null ? stack1 : "");
 },"30":function(container,depth0,helpers,partials,data) {
+    return " dir=\"rtl\"";
+},"31":function(container,depth0,helpers,partials,data) {
+    return "<LocaleDirectionProvider>\n            ";
+},"32":function(container,depth0,helpers,partials,data) {
+    var stack1, lookupProperty = container.lookupProperty || function(parent: any, propertyName: any) {
+        if (Object.prototype.hasOwnProperty.call(parent, propertyName)) {
+          return parent[propertyName];
+        }
+        return undefined
+    };
+
+  return ((stack1 = lookupProperty(helpers,"if").call(depth0 != null ? depth0 : (container.nullContext || {}),((stack1 = (depth0 != null ? lookupProperty(depth0,"shadcn") : depth0)) != null ? lookupProperty(stack1,"rtl") : stack1),{"name":"if","hash":{},"fn":container.program(33, data, 0),"inverse":container.noop,"data":data,"loc":{"start":{"line":159,"column":12},"end":{"line":160,"column":12}}})) != null ? stack1 : "");
+},"33":function(container,depth0,helpers,partials,data) {
+    return "<DirectionProvider direction=\"rtl\">\n            ";
+},"34":function(container,depth0,helpers,partials,data) {
+    return "\n            </LocaleDirectionProvider>\n";
+},"35":function(container,depth0,helpers,partials,data) {
+    var stack1, lookupProperty = container.lookupProperty || function(parent: any, propertyName: any) {
+        if (Object.prototype.hasOwnProperty.call(parent, propertyName)) {
+          return parent[propertyName];
+        }
+        return undefined
+    };
+
+  return ((stack1 = lookupProperty(helpers,"if").call(depth0 != null ? depth0 : (container.nullContext || {}),((stack1 = (depth0 != null ? lookupProperty(depth0,"shadcn") : depth0)) != null ? lookupProperty(stack1,"rtl") : stack1),{"name":"if","hash":{},"fn":container.program(36, data, 0),"inverse":container.noop,"data":data,"loc":{"start":{"line":168,"column":12},"end":{"line":169,"column":32}}})) != null ? stack1 : "");
+},"36":function(container,depth0,helpers,partials,data) {
+    return "            </DirectionProvider>";
+},"37":function(container,depth0,helpers,partials,data) {
     var stack1, alias1=depth0 != null ? depth0 : (container.nullContext || {}), alias2=container.hooks.helperMissing, lookupProperty = container.lookupProperty || function(parent: any, propertyName: any) {
         if (Object.prototype.hasOwnProperty.call(parent, propertyName)) {
           return parent[propertyName];
@@ -16612,9 +16802,9 @@ Disallow:
         return undefined
     };
 
-  return ((stack1 = lookupProperty(helpers,"if").call(alias1,(lookupProperty(helpers,"and")||(depth0 && lookupProperty(depth0,"and"))||alias2).call(alias1,(lookupProperty(helpers,"eq")||(depth0 && lookupProperty(depth0,"eq"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"backend") : depth0),"convex",{"name":"eq","hash":{},"data":data,"loc":{"start":{"line":171,"column":17},"end":{"line":171,"column":38}}}),(lookupProperty(helpers,"eq")||(depth0 && lookupProperty(depth0,"eq"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"auth") : depth0),"better-auth",{"name":"eq","hash":{},"data":data,"loc":{"start":{"line":171,"column":39},"end":{"line":171,"column":62}}}),{"name":"and","hash":{},"data":data,"loc":{"start":{"line":171,"column":12},"end":{"line":171,"column":63}}}),{"name":"if","hash":{},"fn":container.program(31, data, 0),"inverse":container.program(34, data, 0),"data":data,"loc":{"start":{"line":171,"column":2},"end":{"line":271,"column":2}}})) != null ? stack1 : "");
-},"31":function(container,depth0,helpers,partials,data) {
-    var stack1, alias1=depth0 != null ? depth0 : (container.nullContext || {}), lookupProperty = container.lookupProperty || function(parent: any, propertyName: any) {
+  return ((stack1 = lookupProperty(helpers,"if").call(alias1,(lookupProperty(helpers,"and")||(depth0 && lookupProperty(depth0,"and"))||alias2).call(alias1,(lookupProperty(helpers,"eq")||(depth0 && lookupProperty(depth0,"eq"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"backend") : depth0),"convex",{"name":"eq","hash":{},"data":data,"loc":{"start":{"line":175,"column":17},"end":{"line":175,"column":38}}}),(lookupProperty(helpers,"eq")||(depth0 && lookupProperty(depth0,"eq"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"auth") : depth0),"better-auth",{"name":"eq","hash":{},"data":data,"loc":{"start":{"line":175,"column":39},"end":{"line":175,"column":62}}}),{"name":"and","hash":{},"data":data,"loc":{"start":{"line":175,"column":12},"end":{"line":175,"column":63}}}),{"name":"if","hash":{},"fn":container.program(38, data, 0),"inverse":container.program(45, data, 0),"data":data,"loc":{"start":{"line":175,"column":2},"end":{"line":287,"column":2}}})) != null ? stack1 : "");
+},"38":function(container,depth0,helpers,partials,data) {
+    var stack1, alias1=depth0 != null ? depth0 : (container.nullContext || {}), alias2=container.hooks.helperMissing, lookupProperty = container.lookupProperty || function(parent: any, propertyName: any) {
         if (Object.prototype.hasOwnProperty.call(parent, propertyName)) {
           return parent[propertyName];
         }
@@ -16622,17 +16812,39 @@ Disallow:
     };
 
   return "  const context = useRouteContext({ from: Route.id });\n  return (\n    <ConvexBetterAuthProvider\n      client={context.convexQueryClient.convexClient}\n      authClient={authClient}\n      initialToken={context.token}\n    >\n      <html lang=\"en\" className=\"dark\""
-    + ((stack1 = lookupProperty(helpers,"if").call(alias1,((stack1 = (depth0 != null ? lookupProperty(depth0,"shadcn") : depth0)) != null ? lookupProperty(stack1,"rtl") : stack1),{"name":"if","hash":{},"fn":container.program(27, data, 0),"inverse":container.noop,"data":data,"loc":{"start":{"line":179,"column":38},"end":{"line":179,"column":73}}})) != null ? stack1 : "")
+    + ((stack1 = lookupProperty(helpers,"unless").call(alias1,(lookupProperty(helpers,"usesShadcnDirection")||(depth0 && lookupProperty(depth0,"usesShadcnDirection"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"shadcn") : depth0),(depth0 != null ? lookupProperty(depth0,"i18n") : depth0),(depth0 != null ? lookupProperty(depth0,"i18nOptions") : depth0),{"name":"usesShadcnDirection","hash":{},"data":data,"loc":{"start":{"line":183,"column":48},"end":{"line":183,"column":93}}}),{"name":"unless","hash":{},"fn":container.program(29, data, 0),"inverse":container.noop,"data":data,"loc":{"start":{"line":183,"column":38},"end":{"line":183,"column":141}}})) != null ? stack1 : "")
     + ">\n        <head>\n          <HeadContent />\n        </head>\n        <body>\n          "
-    + ((stack1 = lookupProperty(helpers,"if").call(alias1,((stack1 = (depth0 != null ? lookupProperty(depth0,"shadcn") : depth0)) != null ? lookupProperty(stack1,"rtl") : stack1),{"name":"if","hash":{},"fn":container.program(32, data, 0),"inverse":container.noop,"data":data,"loc":{"start":{"line":184,"column":10},"end":{"line":185,"column":17}}})) != null ? stack1 : "")
+    + ((stack1 = lookupProperty(helpers,"if").call(alias1,(lookupProperty(helpers,"usesShadcnDirection")||(depth0 && lookupProperty(depth0,"usesShadcnDirection"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"shadcn") : depth0),(depth0 != null ? lookupProperty(depth0,"i18n") : depth0),(depth0 != null ? lookupProperty(depth0,"i18nOptions") : depth0),{"name":"usesShadcnDirection","hash":{},"data":data,"loc":{"start":{"line":188,"column":16},"end":{"line":188,"column":61}}}),{"name":"if","hash":{},"fn":container.program(39, data, 0),"inverse":container.program(40, data, 0),"data":data,"loc":{"start":{"line":188,"column":10},"end":{"line":190,"column":17}}})) != null ? stack1 : "")
     + "<div className=\"grid h-svh grid-rows-[auto_1fr]\">\n            <Header />\n            <Outlet />\n          </div>\n          <Toaster richColors />\n          <TanStackRouterDevtools position=\"bottom-left\" />\n          \u003CScripts />"
-    + ((stack1 = lookupProperty(helpers,"if").call(alias1,((stack1 = (depth0 != null ? lookupProperty(depth0,"shadcn") : depth0)) != null ? lookupProperty(stack1,"rtl") : stack1),{"name":"if","hash":{},"fn":container.program(33, data, 0),"inverse":container.noop,"data":data,"loc":{"start":{"line":191,"column":21},"end":{"line":192,"column":37}}})) != null ? stack1 : "")
+    + ((stack1 = lookupProperty(helpers,"if").call(alias1,(lookupProperty(helpers,"usesShadcnDirection")||(depth0 && lookupProperty(depth0,"usesShadcnDirection"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"shadcn") : depth0),(depth0 != null ? lookupProperty(depth0,"i18n") : depth0),(depth0 != null ? lookupProperty(depth0,"i18nOptions") : depth0),{"name":"usesShadcnDirection","hash":{},"data":data,"loc":{"start":{"line":196,"column":27},"end":{"line":196,"column":72}}}),{"name":"if","hash":{},"fn":container.program(42, data, 0),"inverse":container.program(43, data, 0),"data":data,"loc":{"start":{"line":196,"column":21},"end":{"line":199,"column":37}}})) != null ? stack1 : "")
     + "\n        </body>\n      </html>\n    </ConvexBetterAuthProvider>\n  );\n";
-},"32":function(container,depth0,helpers,partials,data) {
+},"39":function(container,depth0,helpers,partials,data) {
+    return "<LocaleDirectionProvider>\n          ";
+},"40":function(container,depth0,helpers,partials,data) {
+    var stack1, lookupProperty = container.lookupProperty || function(parent: any, propertyName: any) {
+        if (Object.prototype.hasOwnProperty.call(parent, propertyName)) {
+          return parent[propertyName];
+        }
+        return undefined
+    };
+
+  return ((stack1 = lookupProperty(helpers,"if").call(depth0 != null ? depth0 : (container.nullContext || {}),((stack1 = (depth0 != null ? lookupProperty(depth0,"shadcn") : depth0)) != null ? lookupProperty(stack1,"rtl") : stack1),{"name":"if","hash":{},"fn":container.program(41, data, 0),"inverse":container.noop,"data":data,"loc":{"start":{"line":189,"column":10},"end":{"line":190,"column":10}}})) != null ? stack1 : "");
+},"41":function(container,depth0,helpers,partials,data) {
     return "<DirectionProvider direction=\"rtl\">\n          ";
-},"33":function(container,depth0,helpers,partials,data) {
-    return "\n          </DirectionProvider>";
-},"34":function(container,depth0,helpers,partials,data) {
+},"42":function(container,depth0,helpers,partials,data) {
+    return "\n          </LocaleDirectionProvider>\n";
+},"43":function(container,depth0,helpers,partials,data) {
+    var stack1, lookupProperty = container.lookupProperty || function(parent: any, propertyName: any) {
+        if (Object.prototype.hasOwnProperty.call(parent, propertyName)) {
+          return parent[propertyName];
+        }
+        return undefined
+    };
+
+  return ((stack1 = lookupProperty(helpers,"if").call(depth0 != null ? depth0 : (container.nullContext || {}),((stack1 = (depth0 != null ? lookupProperty(depth0,"shadcn") : depth0)) != null ? lookupProperty(stack1,"rtl") : stack1),{"name":"if","hash":{},"fn":container.program(44, data, 0),"inverse":container.noop,"data":data,"loc":{"start":{"line":198,"column":10},"end":{"line":199,"column":30}}})) != null ? stack1 : "");
+},"44":function(container,depth0,helpers,partials,data) {
+    return "          </DirectionProvider>";
+},"45":function(container,depth0,helpers,partials,data) {
     var stack1, alias1=depth0 != null ? depth0 : (container.nullContext || {}), lookupProperty = container.lookupProperty || function(parent: any, propertyName: any) {
         if (Object.prototype.hasOwnProperty.call(parent, propertyName)) {
           return parent[propertyName];
@@ -16640,8 +16852,8 @@ Disallow:
         return undefined
     };
 
-  return ((stack1 = lookupProperty(helpers,"if").call(alias1,(lookupProperty(helpers,"eq")||(depth0 && lookupProperty(depth0,"eq"))||container.hooks.helperMissing).call(alias1,(depth0 != null ? lookupProperty(depth0,"auth") : depth0),"clerk",{"name":"eq","hash":{},"data":data,"loc":{"start":{"line":197,"column":12},"end":{"line":197,"column":29}}}),{"name":"if","hash":{},"fn":container.program(35, data, 0),"inverse":container.program(38, data, 0),"data":data,"loc":{"start":{"line":197,"column":2},"end":{"line":271,"column":2}}})) != null ? stack1 : "");
-},"35":function(container,depth0,helpers,partials,data) {
+  return ((stack1 = lookupProperty(helpers,"if").call(alias1,(lookupProperty(helpers,"eq")||(depth0 && lookupProperty(depth0,"eq"))||container.hooks.helperMissing).call(alias1,(depth0 != null ? lookupProperty(depth0,"auth") : depth0),"clerk",{"name":"eq","hash":{},"data":data,"loc":{"start":{"line":204,"column":12},"end":{"line":204,"column":29}}}),{"name":"if","hash":{},"fn":container.program(46, data, 0),"inverse":container.program(49, data, 0),"data":data,"loc":{"start":{"line":204,"column":2},"end":{"line":287,"column":2}}})) != null ? stack1 : "");
+},"46":function(container,depth0,helpers,partials,data) {
     var stack1, alias1=depth0 != null ? depth0 : (container.nullContext || {}), alias2=container.hooks.helperMissing, lookupProperty = container.lookupProperty || function(parent: any, propertyName: any) {
         if (Object.prototype.hasOwnProperty.call(parent, propertyName)) {
           return parent[propertyName];
@@ -16650,21 +16862,21 @@ Disallow:
     };
 
   return "  return (\n    <ClerkProvider>\n"
-    + ((stack1 = lookupProperty(helpers,"unless").call(alias1,(lookupProperty(helpers,"eq")||(depth0 && lookupProperty(depth0,"eq"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"api") : depth0),"none",{"name":"eq","hash":{},"data":data,"loc":{"start":{"line":200,"column":16},"end":{"line":200,"column":31}}}),{"name":"unless","hash":{},"fn":container.program(36, data, 0),"inverse":container.noop,"data":data,"loc":{"start":{"line":200,"column":6},"end":{"line":202,"column":17}}})) != null ? stack1 : "")
+    + ((stack1 = lookupProperty(helpers,"unless").call(alias1,(lookupProperty(helpers,"eq")||(depth0 && lookupProperty(depth0,"eq"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"api") : depth0),"none",{"name":"eq","hash":{},"data":data,"loc":{"start":{"line":207,"column":16},"end":{"line":207,"column":31}}}),{"name":"unless","hash":{},"fn":container.program(47, data, 0),"inverse":container.noop,"data":data,"loc":{"start":{"line":207,"column":6},"end":{"line":209,"column":17}}})) != null ? stack1 : "")
     + "      <html lang=\"en\" className=\"dark\""
-    + ((stack1 = lookupProperty(helpers,"if").call(alias1,((stack1 = (depth0 != null ? lookupProperty(depth0,"shadcn") : depth0)) != null ? lookupProperty(stack1,"rtl") : stack1),{"name":"if","hash":{},"fn":container.program(27, data, 0),"inverse":container.noop,"data":data,"loc":{"start":{"line":203,"column":38},"end":{"line":203,"column":73}}})) != null ? stack1 : "")
+    + ((stack1 = lookupProperty(helpers,"unless").call(alias1,(lookupProperty(helpers,"usesShadcnDirection")||(depth0 && lookupProperty(depth0,"usesShadcnDirection"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"shadcn") : depth0),(depth0 != null ? lookupProperty(depth0,"i18n") : depth0),(depth0 != null ? lookupProperty(depth0,"i18nOptions") : depth0),{"name":"usesShadcnDirection","hash":{},"data":data,"loc":{"start":{"line":210,"column":48},"end":{"line":210,"column":93}}}),{"name":"unless","hash":{},"fn":container.program(29, data, 0),"inverse":container.noop,"data":data,"loc":{"start":{"line":210,"column":38},"end":{"line":210,"column":141}}})) != null ? stack1 : "")
     + ">\n        <head>\n          <HeadContent />\n        </head>\n        <body>\n          "
-    + ((stack1 = lookupProperty(helpers,"if").call(alias1,((stack1 = (depth0 != null ? lookupProperty(depth0,"shadcn") : depth0)) != null ? lookupProperty(stack1,"rtl") : stack1),{"name":"if","hash":{},"fn":container.program(32, data, 0),"inverse":container.noop,"data":data,"loc":{"start":{"line":208,"column":10},"end":{"line":209,"column":17}}})) != null ? stack1 : "")
+    + ((stack1 = lookupProperty(helpers,"if").call(alias1,(lookupProperty(helpers,"usesShadcnDirection")||(depth0 && lookupProperty(depth0,"usesShadcnDirection"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"shadcn") : depth0),(depth0 != null ? lookupProperty(depth0,"i18n") : depth0),(depth0 != null ? lookupProperty(depth0,"i18nOptions") : depth0),{"name":"usesShadcnDirection","hash":{},"data":data,"loc":{"start":{"line":215,"column":16},"end":{"line":215,"column":61}}}),{"name":"if","hash":{},"fn":container.program(39, data, 0),"inverse":container.program(40, data, 0),"data":data,"loc":{"start":{"line":215,"column":10},"end":{"line":217,"column":17}}})) != null ? stack1 : "")
     + "<div className=\"grid h-svh grid-rows-[auto_1fr]\">\n            <Header />\n            <Outlet />\n          </div>\n          <Toaster richColors />\n          <TanStackRouterDevtools position=\"bottom-left\" />\n"
-    + ((stack1 = lookupProperty(helpers,"unless").call(alias1,(lookupProperty(helpers,"eq")||(depth0 && lookupProperty(depth0,"eq"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"api") : depth0),"none",{"name":"eq","hash":{},"data":data,"loc":{"start":{"line":215,"column":20},"end":{"line":215,"column":35}}}),{"name":"unless","hash":{},"fn":container.program(37, data, 0),"inverse":container.noop,"data":data,"loc":{"start":{"line":215,"column":10},"end":{"line":217,"column":21}}})) != null ? stack1 : "")
+    + ((stack1 = lookupProperty(helpers,"unless").call(alias1,(lookupProperty(helpers,"eq")||(depth0 && lookupProperty(depth0,"eq"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"api") : depth0),"none",{"name":"eq","hash":{},"data":data,"loc":{"start":{"line":223,"column":20},"end":{"line":223,"column":35}}}),{"name":"unless","hash":{},"fn":container.program(48, data, 0),"inverse":container.noop,"data":data,"loc":{"start":{"line":223,"column":10},"end":{"line":225,"column":21}}})) != null ? stack1 : "")
     + "          \u003CScripts />"
-    + ((stack1 = lookupProperty(helpers,"if").call(alias1,((stack1 = (depth0 != null ? lookupProperty(depth0,"shadcn") : depth0)) != null ? lookupProperty(stack1,"rtl") : stack1),{"name":"if","hash":{},"fn":container.program(33, data, 0),"inverse":container.noop,"data":data,"loc":{"start":{"line":218,"column":21},"end":{"line":219,"column":37}}})) != null ? stack1 : "")
+    + ((stack1 = lookupProperty(helpers,"if").call(alias1,(lookupProperty(helpers,"usesShadcnDirection")||(depth0 && lookupProperty(depth0,"usesShadcnDirection"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"shadcn") : depth0),(depth0 != null ? lookupProperty(depth0,"i18n") : depth0),(depth0 != null ? lookupProperty(depth0,"i18nOptions") : depth0),{"name":"usesShadcnDirection","hash":{},"data":data,"loc":{"start":{"line":226,"column":27},"end":{"line":226,"column":72}}}),{"name":"if","hash":{},"fn":container.program(42, data, 0),"inverse":container.program(43, data, 0),"data":data,"loc":{"start":{"line":226,"column":21},"end":{"line":229,"column":37}}})) != null ? stack1 : "")
     + "\n        </body>\n      </html>\n    </ClerkProvider>\n  );\n";
-},"36":function(container,depth0,helpers,partials,data) {
+},"47":function(container,depth0,helpers,partials,data) {
     return "      <ClerkApiAuthBridge />\n";
-},"37":function(container,depth0,helpers,partials,data) {
+},"48":function(container,depth0,helpers,partials,data) {
     return "          <ReactQueryDevtools position=\"bottom\" buttonPosition=\"bottom-right\" />\n";
-},"38":function(container,depth0,helpers,partials,data) {
+},"49":function(container,depth0,helpers,partials,data) {
     var stack1, alias1=depth0 != null ? depth0 : (container.nullContext || {}), lookupProperty = container.lookupProperty || function(parent: any, propertyName: any) {
         if (Object.prototype.hasOwnProperty.call(parent, propertyName)) {
           return parent[propertyName];
@@ -16672,9 +16884,9 @@ Disallow:
         return undefined
     };
 
-  return ((stack1 = lookupProperty(helpers,"if").call(alias1,(lookupProperty(helpers,"eq")||(depth0 && lookupProperty(depth0,"eq"))||container.hooks.helperMissing).call(alias1,(depth0 != null ? lookupProperty(depth0,"backend") : depth0),"convex",{"name":"eq","hash":{},"data":data,"loc":{"start":{"line":224,"column":12},"end":{"line":224,"column":33}}}),{"name":"if","hash":{},"fn":container.program(39, data, 0),"inverse":container.program(40, data, 0),"data":data,"loc":{"start":{"line":224,"column":2},"end":{"line":271,"column":2}}})) != null ? stack1 : "");
-},"39":function(container,depth0,helpers,partials,data) {
-    var stack1, alias1=depth0 != null ? depth0 : (container.nullContext || {}), lookupProperty = container.lookupProperty || function(parent: any, propertyName: any) {
+  return ((stack1 = lookupProperty(helpers,"if").call(alias1,(lookupProperty(helpers,"eq")||(depth0 && lookupProperty(depth0,"eq"))||container.hooks.helperMissing).call(alias1,(depth0 != null ? lookupProperty(depth0,"backend") : depth0),"convex",{"name":"eq","hash":{},"data":data,"loc":{"start":{"line":234,"column":12},"end":{"line":234,"column":33}}}),{"name":"if","hash":{},"fn":container.program(50, data, 0),"inverse":container.program(51, data, 0),"data":data,"loc":{"start":{"line":234,"column":2},"end":{"line":287,"column":2}}})) != null ? stack1 : "");
+},"50":function(container,depth0,helpers,partials,data) {
+    var stack1, alias1=depth0 != null ? depth0 : (container.nullContext || {}), alias2=container.hooks.helperMissing, lookupProperty = container.lookupProperty || function(parent: any, propertyName: any) {
         if (Object.prototype.hasOwnProperty.call(parent, propertyName)) {
           return parent[propertyName];
         }
@@ -16682,13 +16894,13 @@ Disallow:
     };
 
   return "  const { convexQueryClient } = Route.useRouteContext();\n  return (\n    <ConvexProvider client={convexQueryClient.convexClient}>\n      <html lang=\"en\" className=\"dark\""
-    + ((stack1 = lookupProperty(helpers,"if").call(alias1,((stack1 = (depth0 != null ? lookupProperty(depth0,"shadcn") : depth0)) != null ? lookupProperty(stack1,"rtl") : stack1),{"name":"if","hash":{},"fn":container.program(27, data, 0),"inverse":container.noop,"data":data,"loc":{"start":{"line":228,"column":38},"end":{"line":228,"column":73}}})) != null ? stack1 : "")
+    + ((stack1 = lookupProperty(helpers,"unless").call(alias1,(lookupProperty(helpers,"usesShadcnDirection")||(depth0 && lookupProperty(depth0,"usesShadcnDirection"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"shadcn") : depth0),(depth0 != null ? lookupProperty(depth0,"i18n") : depth0),(depth0 != null ? lookupProperty(depth0,"i18nOptions") : depth0),{"name":"usesShadcnDirection","hash":{},"data":data,"loc":{"start":{"line":238,"column":48},"end":{"line":238,"column":93}}}),{"name":"unless","hash":{},"fn":container.program(29, data, 0),"inverse":container.noop,"data":data,"loc":{"start":{"line":238,"column":38},"end":{"line":238,"column":141}}})) != null ? stack1 : "")
     + ">\n        <head>\n          <HeadContent />\n        </head>\n        <body>\n          "
-    + ((stack1 = lookupProperty(helpers,"if").call(alias1,((stack1 = (depth0 != null ? lookupProperty(depth0,"shadcn") : depth0)) != null ? lookupProperty(stack1,"rtl") : stack1),{"name":"if","hash":{},"fn":container.program(32, data, 0),"inverse":container.noop,"data":data,"loc":{"start":{"line":233,"column":10},"end":{"line":234,"column":17}}})) != null ? stack1 : "")
+    + ((stack1 = lookupProperty(helpers,"if").call(alias1,(lookupProperty(helpers,"usesShadcnDirection")||(depth0 && lookupProperty(depth0,"usesShadcnDirection"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"shadcn") : depth0),(depth0 != null ? lookupProperty(depth0,"i18n") : depth0),(depth0 != null ? lookupProperty(depth0,"i18nOptions") : depth0),{"name":"usesShadcnDirection","hash":{},"data":data,"loc":{"start":{"line":243,"column":16},"end":{"line":243,"column":61}}}),{"name":"if","hash":{},"fn":container.program(39, data, 0),"inverse":container.program(40, data, 0),"data":data,"loc":{"start":{"line":243,"column":10},"end":{"line":245,"column":17}}})) != null ? stack1 : "")
     + "<div className=\"grid h-svh grid-rows-[auto_1fr]\">\n            <Header />\n            <Outlet />\n          </div>\n          <Toaster richColors />\n          <TanStackRouterDevtools position=\"bottom-left\" />\n          \u003CScripts />"
-    + ((stack1 = lookupProperty(helpers,"if").call(alias1,((stack1 = (depth0 != null ? lookupProperty(depth0,"shadcn") : depth0)) != null ? lookupProperty(stack1,"rtl") : stack1),{"name":"if","hash":{},"fn":container.program(33, data, 0),"inverse":container.noop,"data":data,"loc":{"start":{"line":240,"column":21},"end":{"line":241,"column":37}}})) != null ? stack1 : "")
+    + ((stack1 = lookupProperty(helpers,"if").call(alias1,(lookupProperty(helpers,"usesShadcnDirection")||(depth0 && lookupProperty(depth0,"usesShadcnDirection"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"shadcn") : depth0),(depth0 != null ? lookupProperty(depth0,"i18n") : depth0),(depth0 != null ? lookupProperty(depth0,"i18nOptions") : depth0),{"name":"usesShadcnDirection","hash":{},"data":data,"loc":{"start":{"line":251,"column":27},"end":{"line":251,"column":72}}}),{"name":"if","hash":{},"fn":container.program(42, data, 0),"inverse":container.program(43, data, 0),"data":data,"loc":{"start":{"line":251,"column":21},"end":{"line":254,"column":37}}})) != null ? stack1 : "")
     + "\n        </body>\n      </html>\n    </ConvexProvider>\n  );\n";
-},"40":function(container,depth0,helpers,partials,data) {
+},"51":function(container,depth0,helpers,partials,data) {
     var stack1, alias1=depth0 != null ? depth0 : (container.nullContext || {}), alias2=container.hooks.helperMissing, lookupProperty = container.lookupProperty || function(parent: any, propertyName: any) {
         if (Object.prototype.hasOwnProperty.call(parent, propertyName)) {
           return parent[propertyName];
@@ -16697,26 +16909,48 @@ Disallow:
     };
 
   return "  return (\n    <html lang=\"en\" className=\"dark\""
-    + ((stack1 = lookupProperty(helpers,"if").call(alias1,((stack1 = (depth0 != null ? lookupProperty(depth0,"shadcn") : depth0)) != null ? lookupProperty(stack1,"rtl") : stack1),{"name":"if","hash":{},"fn":container.program(27, data, 0),"inverse":container.noop,"data":data,"loc":{"start":{"line":248,"column":36},"end":{"line":248,"column":71}}})) != null ? stack1 : "")
+    + ((stack1 = lookupProperty(helpers,"unless").call(alias1,(lookupProperty(helpers,"usesShadcnDirection")||(depth0 && lookupProperty(depth0,"usesShadcnDirection"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"shadcn") : depth0),(depth0 != null ? lookupProperty(depth0,"i18n") : depth0),(depth0 != null ? lookupProperty(depth0,"i18nOptions") : depth0),{"name":"usesShadcnDirection","hash":{},"data":data,"loc":{"start":{"line":261,"column":46},"end":{"line":261,"column":91}}}),{"name":"unless","hash":{},"fn":container.program(29, data, 0),"inverse":container.noop,"data":data,"loc":{"start":{"line":261,"column":36},"end":{"line":261,"column":139}}})) != null ? stack1 : "")
     + ">\n      <head>\n        <HeadContent />\n      </head>\n      <body>\n        "
-    + ((stack1 = lookupProperty(helpers,"if").call(alias1,((stack1 = (depth0 != null ? lookupProperty(depth0,"shadcn") : depth0)) != null ? lookupProperty(stack1,"rtl") : stack1),{"name":"if","hash":{},"fn":container.program(41, data, 0),"inverse":container.noop,"data":data,"loc":{"start":{"line":253,"column":8},"end":{"line":254,"column":15}}})) != null ? stack1 : "")
-    + ((stack1 = lookupProperty(helpers,"if").call(alias1,(lookupProperty(helpers,"eq")||(depth0 && lookupProperty(depth0,"eq"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"payments") : depth0),"autumn",{"name":"eq","hash":{},"data":data,"loc":{"start":{"line":254,"column":21},"end":{"line":254,"column":43}}}),{"name":"if","hash":{},"fn":container.program(42, data, 0),"inverse":container.noop,"data":data,"loc":{"start":{"line":254,"column":15},"end":{"line":255,"column":7}}})) != null ? stack1 : "")
+    + ((stack1 = lookupProperty(helpers,"if").call(alias1,(lookupProperty(helpers,"usesShadcnDirection")||(depth0 && lookupProperty(depth0,"usesShadcnDirection"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"shadcn") : depth0),(depth0 != null ? lookupProperty(depth0,"i18n") : depth0),(depth0 != null ? lookupProperty(depth0,"i18nOptions") : depth0),{"name":"usesShadcnDirection","hash":{},"data":data,"loc":{"start":{"line":266,"column":14},"end":{"line":266,"column":59}}}),{"name":"if","hash":{},"fn":container.program(52, data, 0),"inverse":container.program(53, data, 0),"data":data,"loc":{"start":{"line":266,"column":8},"end":{"line":268,"column":15}}})) != null ? stack1 : "")
+    + ((stack1 = lookupProperty(helpers,"if").call(alias1,(lookupProperty(helpers,"eq")||(depth0 && lookupProperty(depth0,"eq"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"payments") : depth0),"autumn",{"name":"eq","hash":{},"data":data,"loc":{"start":{"line":268,"column":21},"end":{"line":268,"column":43}}}),{"name":"if","hash":{},"fn":container.program(55, data, 0),"inverse":container.noop,"data":data,"loc":{"start":{"line":268,"column":15},"end":{"line":269,"column":7}}})) != null ? stack1 : "")
     + "        <div className=\"grid h-svh grid-rows-[auto_1fr]\">\n          <Header />\n          <Outlet />\n        </div>\n        <Toaster richColors />\n        <TanStackRouterDevtools position=\"bottom-left\" />\n"
-    + ((stack1 = lookupProperty(helpers,"unless").call(alias1,(lookupProperty(helpers,"eq")||(depth0 && lookupProperty(depth0,"eq"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"api") : depth0),"none",{"name":"eq","hash":{},"data":data,"loc":{"start":{"line":262,"column":18},"end":{"line":262,"column":33}}}),{"name":"unless","hash":{},"fn":container.program(43, data, 0),"inverse":container.noop,"data":data,"loc":{"start":{"line":262,"column":8},"end":{"line":264,"column":19}}})) != null ? stack1 : "")
+    + ((stack1 = lookupProperty(helpers,"unless").call(alias1,(lookupProperty(helpers,"eq")||(depth0 && lookupProperty(depth0,"eq"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"api") : depth0),"none",{"name":"eq","hash":{},"data":data,"loc":{"start":{"line":276,"column":18},"end":{"line":276,"column":33}}}),{"name":"unless","hash":{},"fn":container.program(56, data, 0),"inverse":container.noop,"data":data,"loc":{"start":{"line":276,"column":8},"end":{"line":278,"column":19}}})) != null ? stack1 : "")
     + "        \u003CScripts />"
-    + ((stack1 = lookupProperty(helpers,"if").call(alias1,(lookupProperty(helpers,"eq")||(depth0 && lookupProperty(depth0,"eq"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"payments") : depth0),"autumn",{"name":"eq","hash":{},"data":data,"loc":{"start":{"line":265,"column":25},"end":{"line":265,"column":47}}}),{"name":"if","hash":{},"fn":container.program(44, data, 0),"inverse":container.noop,"data":data,"loc":{"start":{"line":265,"column":19},"end":{"line":266,"column":32}}})) != null ? stack1 : "")
-    + ((stack1 = lookupProperty(helpers,"if").call(alias1,((stack1 = (depth0 != null ? lookupProperty(depth0,"shadcn") : depth0)) != null ? lookupProperty(stack1,"rtl") : stack1),{"name":"if","hash":{},"fn":container.program(45, data, 0),"inverse":container.noop,"data":data,"loc":{"start":{"line":266,"column":32},"end":{"line":267,"column":35}}})) != null ? stack1 : "")
+    + ((stack1 = lookupProperty(helpers,"if").call(alias1,(lookupProperty(helpers,"eq")||(depth0 && lookupProperty(depth0,"eq"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"payments") : depth0),"autumn",{"name":"eq","hash":{},"data":data,"loc":{"start":{"line":279,"column":25},"end":{"line":279,"column":47}}}),{"name":"if","hash":{},"fn":container.program(57, data, 0),"inverse":container.noop,"data":data,"loc":{"start":{"line":279,"column":19},"end":{"line":280,"column":32}}})) != null ? stack1 : "")
+    + ((stack1 = lookupProperty(helpers,"if").call(alias1,(lookupProperty(helpers,"usesShadcnDirection")||(depth0 && lookupProperty(depth0,"usesShadcnDirection"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"shadcn") : depth0),(depth0 != null ? lookupProperty(depth0,"i18n") : depth0),(depth0 != null ? lookupProperty(depth0,"i18nOptions") : depth0),{"name":"usesShadcnDirection","hash":{},"data":data,"loc":{"start":{"line":280,"column":38},"end":{"line":280,"column":83}}}),{"name":"if","hash":{},"fn":container.program(58, data, 0),"inverse":container.program(59, data, 0),"data":data,"loc":{"start":{"line":280,"column":32},"end":{"line":283,"column":35}}})) != null ? stack1 : "")
     + "\n      </body>\n    </html>\n  );\n  ";
-},"41":function(container,depth0,helpers,partials,data) {
+},"52":function(container,depth0,helpers,partials,data) {
+    return "<LocaleDirectionProvider>\n        ";
+},"53":function(container,depth0,helpers,partials,data) {
+    var stack1, lookupProperty = container.lookupProperty || function(parent: any, propertyName: any) {
+        if (Object.prototype.hasOwnProperty.call(parent, propertyName)) {
+          return parent[propertyName];
+        }
+        return undefined
+    };
+
+  return ((stack1 = lookupProperty(helpers,"if").call(depth0 != null ? depth0 : (container.nullContext || {}),((stack1 = (depth0 != null ? lookupProperty(depth0,"shadcn") : depth0)) != null ? lookupProperty(stack1,"rtl") : stack1),{"name":"if","hash":{},"fn":container.program(54, data, 0),"inverse":container.noop,"data":data,"loc":{"start":{"line":267,"column":8},"end":{"line":268,"column":8}}})) != null ? stack1 : "");
+},"54":function(container,depth0,helpers,partials,data) {
     return "<DirectionProvider direction=\"rtl\">\n        ";
-},"42":function(container,depth0,helpers,partials,data) {
+},"55":function(container,depth0,helpers,partials,data) {
     return "<AutumnProvider useBetterAuth={true}>\n";
-},"43":function(container,depth0,helpers,partials,data) {
+},"56":function(container,depth0,helpers,partials,data) {
     return "        <ReactQueryDevtools position=\"bottom\" buttonPosition=\"bottom-right\" />\n";
-},"44":function(container,depth0,helpers,partials,data) {
+},"57":function(container,depth0,helpers,partials,data) {
     return "\n        </AutumnProvider>";
-},"45":function(container,depth0,helpers,partials,data) {
-    return "\n        </DirectionProvider>";
+},"58":function(container,depth0,helpers,partials,data) {
+    return "\n        </LocaleDirectionProvider>\n";
+},"59":function(container,depth0,helpers,partials,data) {
+    var stack1, lookupProperty = container.lookupProperty || function(parent: any, propertyName: any) {
+        if (Object.prototype.hasOwnProperty.call(parent, propertyName)) {
+          return parent[propertyName];
+        }
+        return undefined
+    };
+
+  return ((stack1 = lookupProperty(helpers,"if").call(depth0 != null ? depth0 : (container.nullContext || {}),((stack1 = (depth0 != null ? lookupProperty(depth0,"shadcn") : depth0)) != null ? lookupProperty(stack1,"rtl") : stack1),{"name":"if","hash":{},"fn":container.program(60, data, 0),"inverse":container.noop,"data":data,"loc":{"start":{"line":282,"column":8},"end":{"line":283,"column":28}}})) != null ? stack1 : "");
+},"60":function(container,depth0,helpers,partials,data) {
+    return "        </DirectionProvider>";
 },"compiler":[8,">= 4.3.0"],"main":function(container,depth0,helpers,partials,data) {
     var stack1, helper, alias1=depth0 != null ? depth0 : (container.nullContext || {}), alias2=container.hooks.helperMissing, lookupProperty = container.lookupProperty || function(parent: any, propertyName: any) {
         if (Object.prototype.hasOwnProperty.call(parent, propertyName)) {
@@ -16728,25 +16962,25 @@ Disallow:
   return "import { Toaster } from \"@"
     + container.escapeExpression(((helper = (helper = lookupProperty(helpers,"projectName") || (depth0 != null ? lookupProperty(depth0,"projectName") : depth0)) != null ? helper : alias2),(typeof helper === "function" ? helper.call(alias1,{"name":"projectName","hash":{},"data":data,"loc":{"start":{"line":1,"column":26},"end":{"line":1,"column":41}}}) : helper)))
     + "/ui/components/sonner\";\n"
-    + ((stack1 = lookupProperty(helpers,"if").call(alias1,((stack1 = (depth0 != null ? lookupProperty(depth0,"shadcn") : depth0)) != null ? lookupProperty(stack1,"rtl") : stack1),{"name":"if","hash":{},"fn":container.program(0, data, 0),"inverse":container.noop,"data":data,"loc":{"start":{"line":2,"column":0},"end":{"line":3,"column":7}}})) != null ? stack1 : "")
-    + ((stack1 = lookupProperty(helpers,"unless").call(alias1,(lookupProperty(helpers,"eq")||(depth0 && lookupProperty(depth0,"eq"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"backend") : depth0),"convex",{"name":"eq","hash":{},"data":data,"loc":{"start":{"line":3,"column":17},"end":{"line":3,"column":38}}}),{"name":"unless","hash":{},"fn":container.program(1, data, 0),"inverse":container.noop,"data":data,"loc":{"start":{"line":3,"column":7},"end":{"line":5,"column":23}}})) != null ? stack1 : "")
+    + ((stack1 = lookupProperty(helpers,"if").call(alias1,(lookupProperty(helpers,"usesShadcnDirection")||(depth0 && lookupProperty(depth0,"usesShadcnDirection"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"shadcn") : depth0),(depth0 != null ? lookupProperty(depth0,"i18n") : depth0),(depth0 != null ? lookupProperty(depth0,"i18nOptions") : depth0),{"name":"usesShadcnDirection","hash":{},"data":data,"loc":{"start":{"line":2,"column":6},"end":{"line":2,"column":51}}}),{"name":"if","hash":{},"fn":container.program(0, data, 0),"inverse":container.program(1, data, 0),"data":data,"loc":{"start":{"line":2,"column":0},"end":{"line":4,"column":7}}})) != null ? stack1 : "")
+    + ((stack1 = lookupProperty(helpers,"unless").call(alias1,(lookupProperty(helpers,"eq")||(depth0 && lookupProperty(depth0,"eq"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"backend") : depth0),"convex",{"name":"eq","hash":{},"data":data,"loc":{"start":{"line":4,"column":17},"end":{"line":4,"column":38}}}),{"name":"unless","hash":{},"fn":container.program(3, data, 0),"inverse":container.noop,"data":data,"loc":{"start":{"line":4,"column":7},"end":{"line":6,"column":23}}})) != null ? stack1 : "")
     + "\nimport {\n  HeadContent,\n  Outlet,\n  Scripts,\n  createRootRouteWithContext,\n"
-    + ((stack1 = lookupProperty(helpers,"if").call(alias1,(lookupProperty(helpers,"and")||(depth0 && lookupProperty(depth0,"and"))||alias2).call(alias1,(lookupProperty(helpers,"eq")||(depth0 && lookupProperty(depth0,"eq"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"backend") : depth0),"convex",{"name":"eq","hash":{},"data":data,"loc":{"start":{"line":11,"column":11},"end":{"line":11,"column":32}}}),(lookupProperty(helpers,"or")||(depth0 && lookupProperty(depth0,"or"))||alias2).call(alias1,(lookupProperty(helpers,"eq")||(depth0 && lookupProperty(depth0,"eq"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"auth") : depth0),"clerk",{"name":"eq","hash":{},"data":data,"loc":{"start":{"line":11,"column":37},"end":{"line":11,"column":54}}}),(lookupProperty(helpers,"eq")||(depth0 && lookupProperty(depth0,"eq"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"auth") : depth0),"better-auth",{"name":"eq","hash":{},"data":data,"loc":{"start":{"line":11,"column":55},"end":{"line":11,"column":78}}}),{"name":"or","hash":{},"data":data,"loc":{"start":{"line":11,"column":33},"end":{"line":11,"column":79}}}),{"name":"and","hash":{},"data":data,"loc":{"start":{"line":11,"column":6},"end":{"line":11,"column":80}}}),{"name":"if","hash":{},"fn":container.program(3, data, 0),"inverse":container.noop,"data":data,"loc":{"start":{"line":11,"column":0},"end":{"line":13,"column":7}}})) != null ? stack1 : "")
+    + ((stack1 = lookupProperty(helpers,"if").call(alias1,(lookupProperty(helpers,"and")||(depth0 && lookupProperty(depth0,"and"))||alias2).call(alias1,(lookupProperty(helpers,"eq")||(depth0 && lookupProperty(depth0,"eq"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"backend") : depth0),"convex",{"name":"eq","hash":{},"data":data,"loc":{"start":{"line":12,"column":11},"end":{"line":12,"column":32}}}),(lookupProperty(helpers,"or")||(depth0 && lookupProperty(depth0,"or"))||alias2).call(alias1,(lookupProperty(helpers,"eq")||(depth0 && lookupProperty(depth0,"eq"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"auth") : depth0),"clerk",{"name":"eq","hash":{},"data":data,"loc":{"start":{"line":12,"column":37},"end":{"line":12,"column":54}}}),(lookupProperty(helpers,"eq")||(depth0 && lookupProperty(depth0,"eq"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"auth") : depth0),"better-auth",{"name":"eq","hash":{},"data":data,"loc":{"start":{"line":12,"column":55},"end":{"line":12,"column":78}}}),{"name":"or","hash":{},"data":data,"loc":{"start":{"line":12,"column":33},"end":{"line":12,"column":79}}}),{"name":"and","hash":{},"data":data,"loc":{"start":{"line":12,"column":6},"end":{"line":12,"column":80}}}),{"name":"if","hash":{},"fn":container.program(5, data, 0),"inverse":container.noop,"data":data,"loc":{"start":{"line":12,"column":0},"end":{"line":14,"column":7}}})) != null ? stack1 : "")
     + "} from \"@tanstack/react-router\";\nimport { TanStackRouterDevtools } from \"@tanstack/react-router-devtools\";\nimport Header from \"../components/header\";\nimport appCss from \"../index.css?url\";\n"
-    + ((stack1 = lookupProperty(helpers,"if").call(alias1,(lookupProperty(helpers,"eq")||(depth0 && lookupProperty(depth0,"eq"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"payments") : depth0),"autumn",{"name":"eq","hash":{},"data":data,"loc":{"start":{"line":18,"column":6},"end":{"line":18,"column":28}}}),{"name":"if","hash":{},"fn":container.program(4, data, 0),"inverse":container.noop,"data":data,"loc":{"start":{"line":18,"column":0},"end":{"line":20,"column":7}}})) != null ? stack1 : "")
-    + ((stack1 = lookupProperty(helpers,"if").call(alias1,(lookupProperty(helpers,"eq")||(depth0 && lookupProperty(depth0,"eq"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"backend") : depth0),"convex",{"name":"eq","hash":{},"data":data,"loc":{"start":{"line":21,"column":6},"end":{"line":21,"column":27}}}),{"name":"if","hash":{},"fn":container.program(5, data, 0),"inverse":container.program(6, data, 0),"data":data,"loc":{"start":{"line":21,"column":0},"end":{"line":28,"column":7}}})) != null ? stack1 : "")
+    + ((stack1 = lookupProperty(helpers,"if").call(alias1,(lookupProperty(helpers,"eq")||(depth0 && lookupProperty(depth0,"eq"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"payments") : depth0),"autumn",{"name":"eq","hash":{},"data":data,"loc":{"start":{"line":19,"column":6},"end":{"line":19,"column":28}}}),{"name":"if","hash":{},"fn":container.program(6, data, 0),"inverse":container.noop,"data":data,"loc":{"start":{"line":19,"column":0},"end":{"line":21,"column":7}}})) != null ? stack1 : "")
+    + ((stack1 = lookupProperty(helpers,"if").call(alias1,(lookupProperty(helpers,"eq")||(depth0 && lookupProperty(depth0,"eq"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"backend") : depth0),"convex",{"name":"eq","hash":{},"data":data,"loc":{"start":{"line":22,"column":6},"end":{"line":22,"column":27}}}),{"name":"if","hash":{},"fn":container.program(7, data, 0),"inverse":container.program(8, data, 0),"data":data,"loc":{"start":{"line":22,"column":0},"end":{"line":29,"column":7}}})) != null ? stack1 : "")
     + "\n"
-    + ((stack1 = lookupProperty(helpers,"if").call(alias1,(lookupProperty(helpers,"eq")||(depth0 && lookupProperty(depth0,"eq"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"auth") : depth0),"clerk",{"name":"eq","hash":{},"data":data,"loc":{"start":{"line":30,"column":6},"end":{"line":30,"column":23}}}),{"name":"if","hash":{},"fn":container.program(8, data, 0),"inverse":container.noop,"data":data,"loc":{"start":{"line":30,"column":0},"end":{"line":32,"column":7}}})) != null ? stack1 : "")
-    + ((stack1 = lookupProperty(helpers,"if").call(alias1,(lookupProperty(helpers,"and")||(depth0 && lookupProperty(depth0,"and"))||alias2).call(alias1,(lookupProperty(helpers,"eq")||(depth0 && lookupProperty(depth0,"eq"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"auth") : depth0),"clerk",{"name":"eq","hash":{},"data":data,"loc":{"start":{"line":33,"column":11},"end":{"line":33,"column":28}}}),(lookupProperty(helpers,"ne")||(depth0 && lookupProperty(depth0,"ne"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"backend") : depth0),"convex",{"name":"ne","hash":{},"data":data,"loc":{"start":{"line":33,"column":29},"end":{"line":33,"column":50}}}),(lookupProperty(helpers,"ne")||(depth0 && lookupProperty(depth0,"ne"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"api") : depth0),"none",{"name":"ne","hash":{},"data":data,"loc":{"start":{"line":33,"column":51},"end":{"line":33,"column":66}}}),{"name":"and","hash":{},"data":data,"loc":{"start":{"line":33,"column":6},"end":{"line":33,"column":67}}}),{"name":"if","hash":{},"fn":container.program(10, data, 0),"inverse":container.noop,"data":data,"loc":{"start":{"line":33,"column":0},"end":{"line":36,"column":7}}})) != null ? stack1 : "")
-    + ((stack1 = lookupProperty(helpers,"if").call(alias1,(lookupProperty(helpers,"and")||(depth0 && lookupProperty(depth0,"and"))||alias2).call(alias1,(lookupProperty(helpers,"eq")||(depth0 && lookupProperty(depth0,"eq"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"backend") : depth0),"convex",{"name":"eq","hash":{},"data":data,"loc":{"start":{"line":37,"column":11},"end":{"line":37,"column":32}}}),(lookupProperty(helpers,"eq")||(depth0 && lookupProperty(depth0,"eq"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"auth") : depth0),"clerk",{"name":"eq","hash":{},"data":data,"loc":{"start":{"line":37,"column":33},"end":{"line":37,"column":50}}}),{"name":"and","hash":{},"data":data,"loc":{"start":{"line":37,"column":6},"end":{"line":37,"column":51}}}),{"name":"if","hash":{},"fn":container.program(11, data, 0),"inverse":container.program(12, data, 0),"data":data,"loc":{"start":{"line":37,"column":0},"end":{"line":58,"column":7}}})) != null ? stack1 : "")
+    + ((stack1 = lookupProperty(helpers,"if").call(alias1,(lookupProperty(helpers,"eq")||(depth0 && lookupProperty(depth0,"eq"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"auth") : depth0),"clerk",{"name":"eq","hash":{},"data":data,"loc":{"start":{"line":31,"column":6},"end":{"line":31,"column":23}}}),{"name":"if","hash":{},"fn":container.program(10, data, 0),"inverse":container.noop,"data":data,"loc":{"start":{"line":31,"column":0},"end":{"line":33,"column":7}}})) != null ? stack1 : "")
+    + ((stack1 = lookupProperty(helpers,"if").call(alias1,(lookupProperty(helpers,"and")||(depth0 && lookupProperty(depth0,"and"))||alias2).call(alias1,(lookupProperty(helpers,"eq")||(depth0 && lookupProperty(depth0,"eq"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"auth") : depth0),"clerk",{"name":"eq","hash":{},"data":data,"loc":{"start":{"line":34,"column":11},"end":{"line":34,"column":28}}}),(lookupProperty(helpers,"ne")||(depth0 && lookupProperty(depth0,"ne"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"backend") : depth0),"convex",{"name":"ne","hash":{},"data":data,"loc":{"start":{"line":34,"column":29},"end":{"line":34,"column":50}}}),(lookupProperty(helpers,"ne")||(depth0 && lookupProperty(depth0,"ne"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"api") : depth0),"none",{"name":"ne","hash":{},"data":data,"loc":{"start":{"line":34,"column":51},"end":{"line":34,"column":66}}}),{"name":"and","hash":{},"data":data,"loc":{"start":{"line":34,"column":6},"end":{"line":34,"column":67}}}),{"name":"if","hash":{},"fn":container.program(12, data, 0),"inverse":container.noop,"data":data,"loc":{"start":{"line":34,"column":0},"end":{"line":37,"column":7}}})) != null ? stack1 : "")
+    + ((stack1 = lookupProperty(helpers,"if").call(alias1,(lookupProperty(helpers,"and")||(depth0 && lookupProperty(depth0,"and"))||alias2).call(alias1,(lookupProperty(helpers,"eq")||(depth0 && lookupProperty(depth0,"eq"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"backend") : depth0),"convex",{"name":"eq","hash":{},"data":data,"loc":{"start":{"line":38,"column":11},"end":{"line":38,"column":32}}}),(lookupProperty(helpers,"eq")||(depth0 && lookupProperty(depth0,"eq"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"auth") : depth0),"clerk",{"name":"eq","hash":{},"data":data,"loc":{"start":{"line":38,"column":33},"end":{"line":38,"column":50}}}),{"name":"and","hash":{},"data":data,"loc":{"start":{"line":38,"column":6},"end":{"line":38,"column":51}}}),{"name":"if","hash":{},"fn":container.program(13, data, 0),"inverse":container.program(14, data, 0),"data":data,"loc":{"start":{"line":38,"column":0},"end":{"line":59,"column":7}}})) != null ? stack1 : "")
     + "\n"
-    + ((stack1 = lookupProperty(helpers,"if").call(alias1,(lookupProperty(helpers,"and")||(depth0 && lookupProperty(depth0,"and"))||alias2).call(alias1,(lookupProperty(helpers,"eq")||(depth0 && lookupProperty(depth0,"eq"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"auth") : depth0),"clerk",{"name":"eq","hash":{},"data":data,"loc":{"start":{"line":60,"column":11},"end":{"line":60,"column":28}}}),(lookupProperty(helpers,"ne")||(depth0 && lookupProperty(depth0,"ne"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"backend") : depth0),"convex",{"name":"ne","hash":{},"data":data,"loc":{"start":{"line":60,"column":29},"end":{"line":60,"column":50}}}),(lookupProperty(helpers,"ne")||(depth0 && lookupProperty(depth0,"ne"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"api") : depth0),"none",{"name":"ne","hash":{},"data":data,"loc":{"start":{"line":60,"column":51},"end":{"line":60,"column":66}}}),{"name":"and","hash":{},"data":data,"loc":{"start":{"line":60,"column":6},"end":{"line":60,"column":67}}}),{"name":"if","hash":{},"fn":container.program(16, data, 0),"inverse":container.noop,"data":data,"loc":{"start":{"line":60,"column":0},"end":{"line":74,"column":7}}})) != null ? stack1 : "")
+    + ((stack1 = lookupProperty(helpers,"if").call(alias1,(lookupProperty(helpers,"and")||(depth0 && lookupProperty(depth0,"and"))||alias2).call(alias1,(lookupProperty(helpers,"eq")||(depth0 && lookupProperty(depth0,"eq"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"auth") : depth0),"clerk",{"name":"eq","hash":{},"data":data,"loc":{"start":{"line":61,"column":11},"end":{"line":61,"column":28}}}),(lookupProperty(helpers,"ne")||(depth0 && lookupProperty(depth0,"ne"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"backend") : depth0),"convex",{"name":"ne","hash":{},"data":data,"loc":{"start":{"line":61,"column":29},"end":{"line":61,"column":50}}}),(lookupProperty(helpers,"ne")||(depth0 && lookupProperty(depth0,"ne"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"api") : depth0),"none",{"name":"ne","hash":{},"data":data,"loc":{"start":{"line":61,"column":51},"end":{"line":61,"column":66}}}),{"name":"and","hash":{},"data":data,"loc":{"start":{"line":61,"column":6},"end":{"line":61,"column":67}}}),{"name":"if","hash":{},"fn":container.program(18, data, 0),"inverse":container.noop,"data":data,"loc":{"start":{"line":61,"column":0},"end":{"line":75,"column":7}}})) != null ? stack1 : "")
     + "\n"
-    + ((stack1 = lookupProperty(helpers,"if").call(alias1,(lookupProperty(helpers,"eq")||(depth0 && lookupProperty(depth0,"eq"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"backend") : depth0),"convex",{"name":"eq","hash":{},"data":data,"loc":{"start":{"line":76,"column":6},"end":{"line":76,"column":27}}}),{"name":"if","hash":{},"fn":container.program(17, data, 0),"inverse":container.program(18, data, 0),"data":data,"loc":{"start":{"line":76,"column":0},"end":{"line":99,"column":7}}})) != null ? stack1 : "")
+    + ((stack1 = lookupProperty(helpers,"if").call(alias1,(lookupProperty(helpers,"eq")||(depth0 && lookupProperty(depth0,"eq"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"backend") : depth0),"convex",{"name":"eq","hash":{},"data":data,"loc":{"start":{"line":77,"column":6},"end":{"line":77,"column":27}}}),{"name":"if","hash":{},"fn":container.program(19, data, 0),"inverse":container.program(20, data, 0),"data":data,"loc":{"start":{"line":77,"column":0},"end":{"line":100,"column":7}}})) != null ? stack1 : "")
     + "\nexport const Route = createRootRouteWithContext<RouterAppContext>()({\n  head: () => ({\n    meta: [\n      {\n        charSet: \"utf-8\",\n      },\n      {\n        name: \"viewport\",\n        content: \"width=device-width, initial-scale=1\",\n      },\n      {\n        title: \"My App\",\n      },\n    ],\n    links: [\n      {\n        rel: \"stylesheet\",\n        href: appCss,\n      },\n    ],\n  }),\n\n  component: RootDocument,\n"
-    + ((stack1 = lookupProperty(helpers,"if").call(alias1,(lookupProperty(helpers,"and")||(depth0 && lookupProperty(depth0,"and"))||alias2).call(alias1,(lookupProperty(helpers,"eq")||(depth0 && lookupProperty(depth0,"eq"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"backend") : depth0),"convex",{"name":"eq","hash":{},"data":data,"loc":{"start":{"line":124,"column":13},"end":{"line":124,"column":34}}}),(lookupProperty(helpers,"eq")||(depth0 && lookupProperty(depth0,"eq"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"auth") : depth0),"clerk",{"name":"eq","hash":{},"data":data,"loc":{"start":{"line":124,"column":35},"end":{"line":124,"column":52}}}),{"name":"and","hash":{},"data":data,"loc":{"start":{"line":124,"column":8},"end":{"line":124,"column":53}}}),{"name":"if","hash":{},"fn":container.program(23, data, 0),"inverse":container.program(24, data, 0),"data":data,"loc":{"start":{"line":124,"column":2},"end":{"line":143,"column":9}}})) != null ? stack1 : "")
+    + ((stack1 = lookupProperty(helpers,"if").call(alias1,(lookupProperty(helpers,"and")||(depth0 && lookupProperty(depth0,"and"))||alias2).call(alias1,(lookupProperty(helpers,"eq")||(depth0 && lookupProperty(depth0,"eq"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"backend") : depth0),"convex",{"name":"eq","hash":{},"data":data,"loc":{"start":{"line":125,"column":13},"end":{"line":125,"column":34}}}),(lookupProperty(helpers,"eq")||(depth0 && lookupProperty(depth0,"eq"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"auth") : depth0),"clerk",{"name":"eq","hash":{},"data":data,"loc":{"start":{"line":125,"column":35},"end":{"line":125,"column":52}}}),{"name":"and","hash":{},"data":data,"loc":{"start":{"line":125,"column":8},"end":{"line":125,"column":53}}}),{"name":"if","hash":{},"fn":container.program(25, data, 0),"inverse":container.program(26, data, 0),"data":data,"loc":{"start":{"line":125,"column":2},"end":{"line":144,"column":9}}})) != null ? stack1 : "")
     + "});\n\nfunction RootDocument() {\n"
-    + ((stack1 = lookupProperty(helpers,"if").call(alias1,(lookupProperty(helpers,"and")||(depth0 && lookupProperty(depth0,"and"))||alias2).call(alias1,(lookupProperty(helpers,"eq")||(depth0 && lookupProperty(depth0,"eq"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"backend") : depth0),"convex",{"name":"eq","hash":{},"data":data,"loc":{"start":{"line":147,"column":13},"end":{"line":147,"column":34}}}),(lookupProperty(helpers,"eq")||(depth0 && lookupProperty(depth0,"eq"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"auth") : depth0),"clerk",{"name":"eq","hash":{},"data":data,"loc":{"start":{"line":147,"column":35},"end":{"line":147,"column":52}}}),{"name":"and","hash":{},"data":data,"loc":{"start":{"line":147,"column":8},"end":{"line":147,"column":53}}}),{"name":"if","hash":{},"fn":container.program(26, data, 0),"inverse":container.program(30, data, 0),"data":data,"loc":{"start":{"line":147,"column":2},"end":{"line":271,"column":9}}})) != null ? stack1 : "")
+    + ((stack1 = lookupProperty(helpers,"if").call(alias1,(lookupProperty(helpers,"and")||(depth0 && lookupProperty(depth0,"and"))||alias2).call(alias1,(lookupProperty(helpers,"eq")||(depth0 && lookupProperty(depth0,"eq"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"backend") : depth0),"convex",{"name":"eq","hash":{},"data":data,"loc":{"start":{"line":148,"column":13},"end":{"line":148,"column":34}}}),(lookupProperty(helpers,"eq")||(depth0 && lookupProperty(depth0,"eq"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"auth") : depth0),"clerk",{"name":"eq","hash":{},"data":data,"loc":{"start":{"line":148,"column":35},"end":{"line":148,"column":52}}}),{"name":"and","hash":{},"data":data,"loc":{"start":{"line":148,"column":8},"end":{"line":148,"column":53}}}),{"name":"if","hash":{},"fn":container.program(28, data, 0),"inverse":container.program(37, data, 0),"data":data,"loc":{"start":{"line":148,"column":2},"end":{"line":287,"column":9}}})) != null ? stack1 : "")
     + "}\n";
 },"useData":true}],
   ["frontend/react/tanstack-start/src/routes/index.tsx.hbs", { kind: "template", "0":function(container,depth0,helpers,partials,data) {
@@ -17891,6 +18125,97 @@ export {};
 },"useData":true}],
   ["i18n/integrations/nuxt/use-ui-locale.ts.hbs", { kind: "template", "compiler":[8,">= 4.3.0"],"main":function(container,depth0,helpers,partials,data) {
     return "/**\n * Nuxt UI locale object for the active `@nuxtjs/i18n` locale.\n *\n * Nuxt UI ships one locale object per language in `@nuxt/ui/locale`; the\n * active one is bound to `<UApp :locale>` so Nuxt UI's built-in strings follow\n * the negotiated locale.\n *\n * `computed` (Nuxt) and `useI18n` (`@nuxtjs/i18n`) are auto-imported.\n */\nimport * as nuxtUiLocales from \"@nuxt/ui/locale\";\n\nexport function useUiLocale() {\n  const { locale } = useI18n();\n  return computed(() => {\n    const language = locale.value.split(\"-\")[0] ?? \"en\";\n    return nuxtUiLocales[language as keyof typeof nuxtUiLocales] ?? nuxtUiLocales.en;\n  });\n}\n";
+},"useData":true}],
+  ["i18n/integrations/shadcn/direction.ts.hbs", { kind: "template", "0":function(container,depth0,helpers,partials,data) {
+    return "const sourceLocaleDirection: TextDirection | undefined = \"rtl\";\n";
+},"1":function(container,depth0,helpers,partials,data) {
+    var stack1, alias1=depth0 != null ? depth0 : (container.nullContext || {}), lookupProperty = container.lookupProperty || function(parent: any, propertyName: any) {
+        if (Object.prototype.hasOwnProperty.call(parent, propertyName)) {
+          return parent[propertyName];
+        }
+        return undefined
+    };
+
+  return ((stack1 = lookupProperty(helpers,"if").call(alias1,(lookupProperty(helpers,"eq")||(depth0 && lookupProperty(depth0,"eq"))||container.hooks.helperMissing).call(alias1,((stack1 = (depth0 != null ? lookupProperty(depth0,"shadcn") : depth0)) != null ? lookupProperty(stack1,"rtl") : stack1),false,{"name":"eq","hash":{},"data":data,"loc":{"start":{"line":5,"column":10},"end":{"line":5,"column":31}}}),{"name":"if","hash":{},"fn":container.program(2, data, 0),"inverse":container.program(3, data, 0),"data":data,"loc":{"start":{"line":5,"column":0},"end":{"line":9,"column":0}}})) != null ? stack1 : "");
+},"2":function(container,depth0,helpers,partials,data) {
+    return "const sourceLocaleDirection: TextDirection | undefined = \"ltr\";\n";
+},"3":function(container,depth0,helpers,partials,data) {
+    return "const sourceLocaleDirection: TextDirection | undefined = undefined;\n";
+},"compiler":[8,">= 4.3.0"],"main":function(container,depth0,helpers,partials,data) {
+    var stack1, lookupProperty = container.lookupProperty || function(parent: any, propertyName: any) {
+        if (Object.prototype.hasOwnProperty.call(parent, propertyName)) {
+          return parent[propertyName];
+        }
+        return undefined
+    };
+
+  return "import { getTextDirection, sourceLocale, type Locale, type TextDirection } from \"../config\";\n\n"
+    + ((stack1 = lookupProperty(helpers,"if").call(depth0 != null ? depth0 : (container.nullContext || {}),((stack1 = (depth0 != null ? lookupProperty(depth0,"shadcn") : depth0)) != null ? lookupProperty(stack1,"rtl") : stack1),{"name":"if","hash":{},"fn":container.program(0, data, 0),"inverse":container.program(1, data, 0),"data":data,"loc":{"start":{"line":3,"column":0},"end":{"line":9,"column":7}}})) != null ? stack1 : "")
+    + "\n/**\n * shadcn direction for a locale (design D3). The user's explicit `shadcn.rtl`\n * wins for the source locale; every other locale derives its direction from the\n * locale tag through `getTextDirection`.\n */\nexport function getLocaleDirection(locale: Locale): TextDirection {\n  if (locale === sourceLocale && sourceLocaleDirection !== undefined) return sourceLocaleDirection;\n  return getTextDirection(locale);\n}\n";
+},"useData":true}],
+  ["i18n/integrations/shadcn/i18next/locale-direction-provider.tsx.hbs", { kind: "template", "compiler":[8,">= 4.3.0"],"main":function(container,depth0,helpers,partials,data) {
+    var helper, alias1=depth0 != null ? depth0 : (container.nullContext || {}), alias2=container.hooks.helperMissing, alias3="function", alias4=container.escapeExpression, lookupProperty = container.lookupProperty || function(parent: any, propertyName: any) {
+        if (Object.prototype.hasOwnProperty.call(parent, propertyName)) {
+          return parent[propertyName];
+        }
+        return undefined
+    };
+
+  return "\"use client\";\n\nimport { useEffect, type ReactNode } from \"react\";\nimport { useTranslation } from \"react-i18next\";\n\nimport { isLocale, sourceLocale, type Locale } from \"@"
+    + alias4(((helper = (helper = lookupProperty(helpers,"projectName") || (depth0 != null ? lookupProperty(depth0,"projectName") : depth0)) != null ? helper : alias2),(typeof helper === alias3 ? helper.call(alias1,{"name":"projectName","hash":{},"data":data,"loc":{"start":{"line":6,"column":54},"end":{"line":6,"column":69}}}) : helper)))
+    + "/i18n/config\";\nimport { getLocaleDirection } from \"@"
+    + alias4(((helper = (helper = lookupProperty(helpers,"projectName") || (depth0 != null ? lookupProperty(depth0,"projectName") : depth0)) != null ? helper : alias2),(typeof helper === alias3 ? helper.call(alias1,{"name":"projectName","hash":{},"data":data,"loc":{"start":{"line":7,"column":37},"end":{"line":7,"column":52}}}) : helper)))
+    + "/i18n/integrations/shadcn-direction\";\nimport { DirectionProvider } from \"@"
+    + alias4(((helper = (helper = lookupProperty(helpers,"projectName") || (depth0 != null ? lookupProperty(depth0,"projectName") : depth0)) != null ? helper : alias2),(typeof helper === alias3 ? helper.call(alias1,{"name":"projectName","hash":{},"data":data,"loc":{"start":{"line":8,"column":36},"end":{"line":8,"column":51}}}) : helper)))
+    + "/ui/components/direction\";\n\n// Registers the react-i18next adapter on the shared instance before the\n// provider reads the active language.\nimport \"@/i18n\";\n\n/**\n * shadcn direction derived from the active locale: `getLocaleDirection`\n * applies `getTextDirection` per locale and keeps an explicit `shadcn.rtl`\n * winning for the source locale. Also keeps `<html dir>` in sync.\n */\nexport function LocaleDirectionProvider({ children }: { children: ReactNode }) {\n  const { i18n } = useTranslation();\n  const resolved = i18n.resolvedLanguage ?? \"\";\n  const locale: Locale = isLocale(resolved) ? resolved : sourceLocale;\n  const direction = getLocaleDirection(locale);\n\n  useEffect(() => {\n    document.documentElement.dir = direction;\n  }, [direction]);\n\n  return <DirectionProvider direction={direction}>{children}</DirectionProvider>;\n}\n";
+},"useData":true}],
+  ["i18n/integrations/shadcn/lingui/locale-direction-provider.tsx.hbs", { kind: "template", "compiler":[8,">= 4.3.0"],"main":function(container,depth0,helpers,partials,data) {
+    var helper, alias1=depth0 != null ? depth0 : (container.nullContext || {}), alias2=container.hooks.helperMissing, alias3="function", alias4=container.escapeExpression, lookupProperty = container.lookupProperty || function(parent: any, propertyName: any) {
+        if (Object.prototype.hasOwnProperty.call(parent, propertyName)) {
+          return parent[propertyName];
+        }
+        return undefined
+    };
+
+  return "\"use client\";\n\nimport { useLingui } from \"@lingui/react/macro\";\nimport { useEffect, type ReactNode } from \"react\";\n\nimport type { Locale } from \"@"
+    + alias4(((helper = (helper = lookupProperty(helpers,"projectName") || (depth0 != null ? lookupProperty(depth0,"projectName") : depth0)) != null ? helper : alias2),(typeof helper === alias3 ? helper.call(alias1,{"name":"projectName","hash":{},"data":data,"loc":{"start":{"line":6,"column":30},"end":{"line":6,"column":45}}}) : helper)))
+    + "/i18n/config\";\nimport { getLocaleDirection } from \"@"
+    + alias4(((helper = (helper = lookupProperty(helpers,"projectName") || (depth0 != null ? lookupProperty(depth0,"projectName") : depth0)) != null ? helper : alias2),(typeof helper === alias3 ? helper.call(alias1,{"name":"projectName","hash":{},"data":data,"loc":{"start":{"line":7,"column":37},"end":{"line":7,"column":52}}}) : helper)))
+    + "/i18n/integrations/shadcn-direction\";\nimport { DirectionProvider } from \"@"
+    + alias4(((helper = (helper = lookupProperty(helpers,"projectName") || (depth0 != null ? lookupProperty(depth0,"projectName") : depth0)) != null ? helper : alias2),(typeof helper === alias3 ? helper.call(alias1,{"name":"projectName","hash":{},"data":data,"loc":{"start":{"line":8,"column":36},"end":{"line":8,"column":51}}}) : helper)))
+    + "/ui/components/direction\";\n\n/**\n * shadcn direction derived from the active locale: `getLocaleDirection`\n * applies `getTextDirection` per locale and keeps an explicit `shadcn.rtl`\n * winning for the source locale. Also keeps `<html dir>` in sync.\n */\nexport function LocaleDirectionProvider({ children }: { children: ReactNode }) {\n  const { i18n } = useLingui();\n  const locale = i18n.locale as Locale;\n  const direction = getLocaleDirection(locale);\n\n  useEffect(() => {\n    document.documentElement.dir = direction;\n  }, [direction]);\n\n  return <DirectionProvider direction={direction}>{children}</DirectionProvider>;\n}\n";
+},"useData":true}],
+  ["i18n/integrations/shadcn/paraglide/locale-direction-provider.tsx.hbs", { kind: "template", "compiler":[8,">= 4.3.0"],"main":function(container,depth0,helpers,partials,data) {
+    var helper, alias1=depth0 != null ? depth0 : (container.nullContext || {}), alias2=container.hooks.helperMissing, alias3="function", alias4=container.escapeExpression, lookupProperty = container.lookupProperty || function(parent: any, propertyName: any) {
+        if (Object.prototype.hasOwnProperty.call(parent, propertyName)) {
+          return parent[propertyName];
+        }
+        return undefined
+    };
+
+  return "\"use client\";\n\nimport { useEffect, type ReactNode } from \"react\";\n\nimport type { Locale } from \"@"
+    + alias4(((helper = (helper = lookupProperty(helpers,"projectName") || (depth0 != null ? lookupProperty(depth0,"projectName") : depth0)) != null ? helper : alias2),(typeof helper === alias3 ? helper.call(alias1,{"name":"projectName","hash":{},"data":data,"loc":{"start":{"line":5,"column":30},"end":{"line":5,"column":45}}}) : helper)))
+    + "/i18n/config\";\nimport { getLocaleDirection } from \"@"
+    + alias4(((helper = (helper = lookupProperty(helpers,"projectName") || (depth0 != null ? lookupProperty(depth0,"projectName") : depth0)) != null ? helper : alias2),(typeof helper === alias3 ? helper.call(alias1,{"name":"projectName","hash":{},"data":data,"loc":{"start":{"line":6,"column":37},"end":{"line":6,"column":52}}}) : helper)))
+    + "/i18n/integrations/shadcn-direction\";\nimport { DirectionProvider } from \"@"
+    + alias4(((helper = (helper = lookupProperty(helpers,"projectName") || (depth0 != null ? lookupProperty(depth0,"projectName") : depth0)) != null ? helper : alias2),(typeof helper === alias3 ? helper.call(alias1,{"name":"projectName","hash":{},"data":data,"loc":{"start":{"line":7,"column":36},"end":{"line":7,"column":51}}}) : helper)))
+    + "/ui/components/direction\";\nimport { getLocale } from \"../paraglide/runtime.js\";\n\n/**\n * shadcn direction derived from the active locale: `getLocaleDirection`\n * applies `getTextDirection` per locale and keeps an explicit `shadcn.rtl`\n * winning for the source locale. Paraglide reloads the document on locale\n * changes, so the direction is re-derived on every load. Also keeps\n * `<html dir>` in sync.\n */\nexport function LocaleDirectionProvider({ children }: { children: ReactNode }) {\n  const locale = getLocale() as Locale;\n  const direction = getLocaleDirection(locale);\n\n  useEffect(() => {\n    document.documentElement.dir = direction;\n  }, [direction]);\n\n  return <DirectionProvider direction={direction}>{children}</DirectionProvider>;\n}\n";
+},"useData":true}],
+  ["i18n/integrations/shadcn/wuchale/locale-direction-provider.tsx.hbs", { kind: "template", "compiler":[8,">= 4.3.0"],"main":function(container,depth0,helpers,partials,data) {
+    var helper, alias1=depth0 != null ? depth0 : (container.nullContext || {}), alias2=container.hooks.helperMissing, alias3="function", alias4=container.escapeExpression, lookupProperty = container.lookupProperty || function(parent: any, propertyName: any) {
+        if (Object.prototype.hasOwnProperty.call(parent, propertyName)) {
+          return parent[propertyName];
+        }
+        return undefined
+    };
+
+  return "\"use client\";\n\nimport { useEffect, useState, type ReactNode } from \"react\";\n\nimport {\n  LOCALE_COOKIE,\n  negotiateLocale,\n  sourceLocale,\n  type Locale,\n} from \"@"
+    + alias4(((helper = (helper = lookupProperty(helpers,"projectName") || (depth0 != null ? lookupProperty(depth0,"projectName") : depth0)) != null ? helper : alias2),(typeof helper === alias3 ? helper.call(alias1,{"name":"projectName","hash":{},"data":data,"loc":{"start":{"line":10,"column":9},"end":{"line":10,"column":24}}}) : helper)))
+    + "/i18n/config\";\nimport { getLocaleDirection } from \"@"
+    + alias4(((helper = (helper = lookupProperty(helpers,"projectName") || (depth0 != null ? lookupProperty(depth0,"projectName") : depth0)) != null ? helper : alias2),(typeof helper === alias3 ? helper.call(alias1,{"name":"projectName","hash":{},"data":data,"loc":{"start":{"line":11,"column":37},"end":{"line":11,"column":52}}}) : helper)))
+    + "/i18n/integrations/shadcn-direction\";\nimport { DirectionProvider } from \"@"
+    + alias4(((helper = (helper = lookupProperty(helpers,"projectName") || (depth0 != null ? lookupProperty(depth0,"projectName") : depth0)) != null ? helper : alias2),(typeof helper === alias3 ? helper.call(alias1,{"name":"projectName","hash":{},"data":data,"loc":{"start":{"line":12,"column":36},"end":{"line":12,"column":51}}}) : helper)))
+    + "/ui/components/direction\";\n\nfunction storedLocale(): Locale {\n  if (typeof window === \"undefined\") return sourceLocale;\n  const stored = window.localStorage.getItem(LOCALE_COOKIE) ?? undefined;\n  return negotiateLocale({ stored, system: window.navigator.language });\n}\n\n/**\n * shadcn direction derived from the active locale: `getLocaleDirection`\n * applies `getTextDirection` per locale and keeps an explicit `shadcn.rtl`\n * winning for the source locale. wuchale keeps the committed locale in its\n * runtime, so this reads the persisted locale and follows the `storage` event;\n * other tabs also refresh through it. Also keeps `<html dir>` in sync.\n */\nexport function LocaleDirectionProvider({ children }: { children: ReactNode }) {\n  const [locale, setLocale] = useState<Locale>(storedLocale);\n\n  useEffect(() => {\n    const onStorage = (event: StorageEvent) => {\n      if (event.key === LOCALE_COOKIE || event.key === null) setLocale(storedLocale());\n    };\n    window.addEventListener(\"storage\", onStorage);\n    return () => window.removeEventListener(\"storage\", onStorage);\n  }, []);\n\n  const direction = getLocaleDirection(locale);\n\n  useEffect(() => {\n    document.documentElement.dir = direction;\n  }, [direction]);\n\n  return <DirectionProvider direction={direction}>{children}</DirectionProvider>;\n}\n";
 },"useData":true}],
   ["i18n/integrations/turnstile/turnstile.ts.hbs", { kind: "template", "compiler":[8,">= 4.3.0"],"main":function(container,depth0,helpers,partials,data) {
     var helper, lookupProperty = container.lookupProperty || function(parent: any, propertyName: any) {
@@ -26212,4 +26537,4 @@ export const EMBEDDED_TEMPLATES: Map<string, TemplateEntry> = new Map(RAW_TEMPLA
 
 export const EMBEDDED_PARTIALS: Map<string, CompiledTemplate> = new Map(RAW_PARTIAL_ENTRIES);
 
-export const TEMPLATE_COUNT = 840;
+export const TEMPLATE_COUNT = 845;

@@ -4,6 +4,7 @@ import {
   getPaymentProvider,
   I18nOptionsSchema,
   isPaymentProvider,
+  usesShadcnLocaleDirection,
   type I18nIntegrationId,
   type I18nSurface,
   type PaymentProviderId,
@@ -1183,6 +1184,48 @@ function processPaymentsCheckoutLocale(ctx: IntegrationContext): void {
   PAYMENTS_CHECKOUT_LOCALE_HANDLERS[payments]?.(ctx);
 }
 
+// --- shadcn-direction --------------------------------------------------------
+
+/**
+ * shadcn direction derived from the active locale (task 7.9). The root layout
+ * templates import `LocaleDirectionProvider` whenever
+ * `usesShadcnLocaleDirection` holds; this emits that provider and the shared
+ * `getLocaleDirection` helper. RTL support is auto-enabled when any configured
+ * locale is RTL, and an explicit `shadcn.rtl` still wins for the source locale.
+ */
+function emitShadcnDirectionFiles(ctx: IntegrationContext): void {
+  const { vfs, config, templates } = ctx;
+  if (templates === undefined) return;
+  if (!hasWebReactSurface(config)) return;
+  if (
+    !usesShadcnLocaleDirection({
+      shadcn: config.shadcn,
+      i18n: config.i18n,
+      i18nOptions: config.i18nOptions,
+    })
+  ) {
+    return;
+  }
+
+  processSingleTemplate(
+    vfs,
+    templates,
+    "i18n/integrations/shadcn/direction.ts",
+    "packages/i18n/src/integrations/shadcn-direction.ts",
+    config,
+  );
+
+  const library = config.i18n;
+  if (library === undefined || library === "none") return;
+  processSingleTemplate(
+    vfs,
+    templates,
+    `i18n/integrations/shadcn/${library}/locale-direction-provider.tsx`,
+    "apps/web/src/components/locale-direction-provider.tsx",
+    config,
+  );
+}
+
 // --- dispatch ----------------------------------------------------------------
 
 type IntegrationHandler = (ctx: IntegrationContext) => void;
@@ -1201,6 +1244,7 @@ const TEMPLATE_HANDLERS = {
     processEmailLocaleTemplates(vfs, templates, config);
   },
   "turnstile-language": emitTurnstileFiles,
+  "shadcn-direction": emitShadcnDirectionFiles,
 } satisfies IntegrationHandlers;
 
 const DEPENDENCY_HANDLERS = {

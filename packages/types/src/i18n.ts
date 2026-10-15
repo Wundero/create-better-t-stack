@@ -95,6 +95,73 @@ export const I18N_SERVER_BACKENDS = [
 
 export const I18N_DEFAULT_LOCALES: readonly string[] = I18nOptionsSchema.parse({}).locales;
 
+export type TextDirection = "ltr" | "rtl";
+
+/**
+ * Language subtags written right-to-left. Mirrors the fallback table of the
+ * generated `getTextDirection` in `packages/i18n/src/config.ts`; both are used
+ * when `Intl.Locale#getTextInfo` is unavailable (older runtimes, Hermes).
+ */
+const RTL_LANGUAGE_CODES: ReadonlySet<string> = new Set([
+  "ar",
+  "arc",
+  "ckb",
+  "dv",
+  "fa",
+  "he",
+  "khw",
+  "ks",
+  "ku",
+  "mzn",
+  "nqo",
+  "ps",
+  "sd",
+  "ug",
+  "ur",
+  "yi",
+]);
+
+/**
+ * Build-time twin of the generated `getTextDirection` (design D3): prefers
+ * `Intl.Locale#getTextInfo` and falls back to the RTL language table.
+ */
+export function getTextDirection(locale: string): TextDirection {
+  try {
+    const { direction } = new Intl.Locale(locale).getTextInfo();
+    if (direction === "rtl" || direction === "ltr") return direction;
+  } catch {
+    // Invalid tag or a runtime without getTextInfo: use the fallback table.
+  }
+  const [language = ""] = locale.toLowerCase().split("-");
+  return RTL_LANGUAGE_CODES.has(language) ? "rtl" : "ltr";
+}
+
+/** True when any configured locale is written right-to-left. */
+export function hasRtlLocale(locales: readonly string[]): boolean {
+  return locales.some((locale) => getTextDirection(locale) === "rtl");
+}
+
+export interface ShadcnDirectionInput {
+  readonly shadcn?: { readonly rtl?: boolean };
+  readonly i18n?: I18nLibrary | "none";
+  readonly i18nOptions?: I18nOptions;
+}
+
+/**
+ * True when generated shadcn layouts must render direction derived from the
+ * active locale instead of the static `dir="rtl"`: i18n is enabled, and RTL
+ * support is either explicit (`shadcn.rtl`) or auto-enabled because a
+ * configured locale is RTL. An explicit `shadcn.rtl` still wins for the source
+ * locale at runtime (it also selects the derived path here).
+ */
+export function usesShadcnLocaleDirection(input: ShadcnDirectionInput): boolean {
+  if (input.shadcn === undefined) return false;
+  const library = input.i18n;
+  if (library === undefined || library === "none") return false;
+  const locales = input.i18nOptions?.locales ?? I18N_DEFAULT_LOCALES;
+  return (input.shadcn.rtl ?? false) || hasRtlLocale(locales);
+}
+
 const OPENTUI_DEFAULT_TEMPLATE = "core";
 const WXT_DEFAULT_TEMPLATE = "react";
 
