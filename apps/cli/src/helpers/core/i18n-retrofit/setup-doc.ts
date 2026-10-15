@@ -40,6 +40,8 @@ export async function writeSetupDoc(
   const docPath = path.join(projectDir, I18N_SETUP_DOC);
   return Result.tryPromise({
     try: async () => {
+      // Create-only: never clobber a doc the user may already be working through.
+      if (await fs.pathExists(docPath)) return docPath;
       await fs.writeFile(docPath, renderSetupDoc(plan), "utf-8");
       return docPath;
     },

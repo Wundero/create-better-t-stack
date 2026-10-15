@@ -313,4 +313,234 @@ describe("add --i18n retrofit", () => {
     expect(btsConfig.i18nOptions?.sourceLocale).toBe("en");
     expect(existsSync(join(created.projectDir, "packages/i18n/package.json"))).toBe(true);
   });
+
+  it("extends locales additively from the real CLI form --i18n-locales", async () => {
+    const created = await runCreateTest({
+      projectName: "add-i18n-additive-cli",
+      frontend: ["next"],
+      backend: "hono",
+      runtime: "bun",
+      api: "trpc",
+      database: "sqlite",
+      orm: "drizzle",
+      addons: ["none"],
+      i18n: "lingui",
+      i18nOptions: linguiOptions({
+        locales: ["en", "es"],
+        routing: { strategy: "cookie", prefixDefaultLocale: false },
+      }),
+    });
+    expectSuccess(created);
+
+    const outcome = await createBtsCli()
+      .run({
+        argv: [
+          "add",
+          "--project-dir",
+          created.projectDir,
+          "--i18n-locales",
+          "fr,de",
+          "--disable-analytics",
+        ],
+        logger: { info: () => {}, error: () => {} },
+        process: { exit: () => 0 as never },
+      })
+      .catch((error) => error);
+
+    if (outcome instanceof FailedToExitError) {
+      expect(outcome.exitCode).toBe(0);
+    }
+
+    const btsConfig = await readBtsConfig(created.projectDir);
+    expect(btsConfig.i18nOptions?.locales).toEqual(["en", "es", "fr", "de"]);
+    expect(btsConfig.i18nOptions?.sourceLocale).toBe("en");
+    expect(btsConfig.i18nOptions?.routing?.strategy).toBe("cookie");
+    expect(btsConfig.i18nOptions?.translateSkill).toBe(false);
+    expect(existsSync(join(created.projectDir, "packages/i18n/locales/fr/messages.po"))).toBe(true);
+    expect(existsSync(join(created.projectDir, "packages/i18n/locales/de/messages.po"))).toBe(true);
+
+    const configTs = await readFile(
+      join(created.projectDir, "packages/i18n/src/config.ts"),
+      "utf8",
+    );
+    expect(configTs).toContain('"fr"');
+    expect(configTs).toContain('"de"');
+  });
+
+  it("errors on --i18n none when a library is already configured", async () => {
+    const created = await runCreateTest({
+      projectName: "add-i18n-disable-existing",
+      frontend: ["next"],
+      backend: "hono",
+      runtime: "bun",
+      api: "trpc",
+      database: "sqlite",
+      orm: "drizzle",
+      addons: ["none"],
+      i18n: "lingui",
+      i18nOptions: linguiOptions(),
+    });
+    expectSuccess(created);
+
+    const result = await add({
+      projectDir: created.projectDir,
+      i18n: "none",
+      install: false,
+    });
+
+    expect(result?.success).toBe(false);
+    expect(result?.error).toContain("Disabling");
+    expect((await readBtsConfig(created.projectDir)).i18n).toBe("lingui");
+  });
+
+  it("does not clobber an existing I18N_SETUP.md", async () => {
+    const created = await runCreateTest({
+      projectName: "add-i18n-setup-doc",
+      frontend: ["next"],
+      backend: "hono",
+      runtime: "bun",
+      api: "trpc",
+      database: "sqlite",
+      orm: "drizzle",
+      addons: ["none"],
+    });
+    expectSuccess(created);
+
+    const providersPath = join(created.projectDir, "apps/web/src/components/providers.tsx");
+    const modified = (await readFile(providersPath, "utf8")).replace(
+      /<ThemeProvider/g,
+      "<XProvider",
+    );
+    await writeFile(providersPath, modified, "utf8");
+
+    const sentinel = "# my own i18n notes\n";
+    await writeFile(join(created.projectDir, "I18N_SETUP.md"), sentinel, "utf8");
+
+    const result = await add({
+      projectDir: created.projectDir,
+      i18n: "lingui",
+      i18nOptions: linguiOptions(),
+      install: false,
+    });
+
+    expect(result?.success).toBe(true);
+    expect(await readFile(join(created.projectDir, "I18N_SETUP.md"), "utf8")).toBe(sentinel);
+  });
+
+  it("reports a manual step when an integration config anchor is missing", async () => {
+    const created = await runCreateTest({
+      projectName: "add-i18n-anchor-miss",
+      frontend: ["nuxt"],
+      backend: "hono",
+      runtime: "bun",
+      api: "orpc",
+      database: "sqlite",
+      orm: "drizzle",
+      addons: ["none"],
+    });
+    expectSuccess(created);
+
+    const nuxtConfigPath = join(created.projectDir, "apps/web/nuxt.config.ts");
+    const nuxtConfig = await readFile(nuxtConfigPath, "utf8");
+    await writeFile(nuxtConfigPath, nuxtConfig.replace("css: [", "stylesheet: ["), "utf8");
+
+    const result = await add({
+      projectDir: created.projectDir,
+      i18n: "i18next",
+      i18nOptions: linguiOptions({ locales: ["en", "es"] }),
+      install: false,
+    });
+
+    expect(result?.success).toBe(true);
+    const setupDoc = await readFileOrUndefined(created.projectDir, "I18N_SETUP.md");
+    expect(setupDoc).toContain("apps/web/nuxt.config.ts");
+  });
+
+  it("updates @nuxtjs/i18n locale lists when adding locales", async () => {
+    const created = await runCreateTest({
+      projectName: "add-locales-nuxt-config",
+      frontend: ["nuxt"],
+      backend: "hono",
+      runtime: "bun",
+      api: "orpc",
+      database: "sqlite",
+      orm: "drizzle",
+      addons: ["none"],
+      i18n: "i18next",
+      i18nOptions: { sourceLocale: "en", locales: ["en", "es"], translateSkill: false },
+    });
+    expectSuccess(created);
+
+    const result = await add({
+      projectDir: created.projectDir,
+      i18nOptions: { sourceLocale: "en", locales: ["en", "es", "fr"], translateSkill: false },
+      install: false,
+    });
+
+    expect(result?.success).toBe(true);
+    const nuxtConfig = await readFile(join(created.projectDir, "apps/web/nuxt.config.ts"), "utf8");
+    expect(nuxtConfig).toContain('{ code: "fr", language: "fr" },');
+    expect((await readBtsConfig(created.projectDir)).i18nOptions?.locales).toEqual([
+      "en",
+      "es",
+      "fr",
+    ]);
+  });
+
+  it("updates Astro i18n locale lists when adding locales", async () => {
+    const created = await runCreateTest({
+      projectName: "add-locales-astro-config",
+      frontend: ["astro"],
+      backend: "hono",
+      runtime: "bun",
+      api: "orpc",
+      database: "sqlite",
+      orm: "drizzle",
+      addons: ["none"],
+      i18n: "paraglide",
+      i18nOptions: { sourceLocale: "en", locales: ["en", "es"], translateSkill: false },
+    });
+    expectSuccess(created);
+
+    const result = await add({
+      projectDir: created.projectDir,
+      i18nOptions: { sourceLocale: "en", locales: ["en", "es", "fr"], translateSkill: false },
+      install: false,
+    });
+
+    expect(result?.success).toBe(true);
+    const astroConfig = await readFile(
+      join(created.projectDir, "apps/web/astro.config.mjs"),
+      "utf8",
+    );
+    expect(astroConfig).toContain('locales: ["en", "es", "fr"]');
+  });
+
+  it("runs i18n retrofit alongside addon selection", async () => {
+    const created = await runCreateTest({
+      projectName: "add-i18n-with-addons",
+      frontend: ["next"],
+      backend: "hono",
+      runtime: "bun",
+      api: "trpc",
+      database: "sqlite",
+      orm: "drizzle",
+      addons: ["none"],
+    });
+    expectSuccess(created);
+
+    const result = await add({
+      projectDir: created.projectDir,
+      addons: ["biome"],
+      i18n: "lingui",
+      i18nOptions: linguiOptions(),
+      install: false,
+    });
+
+    expect(result?.success).toBe(true);
+    expect(result?.addedAddons).toEqual(["biome"]);
+    const btsConfig = await readBtsConfig(created.projectDir);
+    expect(btsConfig.i18n).toBe("lingui");
+    expect(btsConfig.i18nOptions?.locales).toEqual(["en", "fr"]);
+  });
 });

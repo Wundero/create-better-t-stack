@@ -107,6 +107,7 @@ function buildManualEdits(
   changedPaths: ReadonlySet<string>,
 ): RetrofitEdit[] {
   const edits: RetrofitEdit[] = [];
+  const alreadyManual = (filePath: string) => edits.some((edit) => edit.path === filePath);
 
   for (const blocked of vfs.getBlockedDeletions()) {
     edits.push({
@@ -121,7 +122,7 @@ function buildManualEdits(
       if (!vfs.existsOnDisk(filePath)) continue;
       if (!vfs.wasReadDuringEdit(filePath)) continue;
       if (changedPaths.has(filePath)) continue;
-      if (edits.some((edit) => edit.path === filePath)) continue;
+      if (alreadyManual(filePath)) continue;
       edits.push({
         kind: "manual",
         path: filePath,
@@ -129,6 +130,24 @@ function buildManualEdits(
         snippet: manualSnippet(filePath, library),
       });
     }
+  }
+
+  // Integration/config files the create path patches. A config file that was
+  // read during the patch phase but never written means its anchor was missing
+  // or ambiguous, so the change is surfaced as a manual step instead of being
+  // silently dropped.
+  const written = new Set(vfs.getWrites().map((write) => write.path));
+  for (const filePath of vfs.getEditReads()) {
+    if (!isStructuredFile(filePath)) continue;
+    if (written.has(filePath)) continue;
+    if (changedPaths.has(filePath)) continue;
+    if (alreadyManual(filePath)) continue;
+    if (!vfs.existsOnDisk(filePath)) continue;
+    edits.push({
+      kind: "manual",
+      path: filePath,
+      description: `i18n anchor missing or ambiguous in ${filePath}; left unmodified.`,
+    });
   }
 
   return edits;

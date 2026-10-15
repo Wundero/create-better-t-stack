@@ -41,7 +41,11 @@ import { isSilent, resolveInvocationMode, runWithContextAsync } from "../../util
 import { errorClass, failureStage, reportDiagnostic, scrubReason } from "../../utils/diagnostics";
 import { formatConfigValue } from "../../utils/display-config";
 import { CLIError, UserCancelledError, displayError } from "../../utils/errors";
-import { toI18nConfigInput, validateI18nConfig } from "../../utils/i18n-cli";
+import {
+  toI18nConfigInput,
+  validateI18nConfig,
+  type I18nCliFlagFields,
+} from "../../utils/i18n-cli";
 import { validateAgentSafePathInput } from "../../utils/input-hardening";
 import { beginInterruptibleScope, endInterruptibleScope } from "../../utils/interrupt";
 import { renderTitle } from "../../utils/render-title";
@@ -60,6 +64,74 @@ import { installDependencies } from "./install-dependencies";
 export interface AddHandlerOptions {
   silent?: boolean;
   mode?: AnalyticsMode;
+}
+
+/**
+ * Add Path input. On top of `AddInput` the CLI folds the flat `--i18n-*` flags
+ * into a fully resolved `i18nOptions`, so the raw flags are carried alongside
+ * for the add-locales merge to know which fields the caller set explicitly.
+ */
+export type AddHandlerInput = AddInput & Partial<I18nCliFlagFields>;
+
+/** Which i18n fields the caller set explicitly (vs. schema defaults). */
+interface I18nFlagIntent {
+  locales: boolean;
+  sourceLocale: boolean;
+  routing: boolean;
+  translateSkill: boolean;
+}
+
+function resolveI18nFlagIntent(input: AddHandlerInput): I18nFlagIntent {
+  const hasFlatFlags =
+    input.i18nLocales !== undefined ||
+    input.i18nSourceLocale !== undefined ||
+    input.i18nRouting !== undefined ||
+    input.i18nDomain !== undefined ||
+    input.i18nSkill !== undefined;
+
+  if (hasFlatFlags) {
+    return {
+      locales: input.i18nLocales !== undefined,
+      sourceLocale: input.i18nSourceLocale !== undefined,
+      routing: input.i18nRouting !== undefined || input.i18nDomain !== undefined,
+      translateSkill: input.i18nSkill !== undefined,
+    };
+  }
+
+  return {
+    locales: input.i18nOptions?.locales !== undefined,
+    sourceLocale: input.i18nOptions?.sourceLocale !== undefined,
+    routing: input.i18nOptions?.routing !== undefined,
+    translateSkill: input.i18nOptions?.translateSkill !== undefined,
+  };
+}
+
+/**
+ * Add-locales merge (design D9): `bts add` never removes locales, so a request
+ * is unioned onto the existing set (existing order preserved, new locales
+ * appended). Source locale, routing and the translate-skill toggle are kept
+ * from the existing config unless the caller flagged them explicitly.
+ */
+function mergeAddLocalesOptions(
+  existing: I18nOptions | undefined,
+  requested: I18nOptions,
+  intent: I18nFlagIntent,
+): I18nOptions {
+  const base = I18nOptionsSchema.parse(existing ?? {});
+  const locales = [...base.locales];
+  for (const locale of requested.locales) {
+    if (!locales.includes(locale)) locales.push(locale);
+  }
+
+  const merged: I18nOptions = {
+    sourceLocale: intent.sourceLocale ? requested.sourceLocale : base.sourceLocale,
+    locales,
+    translateSkill: intent.translateSkill ? requested.translateSkill : base.translateSkill,
+  };
+  const routing = intent.routing ? requested.routing : base.routing;
+  if (routing !== undefined) merged.routing = routing;
+
+  return I18nOptionsSchema.parse(merged);
 }
 
 export interface AddResult {
@@ -308,7 +380,7 @@ function updateViteConfigImportsForVitePlus(vfs: VirtualFileSystem): void {
 }
 
 export async function addHandler(
-  input: AddInput,
+  input: AddHandlerInput,
   options: AddHandlerOptions = {},
 ): Promise<AddResult | undefined> {
   const { silent = false, mode } = options;
@@ -372,7 +444,16 @@ async function resolveI18nRequest(
   const { input, existingLibrary, compatInput, allowPrompt } = args;
 
   if (input.i18n !== undefined) {
-    if (input.i18n === "none") return Result.ok(undefined);
+    if (input.i18n === "none") {
+      if (existingLibrary !== "none") {
+        return Result.err(
+          new CLIError({
+            message: `This project already uses ${I18N_LIBRARY_META[existingLibrary].label}. Disabling i18n through \`bts add\` is not supported; set \`i18n\` to "none" in bts.jsonc and remove the generated i18n files manually.`,
+          }),
+        );
+      }
+      return Result.ok(undefined);
+    }
     return Result.ok({
       library: input.i18n,
       options: I18nOptionsSchema.parse(input.i18nOptions ?? {}),
@@ -437,7 +518,7 @@ async function reportAddOutcome(
 }
 
 async function addHandlerInternal(
-  input: AddInput,
+  input: AddHandlerInput,
 ): Promise<Result<AddResult, UserCancelledError | CLIError>> {
   const projectDirInput = input.projectDir || process.cwd();
   const hardeningResult = validateAgentSafePathInput(projectDirInput, "projectDir");
@@ -552,7 +633,7 @@ async function addHandlerInternal(
     input,
     existingLibrary,
     compatInput,
-    allowPrompt: !isSilent() && addonsToAdd.length === 0 && !input.package,
+    allowPrompt: !isSilent() && !input.package,
   });
   if (i18nRequestResult.isErr()) {
     return Result.err(i18nRequestResult.error);
@@ -577,6 +658,21 @@ async function addHandlerInternal(
   ) {
     return Result.err(i18nLibrarySwitchError(existingLibrary, requestedI18n.library));
   }
+
+  // Add-locales (design D9): union the request onto the existing options so
+  // `bts add --i18n-locales fr,de` extends the locale set instead of replacing
+  // it, and never clobbers sourceLocale/routing/translateSkill.
+  const mergedRequestedI18n =
+    requestedI18n !== undefined && existingLibrary !== "none"
+      ? {
+          ...requestedI18n,
+          options: mergeAddLocalesOptions(
+            existingConfig.i18nOptions,
+            requestedI18n.options,
+            resolveI18nFlagIntent(input),
+          ),
+        }
+      : requestedI18n;
 
   // Build config for addon setup
   const updatedAddons = [...existingConfig.addons, ...addonsToAdd];
@@ -607,7 +703,7 @@ async function addHandlerInternal(
     examples: existingConfig.examples,
     auth: existingConfig.auth,
     payments: existingConfig.payments,
-    i18n: requestedI18n?.library ?? existingConfig.i18n,
+    i18n: mergedRequestedI18n?.library ?? existingConfig.i18n,
     git: false,
     packageManager: input.packageManager || existingConfig.packageManager,
     install: input.install ?? false,
@@ -622,11 +718,11 @@ async function addHandlerInternal(
   };
 
   const i18nConfig: ProjectConfig | undefined =
-    requestedI18n !== undefined
+    mergedRequestedI18n !== undefined
       ? {
           ...updatedConfig,
-          i18n: requestedI18n.library,
-          i18nOptions: requestedI18n.options,
+          i18n: mergedRequestedI18n.library,
+          i18nOptions: mergedRequestedI18n.options,
         }
       : undefined;
 
@@ -844,7 +940,7 @@ async function addHandlerInternal(
   }
 
   let i18nResult: RetrofitResult | undefined;
-  if (i18nConfig !== undefined && requestedI18n !== undefined) {
+  if (i18nConfig !== undefined && mergedRequestedI18n !== undefined) {
     const retrofit = await runI18nRetrofit({
       projectDir,
       config: i18nConfig,
@@ -859,8 +955,8 @@ async function addHandlerInternal(
 
     const i18nBtsResult = await writeI18nToBtsConfig(
       projectDir,
-      requestedI18n.library,
-      requestedI18n.options,
+      mergedRequestedI18n.library,
+      mergedRequestedI18n.options,
     );
     if (i18nBtsResult.isErr()) {
       return Result.err(i18nBtsResult.error);
@@ -885,8 +981,8 @@ async function addHandlerInternal(
     const additions = [
       addonsToAdd.length > 0 ? formatConfigValue(addonsToAdd) : undefined,
       input.package ? `package ${input.package}` : undefined,
-      requestedI18n !== undefined
-        ? `i18n (${I18N_LIBRARY_META[requestedI18n.library].label})`
+      mergedRequestedI18n !== undefined
+        ? `i18n (${I18N_LIBRARY_META[mergedRequestedI18n.library].label})`
         : undefined,
     ].filter(Boolean);
     log.success(pc.green(`Added ${additions.join(" and ")}`));
@@ -897,7 +993,7 @@ async function addHandlerInternal(
       );
     }
 
-    if (requestedI18n !== undefined) {
+    if (mergedRequestedI18n !== undefined) {
       log.message(
         `${pc.dim("Next")} ${pc.cyan("Run the i18n-adopt skill to wrap your existing strings")}`,
       );

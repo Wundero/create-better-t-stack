@@ -3,8 +3,14 @@ import path from "node:path";
 import { Result } from "better-result";
 import fs from "fs-extra";
 
-import { I18nOptionsSchema, type I18nLibrary, type I18nOptions } from "../../../types";
+import {
+  I18nOptionsSchema,
+  type I18nLibrary,
+  type I18nOptions,
+  type ProjectConfig,
+} from "../../../types";
 import { CLIError } from "../../../utils/errors";
+import { buildIntegrationLocaleEdits } from "./integration-locales";
 import type { RetrofitEdit, RetrofitPlan, RetrofitSkipped } from "./types";
 
 const CONFIG_PATH = "packages/i18n/src/config.ts";
@@ -39,6 +45,7 @@ function renderLocalesBlock(locales: readonly string[]): string {
 
 export interface AddLocalesPlanInput {
   projectDir: string;
+  config: ProjectConfig;
   library: I18nLibrary;
   existingOptions: I18nOptions;
   requestedOptions: I18nOptions;
@@ -46,8 +53,9 @@ export interface AddLocalesPlanInput {
 
 /**
  * Add Path "add-locales" mode (design D9): no library change. Creates an empty
- * catalog per new locale and extends the locale list in `packages/i18n`.
- * Removing a locale is not supported through `add`.
+ * catalog per new locale and extends the locale list in `packages/i18n` and in
+ * every active integration config. Removing a locale is not supported through
+ * `add`, so the requested set is unioned onto the existing one.
  */
 export async function buildAddLocalesPlan(
   input: AddLocalesPlanInput,
@@ -110,6 +118,16 @@ export async function buildAddLocalesPlan(
       });
     }
   }
+
+  const integrationResult = await buildIntegrationLocaleEdits({
+    projectDir: input.projectDir,
+    config: input.config,
+    library,
+    options,
+  });
+  if (integrationResult.isErr()) return Result.err(integrationResult.error);
+  edits.push(...integrationResult.value.edits);
+  skipped.push(...integrationResult.value.skipped);
 
   return Result.ok({ mode: "add-locales", library, options, edits, skipped });
 }

@@ -314,10 +314,17 @@ export const router = os.router({
         ...rest
       } = input;
 
+      // The raw `--i18n-*` flags ride along so the Add Path can tell which
+      // fields the caller set explicitly when it unions add-locales requests.
       await addHandler({
         ...rest,
         i18n: folded.value.i18n,
         i18nOptions: folded.value.i18nOptions,
+        i18nLocales: input.i18nLocales,
+        i18nSourceLocale: input.i18nSourceLocale,
+        i18nRouting: input.i18nRouting,
+        i18nDomain: input.i18nDomain,
+        i18nSkill: input.i18nSkill,
       });
     }),
   addJson: command

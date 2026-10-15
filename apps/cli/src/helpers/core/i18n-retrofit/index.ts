@@ -102,6 +102,7 @@ async function buildPlan(
   const requestedOptions = I18nOptionsSchema.parse(input.config.i18nOptions ?? {});
   return buildAddLocalesPlan({
     projectDir: input.projectDir,
+    config: input.config,
     library,
     existingOptions,
     requestedOptions,

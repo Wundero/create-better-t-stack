@@ -107,6 +107,11 @@ export class RetrofitVirtualFileSystem extends VirtualFileSystem {
     return this.editReads.has(vfsKey(filePath));
   }
 
+  /** Every project-relative path read during the patch (`edit`) phase. */
+  getEditReads(): string[] {
+    return [...this.editReads];
+  }
+
   baselineOf(filePath: string): string | undefined {
     return this.baseline.get(vfsKey(filePath));
   }
