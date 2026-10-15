@@ -138,6 +138,9 @@ export const I18nOptionsSchema = z
     translateSkill: z.boolean().default(true).describe("Generate the i18n-translate agent skill"),
   })
   .describe("Internationalization options");
+export const EmailRendererSchema = z.enum(["react-email", "none"]).describe("Email renderer");
+
+export const EmailDeploySchema = z.enum(["cloudflare", "ses", "none"]).describe("Email deploy");
 
 export const WebDeploySchema = z
   .enum(["cloudflare", "prisma", "docker", "vercel", "none"])
@@ -544,6 +547,8 @@ export const CreateInputSchema = z
     payments: PaymentsSchema.optional(),
     i18n: I18nSchema.optional(),
     i18nOptions: I18nOptionsSchema.optional(),
+    emailRenderer: EmailRendererSchema.optional(),
+    emailDeploy: EmailDeploySchema.optional(),
     frontend: z.array(FrontendSchema).optional(),
     addons: AddonsListSchema.optional(),
     examples: z.array(ExamplesSchema).optional(),
@@ -585,6 +590,8 @@ export const AddInputSchema = z
     addonOptions: AddonOptionsSchema.optional(),
     i18n: I18nSchema.optional(),
     i18nOptions: I18nOptionsSchema.optional(),
+    emailRenderer: EmailRendererSchema.optional(),
+    emailDeploy: EmailDeploySchema.optional(),
     webDeploy: WebDeploySchema.optional(),
     serverDeploy: ServerDeploySchema.optional(),
     projectDir: z.string().optional(),
@@ -616,6 +623,8 @@ export const ProjectConfigSchema = z.object({
   payments: PaymentsSchema,
   i18n: I18nSchema.default("none"),
   i18nOptions: I18nOptionsSchema.optional(),
+  emailRenderer: EmailRendererSchema,
+  emailDeploy: EmailDeploySchema,
   git: z.boolean(),
   packageManager: PackageManagerSchema,
   install: z.boolean(),
@@ -642,6 +651,8 @@ export const BetterTStackConfigSchema = z.object({
   payments: PaymentsSchema,
   i18n: I18nSchema.default("none"),
   i18nOptions: I18nOptionsSchema.optional(),
+  emailRenderer: EmailRendererSchema.optional(),
+  emailDeploy: EmailDeploySchema.optional(),
   packageManager: PackageManagerSchema,
   dbSetup: DatabaseSetupSchema,
   api: APISchema,
@@ -684,6 +695,8 @@ export const API_VALUES = APISchema.options;
 export const AUTH_VALUES = AuthSchema.options;
 export const PAYMENTS_VALUES = PaymentsSchema.options;
 export const I18N_ROUTING_STRATEGY_VALUES = I18nRoutingStrategySchema.options;
+export const EMAIL_RENDERER_VALUES = EmailRendererSchema.options;
+export const EMAIL_DEPLOY_VALUES = EmailDeploySchema.options;
 export const WEB_DEPLOY_VALUES = WebDeploySchema.options;
 export const SERVER_DEPLOY_VALUES = ServerDeploySchema.options;
 export const DIRECTORY_CONFLICT_VALUES = DirectoryConflictSchema.options;

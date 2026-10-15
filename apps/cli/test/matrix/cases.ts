@@ -99,6 +99,8 @@ type MatrixConfigInput = Pick<
   | "api"
   | "auth"
   | "payments"
+  | "emailRenderer"
+  | "emailDeploy"
   | "dbSetup"
   | "webDeploy"
   | "serverDeploy"
@@ -117,6 +119,8 @@ const BASE_VALID_CONFIG: MatrixConfigInput = {
   api: "trpc",
   auth: "none",
   payments: "none",
+  emailRenderer: "none",
+  emailDeploy: "none",
   dbSetup: "none",
   webDeploy: "none",
   serverDeploy: "none",
@@ -144,6 +148,8 @@ export function createMatrixConfig(overrides: Partial<MatrixConfigInput> = {}): 
     auth: config.auth,
     payments: config.payments,
     i18n: config.i18n,
+    emailRenderer: config.emailRenderer,
+    emailDeploy: config.emailDeploy,
     git: false,
     packageManager: "bun",
     install: false,

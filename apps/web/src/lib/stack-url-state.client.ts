@@ -50,6 +50,12 @@ export const stackParsers = {
     DEFAULT_I18N_OPTIONS.routing.strategy,
   ),
   domains: parseAsString.withDefault(""),
+  emailRenderer: parseAsStringEnum<StackState["emailRenderer"]>(
+    getStackOptionIds("emailRenderer"),
+  ).withDefault(DEFAULT_STACK.emailRenderer),
+  emailDeploy: parseAsStringEnum<StackState["emailDeploy"]>(
+    getStackOptionIds("emailDeploy"),
+  ).withDefault(DEFAULT_STACK.emailDeploy),
   packageManager: parseAsStringEnum<StackState["packageManager"]>(
     getStackOptionIds("packageManager"),
   ).withDefault(DEFAULT_STACK.packageManager),
@@ -107,6 +113,8 @@ function getStackFromQueryState(queryState: RawStackLists & I18nQueryFields): St
       routing: queryState.routing,
       domains: queryState.domains,
     }),
+    emailRenderer: queryState.emailRenderer,
+    emailDeploy: queryState.emailDeploy,
     packageManager: queryState.packageManager,
     addons: queryState.addons,
     examples: queryState.examples,

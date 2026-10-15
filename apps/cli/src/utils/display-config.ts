@@ -55,6 +55,8 @@ const VALUE_LABELS = {
   "better-auth": "Better Auth",
   clerk: "Clerk",
   polar: "Polar",
+  "react-email": "React Email",
+  ses: "Amazon SES",
   pwa: "PWA",
   tauri: "Tauri",
   electrobun: "Electrobun",
@@ -170,6 +172,7 @@ export function getConfigSections(config: Partial<ProjectConfig>): ConfigDisplay
     section("Product", [
       ["Auth", config.auth],
       ["Payments", config.payments],
+      ["Email renderer", config.emailRenderer],
       ["Addons", config.addons],
       ...getI18nEntries(config),
       ["Examples", config.examples],
@@ -177,6 +180,7 @@ export function getConfigSections(config: Partial<ProjectConfig>): ConfigDisplay
     section("Delivery", [
       ["Web deploy", config.webDeploy],
       ["Server deploy", config.serverDeploy],
+      ["Email deploy", config.emailDeploy],
       ["Package manager", config.packageManager],
       ["Git", config.git],
       ["Install deps", config.install],

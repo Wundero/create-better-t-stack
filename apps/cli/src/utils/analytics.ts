@@ -48,6 +48,8 @@ export function buildAnalyticsEvent(config: ProjectConfig, mode?: AnalyticsMode)
       config.i18n !== undefined && config.i18n !== "none"
         ? Math.min(config.i18nOptions?.locales.length ?? 0, ANALYTICS_I18N_MAX_LOCALES)
         : undefined,
+    emailRenderer: config.emailRenderer,
+    emailDeploy: config.emailDeploy,
     git: config.git,
     packageManager: config.packageManager,
     install: config.install,

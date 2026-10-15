@@ -28,6 +28,8 @@ const projectConfig: ProjectConfig = {
   examples: ["todo"],
   auth: "better-auth",
   payments: "polar",
+  emailRenderer: "none",
+  emailDeploy: "none",
   git: true,
   packageManager: "bun",
   install: true,

@@ -58,6 +58,12 @@ const serverStackParsers = {
     DEFAULT_I18N_OPTIONS.routing.strategy,
   ),
   domains: parseAsStringServer.withDefault(""),
+  emailRenderer: parseAsStringEnumServer<StackState["emailRenderer"]>(
+    getStackOptionIds("emailRenderer"),
+  ).withDefault(DEFAULT_STACK.emailRenderer),
+  emailDeploy: parseAsStringEnumServer<StackState["emailDeploy"]>(
+    getStackOptionIds("emailDeploy"),
+  ).withDefault(DEFAULT_STACK.emailDeploy),
   packageManager: parseAsStringEnumServer<StackState["packageManager"]>(
     getStackOptionIds("packageManager"),
   ).withDefault(DEFAULT_STACK.packageManager),

@@ -9,6 +9,8 @@ import type {
   CLIInput,
   Database,
   DatabaseSetup,
+  EmailDeploy,
+  EmailRenderer,
   ORM,
   PackageManager,
   Payments,
@@ -76,6 +78,14 @@ export function processFlags(options: CLIInput, projectName?: string) {
 
   if (options.i18nOptions !== undefined) {
     config.i18nOptions = options.i18nOptions;
+  }
+
+  if (options.emailRenderer !== undefined) {
+    config.emailRenderer = options.emailRenderer as EmailRenderer;
+  }
+
+  if (options.emailDeploy !== undefined) {
+    config.emailDeploy = options.emailDeploy as EmailDeploy;
   }
 
   if (options.git !== undefined) {

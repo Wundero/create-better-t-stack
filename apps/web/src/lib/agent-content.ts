@@ -108,6 +108,8 @@ const stackCategoryLabels = {
   backend: "Backend",
   database: "Database",
   dbSetup: "Database setup",
+  emailDeploy: "Email deploy",
+  emailRenderer: "Email renderer",
   examples: "Example",
   git: "Git",
   i18n: "Internationalization",

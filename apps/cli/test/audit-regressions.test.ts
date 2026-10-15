@@ -20,6 +20,8 @@ const config: ProjectConfig = {
   orm: "none",
   auth: "none",
   payments: "none",
+  emailRenderer: "none",
+  emailDeploy: "none",
   api: "none",
   dbSetup: "none",
   webDeploy: "none",

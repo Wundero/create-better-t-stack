@@ -704,6 +704,8 @@ async function addHandlerInternal(
     auth: existingConfig.auth,
     payments: existingConfig.payments,
     i18n: mergedRequestedI18n?.library ?? existingConfig.i18n,
+    emailRenderer: existingConfig.emailRenderer ?? "none",
+    emailDeploy: existingConfig.emailDeploy ?? "none",
     git: false,
     packageManager: input.packageManager || existingConfig.packageManager,
     install: input.install ?? false,

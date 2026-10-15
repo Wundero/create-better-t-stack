@@ -16,6 +16,8 @@ export type StackState = Pick<
   | "payments"
   | "i18n"
   | "i18nOptions"
+  | "emailRenderer"
+  | "emailDeploy"
   | "packageManager"
   | "addons"
   | "examples"

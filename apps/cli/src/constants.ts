@@ -22,6 +22,8 @@ export const DEFAULT_CONFIG_BASE = {
   auth: "better-auth",
   payments: "none",
   i18n: "none",
+  emailRenderer: "none",
+  emailDeploy: "none",
   addons: ["turborepo"],
   examples: [],
   git: true,

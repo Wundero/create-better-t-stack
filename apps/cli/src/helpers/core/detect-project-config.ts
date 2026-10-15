@@ -42,6 +42,8 @@ export async function detectProjectConfig(projectDir: string) {
           payments: btsConfig.payments,
           i18n: btsConfig.i18n,
           i18nOptions: btsConfig.i18nOptions,
+          emailRenderer: btsConfig.emailRenderer ?? "none",
+          emailDeploy: btsConfig.emailDeploy ?? "none",
           packageManager: btsConfig.packageManager,
           dbSetup: btsConfig.dbSetup,
           api: btsConfig.api,

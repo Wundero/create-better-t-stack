@@ -31,6 +31,8 @@ export function writeBtsConfigToVfs(
     payments: projectConfig.payments,
     i18n: projectConfig.i18n,
     i18nOptions: projectConfig.i18nOptions,
+    emailRenderer: projectConfig.emailRenderer,
+    emailDeploy: projectConfig.emailDeploy,
     packageManager: projectConfig.packageManager,
     dbSetup: projectConfig.dbSetup,
     api: projectConfig.api,

@@ -26,6 +26,7 @@ import {
   validateAddonsAgainstFrontends,
   validateApiFrontendCompatibility,
   validateExamplesCompatibility,
+  validateEmailDeployCompatibility,
   validatePaymentsCompatibility,
   validateSelfBackendCompatibility,
   validateDockerServerDeploy,
@@ -504,6 +505,7 @@ export function validateFullConfig(
     );
 
     yield* validateI18nConfig(config);
+    yield* validateEmailDeployCompatibility(config);
 
     return Result.ok(undefined);
   });
@@ -527,6 +529,8 @@ export function validateConfigForProgrammaticUse(
       config.backend,
       config.frontend,
     );
+
+    yield* validateEmailDeployCompatibility(config);
 
     if (config.addons && config.addons.length > 0) {
       yield* validateAddonsAgainstFrontends(

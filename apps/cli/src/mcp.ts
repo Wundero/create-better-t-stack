@@ -15,6 +15,8 @@ import {
   DatabaseSetupSchema,
   DbSetupOptionsSchema,
   DirectoryConflictSchema,
+  EmailDeploySchema,
+  EmailRendererSchema,
   ExamplesSchema,
   FrontendSchema,
   I18nOptionsSchema,
@@ -57,6 +59,8 @@ const McpCreateProjectInputSchema = CreateInputSchema.safeExtend({
   i18nOptions: I18nOptionsSchema.optional().describe(
     "i18n options: sourceLocale, locales, routing, and translateSkill.",
   ),
+  emailRenderer: EmailRendererSchema.describe("Explicit email renderer"),
+  emailDeploy: EmailDeploySchema.describe("Explicit email deployment choice"),
   addons: z.array(AddonsSchema).describe("Explicit addon list. Use [] when no addons are needed."),
   examples: z
     .array(ExamplesSchema)
@@ -148,6 +152,8 @@ function getStackGuidance() {
         "api",
         "auth",
         "payments",
+        "emailRenderer",
+        "emailDeploy",
         "addons",
         "examples",
         "git",
@@ -172,6 +178,10 @@ function getStackGuidance() {
         "webDeploy is always required. Use 'none' when no web deployment target is requested.",
       serverDeploy:
         "serverDeploy is always required. Use 'none' when no server deployment target is requested.",
+      emailRenderer:
+        "emailRenderer is always required. Use 'none' when no email rendering setup is requested.",
+      emailDeploy:
+        "emailDeploy is always required. Use 'none' when no email deployment target is requested.",
       packageManager:
         "packageManager is always required because installation and reproducible commands depend on it.",
       install:

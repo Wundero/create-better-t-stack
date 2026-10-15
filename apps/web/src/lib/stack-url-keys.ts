@@ -29,6 +29,8 @@ export const stackUrlKeys: UrlKeys<StackUrlState> = {
   // Design D1 names this `rt`, but `rt` is already the runtime key; `irt` avoids the clash.
   routing: "irt",
   domains: "dom",
+  emailRenderer: "er",
+  emailDeploy: "ed",
   packageManager: "pm",
   addons: "add",
   examples: "ex",

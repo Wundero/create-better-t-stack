@@ -21,6 +21,8 @@ const coreStackFlags = new Set([
   "payments",
   "i18n",
   "i18nOptions",
+  "emailRenderer",
+  "emailDeploy",
   "api",
   "webDeploy",
   "serverDeploy",

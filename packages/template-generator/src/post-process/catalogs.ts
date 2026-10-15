@@ -48,6 +48,7 @@ const PACKAGE_PATHS = [
   "packages/infra",
   "packages/i18n",
   "packages/ui",
+  "packages/email",
 ];
 
 /**
