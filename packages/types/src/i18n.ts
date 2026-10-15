@@ -5,6 +5,7 @@ import type {
   API,
   Auth,
   Backend,
+  EmailRenderer,
   Frontend,
   I18nOptions,
   Payments,
@@ -70,8 +71,7 @@ export interface I18nConfigInput {
   payments?: Payments;
   addons?: readonly Addons[];
   addonOptions?: AddonOptions;
-  /** Present only once the `wt/email-support` branch is merged; absent in core. */
-  emailRenderer?: string;
+  emailRenderer?: EmailRenderer;
   /** Present only once the `wt/shadcn-theme-config` branch is merged; absent in core. */
   shadcn?: { readonly rtl?: boolean };
   /** Present only once the `wt/payment-providers` branch is merged; absent in core. */

@@ -47,6 +47,15 @@ describe("getI18nSurfaces", () => {
     expect(getI18nSurfaces({ frontend: ["next"] })).not.toContain("email");
   });
 
+  test("derives the email surface from the react-email renderer", () => {
+    expect(getI18nSurfaces({ emailRenderer: "react-email" })).toEqual(["email"]);
+    expect(getI18nSurfaces({ emailRenderer: "none" })).toEqual([]);
+    expect(getI18nSurfaces({ frontend: ["next"], emailRenderer: "react-email" })).toEqual([
+      "next",
+      "email",
+    ]);
+  });
+
   test("derives the desktop host surface from the electrobun addon", () => {
     expect(getI18nSurfaces({ addons: ["electrobun"] })).toEqual(["electrobun-host"]);
   });
@@ -393,6 +402,26 @@ describe("getI18nIntegrations", () => {
 
     const i18nextSkills = getI18nIntegrations({ addons: ["skills"] }, "i18next").map((i) => i.id);
     expect(i18nextSkills).not.toContain("lingui-skills");
+  });
+
+  test("only enables react-email-locale when the email feature is present", () => {
+    const withEmail = getI18nIntegrations(
+      { frontend: ["next"], auth: "better-auth", emailRenderer: "react-email" },
+      "lingui",
+    ).map((i) => i.id);
+    expect(withEmail).toContain("react-email-locale");
+
+    const withoutEmail = getI18nIntegrations(
+      { frontend: ["next"], auth: "better-auth" },
+      "lingui",
+    ).map((i) => i.id);
+    expect(withoutEmail).not.toContain("react-email-locale");
+
+    const rendererOff = getI18nIntegrations(
+      { frontend: ["next"], auth: "better-auth", emailRenderer: "none" },
+      "lingui",
+    ).map((i) => i.id);
+    expect(rendererOff).not.toContain("react-email-locale");
   });
 
   test("labels every integration and keeps ids unique", () => {

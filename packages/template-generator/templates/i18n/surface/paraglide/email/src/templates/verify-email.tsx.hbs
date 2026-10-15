@@ -1,0 +1,85 @@
+import { Body, Container, Head, Heading, Hr, Html, Preview, Section, Text } from "react-email";
+
+import { Button } from "../components/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "../components/card";
+import { resolveEmailLocale } from "../i18n";
+
+import { m } from "@{{projectName}}/i18n/runtime";
+
+export type VerifyEmailProps = {
+  name: string;
+  url: string;
+  otp?: string;
+  expiresIn?: string;
+  /** Recipient locale from the Better Auth callback (user → request → source). */
+  locale?: string;
+};
+
+/** Localized subject line, rendered from the same catalog as the body. */
+export function verifyEmailSubject(locale?: string): string {
+  return m.email_verify_subject({}, { locale: resolveEmailLocale(locale) });
+}
+
+export function VerifyEmail({
+  name,
+  url,
+  otp,
+  expiresIn = "10 minutes",
+  locale,
+}: VerifyEmailProps) {
+  const active = resolveEmailLocale(locale);
+
+  return (
+    <Html lang={active}>
+      <Head />
+      <Preview>{m.email_verify_subject({}, { locale: active })}</Preview>
+      <Body
+        style=\{{ backgroundColor: "#f4f4f5", margin: 0, padding: "24px 0", fontFamily: "Arial, Helvetica, sans-serif" }}
+      >
+        <Container style=\{{ maxWidth: "560px", margin: "0 auto" }}>
+          <Card>
+            <CardHeader>
+              <CardTitle>{m.email_verify_heading({}, { locale: active })}</CardTitle>
+              <CardDescription>
+                {m.email_verify_description({ name }, { locale: active })}
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Text style=\{{ margin: 0, fontSize: "14px", lineHeight: "22px", color: "#3f3f46" }}>
+                {m.email_verify_expires({ expiresIn }, { locale: active })}
+              </Text>
+              {otp ? (
+                <Section
+                  style=\{{ marginTop: "16px", backgroundColor: "#f4f4f5", borderRadius: "6px", paddingTop: "16px", paddingBottom: "16px", textAlign: "center" }}
+                >
+                  <Heading
+                    as="h2"
+                    style=\{{ margin: 0, fontSize: "24px", letterSpacing: "6px", color: "#18181b" }}
+                  >
+                    {otp}
+                  </Heading>
+                </Section>
+              ) : null}
+            </CardContent>
+            <CardFooter>
+              <Button href={url}>{m.email_verify_button({}, { locale: active })}</Button>
+            </CardFooter>
+          </Card>
+          <Hr style=\{{ borderColor: "#e4e4e7", margin: "24px 0" }} />
+          <Text style=\{{ margin: 0, fontSize: "12px", color: "#71717a", textAlign: "center" }}>
+            {m.email_verify_footer({}, { locale: active })}
+          </Text>
+        </Container>
+      </Body>
+    </Html>
+  );
+}
+
+export default VerifyEmail;

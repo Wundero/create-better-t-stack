@@ -1,17 +1,29 @@
 /**
- * Email i18n glue (partial: wuchale's React Email render path is unverified by
- * the compatibility matrix). Templates take the recipient's locale, use the
- * shared `Intl` formatters and rely on the `email` adapter for extracted
- * strings.
+ * Email i18n glue for the wuchale surface (partial: the React Email render
+ * path is unverified by the compatibility matrix).
+ *
+ * The recipient's locale comes from the Better Auth callback
+ * (`packages/auth/src/email.tsx`), which resolves it as `user.locale` →
+ * request locale → source locale. Templates take the `locale` prop and use the
+ * shared `Intl` formatters; the wuchale CLI still extracts their strings
+ * through the `email` adapter, while the runtime transform only runs on
+ * surfaces with a bundler pipeline.
  */
+import { isLocale, sourceLocale } from "@{{projectName}}/i18n/config";
+import type { Locale } from "@{{projectName}}/i18n/config";
+import { createFormatters } from "@{{projectName}}/i18n";
 
-import { createFormatters, type Locale } from "@{{projectName}}/i18n";
+/** Normalizes a recipient locale; unknown tags fall back to the source locale. */
+export function resolveEmailLocale(locale?: string | null): Locale {
+  return locale !== undefined && locale !== null && isLocale(locale) ? locale : sourceLocale;
+}
 
 export interface EmailI18n {
   readonly locale: Locale;
   readonly formatters: ReturnType<typeof createFormatters>;
 }
 
-export function createEmailI18n(locale: Locale): EmailI18n {
-  return { locale, formatters: createFormatters(locale) };
+export function createEmailI18n(locale?: string | null): EmailI18n {
+  const active = resolveEmailLocale(locale);
+  return { locale: active, formatters: createFormatters(active) };
 }

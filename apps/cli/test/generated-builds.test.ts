@@ -1180,6 +1180,33 @@ const buildSamples: BuildSample[] = [
       },
     },
   },
+  // Stacked branch `wt/i18n-email` (design D10): react-email + lingui. The
+  // probe renders `verify-email` with the recipient's locale and asserts a
+  // fr translation reaches the HTML, next to the server demo probe.
+  {
+    name: "i18n-email-react-email-lingui",
+    config: {
+      ...baseConfig,
+      frontend: ["none"],
+      backend: "hono",
+      runtime: "bun",
+      database: "sqlite",
+      orm: "drizzle",
+      api: "trpc",
+      auth: "better-auth",
+      payments: "none",
+      addons: ["turborepo"],
+      examples: [],
+      emailRenderer: "react-email",
+      emailDeploy: "none",
+      i18n: "lingui",
+      i18nOptions: {
+        sourceLocale: "en",
+        locales: ["en", "fr"],
+        routing: { strategy: "cookie" },
+      },
+    },
+  },
 ];
 
 function expandBuildSample(sample: BuildSample): SelectedBuildSample[] {
@@ -2445,6 +2472,32 @@ async function probeI18nServerDemo(
   ).toBeGreaterThan(0);
 }
 
+async function probeI18nEmailRender(
+  sample: SelectedBuildSample,
+  projectDir: string,
+  verification: I18nVerification,
+) {
+  if (sample.config.emailRenderer !== "react-email") return;
+
+  const templateModule = path.join(projectDir, "packages/email/src/templates/verify-email.tsx");
+  const renderModule = path.join(projectDir, "packages/email/src/render.ts");
+  const probe = [
+    'const React = (await import("react")).default;',
+    `const { VerifyEmail, verifyEmailSubject } = await import(${JSON.stringify(templateModule)});`,
+    `const { renderEmail } = await import(${JSON.stringify(renderModule)});`,
+    `const locale = ${JSON.stringify(verification.locale)};`,
+    'const { html } = await renderEmail(React.createElement(VerifyEmail, { name: "Ada", url: "https://example.test/verify", locale }));',
+    "const subject = await verifyEmailSubject(locale);",
+    "console.log(JSON.stringify({ subject, html }));",
+  ].join("\n");
+  const output = await runCommand(sample.name, projectDir, "bun", ["-e", probe]);
+  const rendered = verification.candidates.filter((candidate) => output.includes(candidate));
+  expect(
+    rendered.length,
+    `${sample.name}: verify-email did not render a ${verification.locale} translation:\n${formatOutput(output)}`,
+  ).toBeGreaterThan(0);
+}
+
 function assertDemoModule(sample: SelectedBuildSample, demoModule: string) {
   if (fs.existsSync(demoModule)) return;
   throw new Error(
@@ -2608,6 +2661,7 @@ try {
           await validatePwaBuildArtifacts(sample, projectDir);
           if (i18nVerification !== undefined) {
             await probeI18nDemoRender(sample, projectDir, i18nVerification);
+            await probeI18nEmailRender(sample, projectDir, i18nVerification);
           }
           if (sample.config.frontend?.some((frontend) => frontend.startsWith("native-"))) {
             // Exercise Metro/Babel and platform imports as well as TypeScript.
