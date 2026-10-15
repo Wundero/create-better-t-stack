@@ -125,6 +125,74 @@ create-better-t-stack --frontend next tanstack-router
 create-better-t-stack --frontend next native-uniwind
 ```
 
+## Internationalization (i18n)
+
+`--i18n` accepts `lingui`, `paraglide`, `i18next`, `wuchale`, or `none` (default). The selected
+library must support every surface the rest of the stack contains; the CLI, the stack builder,
+and the MCP server all reject an incompatible combination with the same reason string.
+
+### Library and Surface Support
+
+`native` is a first-party integration, `adapter` is generated glue or a plugin, `partial` works
+with a documented limitation, and `unsupported` is rejected.
+
+| surface           | lingui      | paraglide | i18next | wuchale     |
+| ----------------- | ----------- | --------- | ------- | ----------- |
+| `next`            | native      | native    | adapter | native      |
+| `tanstack-start`  | adapter     | native    | adapter | adapter     |
+| `tanstack-router` | adapter     | native    | adapter | adapter     |
+| `react-router`    | adapter     | native    | adapter | adapter     |
+| `nuxt`            | adapter     | adapter   | adapter | unsupported |
+| `svelte`          | unsupported | native    | adapter | native      |
+| `solid`           | native      | native    | adapter | native      |
+| `astro`           | partial     | native    | adapter | native      |
+| `native`          | native      | adapter   | native  | unsupported |
+| `server`          | adapter     | native    | native  | adapter     |
+| `email`           | native      | native    | native  | partial     |
+| `electrobun-host` | adapter     | native    | native  | adapter     |
+| `opentui-core`    | adapter     | native    | native  | adapter     |
+| `opentui-react`   | adapter     | native    | native  | partial     |
+| `opentui-solid`   | adapter     | native    | adapter | partial     |
+| `wxt-vanilla`     | adapter     | native    | native  | adapter     |
+| `wxt-react`       | native      | native    | native  | native      |
+| `wxt-solid`       | native      | native    | adapter | native      |
+| `wxt-vue`         | adapter     | adapter   | adapter | unsupported |
+| `wxt-svelte`      | unsupported | native    | adapter | native      |
+
+Notable limitations:
+
+- **Lingui** has no Svelte template support, so `svelte` and `wxt-svelte` are rejected.
+- **Lingui on Astro** works only in frontmatter and islands, not in `.astro` markup.
+- **wuchale** has no Vue adapter (`nuxt`, `wxt-vue`) and no Metro integration (`native`);
+  its email and OpenTUI reconciler paths are unverified.
+- `server` covers every backend framework and runtime; `native` covers all native Expo
+  frontends.
+
+### Routing
+
+- `cookie`: supported on every surface.
+- `prefix`: supported on `next`, `tanstack-start`, `react-router`, `nuxt`, and `astro` for every
+  library; `svelte` and `tanstack-router` only with `paraglide`.
+- `domain`: only on surfaces that support `prefix` and are server-rendered. Static/SPA builds
+  (`tanstack-router`, `react-router`, `astro`) are rejected with that reason.
+
+```bash
+# ❌ Invalid - Lingui has no Svelte template support
+create-better-t-stack --frontend svelte --api orpc --i18n lingui
+
+# ❌ Invalid - domain routing needs a server-rendered surface
+create-better-t-stack --frontend react-router --api orpc --i18n i18next --i18n-routing domain
+
+# ✅ Valid - Nuxt with i18next across domains
+create-better-t-stack --frontend nuxt --api orpc --i18n i18next \
+  --i18n-routing domain --i18n-domain en=example.com --i18n-domain fr=fr.example.com
+```
+
+### Options
+
+`i18nOptions` validates canonical BCP-47 tags, requires `sourceLocale` to be part of `locales`,
+rejects duplicates, and requires domain keys to be configured locales with unique hosts.
+
 ## Database Setup Compatibility
 
 ### Provider Requirements
