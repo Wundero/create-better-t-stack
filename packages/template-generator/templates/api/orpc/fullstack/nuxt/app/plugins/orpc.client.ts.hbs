@@ -2,8 +2,11 @@ import type { AppRouterClient } from "@{{projectName}}/api/routers/index";
 import { createORPCClient } from "@orpc/client";
 import { RPCLink } from "@orpc/client/fetch";
 import { createTanstackQueryUtils } from "@orpc/tanstack-query";
-{{#if (and i18n (ne i18n "none"))}}
-import { localeFetch, localeInit } from "@{{projectName}}/i18n/client";
+{{#if (and i18n (ne i18n "none") (ne auth "better-auth"))}}
+import { localeFetch } from "@{{projectName}}/i18n/client";
+{{/if}}
+{{#if (and i18n (ne i18n "none") (eq auth "better-auth"))}}
+import { localeInit } from "@{{projectName}}/i18n/client";
 {{/if}}
 
 export default defineNuxtPlugin(() => {
@@ -13,12 +16,21 @@ export default defineNuxtPlugin(() => {
     fetch: localeFetch,
     {{/if}}
     {{#if (eq auth "better-auth")}}
+{{#if (and i18n (ne i18n "none"))}}
     fetch(url, options) {
         return fetch(url, localeInit({
         ...options,
         credentials: "include",
         }));
     },
+{{else}}
+    fetch(url, options) {
+        return fetch(url, {
+        ...options,
+        credentials: "include",
+        });
+    },
+{{/if}}
     {{/if}}
   });
 

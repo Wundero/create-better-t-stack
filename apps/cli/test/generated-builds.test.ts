@@ -969,7 +969,7 @@ const buildSamples: BuildSample[] = [
       i18nOptions: {
         sourceLocale: "en",
         locales: ["en", "fr"],
-        routing: { strategy: "cookie" },
+        routing: { strategy: "cookie", prefixDefaultLocale: false },
         translateSkill: true,
       },
     },
@@ -993,6 +993,7 @@ const buildSamples: BuildSample[] = [
         sourceLocale: "en",
         locales: ["en", "fr"],
         routing: { strategy: "prefix", prefixDefaultLocale: false },
+        translateSkill: true,
       },
     },
   },
@@ -1014,7 +1015,12 @@ const buildSamples: BuildSample[] = [
       i18nOptions: {
         sourceLocale: "en",
         locales: ["en", "fr"],
-        routing: { strategy: "domain", domains: { en: "example.test", fr: "fr.example.test" } },
+        routing: {
+          strategy: "domain",
+          prefixDefaultLocale: false,
+          domains: { en: "example.test", fr: "fr.example.test" },
+        },
+        translateSkill: true,
       },
     },
   },
@@ -1036,7 +1042,8 @@ const buildSamples: BuildSample[] = [
       i18nOptions: {
         sourceLocale: "en",
         locales: ["en", "fr"],
-        routing: { strategy: "cookie" },
+        routing: { strategy: "cookie", prefixDefaultLocale: false },
+        translateSkill: true,
       },
     },
   },
@@ -1060,7 +1067,8 @@ const buildSamples: BuildSample[] = [
       i18nOptions: {
         sourceLocale: "en",
         locales: ["en", "fr"],
-        routing: { strategy: "cookie" },
+        routing: { strategy: "cookie", prefixDefaultLocale: false },
+        translateSkill: true,
       },
     },
   },
@@ -1082,7 +1090,8 @@ const buildSamples: BuildSample[] = [
       i18nOptions: {
         sourceLocale: "en",
         locales: ["en", "fr"],
-        routing: { strategy: "cookie" },
+        routing: { strategy: "cookie", prefixDefaultLocale: false },
+        translateSkill: true,
       },
     },
   },
@@ -1104,7 +1113,8 @@ const buildSamples: BuildSample[] = [
       i18nOptions: {
         sourceLocale: "en",
         locales: ["en", "fr"],
-        routing: { strategy: "cookie" },
+        routing: { strategy: "cookie", prefixDefaultLocale: false },
+        translateSkill: true,
       },
     },
   },
@@ -1126,7 +1136,8 @@ const buildSamples: BuildSample[] = [
       i18nOptions: {
         sourceLocale: "en",
         locales: ["en", "fr"],
-        routing: { strategy: "cookie" },
+        routing: { strategy: "cookie", prefixDefaultLocale: false },
+        translateSkill: true,
       },
     },
   },
@@ -1151,7 +1162,8 @@ const buildSamples: BuildSample[] = [
       i18nOptions: {
         sourceLocale: "en",
         locales: ["en", "fr"],
-        routing: { strategy: "cookie" },
+        routing: { strategy: "cookie", prefixDefaultLocale: false },
+        translateSkill: true,
       },
     },
   },
@@ -1176,7 +1188,8 @@ const buildSamples: BuildSample[] = [
       i18nOptions: {
         sourceLocale: "en",
         locales: ["en", "fr"],
-        routing: { strategy: "cookie" },
+        routing: { strategy: "cookie", prefixDefaultLocale: false },
+        translateSkill: true,
       },
     },
   },

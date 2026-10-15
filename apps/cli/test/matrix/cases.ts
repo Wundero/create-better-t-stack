@@ -454,7 +454,8 @@ export function createSmokeMatrixCases(): MatrixCase[] {
     i18nOptions: {
       sourceLocale: "en",
       locales: ["en", "fr"],
-      routing: { strategy: "cookie" },
+      routing: { strategy: "cookie", prefixDefaultLocale: false },
+      translateSkill: true,
     },
   });
   pushUnique(configs, seen, {
@@ -468,7 +469,12 @@ export function createSmokeMatrixCases(): MatrixCase[] {
     i18nOptions: {
       sourceLocale: "en",
       locales: ["en", "fr"],
-      routing: { strategy: "domain", domains: { en: "example.test", fr: "fr.example.test" } },
+      routing: {
+        strategy: "domain",
+        prefixDefaultLocale: false,
+        domains: { en: "example.test", fr: "fr.example.test" },
+      },
+      translateSkill: true,
     },
   });
 
