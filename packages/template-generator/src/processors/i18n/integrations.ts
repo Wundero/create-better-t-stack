@@ -22,10 +22,9 @@ import { processEmailLocale, processEmailLocaleTemplates } from "./email";
  * `packages/types/src/i18n.ts` and runs only when that entry's `when()` holds —
  * `getI18nIntegrations` stays the single source of truth, and surfaces are
  * always derived through `getI18nSurfaces`. Integrations owned by
- * other lanes (`turnstile-language`, `shadcn-direction`,
- * `server-locale-middleware`, `lingui-bun-preload`) have no handler here: they
- * live on the stacked branches or in L6 (`react-email-locale` lives in
- * `./email.ts`).
+ * other lanes (`shadcn-direction`, `server-locale-middleware`,
+ * `lingui-bun-preload`) have no handler here: they live on the stacked
+ * branches or in L6 (`react-email-locale` lives in `./email.ts`).
  *
  * Two phases mirror `template-handlers/i18n.ts` and `processors/i18n-deps.ts`:
  * - `processI18nIntegrationTemplates` emits new files from
@@ -658,6 +657,23 @@ function processZod(ctx: IntegrationContext): void {
   wireZodIntoRuntime(vfs, config);
 }
 
+// --- turnstile-language ------------------------------------------------------
+
+function emitTurnstileFiles(ctx: IntegrationContext): void {
+  const { vfs, config, templates } = ctx;
+  if (templates === undefined) return;
+
+  // `addons/turnstile/**` widget templates import this map, so the output path
+  // is a cross-namespace contract, not a local detail.
+  processSingleTemplate(
+    vfs,
+    templates,
+    "i18n/integrations/turnstile/turnstile.ts",
+    "packages/i18n/src/integrations/turnstile.ts",
+    config,
+  );
+}
+
 // --- nuxt-ui-locale ----------------------------------------------------------
 
 const UI_LOCALE_COMPOSABLE = "apps/web/app/composables/use-ui-locale.ts";
@@ -1184,6 +1200,7 @@ const TEMPLATE_HANDLERS = {
     if (!templates) return;
     processEmailLocaleTemplates(vfs, templates, config);
   },
+  "turnstile-language": emitTurnstileFiles,
 } satisfies IntegrationHandlers;
 
 const DEPENDENCY_HANDLERS = {

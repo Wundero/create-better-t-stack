@@ -1,8 +1,15 @@
 import { createEffect, on, onCleanup, onMount } from "solid-js";
+{{#if (and i18n (ne i18n "none"))}}
+import { LOCALE_COOKIE, negotiateLocale } from "@{{projectName}}/i18n/config";
+import { getTurnstileLanguage } from "@{{projectName}}/i18n/integrations/turnstile";
+{{/if}}
 
 type TurnstileWidgetOptions = {
   sitekey: string;
   action?: string;
+{{#if (and i18n (ne i18n "none"))}}
+  language?: string;
+{{/if}}
   callback?: (token: string) => void;
   "expired-callback"?: () => void;
   "error-callback"?: () => void;
@@ -51,6 +58,20 @@ function loadScript(): Promise<void> {
   return scriptPromise;
 }
 
+{{#if (and i18n (ne i18n "none"))}}
+function turnstileLanguage(): string {
+  if (typeof window === "undefined") return "auto";
+  return getTurnstileLanguage(
+    negotiateLocale({
+      pathname: window.location.pathname,
+      host: window.location.host,
+      stored: window.localStorage.getItem(LOCALE_COOKIE) ?? undefined,
+      system: navigator.language,
+    }),
+  );
+}
+{{/if}}
+
 export default function Turnstile(props: {
   siteKey: string;
   action?: string;
@@ -70,6 +91,9 @@ export default function Turnstile(props: {
         widgetId = window.turnstile.render(container, {
           sitekey: props.siteKey,
           action: props.action,
+{{#if (and i18n (ne i18n "none"))}}
+          language: turnstileLanguage(),
+{{/if}}
           callback: (token) => props.onToken(token),
           "expired-callback": () => props.onToken(null),
           "error-callback": () => props.onToken(null),
