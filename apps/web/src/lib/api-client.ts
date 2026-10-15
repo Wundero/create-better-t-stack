@@ -73,6 +73,8 @@ export const analyticsStatsSchema = z.object({
   stackCombinations: distributionSchema.default({}),
   dbOrmCombinations: distributionSchema.default({}),
   /** Absent until the backend deployment that added it is live. */
+  i18n: distributionSchema.optional(),
+  /** Absent until the backend deployment that added it is live. */
   mode: distributionSchema.optional(),
 });
 
