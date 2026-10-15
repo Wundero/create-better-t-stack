@@ -220,6 +220,9 @@ describe("i18next templates", () => {
     const plugin = vfs.readFile("apps/web/app/plugins/i18n.ts") ?? "";
     expect(plugin).toContain('from "i18next-vue"');
     expect(plugin).toContain("nuxtApp.vueApp.use(I18NextVue");
+    expect(plugin).toContain("nuxtApp.$i18n.locale.value");
+    expect(plugin).toContain("initI18next(isLocale(activeLocale) ? activeLocale : undefined)");
+    expect(plugin).toContain('nuxtApp.hook("i18n:localeSwitched"');
 
     const composable = vfs.readFile("apps/web/app/composables/use-format.ts") ?? "";
     expect(composable).toContain("export function useFormat()");

@@ -295,6 +295,13 @@ const LINGUI_CONFIG_FROM_WEB = "../../packages/i18n/lingui.config.ts";
 const VITE_MACRO_TRANSFORM = `{ macroTransform: true, configPath: "${LINGUI_CONFIG_FROM_WEB}" }`;
 const VITE_BABEL_TRANSFORM = `{ configPath: "${LINGUI_CONFIG_FROM_WEB}" }`;
 
+// The Lingui CLI, Babel macro plugin and Metro transformer discover the config
+// by searching up from the app cwd, which never reaches `packages/i18n`. The
+// native app opts in through `LINGUI_CONFIG` (read by `@lingui/conf`) so the
+// Metro/Babel build resolves the shared config instead of failing with
+// "No Lingui config found".
+const LINGUI_CONFIG_ENV = `process.env.LINGUI_CONFIG ??= require("node:path").resolve(__dirname, "${LINGUI_CONFIG_FROM_WEB}");`;
+
 function patchNextConfig(vfs: VirtualFileSystem): void {
   patch(vfs, "apps/web/next.config.ts", (content) => {
     const withImport = insertAfterOnce(
@@ -395,6 +402,7 @@ function patchNativeConfig(vfs: VirtualFileSystem): void {
     // Mutate `config` right after it is created: some variants pass it through
     // withUniwindConfig/withReanimatedMetroConfig wrappers, which snapshot it.
     const addition = [
+      LINGUI_CONFIG_ENV,
       "// @lingui/metro-transformer compiles `messages.po` imports on the fly.",
       'config.transformer = { ...config.transformer, babelTransformerPath: require.resolve("@lingui/metro-transformer/expo") };',
       'config.resolver = { ...config.resolver, sourceExts: [...config.resolver.sourceExts, "po", "pot"] };',
@@ -404,8 +412,22 @@ function patchNativeConfig(vfs: VirtualFileSystem): void {
   });
 
   patch(vfs, "apps/native/babel.config.js", (content) => {
-    if (content.includes("@lingui/babel-plugin-lingui-macro")) return undefined;
-    return insertAfterOnce(content, "plugins: [", '\n    "@lingui/babel-plugin-lingui-macro",');
+    let next = content;
+    if (!next.includes("LINGUI_CONFIG")) {
+      const withEnv = insertBeforeOnce(next, "module.exports", `${LINGUI_CONFIG_ENV}\n`);
+      if (withEnv === undefined) return undefined;
+      next = withEnv;
+    }
+    if (!next.includes("@lingui/babel-plugin-lingui-macro")) {
+      const withPlugin = insertAfterOnce(
+        next,
+        "plugins: [",
+        '\n    "@lingui/babel-plugin-lingui-macro",',
+      );
+      if (withPlugin === undefined) return undefined;
+      next = withPlugin;
+    }
+    return next === content ? undefined : next;
   });
 }
 

@@ -523,6 +523,65 @@ describe("routing generation", () => {
     expect(vfs.readFile("apps/web/src/hooks.server.ts") ?? "").toContain("paraglideMiddleware");
   });
 
+  test("cookie routing still emits the SvelteKit Paraglide SSR negotiation hooks", async () => {
+    const vfs = await generateVfs(
+      baseConfig({
+        frontend: ["svelte"],
+        i18n: "paraglide",
+        i18nOptions: {
+          sourceLocale: "en",
+          locales: ["en", "fr"],
+          routing: { strategy: "cookie", prefixDefaultLocale: false },
+          translateSkill: true,
+        },
+      }),
+    );
+
+    expect(vfs.readFile("apps/web/src/hooks.client.ts") ?? "").toContain("reroute");
+    expect(vfs.readFile("apps/web/src/hooks.server.ts") ?? "").toContain("paraglideMiddleware");
+  });
+
+  test("cookie routing merges the Paraglide hook into the oRPC server hook", async () => {
+    const vfs = await generateVfs(
+      baseConfig({
+        frontend: ["svelte"],
+        backend: "self",
+        api: "orpc",
+        i18n: "paraglide",
+        i18nOptions: {
+          sourceLocale: "en",
+          locales: ["en", "fr"],
+          routing: { strategy: "cookie", prefixDefaultLocale: false },
+          translateSkill: true,
+        },
+      }),
+    );
+
+    const hooks = vfs.readFile("apps/web/src/hooks.server.ts") ?? "";
+    // The oRPC SSR client import is preserved alongside the Paraglide handler.
+    expect(hooks).toContain('import "./lib/orpc.server";');
+    expect(hooks).toContain("paraglideMiddleware");
+  });
+
+  test("cookie routing emits the Astro Paraglide SSR middleware", async () => {
+    const vfs = await generateVfs(
+      baseConfig({
+        frontend: ["astro"],
+        i18n: "paraglide",
+        i18nOptions: {
+          sourceLocale: "en",
+          locales: ["en", "fr"],
+          routing: { strategy: "cookie", prefixDefaultLocale: false },
+          translateSkill: true,
+        },
+      }),
+    );
+
+    const middleware = vfs.readFile("apps/web/src/middleware.ts") ?? "";
+    expect(middleware).toContain("paraglideMiddleware");
+    expect(middleware).toContain("export const onRequest");
+  });
+
   test("domain routing wires Better Auth, CORS and the cross-subdomain cookie", async () => {
     const vfs = await generateVfs(
       baseConfig({

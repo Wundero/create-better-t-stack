@@ -41664,6 +41664,22 @@ const links = hreflangLinks(Astro.url.pathname, Astro.url.origin);
   <link rel="alternate" hreflang={hreflang} href={href} />
 ))}
 `],
+  ["i18n/routing/surface/astro/middleware.ts.hbs", `import { defineMiddleware } from "astro:middleware";
+
+import { paraglideMiddleware } from "./paraglide/server.js";
+
+/**
+ * SSR locale negotiation (D5/D6).
+ *
+ * \`paraglideMiddleware\` resolves the request locale from the configured
+ * strategies (URL, cookie, \`Accept-Language\`, host) and runs the render inside
+ * \`AsyncLocalStorage\`, so \`getLocale()\` and the compiled messages return the
+ * negotiated locale during server rendering instead of the base locale.
+ */
+export const onRequest = defineMiddleware((context, next) =>
+  paraglideMiddleware(context.request, ({ request }) => next(request)),
+);
+`],
   ["i18n/routing/surface/next/hreflang.tsx.hbs", `import { headers } from "next/headers";
 
 import { hreflangLinks } from "@{{projectName}}/i18n/routing";
@@ -43151,11 +43167,24 @@ function changeLocale(option: string) {
 `],
   ["i18n/surface/i18next/nuxt/app/plugins/i18n.ts.hbs", `// Registers the shared i18next instance with the i18next-vue plugin. Templates
 // get \`$t\`; components can use \`useTranslation()\` from \`i18next-vue\`.
+//
+// \`@nuxtjs/i18n\` owns locale detection (domain / prefix / cookie) and routing;
+// i18next owns the messages. Seed the instance with the module's active locale
+// and follow its switches, so SSR and navigation render the negotiated locale
+// instead of the base locale.
+import { isLocale } from "@{{projectName}}/i18n";
 import { initI18next } from "@{{projectName}}/i18n/runtime";
 import I18NextVue from "i18next-vue";
 
 export default defineNuxtPlugin((nuxtApp) => {
-  nuxtApp.vueApp.use(I18NextVue, { i18next: initI18next() });
+  const activeLocale = nuxtApp.$i18n.locale.value;
+  const instance = initI18next(isLocale(activeLocale) ? activeLocale : undefined);
+
+  nuxtApp.vueApp.use(I18NextVue, { i18next: instance });
+
+  nuxtApp.hook("i18n:localeSwitched", ({ newLocale }) => {
+    if (isLocale(newLocale)) void instance.changeLanguage(newLocale);
+  });
 });
 `],
   ["i18n/surface/i18next/opentui-core/src/i18n-demo.ts.hbs", `import { createFormatters, negotiateLocale } from "@{{projectName}}/i18n";
@@ -48483,4 +48512,4 @@ export default function Success() {
 `]
 ]);
 
-export const TEMPLATE_COUNT = 763;
+export const TEMPLATE_COUNT = 764;
