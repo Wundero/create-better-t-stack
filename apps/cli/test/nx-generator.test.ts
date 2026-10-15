@@ -18,6 +18,7 @@ const baseConfig: ProjectConfig = {
   payments: "none",
   emailRenderer: "none",
   emailDeploy: "none",
+  i18n: "none",
   addons: ["nx"],
   examples: [],
   git: false,

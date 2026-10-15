@@ -17,6 +17,7 @@ const baseConfig = {
   payments: "none",
   emailRenderer: "none",
   emailDeploy: "none",
+  i18n: "none",
   git: false,
   packageManager: "bun",
   install: false,

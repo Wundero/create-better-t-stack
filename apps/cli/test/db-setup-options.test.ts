@@ -205,6 +205,7 @@ describe("Database setup options", () => {
       payments: "none",
       emailRenderer: "none",
       emailDeploy: "none",
+      i18n: "none",
       git: true,
       packageManager: "bun",
       install: false,

@@ -15,6 +15,7 @@ const baseConfig: ProjectConfig = {
   payments: "none",
   emailRenderer: "none",
   emailDeploy: "none",
+  i18n: "none",
   addons: ["vite-plus"],
   examples: [],
   git: false,

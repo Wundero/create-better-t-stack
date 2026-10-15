@@ -3,8 +3,11 @@ import { RPCLink } from "@orpc/client/fetch";
 import { createTanstackQueryUtils } from "@orpc/tanstack-query";
 import { QueryCache, QueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-{{#if (and i18n (ne i18n "none"))}}
-import { localeFetch, localeInit } from "@{{projectName}}/i18n/client";
+{{#if (and i18n (ne i18n "none") (ne auth "better-auth"))}}
+import { localeFetch } from "@{{projectName}}/i18n/client";
+{{/if}}
+{{#if (and i18n (ne i18n "none") (eq auth "better-auth"))}}
+import { localeInit } from "@{{projectName}}/i18n/client";
 {{/if}}
 {{#if (and (includes frontend "tanstack-start") (eq backend "self"))}}
 import { createRouterClient } from "@orpc/server";
@@ -73,12 +76,21 @@ const getORPCClient = createIsomorphicFn()
 			fetch: localeFetch,
 {{/if}}
 {{#if (eq auth "better-auth")}}
+{{#if (and i18n (ne i18n "none"))}}
 			fetch(url, options) {
 				return fetch(url, localeInit({
 					...options,
 					credentials: "include",
 				}));
 			},
+{{else}}
+			fetch(url, options) {
+				return fetch(url, {
+					...options,
+					credentials: "include",
+				});
+			},
+{{/if}}
 {{/if}}
 		});
 
@@ -103,12 +115,21 @@ const link = new RPCLink({
 	},
 {{/if}}
 {{#if (eq auth "better-auth")}}
+{{#if (and i18n (ne i18n "none"))}}
 	fetch(url, options) {
 		return fetch(url, localeInit({
 			...options,
 			credentials: "include",
 		}));
 	},
+{{else}}
+	fetch(url, options) {
+		return fetch(url, {
+			...options,
+			credentials: "include",
+		});
+	},
+{{/if}}
 {{/if}}
 });
 
@@ -153,12 +174,21 @@ export const link = new RPCLink({
 	},
 {{/if}}
 {{#if (eq auth "better-auth")}}
+{{#if (and i18n (ne i18n "none"))}}
 	fetch(url, options) {
 		return fetch(url, localeInit({
 			...options,
 			credentials: "include",
 		}));
 	},
+{{else}}
+	fetch(url, options) {
+		return fetch(url, {
+			...options,
+			credentials: "include",
+		});
+	},
+{{/if}}
 {{#if (includes frontend "next")}}
 	headers: async () => {
 		if (typeof window !== "undefined") {

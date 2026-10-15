@@ -22,6 +22,7 @@ const config: ProjectConfig = {
   payments: "none",
   emailRenderer: "none",
   emailDeploy: "none",
+  i18n: "none",
   api: "none",
   dbSetup: "none",
   webDeploy: "none",

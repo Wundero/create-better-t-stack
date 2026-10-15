@@ -48,6 +48,17 @@ export const dependencyVersionMap = {
   "@nuxtjs/i18n": "^10.6.0",
   "@wxt-dev/i18n": "^0.2.8",
 
+  // Hermes `Intl` polyfills for the Expo/native surface (expo-localization).
+  "expo-localization": "~57.0.2",
+  "@formatjs/intl-getcanonicallocales": "^3.2.12",
+  "@formatjs/intl-locale": "^5.3.12",
+  "@formatjs/intl-pluralrules": "^6.3.15",
+  "@formatjs/intl-numberformat": "^9.4.3",
+  "@formatjs/intl-datetimeformat": "^7.8.1",
+  "@formatjs/intl-relativetimeformat": "^12.3.15",
+  "@formatjs/intl-listformat": "^8.3.15",
+  "@formatjs/intl-displaynames": "^7.3.15",
+
   "better-auth": "1.7.7",
   "@better-auth/core": "1.7.7",
   "@better-auth/drizzle-adapter": "1.7.7",

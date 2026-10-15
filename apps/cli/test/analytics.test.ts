@@ -30,6 +30,7 @@ const projectConfig: ProjectConfig = {
   payments: "polar",
   emailRenderer: "none",
   emailDeploy: "none",
+  i18n: "none",
   git: true,
   packageManager: "bun",
   install: true,
