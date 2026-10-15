@@ -24,6 +24,9 @@ export const CATALOG_PACKAGE_PATHS = [
   ".",
   ...WORKSPACE_APP_DIRS,
   ...WORKSPACE_PACKAGE_DIRS,
+  // The generated i18n package participates in dependency catalogs whenever it
+  // exists; projects without i18n simply skip the missing package.json.
+  "packages/i18n",
 ] as const;
 
 export const ALL_WORKSPACE_PACKAGE_JSON_PATHS = [

@@ -21,6 +21,7 @@ const baseConfig: ProjectConfig = {
   examples: [],
   auth: "none",
   payments: "none",
+  i18n: "none",
   git: false,
   packageManager: "bun",
   install: false,
