@@ -108,11 +108,11 @@ For each library, the subtasks are: runtime, catalogs, the extract/compile/pendi
 
 ## 10. Add Path Retrofitting
 
-- [ ] 10.1 Wire `--i18n`, `--i18n-locales` and the interactive add prompt into `add-handler.ts` and `AddInputSchema`. Add library-switch rejection.
-- [ ] 10.2 Implement the edit kinds: `create`, `config-edit` (magicast and structured edits), `anchored-insert` (single-match anchors) and `manual` (outro plus `I18N_SETUP.md`).
-- [ ] 10.3 Retrofit surfaces, integrations, scripts and skills. Add-locales mode.
+- [x] 10.1 Wire `--i18n`, `--i18n-locales` and the interactive add prompt into `add-handler.ts` and `AddInputSchema`. Add library-switch rejection.
+- [x] 10.2 Implement the edit kinds: `create`, `config-edit` (magicast and structured edits), `anchored-insert` (single-match anchors) and `manual` (outro plus `I18N_SETUP.md`).
+- [x] 10.3 Retrofit surfaces, integrations, scripts and skills. Add-locales mode.
 - [ ] 10.4 Make generated apps inherit the project's i18n (on the stacked branch for `feat/generate-package-app`, see Section 12).
-- [ ] 10.5 Write the Add Path suite: pristine, user-modified, idempotent, add-locales, library-switch rejection and dry-run plan output.
+- [x] 10.5 Write the Add Path suite: pristine, user-modified, idempotent, add-locales, library-switch rejection and dry-run plan output.
 
 ## 11. Verification and Delivery
 

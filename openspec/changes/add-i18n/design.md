@@ -127,6 +127,10 @@ Deferred / verification items:
 
 **`i18n:export` reinstated as JS-first tooling (after the Rust drop).** The normalized-catalog exporter was restored for all four libraries as plain JS tooling — it feeds `i18n:sync-wxt` and general tooling with no Rust/Tauri dependency (D8). The old tauri-gated `i18n:compile` → `i18n:export` chaining stays removed; `i18n:sync-wxt` runs the export first so the catalog always exists.
 
+**L10 (add-path) — merged into `wt/i18n`** (`29134ce2`). Tasks 10.1–10.3, 10.5 done; review FAIL → fixed → re-review PASS. Gate after merge: `packages/types` 46/46; `packages/template-generator` 195/195; `apps/cli` 941 pass / 2 toolchain-preflight fails / 78 skip; `apps/web` 87/87. Orchestrator-ratified cross-lane edits: `packages/template-generator/src/index.ts` (barrel exports for the create-path processors) and `apps/cli/src/index.ts` (add-command i18n flags). D9 amended: config edits use shipped single-occurrence anchors (not `magicast`, not a direct dep); the `writePlannedTree` helper lives in `i18n-retrofit/write.ts`.
+
+Residual (non-blocking, for L11): the add-locales integration rewriters re-encode L7's block formats (drift fails safe to `manual`); two L10 test-coverage gaps (interactive addon+i18n prompt path; starlight/fumadocs/expo rewriters); WXT/OpenTUI create-path post-scaffold glue and demo route-mounting remain open.
+
 ## Goals / Non-Goals
 
 **Goals**
