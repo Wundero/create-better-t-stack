@@ -890,6 +890,8 @@ async function addHandlerInternal(
         `${pc.dim("Next")} ${pc.cyan("Run the i18n-adopt skill to wrap your existing strings")}`,
       );
     }
+
+    if (!input.install) {
       const installCommand =
         config.packageManager === "npm" ? "npm install" : `${config.packageManager} install`;
       log.message(`${pc.dim("Next step")}\n${pc.cyan(installCommand)}`);

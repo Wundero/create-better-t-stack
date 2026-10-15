@@ -236,7 +236,16 @@ export async function gatherConfig(
         { label: "Data", prompts: ["database", "orm", "dbSetup"] },
         {
           label: "Product",
-          prompts: ["auth", "payments", "emails", "addons", "i18n", "i18nOptions", "examples", "shadcn"],
+          prompts: [
+            "auth",
+            "payments",
+            "emails",
+            "addons",
+            "i18n",
+            "i18nOptions",
+            "examples",
+            "shadcn",
+          ],
         },
         {
           label: "Ship",

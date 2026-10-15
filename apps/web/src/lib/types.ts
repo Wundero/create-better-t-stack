@@ -43,7 +43,13 @@ export type StackState = Pick<
 // `i18nOptions` is a nested value object, not a selectable tech option.
 export type TechCategory = Exclude<
   keyof StackState,
-  "projectName" | "yolo" | "shadcnPreset" | "shadcnBase" | "shadcnRtl" | "shadcnPointer" | "i18nOptions"
+  | "projectName"
+  | "yolo"
+  | "shadcnPreset"
+  | "shadcnBase"
+  | "shadcnRtl"
+  | "shadcnPointer"
+  | "i18nOptions"
 >;
 type StackOptionIds = {
   [K in TechCategory]: Extract<StackState[K] extends (infer Id)[] ? Id : StackState[K], string>;

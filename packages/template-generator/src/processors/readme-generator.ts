@@ -11,9 +11,9 @@ import {
 import type { VirtualFileSystem } from "../core/virtual-fs";
 import { getDbScriptSupport } from "../utils/db-scripts";
 import { isDatabaseConsumedByDocker } from "../utils/docker-database";
-import { getPortlessNames } from "./portless";
 import { hasI18n } from "../utils/i18n";
 import { sharedRegistrableParent } from "./i18n/routing";
+import { getPortlessNames } from "./portless";
 
 function getDesktopStaticBuildNote(frontend: ProjectConfig["frontend"]): string {
   const staticBuildFrontends = new Map([

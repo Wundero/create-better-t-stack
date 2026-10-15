@@ -47,8 +47,8 @@ import {
   validateTurnstileCompatibility,
 } from "./compatibility-rules";
 import { CLIError, ValidationError } from "./errors";
-import { hasReactWebFrontend, isValidShadcnPresetValue } from "./shadcn";
 import { validateI18nConfig } from "./i18n-cli";
+import { hasReactWebFrontend, isValidShadcnPresetValue } from "./shadcn";
 
 type ValidationResult = Result<void, ValidationError>;
 type ConfigValidationResult = Result<void, ValidationError | CLIError>;

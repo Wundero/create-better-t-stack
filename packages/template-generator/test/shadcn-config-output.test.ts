@@ -20,6 +20,8 @@ const BASE_CONFIG = {
   examples: ["none"],
   auth: "better-auth",
   payments: "none",
+  emailRenderer: "none",
+  emailDeploy: "none",
   git: true,
   packageManager: "bun",
   install: true,

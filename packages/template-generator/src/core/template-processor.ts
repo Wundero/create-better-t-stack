@@ -3,7 +3,7 @@ import {
   usesAlchemyManagedDatabase,
   usesShadcnLocaleDirection,
 } from "@better-t-stack/types";
-import Handlebars from "handlebars/runtime.js";
+import Handlebars from "handlebars";
 import isBinaryPath from "is-binary-path";
 
 import { EMBEDDED_PARTIALS } from "../templates.generated";
@@ -120,8 +120,18 @@ for (const [name, spec] of EMBEDDED_PARTIALS) {
   Handlebars.registerPartial(name, Handlebars.template(spec));
 }
 
-export function processTemplateString(spec: CompiledTemplate, context: ProjectConfig): string {
-  return Handlebars.template(spec)(context);
+/** Precompiled specs are objects; raw template sources are strings. */
+function isCompiledTemplate(content: CompiledTemplate | string): content is CompiledTemplate {
+  return Object(content) === content;
+}
+
+export function processTemplateString(
+  content: CompiledTemplate | string,
+  context: ProjectConfig,
+): string {
+  return isCompiledTemplate(content)
+    ? Handlebars.template(content)(context)
+    : Handlebars.compile(content)(context);
 }
 
 export function isBinaryFile(filePath: string): boolean {

@@ -354,6 +354,7 @@ describe("i18n CLI flags end to end", () => {
           "bun",
           "--no-git",
           "--no-install",
+          "--no-portless",
           "--directory-conflict",
           "error",
           "--dry-run",

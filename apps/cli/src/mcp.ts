@@ -168,7 +168,13 @@ function getStackGuidance() {
         "serverDeploy",
         "i18n",
       ],
-      optionalFields: ["addonOptions", "dbSetupOptions", "shadcn", "i18nOptions", "directoryConflict"],
+      optionalFields: [
+        "addonOptions",
+        "dbSetupOptions",
+        "shadcn",
+        "i18nOptions",
+        "directoryConflict",
+      ],
       rule: "Do not call bts_plan_project or bts_create_project with a partial payload. MCP project creation requires the full explicit stack config.",
     },
     fieldNotes: {
