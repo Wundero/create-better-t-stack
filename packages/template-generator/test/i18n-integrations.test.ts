@@ -115,6 +115,17 @@ const LINGUI_RUNTIME_STUB = [
   "",
 ].join("\n");
 
+const PARAGLIDE_RUNTIME_STUB = [
+  "/**",
+  " * Paraglide runtime for `@demo/i18n`.",
+  " */",
+  "",
+  'export { m } from "./paraglide/messages.js";',
+  'export * from "./paraglide/runtime.js";',
+  'export { paraglideMiddleware } from "./paraglide/server.js";',
+  "",
+].join("\n");
+
 const NUXT_APP_VUE_STUB = [
   '<script setup lang="ts">',
   "</script>",
@@ -357,6 +368,27 @@ describe("zod-locales", () => {
         ?.dependencies,
     ).toBeUndefined();
   });
+
+  test("injects the zod and paraglide imports above the runtime body for a re-export-only module", () => {
+    const vfs = withFiles({
+      "packages/i18n/package.json": JSON.stringify({ name: "@demo/i18n" }),
+      "packages/i18n/src/runtime.ts": PARAGLIDE_RUNTIME_STUB,
+    });
+    run(vfs, baseConfig({ i18n: "paraglide", api: "trpc" }));
+
+    const runtime = vfs.readFile("packages/i18n/src/runtime.ts") ?? "";
+    // The Paraglide runtime has no `import` lines, only re-exports; the injected
+    // imports must land after the leading JSDoc block, not inside it.
+    expect(
+      runtime.indexOf('import { applyZodLocale } from "./integrations/zod-client";'),
+    ).toBeGreaterThan(runtime.indexOf("*/"));
+    expect(
+      runtime.indexOf(
+        'import { setLocale as applyParaglideLocale } from "./paraglide/runtime.js";',
+      ),
+    ).toBeGreaterThan(runtime.indexOf("*/"));
+    expect(runtime).toContain("export async function setLocale(locale: ParaglideLocale)");
+  });
 });
 
 describe("nuxt integrations", () => {
@@ -595,8 +627,10 @@ describe("expo-localization", () => {
     expect(vfs.exists("apps/native/lib/device-locale.ts")).toBe(true);
     const polyfills = vfs.readFile("apps/native/polyfills/intl.ts") ?? "";
     expect(polyfills).toContain("@formatjs/intl-pluralrules/polyfill");
-    expect(polyfills).toContain("@formatjs/intl-pluralrules/locale-data/en");
-    expect(polyfills).toContain("@formatjs/intl-pluralrules/locale-data/fr");
+    // `./locale-data/*` maps to a literal path, so the `.js` extension is required
+    // for the side-effect import to resolve to the emitted `locale-data/<lang>.js`.
+    expect(polyfills).toContain("@formatjs/intl-pluralrules/locale-data/en.js");
+    expect(polyfills).toContain("@formatjs/intl-pluralrules/locale-data/fr.js");
 
     const layout = vfs.readFile("apps/native/app/_layout.tsx") ?? "";
     expect(layout.startsWith('import "../polyfills/intl";')).toBe(true);

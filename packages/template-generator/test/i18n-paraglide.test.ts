@@ -102,12 +102,17 @@ describe("paraglide shared package", () => {
   test("emits the inlang project, catalogs, runtime and the uniform scripts", async () => {
     const vfs = await generateVfs(baseConfig());
 
-    const settings = readJson<{ baseLocale: string; locales: string[] }>(
+    const settings = readJson<{ baseLocale: string; locales: string[]; modules: string[] }>(
       vfs,
       "packages/i18n/project.inlang/settings.json",
     );
     expect(settings.baseLocale).toBe("en");
     expect(settings.locales).toEqual(["en", "es", "fr"]);
+    // Message IDs are authored, so the function matcher is unnecessary; only the
+    // message-format plugin is required to read the seed catalogs.
+    expect(settings.modules).toEqual([
+      "https://cdn.jsdelivr.net/npm/@inlang/plugin-message-format@4.5.0/dist/index.js",
+    ]);
 
     const config = vfs.readFile("packages/i18n/project.inlang/paraglide.config.mjs");
     expect(config).toContain('cookieName: "locale"');
@@ -279,10 +284,14 @@ describe("paraglide Nuxt, Svelte and Astro wiring", () => {
     expect(vfs.exists("apps/web/src/lib/components/i18n-demo.svelte")).toBe(true);
     expect(vfs.exists("apps/web/src/lib/use-format.svelte.ts")).toBe(true);
     expect(vfs.readFile("apps/web/src/lib/use-format.svelte.ts")).toContain("$derived");
-    expect(vfs.readFile("apps/web/src/lib/components/i18n-demo.svelte")).toContain("useFormat()");
+    const demo = vfs.readFile("apps/web/src/lib/components/i18n-demo.svelte") as string;
+    expect(demo).toContain("useFormat()");
+    // SvelteKit 3 removed the `$lib` alias; the `#lib` subpath import is the
+    // supported form and must resolve to the emitted `use-format.svelte.ts`.
+    expect(demo).toContain('from "#lib/use-format.svelte.ts"');
 
     const page = vfs.readFile("apps/web/src/routes/+page.svelte") as string;
-    expect(page).toContain('import I18nDemo from "$lib/components/i18n-demo.svelte"');
+    expect(page).toContain('import I18nDemo from "#lib/components/i18n-demo.svelte"');
     expect(page).toContain("<I18nDemo />");
   });
 

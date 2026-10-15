@@ -130,7 +130,7 @@ export function insertSvelteDemo(vfs: VirtualFileSystem): void {
   let updated = insertAfterOnce(
     content,
     '<script lang="ts">',
-    `\timport ${DEMO_COMPONENT} from "$lib/components/i18n-demo.svelte";`,
+    `\timport ${DEMO_COMPONENT} from "#lib/components/i18n-demo.svelte";`,
   );
   if (!updated) return;
 
