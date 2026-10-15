@@ -1,4 +1,4 @@
-import { I18N_LIBRARY_VALUES } from "./schemas";
+import { I18N_LIBRARY_VALUES, I18nOptionsSchema } from "./schemas";
 import type {
   AddonOptions,
   Addons,
@@ -84,13 +84,17 @@ const NATIVE_FRONTENDS = [
   "native-unistyles",
 ] as const satisfies readonly Frontend[];
 
-const SERVER_BACKENDS = [
+/** Backends that add the i18n `server` surface. Distinct from `compatibility.ts`'s
+ * `SERVER_BACKENDS` because i18n also covers `nitro`. */
+export const I18N_SERVER_BACKENDS = [
   "hono",
   "express",
   "fastify",
   "elysia",
   "nitro",
 ] as const satisfies readonly Backend[];
+
+export const I18N_DEFAULT_LOCALES: readonly string[] = I18nOptionsSchema.parse({}).locales;
 
 const OPENTUI_DEFAULT_TEMPLATE = "core";
 const WXT_DEFAULT_TEMPLATE = "react";
@@ -115,7 +119,7 @@ export function getI18nSurfaces(config: I18nConfigInput): I18nSurface[] {
   if (frontends.some((frontend) => NATIVE_FRONTENDS.some((value) => value === frontend))) {
     surfaces.push("native");
   }
-  if (backend && SERVER_BACKENDS.some((value) => value === backend)) {
+  if (backend && I18N_SERVER_BACKENDS.some((value) => value === backend)) {
     surfaces.push("server");
   }
   if (config.emailRenderer === "react-email") surfaces.push("email");

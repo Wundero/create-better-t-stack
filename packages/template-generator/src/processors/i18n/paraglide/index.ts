@@ -1,4 +1,9 @@
-import type { Frontend, ProjectConfig } from "@better-t-stack/types";
+import {
+  I18N_DEFAULT_LOCALES,
+  I18N_SERVER_BACKENDS,
+  type Frontend,
+  type ProjectConfig,
+} from "@better-t-stack/types";
 
 import type { VirtualFileSystem } from "../../../core/virtual-fs";
 import {
@@ -62,7 +67,6 @@ interface Wiring {
   readonly hasElectrobun: boolean;
 }
 
-const DEFAULT_LOCALES = ["en", "es", "fr"];
 const EMPTY_CATALOG = `${JSON.stringify(
   { $schema: "https://inlang.com/schema/inlang-message-format" },
   null,
@@ -77,7 +81,7 @@ const EMPTY_CATALOG = `${JSON.stringify(
  * translated.
  */
 function ensureConfiguredCatalogs(vfs: VirtualFileSystem, config: ProjectConfig): void {
-  const locales = config.i18nOptions?.locales ?? DEFAULT_LOCALES;
+  const locales = config.i18nOptions?.locales ?? I18N_DEFAULT_LOCALES;
   const sourceLocale = config.i18nOptions?.sourceLocale ?? "en";
   const englishCatalog = vfs.readFile("packages/i18n/messages/en.json");
   const configured = new Set(locales);
@@ -155,9 +159,7 @@ function resolveWiring(config: ProjectConfig): Wiring {
   return {
     webApp,
     hasNative: frontends.some((frontend) => frontend.startsWith("native-")),
-    hasServer: ["hono", "express", "fastify", "elysia", "nitro"].some(
-      (backend) => backend === config.backend,
-    ),
+    hasServer: I18N_SERVER_BACKENDS.some((backend) => backend === config.backend),
     hasElectrobun: config.addons.includes("electrobun"),
   };
 }

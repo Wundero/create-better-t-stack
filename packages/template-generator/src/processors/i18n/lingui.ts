@@ -1,4 +1,9 @@
-import { getI18nSurfaces, type I18nSurface, type ProjectConfig } from "@better-t-stack/types";
+import {
+  getI18nSurfaces,
+  I18N_DEFAULT_LOCALES,
+  type I18nSurface,
+  type ProjectConfig,
+} from "@better-t-stack/types";
 
 import type { VirtualFileSystem } from "../../core/virtual-fs";
 import { addPackageDependency, type AvailableDependencies } from "../../utils/add-deps";
@@ -33,7 +38,6 @@ const SOLID_SURFACES = ["solid", "wxt-solid", "opentui-solid"] as const;
 const VUE_SURFACES = ["nuxt", "wxt-vue"] as const;
 const OPENTUI_SURFACES = ["opentui-core", "opentui-react", "opentui-solid"] as const;
 const WXT_SURFACES = ["wxt-vanilla", "wxt-react", "wxt-solid", "wxt-vue"] as const;
-const DEFAULT_LOCALES = ["en", "es", "fr"] as const;
 
 interface DependencyPlan {
   dependencies: AvailableDependencies[];
@@ -51,7 +55,7 @@ const I18N_METRO: AvailableDependencies = "@lingui/metro-transformer";
 
 function localesOf(config: ProjectConfig): string[] {
   const configured = config.i18nOptions?.locales;
-  return configured && configured.length > 0 ? [...configured] : [...DEFAULT_LOCALES];
+  return configured && configured.length > 0 ? [...configured] : [...I18N_DEFAULT_LOCALES];
 }
 
 function hasAny(surfaces: readonly I18nSurface[], list: readonly I18nSurface[]): boolean {

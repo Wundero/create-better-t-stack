@@ -107,7 +107,6 @@ Deferred to later lanes (non-blocking):
 
 - **WXT/OpenTUI surface glue cannot be create-path templated** — `wxt init` / `create-tui` run after generation and reject a non-empty app dir. Needs a CLI post-step (`apps/cli/src/helpers/addons/{wxt-setup.ts,tui-setup.ts}`) or L10 Add-Path to re-emit `i18n/surface/<library>/<surface>/**` from the embedded templates and register the plugin/preload. Affects the curated cases `opentui(react) + lingui` and `react-router + wxt(vanilla) + paraglide`.
 - **Server/electrobun/opentui/wxt demos are importable but not route-mounted** — L6/L10 must anchor-insert (the D10 `nitro + i18next` case depends on it).
-- **wuchale `next` cell** is `native` in the matrix but wuchale ships no Next bundler plugin (source transform needs `wuchale --modify`); L11 must soften the cell or wire the modify step.
 - Paraglide's `paraglide.config.mjs` strategy/`urlPatterns` are co-owned with L6's routing.
 
 **L6 (routing), L7 (built-ins), L9 (tooling) — merged into `wt/i18n`.** Tasks 6.1–6.4, 7.1–7.6/7.11/7.12, 9.1–9.3 done. Reviews: L7/L9 PASS (targeted must-fix cleared); **L6 FAIL → fixed → re-FAIL (two clerk-interaction regressions) → fixed → PASS**. Gate after each merge green: `packages/template-generator` up to 195/195; `apps/cli` 925 pass / 2 toolchain-preflight fails / 78 skip (after an orchestrator test-expectation update); `packages/types` 45/45; `apps/web` 87/87. `templates.generated.ts` regenerated and committed per merge.
@@ -117,7 +116,7 @@ Orchestrator follow-ups: updated `apps/cli/test/api.test.ts` for L6's legitimate
 Deferred / verification items:
 
 - **Runtime verification for L11 curated builds:** React Router 8 (`flatRoutes().then(prefix…)` context mode, `future.v8_middleware`, root `middleware` export default-enablement) and TanStack Start (`createStart` request middleware, paraglide SSR isolation via `src/server.ts`); Elysia double-pass `app.handle` and nitro h3-v2 `next()`.
-- WXT/OpenTUI post-scaffold glue, demo route-mounting, and the wuchale `next` matrix cell (see the L5 section).
+- WXT/OpenTUI post-scaffold glue and demo route-mounting.
 - **`DEFAULT_LOCALES` still duplicated as `["en","es","fr"]` in `processors/i18n/{lingui.ts,i18next.ts,paraglide/index.ts}`** — consolidate onto `I18nOptionsSchema.parse({}).locales`.
 - L9's emitted `scripts/contract.ts` is not imported by the L5 library scripts (they re-declare the shapes); L9 added conformance tests that lock runtime JSON to the emitted copy until those closed lanes adopt the import.
 - The shared package's scripts hardcode `bun` — settle before release.
@@ -157,7 +156,7 @@ Residual (non-blocking, for L11): the add-locales integration rewriters re-encod
 i18n: "lingui" | "paraglide" | "i18next" | "wuchale" | "none"; // default "none"
 i18nOptions?: {
   sourceLocale: string;                 // canonical BCP-47; default "en"
-  locales: string[];                    // includes sourceLocale; default ["en", "es"]
+  locales: string[];                    // includes sourceLocale; default ["en", "es", "fr"]
   routing?: {
     strategy: "cookie" | "prefix" | "domain";   // default "cookie"
     prefixDefaultLocale?: boolean;              // prefix only; default false
@@ -215,23 +214,23 @@ Derivation rules:
 
 **Support matrix.** The type is `Record<I18nLibrary, Record<I18nSurface, { level: "native" | "adapter" | "partial" | "unsupported"; note?: string }>>`, declared with `satisfies`. Adding a surface or library therefore fails typecheck until every cell is filled. Notes are user-facing and appear in CLI hints, web tooltips and the generated README.
 
-| surface                                         | lingui                                                            | paraglide             | i18next                     | wuchale                                      |
-| ----------------------------------------------- | ----------------------------------------------------------------- | --------------------- | --------------------------- | -------------------------------------------- |
-| next                                            | native (SWC plugin, RSC)                                          | native                | adapter                     | native                                       |
-| tanstack-start / tanstack-router / react-router | adapter (Vite plugin + React)                                     | native                | adapter                     | adapter                                      |
-| nuxt                                            | adapter (`createVueExtractor` + composable)                       | adapter               | adapter (`i18next-vue`)     | unsupported — no Vue adapter                 |
-| svelte                                          | unsupported — no Svelte template support                          | native                | adapter (shipped store)     | native                                       |
-| solid                                           | native (`@lingui/solid`)                                          | native                | adapter (shipped primitive) | native                                       |
-| astro                                           | partial — macros only in frontmatter/islands, not `.astro` markup | native                | adapter                     | native                                       |
-| native                                          | native (`@lingui/metro-transformer`)                              | adapter (CLI compile) | native                      | unsupported — no Metro integration           |
-| server                                          | adapter (Bun preload / bundler macro plugin)                      | native                | native                      | adapter                                      |
-| email                                           | native                                                            | native                | native                      | partial — server render path unverified      |
-| electrobun-host, opentui-core                   | adapter (Bun preload)                                             | native                | native                      | adapter                                      |
-| opentui-react / opentui-solid                   | adapter (Bun preload)                                             | native                | native / adapter            | partial — unverified with OpenTUI reconciler |
-| wxt-vanilla                                     | adapter                                                           | native                | native                      | adapter                                      |
-| wxt-react / wxt-solid                           | native                                                            | native                | native / adapter            | native                                       |
-| wxt-vue                                         | adapter                                                           | adapter               | adapter                     | unsupported                                  |
-| wxt-svelte                                      | unsupported                                                       | native                | adapter                     | native                                       |
+| surface                                         | lingui                                                            | paraglide             | i18next                     | wuchale                                                                               |
+| ----------------------------------------------- | ----------------------------------------------------------------- | --------------------- | --------------------------- | ------------------------------------------------------------------------------------- |
+| next                                            | native (SWC plugin, RSC)                                          | native                | adapter                     | adapter — no Next bundler plugin, extraction/compile via the CLI (`wuchale --modify`) |
+| tanstack-start / tanstack-router / react-router | adapter (Vite plugin + React)                                     | native                | adapter                     | partial — wuchale Vite plugin crashes under Vite 8 (wuchale#484)                      |
+| nuxt                                            | adapter (`createVueExtractor` + composable)                       | adapter               | adapter (`i18next-vue`)     | unsupported — no Vue adapter                                                          |
+| svelte                                          | unsupported — no Svelte template support                          | native                | adapter (shipped store)     | partial — wuchale Vite plugin crashes under Vite 8 (wuchale#484)                      |
+| solid                                           | native (`@lingui/solid`)                                          | native                | adapter (shipped primitive) | partial — wuchale Vite plugin crashes under Vite 8 (wuchale#484)                      |
+| astro                                           | partial — macros only in frontmatter/islands, not `.astro` markup | native                | adapter                     | native                                                                                |
+| native                                          | native (`@lingui/metro-transformer`)                              | adapter (CLI compile) | native                      | unsupported — no Metro integration                                                    |
+| server                                          | adapter (Bun preload / bundler macro plugin)                      | native                | native                      | adapter                                                                               |
+| email                                           | native                                                            | native                | native                      | partial — server render path unverified                                               |
+| electrobun-host, opentui-core                   | adapter (Bun preload)                                             | native                | native                      | adapter                                                                               |
+| opentui-react / opentui-solid                   | adapter (Bun preload)                                             | native                | native / adapter            | partial — unverified with OpenTUI reconciler                                          |
+| wxt-vanilla                                     | adapter                                                           | native                | native                      | adapter                                                                               |
+| wxt-react / wxt-solid                           | native                                                            | native                | native / adapter            | adapter — no WXT bundler hook, extraction/transforms via the CLI                      |
+| wxt-vue                                         | adapter                                                           | adapter               | adapter                     | unsupported                                                                           |
+| wxt-svelte                                      | unsupported                                                       | native                | adapter                     | adapter — no WXT bundler hook, extraction/transforms via the CLI                      |
 
 **Library metadata** (`I18N_LIBRARY_META`) records:
 

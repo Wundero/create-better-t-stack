@@ -1,4 +1,4 @@
-import type { ProjectConfig } from "@better-t-stack/types";
+import { I18N_SERVER_BACKENDS, type ProjectConfig } from "@better-t-stack/types";
 
 import type { VirtualFileSystem } from "../../core/virtual-fs";
 import type { TemplateData } from "../../template-handlers/utils";
@@ -16,15 +16,14 @@ import { addPackageDependency } from "../../utils/add-deps";
  * cross-subdomain cookies and the CORS allowlists.
  */
 
-const SERVER_BACKENDS = ["hono", "express", "fastify", "elysia", "nitro"] as const;
-type ServerBackend = (typeof SERVER_BACKENDS)[number];
+type ServerBackend = (typeof I18N_SERVER_BACKENDS)[number];
 
 const SERVER_ENTRY_PATH = "apps/server/src/index.ts";
 const AUTH_PACKAGE_PATH = "packages/auth/package.json";
 const AUTH_ENTRY_PATH = "packages/auth/src/index.ts";
 
 function isServerBackend(value: string | undefined): value is ServerBackend {
-  return value !== undefined && (SERVER_BACKENDS as readonly string[]).includes(value);
+  return value !== undefined && (I18N_SERVER_BACKENDS as readonly string[]).includes(value);
 }
 
 function routingStrategy(config: ProjectConfig): "cookie" | "prefix" | "domain" {

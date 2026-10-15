@@ -1,4 +1,9 @@
-import { getI18nSurfaces, type I18nSurface, type ProjectConfig } from "@better-t-stack/types";
+import {
+  getI18nSurfaces,
+  I18N_DEFAULT_LOCALES,
+  type I18nSurface,
+  type ProjectConfig,
+} from "@better-t-stack/types";
 
 import type { VirtualFileSystem } from "../../core/virtual-fs";
 import { addPackageDependency, type AvailableDependencies } from "../../utils/add-deps";
@@ -17,7 +22,6 @@ import { addPackageDependency, type AvailableDependencies } from "../../utils/ad
 const I18N_PACKAGE_PATH = "packages/i18n/package.json";
 const LOCALES_DIR = "packages/i18n/locales";
 const SOURCE_CATALOG_PATH = `${LOCALES_DIR}/en/common.json`;
-const DEFAULT_LOCALES = ["en", "es", "fr"] as const;
 
 interface SurfaceDeps {
   readonly packagePath: string;
@@ -83,7 +87,7 @@ function workspaceVersion(config: ProjectConfig): string {
 function writeCatalogs(vfs: VirtualFileSystem, config: ProjectConfig): void {
   const sourceCatalog = vfs.readFile(SOURCE_CATALOG_PATH);
   if (!sourceCatalog) return;
-  const locales = config.i18nOptions?.locales ?? [...DEFAULT_LOCALES];
+  const locales = config.i18nOptions?.locales ?? [...I18N_DEFAULT_LOCALES];
   for (const locale of locales) {
     vfs.writeFile(`${LOCALES_DIR}/${locale}/common.json`, sourceCatalog);
   }
