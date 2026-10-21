@@ -1,0 +1,20 @@
+{{#unless (includes addons "aws-s3")}}
+import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
+
+const client = new S3Client({});
+
+export function uploadAsset(key: string, body: string) {
+  return client.send(
+    new PutObjectCommand({
+      Bucket: process.env.CLOUDFRONT_BUCKET_NAME!,
+      Key: key,
+      Body: body,
+    }),
+  );
+}
+{{/unless}}
+
+export const cdn = {
+  distributionId: process.env.CLOUDFRONT_DISTRIBUTION_ID!,
+  url: process.env.CLOUDFRONT_URL!,
+};
