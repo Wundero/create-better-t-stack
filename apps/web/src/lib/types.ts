@@ -10,6 +10,7 @@ import type {
 export type StackState = Pick<
   ProjectConfig,
   | "runtime"
+  | "serverCompute"
   | "database"
   | "orm"
   | "dbSetup"

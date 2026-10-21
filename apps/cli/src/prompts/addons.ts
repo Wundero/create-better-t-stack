@@ -8,6 +8,7 @@ import {
   type ProjectConfig,
   type Runtime,
 } from "../types";
+import { isProviderAddon, PROVIDER_ADDON_META } from "../types";
 import {
   OBSERVABILITY_ADDONS,
   TASK_RUNNER_ADDONS,
@@ -123,6 +124,10 @@ function getAddonDisplay(addon: Addons): AddonDisplay {
       hint = "CAPTCHA on Better Auth sign-up and sign-in (Cloudflare + Alchemy)";
       break;
     default:
+      if (isProviderAddon(addon)) {
+        const { label: providerLabel, hint: providerHint } = PROVIDER_ADDON_META[addon];
+        return { label: providerLabel, hint: providerHint };
+      }
       label = addon;
       hint = `Add ${addon}`;
   }
@@ -198,7 +203,9 @@ export async function getAddonsChoice(
 ) {
   if (addons !== undefined) return addons;
 
-  const allAddons = AddonsSchema.options.filter((addon) => addon !== "none");
+  const allAddons = AddonsSchema.options.filter(
+    (addon) => addon !== "none" && !isProviderAddon(addon),
+  );
   const groupedOptions = createGroupedOptions();
 
   const frontendsArray = frontends || [];
@@ -247,7 +254,8 @@ export async function getAddonsToAdd(config: AddonProjectConfig) {
 
   const compatibleAddons = getCompatibleAddons(
     AddonsSchema.options.filter(
-      (addon) => addon !== "none" && addon !== "axiom" && addon !== "turnstile",
+      (addon) =>
+        addon !== "none" && addon !== "axiom" && addon !== "turnstile" && !isProviderAddon(addon),
     ),
     frontendArray,
     config.addons,

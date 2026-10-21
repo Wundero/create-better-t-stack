@@ -17,6 +17,10 @@ export const RuntimeSchema = z
   .enum(["bun", "node", "workers", "lambda", "none"])
   .describe("Runtime environment");
 
+export const ServerComputeSchema = z
+  .enum(["fargate", "lambda", "ec2", "eks"])
+  .describe("AWS server compute runtime");
+
 export const FrontendSchema = z
   .enum([
     "tanstack-router",
@@ -57,6 +61,37 @@ export const AddonsSchema = z
     "evlog",
     "axiom",
     "turnstile",
+    "cloudflare-durable-objects",
+    "cloudflare-containers",
+    "cloudflare-sandboxes",
+    "cloudflare-r2",
+    "cloudflare-kv",
+    "cloudflare-queues",
+    "cloudflare-workers-ai",
+    "cloudflare-ai-search",
+    "cloudflare-flagship",
+    "cloudflare-pipelines",
+    "cloudflare-stream",
+    "cloudflare-realtime-kit",
+    "aws-lambda-microvm",
+    "aws-s3",
+    "aws-bedrock",
+    "aws-sns",
+    "aws-sqs",
+    "aws-kinesis",
+    "aws-eventbridge",
+    "aws-scheduler",
+    "aws-cloudfront",
+    "aws-elasticache",
+    "fly-sprites",
+    "fly-redis",
+    "fly-tigris",
+    "railway-redis",
+    "railway-buckets",
+    "railway-sandboxes",
+    "neon-ai-gateway",
+    "neon-buckets",
+    "prisma-buckets",
     "none",
   ])
   .describe("Additional addons");
@@ -104,6 +139,8 @@ export const DatabaseSetupSchema = z
     "d1",
     "docker",
     "aurora",
+    "fly",
+    "railway",
     "none",
   ])
   .describe("Database hosting setup");
@@ -156,11 +193,22 @@ export const I18nOptionsSchema = z
   .describe("Internationalization options");
 
 export const WebDeploySchema = z
-  .enum(["cloudflare", "prisma", "aws", "docker", "vercel", "none"])
+  .enum(["cloudflare", "prisma", "aws", "docker", "vercel", "hetzner", "none"])
   .describe("Web deployment");
 
 export const ServerDeploySchema = z
-  .enum(["cloudflare", "prisma", "aws", "docker", "vercel", "none"])
+  .enum([
+    "cloudflare",
+    "prisma",
+    "aws",
+    "docker",
+    "vercel",
+    "hetzner",
+    "fly",
+    "railway",
+    "neon",
+    "none",
+  ])
   .describe("Server deployment");
 
 export const DirectoryConflictSchema = z
@@ -607,6 +655,7 @@ export const CreateInputSchema = z
     dbSetup: DatabaseSetupSchema.optional(),
     backend: BackendSchema.optional(),
     runtime: RuntimeSchema.optional(),
+    serverCompute: ServerComputeSchema.optional(),
     api: APISchema.optional(),
     webDeploy: WebDeploySchema.optional(),
     serverDeploy: ServerDeploySchema.optional(),
@@ -646,6 +695,7 @@ export const AddInputSchema = z
     i18nOptions: I18nOptionsSchema.optional(),
     webDeploy: WebDeploySchema.optional(),
     serverDeploy: ServerDeploySchema.optional(),
+    serverCompute: ServerComputeSchema.optional(),
     projectDir: z.string().optional(),
     install: z.boolean().optional(),
     packageManager: PackageManagerSchema.optional(),
@@ -791,6 +841,7 @@ export const ProjectConfigSchema = z.object({
   orm: ORMSchema,
   backend: BackendSchema,
   runtime: RuntimeSchema,
+  serverCompute: ServerComputeSchema.optional(),
   frontend: z.array(FrontendSchema),
   addons: AddonsListSchema,
   examples: z.array(ExamplesSchema),
@@ -821,6 +872,7 @@ export const BetterTStackConfigSchema = z.object({
   orm: ORMSchema,
   backend: BackendSchema,
   runtime: RuntimeSchema,
+  serverCompute: ServerComputeSchema.optional(),
   frontend: z.array(FrontendSchema),
   addons: AddonsListSchema,
   examples: z.array(ExamplesSchema),
@@ -864,6 +916,7 @@ export const DATABASE_VALUES = DatabaseSchema.options;
 export const ORM_VALUES = ORMSchema.options;
 export const BACKEND_VALUES = BackendSchema.options;
 export const RUNTIME_VALUES = RuntimeSchema.options;
+export const SERVER_COMPUTE_VALUES = ServerComputeSchema.options;
 export const FRONTEND_VALUES = FrontendSchema.options;
 export const ADDONS_VALUES = AddonsSchema.options;
 export const EXAMPLES_VALUES = ExamplesSchema.options;

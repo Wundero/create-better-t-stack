@@ -121,6 +121,7 @@ const stackCategoryLabels = {
   payments: "Payments",
   portless: "Portless mode",
   runtime: "Runtime",
+  serverCompute: "Server compute",
   serverDeploy: "Server deployment",
   webDeploy: "Web deployment",
   webFrontend: "Web frontend",

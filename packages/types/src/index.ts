@@ -2,6 +2,7 @@
 export * from "./analytics";
 export * from "./constants";
 export * from "./deployment";
+export * from "./provider-addons";
 export * from "./schemas";
 export * from "./shadcn-preset";
 export * from "./shadcn-presets";
