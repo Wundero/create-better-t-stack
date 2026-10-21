@@ -69,7 +69,13 @@ Options:
   --orm <type>                    ORM type (none, drizzle, prisma, mongoose)
   --dry-run                       Validate configuration without writing files
   --auth <provider>               Authentication (better-auth, clerk, none)
-  --payments <provider>           Payments provider (polar, none)
+  --payments <provider>           Payments provider (polar, stripe, autumn, dodo, creem, chargebee, commet, none)
+  --i18n <library>                Internationalization library (lingui, paraglide, i18next, wuchale, none)
+  --i18n-locales <locales>        Comma-separated locales; the first entry is the source locale unless --i18n-source-locale is given
+  --i18n-source-locale <locale>   Canonical BCP-47 source locale; must be included in --i18n-locales (default en)
+  --i18n-routing <strategy>       Locale routing strategy (cookie, prefix, domain)
+  --i18n-domain <locale=host>     Locale-to-host mapping for domain routing; repeat once per locale
+  --i18n-skill / --no-i18n-skill  Generate the i18n-translate agent skill (enabled by default)
   --frontend <types...>           Frontend types (tanstack-router, react-router, tanstack-start, next, nuxt, svelte, solid, astro, native-bare, native-uniwind, native-unistyles, none)
   --addons <types...>             Additional addons (pwa, tauri, electrobun, starlight, biome, lefthook, husky, mcp, turborepo, nx, vite-plus, fumadocs, ultracite, oxlint, opentui, wxt, skills, evlog, none)
   --examples <types...>           Examples to include (todo, ai, none)

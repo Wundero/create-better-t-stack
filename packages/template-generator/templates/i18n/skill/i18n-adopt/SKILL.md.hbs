@@ -1,0 +1,54 @@
+---
+name: i18n-adopt
+description: Wrap the existing hard-coded strings of this project with its i18n library, incrementally and surface by surface. Use after i18n was added to an existing project, or when asked to adopt/migrate strings to i18n.
+---
+
+# i18n-adopt
+
+This project uses **{{i18n}}**. Wrapping existing hard-coded strings is an incremental migration, not a rewrite: one surface per change, extract after each surface, keep every commit green.
+
+## Loop per surface
+
+1. **Pick one surface** — a single route, component or file at a time. List the strings a user can see: headings, labels, button text, empty states, error messages, `aria-label`s, placeholders, toast copy, page titles and (where configured) manifest names and descriptions.
+2. **Wrap** them with the library's mechanism (see the library notes). Leave code identifiers, CSS classes, test ids, log messages, config keys, URLs and analytics event names alone.
+3. **Extract and translate**:
+   - `{{packageManager}} run i18n:extract` — the new strings appear in the source catalog;
+   - `{{packageManager}} run i18n:pending --locale <locale> --limit 50` and translate through the `i18n-translate` skill or the same `i18n:apply` file shape;
+   - `{{packageManager}} run i18n:compile` and `I18N_CHECK_ALLOW_MISSING=1 {{packageManager}} run i18n:check`.
+4. **Verify** — run the app (or the surface's tests) in the source locale and in one target locale; the text must render, and placeholders must interpolate.
+5. **Commit** the wrapped surface with its catalog changes. Repeat for the next surface.
+
+Do not batch every surface into one change: a broken placeholder is much easier to find in a small diff, and `i18n:check` stays meaningful along the way.
+
+## Library notes
+
+{{#if (eq i18n "lingui")}}
+- React/JSX: wrap text in `<Trans>Hello {name}</Trans>` from `@lingui/react/macro`. Keep markup and child components inside `Trans` so the message stays one unit.
+- Non-JSX: use the `t` macro from `@lingui/core/macro` (`const message = t`Hello``) or a `msg` descriptor for values built outside render. Plurals go through the `plural` macro.
+- Lingui generates ids from the source text and context; you never author ids. Re-wording swaps the id and re-extracts cleanly.
+- If the same sentence needs two different translations, give each a `context` via `msg({ context: "…" })` / `Trans context="…"` — context is stored as `msgctxt`.
+- Vue/Svelte/Solid/Astro have their own macro packages; use the one already imported by the surface (see the i18n glue in that app).
+{{else if (eq i18n "paraglide")}}
+- Import the generated messages module for the app (`import * as m from "…/paraglide/messages"`) and replace the literal with `m.<id>({ …params })`.
+- Ids are authored, snake_case, and stable: add the id to `packages/i18n/messages/<source>.json` first, then use it in code. Never reword an existing id's message without checking references.
+- Keep parameters as placeholders in the message (`{name}`); the compiler generates the typed function from the message.
+- Plural and select messages use the ICU subset (`plural`, `selectordinal`, `select`).
+{{else if (eq i18n "i18next")}}
+- In components use `const { t } = useTranslation()` (or the surface's equivalent) and replace the literal with `t("Hello \{{name}}", { name })` — **the source text is the key**, so keep it byte-identical to what you want in the catalog.
+- Plurals: author `key_one` / `key_other` keys and call `t("…", { count })`.
+- Re-wording a key later means a new key; prefer stable, complete sentences over fragments.
+{{else if (eq i18n "wuchale")}}
+- **Do not wrap strings.** Wuchale extracts the source text implicitly, so wrapping would change message ids.
+- Instead, scope the include globs in `wuchale.config.mjs`: add the app's source directories so its files are scanned, and exclude generated or vendor paths that must not be extracted.
+- After scoping the globs, run `{{packageManager}} run i18n:extract`; wuchale writes the per-adapter `.po` catalogs, and the strings become pending for translation through `i18n:pending` / `i18n:apply`.
+- If a string must stay out of the catalogs (logs, test ids, dynamic keys), keep it in an excluded path rather than fighting the extractor.
+{{/if}}
+- All libraries: keep placeholders intact when moving text, prefer one message per user-visible sentence, follow `packages/i18n/GLOSSARY.md`, and leave the source locale text as the source of truth.
+
+## After the Add Path
+
+`bts add --i18n …` wires configs, surfaces, scripts and integrations, but deliberately leaves existing strings untouched. Start from the surface that matters most, then continue this loop. Re-run `i18n:check` without `I18N_CHECK_ALLOW_MISSING` once the migration is complete.
+
+## Report
+
+Summarize: surfaces wrapped, strings wrapped per surface, strings intentionally skipped (with the reason), locales translated, and the remaining hard-coded strings you found.

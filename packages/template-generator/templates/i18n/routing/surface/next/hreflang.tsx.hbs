@@ -1,0 +1,25 @@
+import { headers } from "next/headers";
+
+import { hreflangLinks } from "@{{projectName}}/i18n/routing";
+
+/**
+ * `<link rel="alternate" hreflang>` tags for the current page (D6 SEO).
+ * React 19 hoists them into the document head. `x-pathname` carries the public
+ * pathname set by `src/middleware.ts`, so prefixed URLs stay canonical.
+ */
+export async function HreflangLinks() {
+  const requestHeaders = await headers();
+  const host = requestHeaders.get("host");
+  const pathname = requestHeaders.get("x-pathname") ?? "/";
+  const isLocal = host?.startsWith("localhost") || host?.startsWith("127.0.0.1");
+  const protocol = requestHeaders.get("x-forwarded-proto") ?? (isLocal ? "http" : "https");
+  const origin = host ? `${protocol}://${host}` : undefined;
+
+  return (
+    <>
+      {hreflangLinks(pathname, origin).map(({ hreflang, href }) => (
+        <link key={hreflang} rel="alternate" hrefLang={hreflang} href={href} />
+      ))}
+    </>
+  );
+}

@@ -1,0 +1,177 @@
+/**
+ * URL localization for the `prefix` and `domain` routing strategies (D6).
+ *
+ * Every template link goes through `localizeHref` so the visible URL always
+ * carries the active locale; `negotiateRequestLocale` is the server-side entry
+ * point used by the generated middleware. The negotiation sources themselves
+ * live in `./config`.
+ */
+import {
+  LOCALE_COOKIE,
+  isLocale,
+  localeDomains,
+  locales,
+  negotiateLocale,
+  prefixDefaultLocale,
+  routingStrategy,
+  sourceLocale,
+} from "./config";
+import type { Locale } from "./config";
+
+export interface HreflangLink {
+  readonly hreflang: string;
+  readonly href: string;
+}
+
+function isExternalHref(href: string): boolean {
+  return /^[a-z][a-z0-9+.-]*:/i.test(href) || href.startsWith("//");
+}
+
+function splitHref(href: string): { path: string; suffix: string } {
+  const index = href.search(/[?#]/);
+  if (index === -1) return { path: href, suffix: "" };
+  return { path: href.slice(0, index), suffix: href.slice(index) };
+}
+
+function withLeadingSlash(path: string): string {
+  return path.startsWith("/") ? path : `/${path}`;
+}
+
+function isLocalHostname(hostname: string): boolean {
+  return hostname === "localhost" || hostname === "127.0.0.1" || hostname.endsWith(".localhost");
+}
+
+function originForHost(host: string): string {
+  return `${isLocalHostname(host) ? "http" : "https"}://${host}`;
+}
+
+/** Reads one cookie value out of a raw `Cookie` header. */
+export function readCookieValue(
+  cookieHeader: string | null | undefined,
+  name: string,
+): string | undefined {
+  if (!cookieHeader) return undefined;
+  for (const entry of cookieHeader.split(";")) {
+    const separator = entry.indexOf("=");
+    if (separator === -1) continue;
+    if (entry.slice(0, separator).trim() === name) {
+      return decodeURIComponent(entry.slice(separator + 1).trim());
+    }
+  }
+  return undefined;
+}
+
+/** The locale prefix of a pathname, when the first segment is a locale. */
+export function localeFromPathname(pathname: string): Locale | undefined {
+  const [first] = pathname.split("/").filter((segment) => segment.length > 0);
+  if (!first || !isLocale(first)) return undefined;
+  return first;
+}
+
+/** Removes the leading locale segment (`/fr/about` → `/about`). */
+export function stripLocalePrefix(pathname: string): string {
+  const locale = localeFromPathname(pathname);
+  if (!locale) return pathname;
+  const rest = pathname.slice(locale.length + 1);
+  return rest.length > 0 ? rest : "/";
+}
+
+/**
+ * `?locale=` development override for local hosts (`localhost`,
+ * `127.0.0.1`, `*.localhost`). Portless mode serves each locale from
+ * `<locale>.<app>.localhost`, so this is the fallback for plain localhost.
+ */
+export function localeOverrideFromUrl(url: string | URL): Locale | undefined {
+  const parsed = typeof url === "string" ? new URL(url, "http://localhost") : url;
+  if (!isLocalHostname(parsed.hostname)) return undefined;
+  const override = parsed.searchParams.get("locale");
+  return override && isLocale(override) ? override : undefined;
+}
+
+/**
+ * Server-side negotiation entry point: extracts the D5 sources from a request
+ * and resolves them through the shared `negotiateLocale` contract.
+ */
+export function negotiateRequestLocale(sources: {
+  readonly url: string | URL;
+  readonly header?: string | null;
+  readonly cookieHeader?: string | null;
+  readonly acceptLanguage?: string | null;
+}): Locale {
+  const parsed = typeof sources.url === "string" ? new URL(sources.url, "http://localhost") : sources.url;
+
+  const override = localeOverrideFromUrl(parsed);
+  if (override) return override;
+
+  return negotiateLocale({
+    pathname: parsed.pathname,
+    host: parsed.host,
+    header: sources.header ?? undefined,
+    cookie: readCookieValue(sources.cookieHeader, LOCALE_COOKIE),
+    acceptLanguage: sources.acceptLanguage ?? undefined,
+  });
+}
+
+/**
+ * Locale-aware version of an href.
+ *
+ * - `cookie`: unchanged.
+ * - `prefix`: `/about` → `/fr/about`; the source locale keeps its bare path
+ *   unless `prefixDefaultLocale` is set.
+ * - `domain`: absolute URL on the mapped host when one is configured.
+ *
+ * Query strings, hash fragments and external URLs are preserved, and calling
+ * this twice with the same locale is idempotent.
+ */
+export function localizeHref(href: string, locale: Locale = sourceLocale): string {
+  if (routingStrategy === "cookie" || isExternalHref(href) || href.startsWith("#")) return href;
+
+  const { path, suffix } = splitHref(href);
+  const bare = stripLocalePrefix(withLeadingSlash(path));
+
+  if (routingStrategy === "prefix") {
+    if (locale === sourceLocale && !prefixDefaultLocale) return `${bare}${suffix}`;
+    const prefixed = bare === "/" ? `/${locale}` : `/${locale}${bare}`;
+    return `${prefixed}${suffix}`;
+  }
+
+  // domain
+  const host = localeDomains[locale];
+  if (!host) return `${bare}${suffix}`;
+  return `${originForHost(host)}${bare === "/" ? "" : bare}${suffix}`;
+}
+
+/**
+ * `hreflang` link descriptors for a page, one per configured locale plus
+ * `x-default`. Domain routing prefers the absolute host from `localeDomains`;
+ * `origin` (the app's own origin) covers locales without a host and the
+ * `x-default` entry. Returns an empty list for cookie routing.
+ */
+export function hreflangLinks(pathname = "/", origin?: string): HreflangLink[] {
+  if (routingStrategy === "cookie") return [];
+
+  const bare = stripLocalePrefix(pathname);
+  const trimmedOrigin = origin?.replace(/\/$/, "");
+  const links: HreflangLink[] = [];
+
+  for (const locale of locales) {
+    if (routingStrategy === "domain") {
+      const host = localeDomains[locale];
+      if (host) {
+        links.push({
+          hreflang: locale,
+          href: `${originForHost(host)}${bare === "/" ? "" : bare}`,
+        });
+        continue;
+      }
+    }
+    if (!trimmedOrigin) continue;
+    links.push({ hreflang: locale, href: `${trimmedOrigin}${localizeHref(bare, locale)}` });
+  }
+
+  if (trimmedOrigin) {
+    links.push({ hreflang: "x-default", href: `${trimmedOrigin}${bare}` });
+  }
+
+  return links;
+}

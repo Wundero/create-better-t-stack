@@ -1,0 +1,27 @@
+"use client";
+
+import { useEffect, type ReactNode } from "react";
+import { I18nProvider as LinguiI18nProvider } from "@lingui/react";
+
+import { LOCALE_COOKIE } from "@{{projectName}}/i18n/config";
+import { i18n, initializeLocale } from "@{{projectName}}/i18n/runtime";
+
+/**
+ * Surface glue: activates the negotiated locale (stored choice → browser
+ * preference → source locale) and provides the shared `i18n` instance to the
+ * `@lingui/react` macros. Wrap the app root with it once; `<Trans>` and the
+ * `t` macro read this provider.
+ */
+export function I18nProvider({ children }: { children: ReactNode }) {
+  useEffect(() => {
+    const stored = window.localStorage.getItem(LOCALE_COOKIE);
+    void initializeLocale({
+      stored: stored ?? undefined,
+      acceptLanguage: typeof navigator === "undefined" ? undefined : navigator.languages.join(","),
+    }).then((locale) => {
+      document.documentElement.lang = locale;
+    });
+  }, []);
+
+  return <LinguiI18nProvider i18n={i18n}>{children}</LinguiI18nProvider>;
+}

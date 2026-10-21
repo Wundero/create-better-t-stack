@@ -1,0 +1,32 @@
+import { Button } from "@{{projectName}}/ui/components/button";
+
+export interface PaymentActionsProps {
+  isActive: boolean;
+  planLabel: string;
+  pending: boolean;
+  onCheckout: () => Promise<void>;
+  onPortal: () => Promise<void>;
+}
+
+export function PaymentActions({
+  isActive,
+  planLabel,
+  pending,
+  onCheckout,
+  onPortal,
+}: PaymentActionsProps) {
+  return (
+    <div>
+      <p>Plan: {planLabel}</p>
+      {isActive ? (
+        <Button disabled={pending} onClick={() => void onPortal()}>
+          Manage Subscription
+        </Button>
+      ) : (
+        <Button disabled={pending} onClick={() => void onCheckout()}>
+          Upgrade to Pro
+        </Button>
+      )}
+    </div>
+  );
+}

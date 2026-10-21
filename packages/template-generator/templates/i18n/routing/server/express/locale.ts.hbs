@@ -1,0 +1,25 @@
+import type { NextFunction, Request, Response } from "express";
+
+import { LOCALE_HEADER } from "@{{projectName}}/i18n/config";
+import { negotiateRequestLocale } from "@{{projectName}}/i18n/routing";
+import { runWithLocale } from "@{{projectName}}/i18n/server";
+
+function headerValue(value: string | string[] | undefined): string | undefined {
+  return Array.isArray(value) ? value[0] : value;
+}
+
+/**
+ * Negotiates the request locale (D5) and runs the rest of the request inside
+ * `runWithLocale`, so handlers read it back with `getRequestLocale()`.
+ * Registered in `src/index.ts`.
+ */
+export function localeMiddleware(req: Request, _res: Response, next: NextFunction): void {
+  const locale = negotiateRequestLocale({
+    url: `${req.protocol}://${req.get("host") ?? "localhost"}${req.originalUrl}`,
+    header: headerValue(req.headers[LOCALE_HEADER]),
+    cookieHeader: headerValue(req.headers.cookie),
+    acceptLanguage: headerValue(req.headers["accept-language"]),
+  });
+
+  runWithLocale(locale, () => next());
+}

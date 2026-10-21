@@ -1,0 +1,15 @@
+import { defineMiddleware } from "astro:middleware";
+
+import { paraglideMiddleware } from "./paraglide/server.js";
+
+/**
+ * SSR locale negotiation (D5/D6).
+ *
+ * `paraglideMiddleware` resolves the request locale from the configured
+ * strategies (URL, cookie, `Accept-Language`, host) and runs the render inside
+ * `AsyncLocalStorage`, so `getLocale()` and the compiled messages return the
+ * negotiated locale during server rendering instead of the base locale.
+ */
+export const onRequest = defineMiddleware((context, next) =>
+  paraglideMiddleware(context.request, ({ request }) => next(request)),
+);

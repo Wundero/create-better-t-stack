@@ -1,0 +1,17 @@
+import { createFormatters, type Formatters } from "@{{projectName}}/i18n";
+
+import { getLocale } from "../paraglide/runtime.js";
+
+/**
+ * Per-surface formatter glue (design D4): a `$derived` formatter bundle for
+ * the current locale. Read it as `useFormat().current`.
+ */
+export function useFormat(): { readonly current: Formatters } {
+  const formatters = $derived(createFormatters(getLocale()));
+
+  return {
+    get current() {
+      return formatters;
+    },
+  };
+}

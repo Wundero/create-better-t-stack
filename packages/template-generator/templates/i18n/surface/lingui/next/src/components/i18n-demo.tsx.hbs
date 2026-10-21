@@ -1,0 +1,64 @@
+"use client";
+
+import { useMemo, useState } from "react";
+import { Trans, useLingui } from "@lingui/react/macro";
+
+import { LOCALE_COOKIE, locales, type Locale } from "@{{projectName}}/i18n/config";
+import { createFormatters } from "@{{projectName}}/i18n/format";
+import { loadCatalog } from "@{{projectName}}/i18n/runtime";
+
+/**
+ * i18n demo: translated heading, interpolation, plural, currency, date and a
+ * locale switcher. Dates and numbers come from the shared `createFormatters`,
+ * never from Lingui (D4).
+ */
+export function I18nDemo() {
+  const { t, i18n } = useLingui();
+  const locale = i18n.locale as Locale;
+  const formatters = useMemo(() => createFormatters(locale), [locale]);
+  const [count, setCount] = useState(3);
+  const name = "Ada";
+  const referenceDate = new Date();
+
+  return (
+    <section className="rounded-lg border p-4">
+      <h2 className="mb-2 font-medium">{t`Internationalization`}</h2>
+      <p>{t`Hello ${name}, welcome back!`}</p>
+      <p>{t`{count, plural, one {# unread message} other {# unread messages}}`}</p>
+      <p>{formatters.currency(42.5, "EUR")}</p>
+      <p>{formatters.date(referenceDate)}</p>
+      <div className="mt-3 flex flex-wrap items-center gap-3">
+        <button
+          type="button"
+          className="rounded border px-2 py-1 text-sm"
+          onClick={() => setCount((value) => value + 1)}
+        >
+          <Trans>Add a message</Trans>
+        </button>
+        <label className="flex items-center gap-2 text-sm">
+          <Trans>Language</Trans>
+          <select
+            className="rounded border bg-transparent px-1 py-0.5"
+            value={locale}
+            onChange={(event) => {
+              const next = event.target.value as Locale;
+              window.localStorage.setItem(LOCALE_COOKIE, next);
+              document.cookie = `${LOCALE_COOKIE}=${next};path=/;max-age=31536000;samesite=lax`;
+              void loadCatalog(next).then((messages) => {
+                i18n.load(next, messages);
+                i18n.activate(next);
+                document.documentElement.lang = next;
+              });
+            }}
+          >
+            {locales.map((value) => (
+              <option key={value} value={value}>
+                {value}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
+    </section>
+  );
+}

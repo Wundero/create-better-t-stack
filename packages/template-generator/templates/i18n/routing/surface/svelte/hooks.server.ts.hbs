@@ -1,0 +1,15 @@
+import { isLocale, sourceLocale } from "@{{projectName}}/i18n/config";
+import { runWithLocale } from "@{{projectName}}/i18n/server";
+import type { Handle } from "@sveltejs/kit/hooks";
+
+import { paraglideMiddleware } from "./paraglide/server.js";
+
+// Server-side reroute for localized paths (`/fr/about` → `/about`).
+export { reroute } from "./paraglide/runtime.js";
+
+/** Resolves the Paraglide locale inside `runWithLocale` for SSR. */
+export const handle: Handle = ({ event, resolve }) =>
+  paraglideMiddleware(event.request, ({ request: localizedRequest, locale }) => {
+    event.request = localizedRequest;
+    return runWithLocale(isLocale(locale) ? locale : sourceLocale, () => resolve(event));
+  });

@@ -1,0 +1,16 @@
+// Server glue for i18next: a request-scoped translator. The locale middleware
+// (routing lane) wraps requests in `runWithLocale`; `getRequestLocale()` reads
+// the negotiated locale back synchronously.
+import { createFormatters } from "@{{projectName}}/i18n";
+import { createI18next } from "@{{projectName}}/i18n/runtime";
+import { getRequestLocale } from "@{{projectName}}/i18n/server";
+import type { Locale } from "@{{projectName}}/i18n";
+
+export function createRequestI18n(locale: Locale = getRequestLocale()) {
+  const instance = createI18next(locale);
+  return {
+    locale,
+    t: instance.getFixedT(locale),
+    format: createFormatters(locale),
+  };
+}
