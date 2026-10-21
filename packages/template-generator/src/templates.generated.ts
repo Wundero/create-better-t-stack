@@ -148,9 +148,9 @@ export default {
   "type": "module",
   "scripts": {},
   "devDependencies": {
-    "@types/bun": "^1.4.2",
-    "concurrently": "^10.0.5",
-    "electrobun": "^2.0.1",
+    "@types/bun": "^1.4.3",
+    "concurrently": "^10.0.6",
+    "electrobun": "^2.0.2",
     "typescript": "^6.0.3"
   }
 }
@@ -402,6 +402,14 @@ export default function PwaRegistration() {
     </main>
   </body>
 </html>
+`],
+  ["addons/pwa/apps/web/vite-ssr/src/pwa-registration.ts", `/// <reference types="vite-plugin-pwa/client" />
+
+if (!import.meta.env.SSR) {
+  import("virtual:pwa-register").then(({ registerSW }) => {
+    registerSW({ immediate: true });
+  });
+}
 `],
   ["addons/pwa/apps/web/vite/public/logo.png", `[Binary file]`],
   ["addons/pwa/apps/web/vite/pwa-assets.config.ts.hbs", `import {
@@ -4862,8 +4870,8 @@ const styles = StyleSheet.create((theme) => ({
   ["auth/better-auth/convex/native/uniwind/components/sign-in.tsx.hbs", `import { authClient } from "@/lib/auth-client";
 import { useForm } from "@tanstack/react-form";
 import { useRef } from "react";
-import { Text, TextInput, View } from "react-native";
-import { Button, FieldError, Input, Label, Spinner, Surface, TextField, useToast } from "heroui-native";
+import { Text, View } from "react-native";
+import { Button, FieldError, Input, type InputRef, Label, Spinner, Surface, TextField, useToast } from "heroui-native";
 import z from "zod";
 
 const signInSchema = z.object({
@@ -4906,7 +4914,7 @@ function getErrorMessage(error: unknown): string | null {
 }
 
 export function SignIn() {
-  const passwordInputRef = useRef<TextInput>(null);
+  const passwordInputRef = useRef<InputRef>(null);
   const { toast } = useToast();
 
   const form = useForm({
@@ -5020,8 +5028,8 @@ export function SignIn() {
   ["auth/better-auth/convex/native/uniwind/components/sign-up.tsx.hbs", `import { authClient } from "@/lib/auth-client";
 import { useForm } from "@tanstack/react-form";
 import { useRef } from "react";
-import { Text, TextInput, View } from "react-native";
-import { Button, FieldError, Input, Label, Spinner, Surface, TextField, useToast } from "heroui-native";
+import { Text, View } from "react-native";
+import { Button, FieldError, Input, type InputRef, Label, Spinner, Surface, TextField, useToast } from "heroui-native";
 import z from "zod";
 
 const signUpSchema = z.object({
@@ -5069,8 +5077,8 @@ function getErrorMessage(error: unknown): string | null {
 }
 
 export function SignUp() {
-  const emailInputRef = useRef<TextInput>(null);
-  const passwordInputRef = useRef<TextInput>(null);
+  const emailInputRef = useRef<InputRef>(null);
+  const passwordInputRef = useRef<InputRef>(null);
   const { toast } = useToast();
 
   const form = useForm({
@@ -8925,8 +8933,8 @@ import { queryClient } from "@/utils/orpc";
 {{/if}}
 import { useForm } from "@tanstack/react-form";
 import { useRef } from "react";
-import { Text, TextInput, View } from "react-native";
-import { Button, FieldError, Input, Label, Spinner, Surface, TextField, useToast } from "heroui-native";
+import { Text, View } from "react-native";
+import { Button, FieldError, Input, type InputRef, Label, Spinner, Surface, TextField, useToast } from "heroui-native";
 import z from "zod";
 
 const signInSchema = z.object({
@@ -8969,7 +8977,7 @@ function getErrorMessage(error: unknown): string | null {
 }
 
 function SignIn() {
-  const passwordInputRef = useRef<TextInput>(null);
+  const passwordInputRef = useRef<InputRef>(null);
   const { toast } = useToast();
 
   const form = useForm({
@@ -9097,8 +9105,8 @@ import { queryClient } from "@/utils/orpc";
 {{/if}}
 import { useForm } from "@tanstack/react-form";
 import { useRef } from "react";
-import { Text, TextInput, View } from "react-native";
-import { Button, FieldError, Input, Label, Spinner, Surface, TextField, useToast } from "heroui-native";
+import { Text, View } from "react-native";
+import { Button, FieldError, Input, type InputRef, Label, Spinner, Surface, TextField, useToast } from "heroui-native";
 import z from "zod";
 
 const signUpSchema = z.object({
@@ -9146,8 +9154,8 @@ function getErrorMessage(error: unknown): string | null {
 }
 
 export function SignUp() {
-  const emailInputRef = useRef<TextInput>(null);
-  const passwordInputRef = useRef<TextInput>(null);
+  const emailInputRef = useRef<InputRef>(null);
+  const passwordInputRef = useRef<InputRef>(null);
   const { toast } = useToast();
 
   const form = useForm({
@@ -13675,7 +13683,7 @@ export default function Login() {
 		mounted = true;
 	});
 
-	let { switchToSignUp } = $props<{ switchToSignUp: () => void }>();{{#if (includes addons "turnstile")}}
+	let { switchToSignUp }: { switchToSignUp: () => void } = $props();{{#if (includes addons "turnstile")}}
 
 	let turnstileToken = $state<string | null>(null);
 	let turnstileResetKey = $state(0);{{/if}}
@@ -13815,7 +13823,7 @@ export default function Login() {
 		mounted = true;
 	});
 
-	let { switchToSignIn } = $props<{ switchToSignIn: () => void }>();{{#if (includes addons "turnstile")}}
+	let { switchToSignIn }: { switchToSignIn: () => void } = $props();{{#if (includes addons "turnstile")}}
 
 	let turnstileToken = $state<string | null>(null);
 	let turnstileResetKey = $state(0);{{/if}}
@@ -14813,13 +14821,18 @@ function AuthLayout() {
 }
 `],
   ["auth/clerk/convex/web/react/tanstack-start/src/start.ts.hbs", `import { clerkMiddleware } from '@clerk/tanstack-react-start/server'
-import { createStart } from '@tanstack/react-start'
+import { createCsrfMiddleware, createStart } from '@tanstack/react-start'
+
+const csrfMiddleware = createCsrfMiddleware({
+	filter: (ctx) => ctx.handlerType === 'serverFn',
+})
 
 export const startInstance = createStart(() => {
 	return {
-		requestMiddleware: [clerkMiddleware()],
+		requestMiddleware: [csrfMiddleware, clerkMiddleware()],
 	}
-})`],
+})
+`],
   ["auth/clerk/native/base/app/(auth)/_layout.tsx.hbs", `import { Redirect, Stack } from "expo-router";
 import { useAuth } from "@clerk/expo";
 
@@ -15635,11 +15648,15 @@ function AuthLayout() {
 }
 `],
   ["auth/clerk/web/react/tanstack-start/src/start.ts.hbs", `import { clerkMiddleware } from '@clerk/tanstack-react-start/server'
-import { createStart } from '@tanstack/react-start'
+import { createCsrfMiddleware, createStart } from '@tanstack/react-start'
+
+const csrfMiddleware = createCsrfMiddleware({
+	filter: (ctx) => ctx.handlerType === 'serverFn',
+})
 
 export const startInstance = createStart(() => {
 	return {
-		requestMiddleware: [clerkMiddleware()],
+		requestMiddleware: [csrfMiddleware, clerkMiddleware()],
 	}
 })
 `],
@@ -17050,10 +17067,10 @@ temp
   ],
 {{#if (and (includes frontend "solid") (ne packageManager "pnpm"))}}
   "overrides": {
-    "solid-js": "2.0.0-rc.13",
-    "@solidjs/signals": "2.0.0-rc.13",
-    "@solidjs/compiler": "2.0.0-rc.13",
-    "@solidjs/babel-plugin": "2.0.0-rc.13"
+    "solid-js": "2.0.0-rc.14",
+    "@solidjs/signals": "2.0.0-rc.14",
+    "@solidjs/compiler": "2.0.0-rc.14",
+    "@solidjs/babel-plugin": "2.0.0-rc.14"
   },
 {{/if}}
   "scripts": {}
@@ -17916,7 +17933,7 @@ export function createPrismaClient(env: DatabaseConfig) {
 export type Database = ReturnType<typeof createPrismaClient>;
 `],
   ["db/prisma/sqlite/prisma.config.ts.hbs", `import path from "node:path";
-import { defineConfig, env } from "prisma/config";
+import { defineConfig{{#unless (or (eq dbSetup "turso") (eq dbSetup "d1"))}}, env{{/unless}} } from "prisma/config";
 import "varlock/auto-load";
 
 
@@ -17926,13 +17943,14 @@ export default defineConfig({
     path: path.join("prisma", "migrations"),
   },
   datasource: {
-    {{#if (eq dbSetup "turso")}}
+    {{#if (or (eq dbSetup "turso") (eq dbSetup "d1"))}}
     url: "file:./dev.db",
     {{else}}
     url: env("DATABASE_URL"),
     {{/if}}
   },
-});`],
+});
+`],
   ["db/prisma/sqlite/prisma/migrations/.gitkeep", ``],
   ["db/prisma/sqlite/prisma/schema/schema.prisma.hbs", `generator client {
   provider = "prisma-client"
@@ -18581,7 +18599,7 @@ CMD ["nginx", "-g", "daemon off;"]
     }
 }
 `],
-  ["deploy/docker/web/react/tanstack-start/Dockerfile.hbs", `{{#if (and (eq packageManager "bun") (not (includes addons "vite-plus")))}}
+  ["deploy/docker/web/react/tanstack-start/Dockerfile.hbs", `{{#if (and (eq packageManager "bun") (eq runtime "bun") (not (includes addons "vite-plus")))}}
 FROM oven/bun:1 AS builder
 {{else}}
 FROM node:24{{#unless (includes addons "vite-plus")}}-slim{{/unless}} AS builder
@@ -19287,7 +19305,7 @@ import {
 } from "@convex-dev/agent/react";
 import { api } from "@{{projectName}}/backend/convex/_generated/api";
 import { useMutation } from "convex/react";
-import { useRef, useEffect, useState } from "react";
+import { useRef, useEffect, useState, type ComponentRef } from "react";
 import {
   View,
   Text,
@@ -19345,7 +19363,7 @@ export default function AIScreen() {
   const [input, setInput] = useState("");
   const [threadId, setThreadId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const scrollViewRef = useRef<ScrollView>(null);
+  const scrollViewRef = useRef<ComponentRef<typeof ScrollView>>(null);
 
   const createThread = useMutation(api.chat.createNewThread);
   const sendMessage = useMutation(api.chat.sendMessage);
@@ -19794,7 +19812,7 @@ const styles = StyleSheet.create({
   },
 });
 {{else}}
-import { useRef, useEffect, useState } from "react";
+import { useRef, useEffect, useState, type ComponentRef } from "react";
 import { Ionicons } from "@expo/vector-icons";
 import {
   View,
@@ -19850,7 +19868,7 @@ export default function AIScreen() {
     }),
     onError: (error) => console.error(error, "AI Chat Error"),
   });
-  const scrollViewRef = useRef<ScrollView>(null);
+  const scrollViewRef = useRef<ComponentRef<typeof ScrollView>>(null);
   const isBusy = status === "submitted" || status === "streaming";
   const hasMessages = messages.length > 0;
   const canSend = Boolean(input.trim()) && !isBusy;
@@ -20377,7 +20395,7 @@ import {
 } from "@convex-dev/agent/react";
 import { api } from "@{{projectName}}/backend/convex/_generated/api";
 import { useMutation } from "convex/react";
-import { useRef, useEffect, useState } from "react";
+import { useRef, useEffect, useState, type ComponentRef } from "react";
 import {
   View,
   Text,
@@ -20432,7 +20450,7 @@ export default function AIScreen() {
   const [input, setInput] = useState("");
   const [threadId, setThreadId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const scrollViewRef = useRef<ScrollView>(null);
+  const scrollViewRef = useRef<ComponentRef<typeof ScrollView>>(null);
 
   const createThread = useMutation(api.chat.createNewThread);
   const sendMessage = useMutation(api.chat.sendMessage);
@@ -20890,7 +20908,7 @@ const styles = StyleSheet.create((theme) => ({
   },
 }));
 {{else}}
-import { useRef, useEffect, useState } from "react";
+import { useRef, useEffect, useState, type ComponentRef } from "react";
 import {
   View,
   Text,
@@ -20944,7 +20962,7 @@ export default function AIScreen() {
     onError: (error) => console.error(error, "AI Chat Error"),
   });
 
-  const scrollViewRef = useRef<ScrollView>(null);
+  const scrollViewRef = useRef<ComponentRef<typeof ScrollView>>(null);
   const isBusy = status === "submitted" || status === "streaming";
   const hasMessages = messages.length > 0;
   const canSend = Boolean(input.trim()) && !isBusy;
@@ -21464,7 +21482,7 @@ import {
 import { api } from "@{{projectName}}/backend/convex/_generated/api";
 import { useMutation } from "convex/react";
 import { Button, Separator, Spinner, Surface, Input, TextField, useThemeColor } from "heroui-native";
-import { useRef, useEffect, useState } from "react";
+import { useRef, useEffect, useState, type ComponentRef } from "react";
 import {
   View,
   Text,
@@ -21513,7 +21531,7 @@ export default function AIScreen() {
   const [input, setInput] = useState("");
   const [threadId, setThreadId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const scrollViewRef = useRef<ScrollView>(null);
+  const scrollViewRef = useRef<ComponentRef<typeof ScrollView>>(null);
   const mutedColor = useThemeColor("muted");
   const foregroundColor = useThemeColor("foreground");
 
@@ -21733,7 +21751,7 @@ export default function AIScreen() {
   );
 }
 {{else}}
-import { useRef, useEffect, useState } from "react";
+import { useRef, useEffect, useState, type ComponentRef } from "react";
 import {
   View,
   Text,
@@ -21783,7 +21801,7 @@ export default function AIScreen() {
     }),
     onError: (error) => console.error(error, "AI Chat Error"),
   });
-  const scrollViewRef = useRef<ScrollView>(null);
+  const scrollViewRef = useRef<ComponentRef<typeof ScrollView>>(null);
   const foregroundColor = useThemeColor("foreground");
   const mutedColor = useThemeColor("muted");
   const isBusy = status === "submitted" || status === "streaming";
@@ -27794,7 +27812,7 @@ import { defineConfig } from "astro/config";
 {{#if (or (includes addons "electrobun") (includes addons "tauri"))}}
 {{else if (eq webDeploy "vercel")}}
 import vercel from "@astrojs/vercel";
-{{else if (or (eq webDeploy "cloudflare") (and (eq webDeploy "prisma") (eq backend "none")))}}
+{{else if (or (eq webDeploy "cloudflare") (eq webDeploy "prisma"))}}
 {{else}}
 import node from "@astrojs/node";
 {{/if}}
@@ -27809,7 +27827,7 @@ export default defineConfig({
 {{else if (eq webDeploy "vercel")}}
   output: "server",
   adapter: vercel(),
-{{else if (or (eq webDeploy "cloudflare") (and (eq webDeploy "prisma") (eq backend "none")))}}
+{{else if (or (eq webDeploy "cloudflare") (eq webDeploy "prisma"))}}
   output: "server",
 {{else}}
   output: "server",
@@ -27827,12 +27845,12 @@ export default defineConfig({
   "version": "0.0.1",
   "scripts": {
     "dev": "astro dev",
-{{#unless (eq webDeploy "cloudflare")}}
+{{#unless (or (eq webDeploy "cloudflare") (eq webDeploy "prisma"))}}
     "build": "{{#if (and (eq api "orpc") (ne backend "convex") (ne backend "none"))}}tsc -b ../../packages/api && {{/if}}astro build",
 
 {{/unless}}
 		"check-types": "{{#if (and (eq api "orpc") (ne backend "convex") (ne backend "none"))}}tsc -b ../../packages/api && {{/if}}astro check",
-{{#unless (eq webDeploy "cloudflare")}}
+{{#unless (or (eq webDeploy "cloudflare") (eq webDeploy "prisma"))}}
     "preview": "astro preview",
 {{/unless}}
     "astro": "astro"
@@ -28191,7 +28209,7 @@ const DARK_THEME = {
 };
 
 export const unstable_settings = {
-  initialRouteName: "(drawer)",
+  anchor: "(drawer)",
 };
 
 {{#if (eq backend "convex")}}
@@ -28365,7 +28383,7 @@ const DrawerLayout = () => {
           headerTitle: "Home",
           drawerLabel: "Home",
           drawerIcon: ({ size, color }) => (
-            <Ionicons name="home-outline" size={size} color={color} />
+            <Ionicons name="home-outline" size={size} style=\\{{ color: color ?? theme.text }} />
           ),
         }}
       />
@@ -28375,7 +28393,7 @@ const DrawerLayout = () => {
           headerTitle: "Tabs",
           drawerLabel: "Tabs",
           drawerIcon: ({ size, color }) => (
-            <MaterialIcons name="border-bottom" size={size} color={color} />
+            <MaterialIcons name="border-bottom" size={size} style=\\{{ color: color ?? theme.text }} />
           ),
           headerRight: () => (
             <Link href="/modal" asChild>
@@ -28391,7 +28409,7 @@ const DrawerLayout = () => {
           headerTitle: "Todos",
           drawerLabel: "Todos",
           drawerIcon: ({ size, color }) => (
-            <Ionicons name="checkbox-outline" size={size} color={color} />
+            <Ionicons name="checkbox-outline" size={size} style=\\{{ color: color ?? theme.text }} />
           ),
         }}
       />
@@ -28406,7 +28424,7 @@ const DrawerLayout = () => {
             <Ionicons
               name="chatbubble-ellipses-outline"
               size={size}
-              color={color}
+              style=\\{{ color: color ?? theme.text }}
             />
           ),
         }}
@@ -28444,7 +28462,7 @@ export default function TabLayout() {
         name="index"
         options=\\{{
           title: "Home",
-          tabBarIcon: ({ color }) => <TabBarIcon name="home" color={color} />,
+          tabBarIcon: ({ color }) => <TabBarIcon name="home" color={color ?? theme.text} />,
         }}
       />
       <Tabs.Screen
@@ -28452,7 +28470,7 @@ export default function TabLayout() {
         options=\\{{
           title: "Explore",
           tabBarIcon: ({ color }) => (
-            <TabBarIcon name="compass" color={color} />
+            <TabBarIcon name="compass" color={color ?? theme.text} />
           ),
         }}
       />
@@ -29066,7 +29084,10 @@ const styles = StyleSheet.create({
 `],
   ["frontend/native/bare/babel.config.js.hbs", `module.exports = {
   presets: ["babel-preset-expo"],
-  plugins: [require("@varlock/expo-integration/babel-plugin")],
+  plugins: [
+    require("@varlock/expo-integration/babel-plugin"),
+    require("./babel-plugins/hermes-async-arrow-rest-params"),
+  ],
 };
 `],
   ["frontend/native/bare/components/container.tsx.hbs", `import React from "react";
@@ -29098,13 +29119,13 @@ const styles = StyleSheet.create({
 });
 `],
   ["frontend/native/bare/components/header-button.tsx.hbs", `import FontAwesome from "@expo/vector-icons/FontAwesome";
-import { forwardRef } from "react";
-import { Pressable, StyleSheet, View } from "react-native";
+import { forwardRef, type ComponentRef } from "react";
+import { Pressable, StyleSheet } from "react-native";
 import { useColorScheme } from "@/lib/use-color-scheme";
 import { NAV_THEME } from "@/lib/constants";
 
 export const HeaderButton = forwardRef<
-  View,
+  ComponentRef<typeof Pressable>,
   { onPress?: () => void }
 >(({ onPress }, ref) => {
   const { colorScheme } = useColorScheme();
@@ -29146,14 +29167,16 @@ const styles = StyleSheet.create({
 
 `],
   ["frontend/native/bare/components/tabbar-icon.tsx.hbs", `import FontAwesome from "@expo/vector-icons/FontAwesome";
+import type { TextStyle } from "react-native";
 
 type FontAwesomeProps = React.ComponentProps<typeof FontAwesome>;
 
 export const TabBarIcon = (props: {
   name: FontAwesomeProps["name"];
-  color: FontAwesomeProps["color"];
+  color: TextStyle["color"];
 }) => {
-  return <FontAwesome size={24} style=\\{{ marginBottom: -3 }} {...props} />;
+  const { color, ...iconProps } = props;
+  return <FontAwesome size={24} style={[{ marginBottom: -3, color }]} {...iconProps} />;
 };
 `],
   ["frontend/native/bare/lib/constants.ts.hbs", `export const NAV_THEME = {
@@ -29228,37 +29251,38 @@ module.exports = withVarlockMetroConfig(config);
     "check-types": "{{#if (and (eq api "orpc") (ne backend "convex") (ne backend "none"))}}tsc -b ../../packages/api && {{/if}}tsc --noEmit"
   },
   "dependencies": {
-    "@expo/ui": "~57.0.16",
+    "@expo/ui": "~58.0.19",
     "@expo/vector-icons": "^15.0.2",
     "@tanstack/react-query": "^5.102.8",
     {{#if (includes examples "ai")}}
     "@stardazed/streams-text-encoding": "^1.0.2",
     "@ungap/structured-clone": "^1.4.0",
     {{/if}}
-    "expo": "~57.0.20",
-    "expo-constants": "~57.0.17",
-    "expo-crypto": "~57.0.2",
-    "expo-font": "~57.0.3",
-    "expo-linking": "~57.0.9",
-    "expo-network": "~57.0.1",
-    "expo-router": "~57.0.19",
-    "expo-secure-store": "~57.0.3",
-    "expo-splash-screen": "~57.0.8",
-    "expo-status-bar": "~57.0.1",
-    "expo-system-ui": "~57.0.3",
-    "expo-web-browser": "~57.0.2",
-    "react": "19.2.3",
-    "react-dom": "19.2.3",
-    "react-native": "0.86.3",
-    "react-native-gesture-handler": "~2.32.0",
-    "react-native-reanimated": "4.5.1",
-    "react-native-safe-area-context": "~5.7.0",
-    "react-native-screens": "~4.26.0",
-    "react-native-web": "~0.21.0",
-    "react-native-worklets": "0.10.1"
+    "expo": "~58.0.12",
+    "expo-constants": "~58.0.12",
+    "expo-dev-client": "~58.0.13",
+    "expo-crypto": "~58.0.6",
+    "expo-font": "~58.0.8",
+    "expo-linking": "~58.0.13",
+    "expo-network": "~58.0.3",
+    "expo-router": "~58.0.21",
+    "expo-secure-store": "~58.0.2",
+    "expo-splash-screen": "~58.0.9",
+    "expo-status-bar": "~58.0.3",
+    "expo-system-ui": "~58.0.6",
+    "expo-web-browser": "~58.0.6",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "react-native": "0.88.0",
+    "react-native-gesture-handler": "~3.3.0",
+    "react-native-reanimated": "4.7.1",
+    "react-native-safe-area-context": "~5.10.1",
+    "react-native-screens": "~4.30.0",
+    "react-native-web": "~0.21.4",
+    "react-native-worklets": "0.13.0"
   },
   "devDependencies": {
-    "@types/react": "~19.2.18",
+    "@types/react": "~19.3.0",
     "typescript": "~6.0.3"
   },
   "private": true
@@ -29289,6 +29313,37 @@ module.exports = withVarlockMetroConfig(config);
   ["frontend/native/base/assets/images/react-logo@2x.png", `[Binary file]`],
   ["frontend/native/base/assets/images/react-logo@3x.png", `[Binary file]`],
   ["frontend/native/base/assets/images/splash-icon.png", `[Binary file]`],
+  ["frontend/native/base/babel-plugins/hermes-async-arrow-rest-params.js", `// Hermes 260318099.0.4 (react-native 0.88) cannot compile async arrow functions
+// with a rest parameter, such as \`async (...[input, options = {}]) => {}\` in
+// @orpc/client. babel-preset-expo 58.0.18 dropped the transform that rewrote them.
+// Remove this plugin once Hermes compiles the syntax again:
+// https://github.com/expo/expo/issues/51842
+module.exports = function hermesAsyncArrowRestParams({ types: t }) {
+  return {
+    name: "hermes-async-arrow-rest-params",
+    visitor: {
+      ArrowFunctionExpression(path) {
+        const { node } = path;
+        if (!node.async || !node.params.some((param) => t.isRestElement(param))) {
+          return;
+        }
+
+        // \`async (a, ...[b]) => body\` becomes
+        // \`(...args) => (async ([a, ...[b]]) => body)(args)\`.
+        // The sync wrapper only collects arguments. The async arrow keeps them in
+        // a parameter, so defaults still resolve in the parameter scope and a
+        // failure while binding them rejects the returned promise.
+        const args = path.scope.generateUidIdentifier("args");
+        const inner = t.arrowFunctionExpression([t.arrayPattern(node.params)], node.body, true);
+
+        node.async = false;
+        node.params = [t.restElement(t.cloneNode(args))];
+        node.body = t.callExpression(inner, [t.cloneNode(args)]);
+      },
+    },
+  };
+};
+`],
   ["frontend/native/unistyles/_gitignore", `# Learn more https://docs.github.com/en/get-started/getting-started-with-git/ignoring-files
 
 # dependencies
@@ -29425,7 +29480,7 @@ import { useUnistyles } from "react-native-unistyles";
 import { StatusBar } from "expo-status-bar";
 
 export const unstable_settings = {
-  initialRouteName: "(drawer)",
+  anchor: "(drawer)",
 };
 
 {{#if (eq backend "convex")}}
@@ -29667,7 +29722,7 @@ const DrawerLayout = () => {
           headerTitle: "Home",
           drawerLabel: "Home",
           drawerIcon: ({ size, color }) => (
-            <Ionicons name="home-outline" size={size} color={color} />
+            <Ionicons name="home-outline" size={size} style=\\{{ color: color ?? theme.colors.foreground }} />
           ),
         }}
       />
@@ -29677,7 +29732,7 @@ const DrawerLayout = () => {
           headerTitle: "Tabs",
           drawerLabel: "Tabs",
           drawerIcon: ({ size, color }) => (
-            <MaterialIcons name="border-bottom" size={size} color={color} />
+            <MaterialIcons name="border-bottom" size={size} style=\\{{ color: color ?? theme.colors.foreground }} />
           ),
           headerRight: () => (
             <Link href="/modal" asChild>
@@ -29693,7 +29748,7 @@ const DrawerLayout = () => {
           headerTitle: "Todos",
           drawerLabel: "Todos",
           drawerIcon: ({ size, color }) => (
-            <Ionicons name="checkbox-outline" size={size} color={color} />
+            <Ionicons name="checkbox-outline" size={size} style=\\{{ color: color ?? theme.colors.foreground }} />
           ),
         }}
       />
@@ -29708,7 +29763,7 @@ const DrawerLayout = () => {
             <Ionicons
               name="chatbubble-ellipses-outline"
               size={size}
-              color={color}
+              style=\\{{ color: color ?? theme.colors.foreground }}
             />
           ),
         }}
@@ -29746,7 +29801,7 @@ export default function TabLayout() {
         name="index"
         options=\\{{
           title: "Home",
-          tabBarIcon: ({ color }) => <TabBarIcon name="home" color={color} />,
+          tabBarIcon: ({ color }) => <TabBarIcon name="home" color={color ?? theme.colors.foreground} />,
         }}
       />
       <Tabs.Screen
@@ -29754,7 +29809,7 @@ export default function TabLayout() {
         options=\\{{
           title: "Explore",
           tabBarIcon: ({ color }) => (
-            <TabBarIcon name="compass" color={color} />
+            <TabBarIcon name="compass" color={color ?? theme.colors.foreground} />
           ),
         }}
       />
@@ -30311,7 +30366,7 @@ const styles = StyleSheet.create((theme) => ({
   },
 }));
 `],
-  ["frontend/native/unistyles/app/+html.tsx.hbs", `import { ScrollViewStyleReset } from "expo-router/html";
+  ["frontend/native/unistyles/app/+html.tsx.hbs", `import { ScrollViewStyleReset, useServerDocumentContext } from "expo-router/html";
 import { type PropsWithChildren } from "react";
 
 import "../unistyles";
@@ -30321,9 +30376,12 @@ import "../unistyles";
 // The contents of this function only run in Node.js environments and
 // do not have access to the DOM or browser APIs.
 export default function Root({ children }: PropsWithChildren) {
+  const { htmlAttributes, bodyAttributes, headNodes, bodyNodes } = useServerDocumentContext();
+
   return (
-    <html lang="en">
+    <html lang="en" {...htmlAttributes}>
       <head>
+        {headNodes}
         <meta charSet="utf-8" />
         <meta httpEquiv="X-UA-Compatible" content="IE=edge" />
         <meta
@@ -30339,7 +30397,7 @@ export default function Root({ children }: PropsWithChildren) {
 
         {/* Add any additional <head> elements that you want globally available on web... */}
       </head>
-      <body>{children}</body>
+      <body {...bodyAttributes}>{children}{bodyNodes}</body>
     </html>
   );
 }
@@ -30455,6 +30513,7 @@ const styles = StyleSheet.create((theme) => ({
 		presets: ["babel-preset-expo"],
 		plugins: [
       require("@varlock/expo-integration/babel-plugin"),
+			require("./babel-plugins/hermes-async-arrow-rest-params"),
 			[
 				"react-native-unistyles/plugin",
 				{
@@ -30497,16 +30556,16 @@ const styles = StyleSheet.create((theme, rt) => ({
   ["frontend/native/unistyles/components/header-button.tsx.hbs", `import "@/unistyles";
 
 import FontAwesome from "@expo/vector-icons/FontAwesome";
-import { forwardRef } from "react";
+import { forwardRef, type ComponentRef } from "react";
 import { Pressable } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
 
 export const HeaderButton = forwardRef<
-  typeof Pressable,
+  ComponentRef<typeof Pressable>,
   { onPress?: () => void }
 >(({ onPress }, ref) => {
   return (
-    <Pressable onPress={onPress} style={styles.button}>
+    <Pressable ref={ref} onPress={onPress} style={styles.button}>
       {({ pressed }) => (
         <FontAwesome
           name="info-circle"
@@ -30534,14 +30593,16 @@ const styles = StyleSheet.create((theme) => ({
 }));
 `],
   ["frontend/native/unistyles/components/tabbar-icon.tsx.hbs", `import FontAwesome from "@expo/vector-icons/FontAwesome";
+import type { TextStyle } from "react-native";
 
 type FontAwesomeProps = React.ComponentProps<typeof FontAwesome>;
 
 export const TabBarIcon = (props: {
   name: FontAwesomeProps["name"];
-  color: FontAwesomeProps["color"];
+  color: TextStyle["color"];
 }) => {
-  return <FontAwesome size={24} style=\\{{ marginBottom: -3 }} {...props} />;
+  const { color, ...iconProps } = props;
+  return <FontAwesome size={24} style={[{ marginBottom: -3, color }]} {...iconProps} />;
 };
 `],
   ["frontend/native/unistyles/index.js.hbs", `import './unistyles';
@@ -30582,36 +30643,35 @@ module.exports = withVarlockMetroConfig(config);
     "@stardazed/streams-text-encoding": "^1.0.2",
     "@ungap/structured-clone": "^1.4.0",
     {{/if}}
-    "babel-preset-expo": "~57.0.10",
-    "expo": "~57.0.20",
-    "expo-constants": "~57.0.17",
-    "expo-crypto": "~57.0.2",
-    "expo-dev-client": "~57.0.18",
-    "expo-font": "~57.0.3",
-    "expo-linking": "~57.0.9",
-    "expo-network": "~57.0.1",
-    "expo-router": "~57.0.19",
-    "expo-secure-store": "~57.0.3",
-    "expo-splash-screen": "~57.0.8",
-    "expo-status-bar": "~57.0.1",
-    "expo-system-ui": "~57.0.3",
-    "expo-web-browser": "~57.0.2",
-    "react": "19.2.3",
-    "react-dom": "19.2.3",
-    "react-native": "0.86.3",
-    "react-native-gesture-handler": "~2.32.0",
+    "expo": "~58.0.12",
+    "expo-constants": "~58.0.12",
+    "expo-crypto": "~58.0.6",
+    "expo-dev-client": "~58.0.13",
+    "expo-font": "~58.0.8",
+    "expo-linking": "~58.0.13",
+    "expo-network": "~58.0.3",
+    "expo-router": "~58.0.21",
+    "expo-secure-store": "~58.0.2",
+    "expo-splash-screen": "~58.0.9",
+    "expo-status-bar": "~58.0.3",
+    "expo-system-ui": "~58.0.6",
+    "expo-web-browser": "~58.0.6",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "react-native": "0.88.0",
+    "react-native-gesture-handler": "~3.3.0",
     "react-native-nitro-modules": "0.37.1",
-    "react-native-reanimated": "4.5.1",
-    "react-native-safe-area-context": "~5.7.0",
-    "react-native-screens": "~4.26.0",
+    "react-native-reanimated": "4.7.1",
+    "react-native-safe-area-context": "~5.10.1",
+    "react-native-screens": "~4.30.0",
     "react-native-unistyles": "^3.3.0",
-    "react-native-web": "~0.21.0",
-    "react-native-worklets": "0.10.1"
+    "react-native-web": "~0.21.4",
+    "react-native-worklets": "0.13.0"
   },
   "devDependencies": {
     "ajv": "^8.20.0",
     "@babel/core": "^7.29.7",
-    "@types/react": "~19.2.18",
+    "@types/react": "~19.3.0",
     "typescript": "~6.0.3"
   }
 }
@@ -30905,7 +30965,7 @@ import { AppThemeProvider } from "@/contexts/app-theme-context";
 {{/if}}
 
 export const unstable_settings = {
-  initialRouteName: "(drawer)",
+  anchor: "(drawer)",
 };
 
 {{#if (eq backend "convex")}}
@@ -31076,7 +31136,7 @@ function DrawerLayout() {
             <Text style=\\{{ color: focused ? color : themeColorForeground }}>Home</Text>
           ),
           drawerIcon: ({ size, color, focused }) => (
-            <Ionicons name="home-outline" size={size} color={focused ? color : themeColorForeground} />
+            <Ionicons name="home-outline" size={size} style=\\{{ color: focused ? color : themeColorForeground }} />
           ),
         }}
       />
@@ -31088,12 +31148,12 @@ function DrawerLayout() {
             <Text style=\\{{ color: focused ? color : themeColorForeground }}>Tabs</Text>
           ),
           drawerIcon: ({ size, color, focused }) => (
-            <MaterialIcons name="border-bottom" size={size} color={focused ? color : themeColorForeground} />
+            <MaterialIcons name="border-bottom" size={size} style=\\{{ color: focused ? color : themeColorForeground }} />
           ),
           headerRight: () => (
             <Link href="/modal" asChild>
               <Pressable className="mr-4">
-                <Ionicons name="add-outline" size={24} color={themeColorForeground} />
+                <Ionicons name="add-outline" size={24} style=\\{{ color: themeColorForeground }} />
               </Pressable>
             </Link>
           ),
@@ -31108,7 +31168,7 @@ function DrawerLayout() {
             <Text style=\\{{ color: focused ? color : themeColorForeground }}>Todos</Text>
           ),
           drawerIcon: ({ size, color, focused }) => (
-            <Ionicons name="checkbox-outline" size={size} color={focused ? color : themeColorForeground} />
+            <Ionicons name="checkbox-outline" size={size} style=\\{{ color: focused ? color : themeColorForeground }} />
           ),
         }}
       />
@@ -31122,7 +31182,7 @@ function DrawerLayout() {
             <Text style=\\{{ color: focused ? color : themeColorForeground }}>AI</Text>
           ),
           drawerIcon: ({ size, color, focused }) => (
-            <Ionicons name="chatbubble-ellipses-outline" size={size} color={focused ? color : themeColorForeground} />
+            <Ionicons name="chatbubble-ellipses-outline" size={size} style=\\{{ color: focused ? color : themeColorForeground }} />
           ),
         }}
       />
@@ -31162,7 +31222,7 @@ export default function TabLayout() {
 				options=\\{{
 					title: "Home",
 					tabBarIcon: ({ color, size }) => (
-						<Ionicons name="home" size={size} color={color} />
+						<Ionicons name="home" size={size} style=\\{{ color: color ?? themeColorForeground }} />
 					),
 				}}
 			/>
@@ -31171,7 +31231,7 @@ export default function TabLayout() {
 				options=\\{{
 					title: "Explore",
 					tabBarIcon: ({ color, size }) => (
-						<Ionicons name="compass" size={size} color={color} />
+						<Ionicons name="compass" size={size} style=\\{{ color: color ?? themeColorForeground }} />
 					),
 				}}
 			/>
@@ -31578,7 +31638,10 @@ export default Modal;
 `],
   ["frontend/native/uniwind/babel.config.js.hbs", `module.exports = {
   presets: ["babel-preset-expo"],
-  plugins: [require("@varlock/expo-integration/babel-plugin")],
+  plugins: [
+    require("@varlock/expo-integration/babel-plugin"),
+    require("./babel-plugins/hermes-async-arrow-rest-params"),
+  ],
 };
 `],
   ["frontend/native/uniwind/components/container.tsx.hbs", `import { cn } from "heroui-native";
@@ -31771,45 +31834,46 @@ module.exports = withVarlockMetroConfig(uniwindConfig);
     "check-types": "{{#if (and (eq api "orpc") (ne backend "convex") (ne backend "none"))}}tsc -b ../../packages/api && {{/if}}tsc --noEmit"
   },
   "dependencies": {
-    "@expo/metro-runtime": "~57.0.15",
+    "@expo/metro-runtime": "~58.0.14",
     "@expo/vector-icons": "^15.0.2",
     "@gorhom/bottom-sheet": "^5.2.14",
     {{#if (includes examples "ai")}}
     "@stardazed/streams-text-encoding": "^1.0.2",
     "@ungap/structured-clone": "^1.4.0",
     {{/if}}
-    "expo": "~57.0.20",
-    "expo-constants": "~57.0.17",
-    "expo-font": "~57.0.3",
-    "expo-haptics": "~57.0.2",
-    "expo-linking": "~57.0.9",
-    "expo-network": "~57.0.1",
-    "expo-router": "~57.0.19",
-    "expo-secure-store": "~57.0.3",
-    "expo-splash-screen": "~57.0.8",
-    "expo-status-bar": "~57.0.1",
-    "expo-system-ui": "~57.0.3",
-    "expo-web-browser": "~57.0.2",
-    "heroui-native": "^1.0.9",
-    "react": "19.2.3",
-    "react-dom": "19.2.3",
-    "react-native": "0.86.3",
-    "react-native-gesture-handler": "~2.32.0",
-    "react-native-keyboard-controller": "1.21.9",
-    "react-native-reanimated": "4.5.1",
-    "react-native-safe-area-context": "~5.7.0",
-    "react-native-screens": "~4.26.0",
-    "react-native-svg": "15.15.4",
-    "react-native-web": "~0.21.0",
-    "react-native-worklets": "0.10.1",
+    "expo": "~58.0.12",
+    "expo-constants": "~58.0.12",
+    "expo-dev-client": "~58.0.13",
+    "expo-font": "~58.0.8",
+    "expo-haptics": "~58.0.6",
+    "expo-linking": "~58.0.13",
+    "expo-network": "~58.0.3",
+    "expo-router": "~58.0.21",
+    "expo-secure-store": "~58.0.2",
+    "expo-splash-screen": "~58.0.9",
+    "expo-status-bar": "~58.0.3",
+    "expo-system-ui": "~58.0.6",
+    "expo-web-browser": "~58.0.6",
+    "heroui-native": "^1.0.10",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "react-native": "0.88.0",
+    "react-native-gesture-handler": "~3.3.0",
+    "react-native-keyboard-controller": "1.22.7",
+    "react-native-reanimated": "4.7.1",
+    "react-native-safe-area-context": "~5.10.1",
+    "react-native-screens": "~4.30.0",
+    "react-native-svg": "15.16.0",
+    "react-native-web": "~0.21.4",
+    "react-native-worklets": "0.13.0",
     "tailwind-merge": "^3.6.0",
     "tailwind-variants": "^3.3.1",
     "tailwindcss": "^4.3.3",
-    "uniwind": "^1.12.0"
+    "uniwind": "^1.12.2"
   },
   "devDependencies": {
     "@types/node": "^26.4.1",
-    "@types/react": "~19.2.18",
+    "@types/react": "~19.3.0",
     "typescript": "~6.0.3"
   }
 }
@@ -31821,6 +31885,7 @@ module.exports = withVarlockMetroConfig(uniwindConfig);
   "extends": "expo/tsconfig.base",
   "compilerOptions": {
     "strict": true,
+    "customConditions": ["react-native", "react-native-legacy-deep-imports"],
     "paths": {
       "@/*": ["./*"]
     }
@@ -31831,7 +31896,8 @@ module.exports = withVarlockMetroConfig(uniwindConfig);
     ".expo/types/**/*.ts",
     "expo-env.d.ts"
   ]
-}`],
+}
+`],
   ["frontend/native/uniwind/uniwind-env.d.ts", `/// <reference types="uniwind/types" />
 
 declare module "*.css";
@@ -32322,7 +32388,7 @@ initOpenNextCloudflareForDev();
     "@{{projectName}}/ui": "{{#if (eq packageManager "npm")}}*{{else}}workspace:*{{/if}}",
     "@swc/helpers": "^0.5.23",
     "lucide-react": "^1.41.0",
-    "next": "^16.3.4",
+    "next": "^16.4.2",
     "next-themes": "^0.4.6",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
@@ -33312,23 +33378,23 @@ export default defineConfig({{#if (and (or (eq webDeploy "vercel") (eq webDeploy
 	"dependencies": {
         "@{{projectName}}/ui": "{{#if (eq packageManager "npm")}}*{{else}}workspace:*{{/if}}",
 		"@tailwindcss/vite": "^4.3.3",
-		"@tanstack/react-router": "^1.170.32",
-		"lucide-react": "^1.41.0",
+		"@tanstack/react-router": "^1.170.44",
+		"lucide-react": "^1.56.0",
         "next-themes": "^0.4.6",
-		"react": "^19.2.8",
-		"react-dom": "^19.2.8",
+		"react": "^19.3.0",
+		"react-dom": "^19.3.0",
         "sonner": "^2.0.8"
 	},
 	"devDependencies": {
-		"@tanstack/react-router-devtools": "^1.167.1",
-		"@tanstack/router-plugin": "^1.168.35",
-		"@types/node": "^26.4.1",
-		"@types/react": "^19.2.18",
-		"@types/react-dom": "^19.2.7",
-		"@vitejs/plugin-react": "^6.1.1",
-		"postcss": "^8.5.28",
+		"@tanstack/react-router-devtools": "^1.167.2",
+		"@tanstack/router-plugin": "^1.168.45",
+		"@types/node": "^26.6.5",
+		"@types/react": "^19.3.0",
+		"@types/react-dom": "^19.3.0",
+		"@vitejs/plugin-react": "^6.1.2",
+		"postcss": "^8.5.30",
 		"tailwindcss": "^4.3.3",
-		"vite": "^8.2.2"
+		"vite": "^8.3.4"
 	}
 }
 `],
@@ -33765,26 +33831,26 @@ export default defineConfig({
   "dependencies": {
     "@{{projectName}}/ui": "{{#if (eq packageManager "npm")}}*{{else}}workspace:*{{/if}}",
     "@tailwindcss/vite": "^4.3.3",
-    "@tanstack/react-query": "^5.102.8",
-    "@tanstack/react-router": "^1.170.32",
-    "@tanstack/react-start": "^1.168.49",
-    "lucide-react": "^1.41.0",
+    "@tanstack/react-query": "^5.104.2",
+    "@tanstack/react-router": "^1.170.44",
+    "@tanstack/react-start": "^1.169.1",
+    "lucide-react": "^1.56.0",
     "next-themes": "^0.4.6",
-    "react": "^19.2.8",
-    "react-dom": "^19.2.8",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
     "sonner": "^2.0.8",
     "tailwindcss": "^4.3.3"
   },
   "devDependencies": {
-    "@tanstack/react-router-devtools": "^1.167.1",
-    "@testing-library/dom": "^10.4.1",
+    "@tanstack/react-router-devtools": "^1.167.2",
+    "@testing-library/dom": "^10.4.2",
     "@testing-library/react": "^16.3.3",
-    "@types/react": "^19.2.18",
-    "@types/react-dom": "^19.2.7",
-    "@vitejs/plugin-react": "^6.1.1",
-    "jsdom": "^30.0.1",
-    "vite": "^8.2.2",
-    "web-vitals": "^6.2.1"
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.1.2",
+    "jsdom": "^30.1.2",
+    "vite": "^8.3.4",
+    "web-vitals": "^6.2.3"
   }
 }
 `],
@@ -34407,8 +34473,8 @@ export default defineConfig({
 {{/if}}
     viteReact(),
   ],
-{{#if (eq webDeploy "vercel")}}
-  // Bundle all SSR deps: Vercel functions have no node_modules at runtime
+{{#if (or (eq webDeploy "vercel") (and (eq webDeploy "prisma") (ne backend "none")))}}
+  // These deployments run the standalone build artifact.
   ssr: {
     noExternal: true,
   },
@@ -34626,12 +34692,12 @@ dist
   },
   "dependencies": {
     "@solidjs/meta": "1.0.0-next.2",
-    "@solidjs/router": "2.0.0-next.34",
-    "@solidjs/web": "2.0.0-rc.13",
-    "solid-js": "2.0.0-rc.13"
+    "@solidjs/router": "2.0.0-next.38",
+    "@solidjs/web": "2.0.0-rc.14",
+    "solid-js": "2.0.0-rc.14"
   },
   "devDependencies": {
-    "@solidjs/vite-plugin": "3.0.0-next.47",
+    "@solidjs/vite-plugin": "3.0.0-next.49",
     "@tailwindcss/vite": "^4.3.3",
     "filesystem-routing": "0.4.0",
     "tailwindcss": "^4.3.3",
@@ -34747,10 +34813,13 @@ export default function Document(props: ParentProps) {
   );
 }
 `],
-  ["frontend/solid/src/middleware.ts", `import { createAPIHandler } from "filesystem-routing/api";
+  ["frontend/solid/src/middleware.ts", `import type { StartMiddleware } from "@solidjs/vite-plugin";
+import { createAPIHandler } from "filesystem-routing/api";
 import routes from "virtual:file-routes";
 
-export default [createAPIHandler(routes)];
+const handleAPI = createAPIHandler(routes);
+
+export default ((event, next) => handleAPI(event.request, next)) satisfies StartMiddleware;
 `],
   ["frontend/solid/src/router.ts", `import { createRouter } from "@solidjs/router";
 import { fileRoutes } from "@solidjs/router/fs";
@@ -48512,4 +48581,4 @@ export default function Success() {
 `]
 ]);
 
-export const TEMPLATE_COUNT = 764;
+export const TEMPLATE_COUNT = 766;
