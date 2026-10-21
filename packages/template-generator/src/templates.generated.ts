@@ -31382,7 +31382,7 @@ initOpenNextCloudflareForDev();
     "@{{projectName}}/ui": "{{#if (eq packageManager "npm")}}*{{else}}workspace:*{{/if}}",
     "@swc/helpers": "^0.5.23",
     "lucide-react": "^1.41.0",
-    "next": "^16.3.4",
+    "next": "^16.4.2",
     "next-themes": "^0.4.6",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
