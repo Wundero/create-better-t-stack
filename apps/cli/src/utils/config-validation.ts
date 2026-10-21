@@ -172,6 +172,14 @@ export function validateDatabaseSetup(
       errorMessage:
         "Docker setup is not compatible with SQLite database or Cloudflare Workers runtime.",
     },
+    fly: {
+      errorMessage:
+        "Fly setup requires PostgreSQL database. Please use '--database postgres' or choose a different setup.",
+    },
+    railway: {
+      errorMessage:
+        "Railway setup requires PostgreSQL, MySQL, or MongoDB database. Please use '--database postgres', '--database mysql', or '--database mongodb' or choose a different setup.",
+    },
     none: { errorMessage: "" },
   } satisfies Record<DatabaseSetup, { errorMessage: string }>;
 
