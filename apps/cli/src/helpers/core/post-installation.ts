@@ -704,6 +704,7 @@ function getPolarInstructions(backend: Backend, packageManager: string) {
 function getAlchemyTargetLabel(deploy: WebDeploy | ServerDeploy) {
   if (deploy === "cloudflare") return "Cloudflare";
   if (deploy === "aws") return "AWS";
+  if (deploy === "neon") return "Neon";
   return "Prisma";
 }
 
