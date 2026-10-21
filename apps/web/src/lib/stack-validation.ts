@@ -192,7 +192,6 @@ function getAddonIssue(stack: StackState, addon: StackState["addons"][number]) {
     return `${PROVIDER_ADDON_META[addon].label} requires ${PROVIDER_ADDON_REQUIREMENTS[PROVIDER_ADDON_META[addon].provider]}`;
   }
 
-
   return null;
 }
 

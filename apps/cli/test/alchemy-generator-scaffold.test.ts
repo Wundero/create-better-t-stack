@@ -19,6 +19,9 @@ const common = {
   install: false,
   packageManager: "bun",
   api: "orpc",
+  emailRenderer: "none",
+  emailDeploy: "none",
+  i18n: "none",
 } satisfies Partial<ProjectConfig>;
 
 const SCAFFOLD_CONFIGS = {

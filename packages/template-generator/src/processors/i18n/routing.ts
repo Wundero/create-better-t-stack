@@ -169,7 +169,8 @@ function mergeSvelteServerHook(
 ): void {
   const template = templates.get("i18n/routing/surface/svelte/hooks.server.ts.hbs");
   if (template === undefined) return;
-  const rendered = processTemplateString(template, config);
+  const rendered =
+    template.kind === "raw" ? template.content : processTemplateString(template, config);
 
   const existing = vfs.readFile(path);
   if (existing === undefined) {

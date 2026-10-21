@@ -4,6 +4,164 @@
 import type { CompiledTemplate, TemplateEntry } from "./core/template-spec";
 
 const RAW_TEMPLATE_ENTRIES: ReadonlyArray<readonly [string, TemplateEntry]> = [
+  ["addons/aws-bedrock/apps/server/src/aws/bedrock.ts", { kind: "raw", content: `import { createAmazonBedrock } from "@ai-sdk/amazon-bedrock";
+import { generateText } from "ai";
+
+const bedrock = createAmazonBedrock({
+  region: process.env.AWS_REGION ?? "us-east-1",
+});
+
+export function askBedrock(prompt: string) {
+  return generateText({
+    model: bedrock(process.env.BEDROCK_MODEL_ID ?? "us.amazon.nova-lite-v1:0"),
+    prompt,
+  });
+}
+` }],
+  ["addons/aws-cloudfront/apps/server/src/aws/cloudfront.ts.hbs", { kind: "template", "0":function(container,depth0,helpers,partials,data) {
+    return "import { PutObjectCommand, S3Client } from \"@aws-sdk/client-s3\";\n\nconst client = new S3Client({});\n\nexport function uploadAsset(key: string, body: string) {\n  return client.send(\n    new PutObjectCommand({\n      Bucket: process.env.CLOUDFRONT_BUCKET_NAME!,\n      Key: key,\n      Body: body,\n    }),\n  );\n}\n";
+},"compiler":[8,">= 4.3.0"],"main":function(container,depth0,helpers,partials,data) {
+    var stack1, alias1=depth0 != null ? depth0 : (container.nullContext || {}), lookupProperty = container.lookupProperty || function(parent: any, propertyName: any) {
+        if (Object.prototype.hasOwnProperty.call(parent, propertyName)) {
+          return parent[propertyName];
+        }
+        return undefined
+    };
+
+  return ((stack1 = lookupProperty(helpers,"unless").call(alias1,(lookupProperty(helpers,"includes")||(depth0 && lookupProperty(depth0,"includes"))||container.hooks.helperMissing).call(alias1,(depth0 != null ? lookupProperty(depth0,"addons") : depth0),"aws-s3",{"name":"includes","hash":{},"data":data,"loc":{"start":{"line":1,"column":10},"end":{"line":1,"column":36}}}),{"name":"unless","hash":{},"fn":container.program(0, data, 0),"inverse":container.noop,"data":data,"loc":{"start":{"line":1,"column":0},"end":{"line":15,"column":11}}})) != null ? stack1 : "")
+    + "\nexport const cdn = {\n  distributionId: process.env.CLOUDFRONT_DISTRIBUTION_ID!,\n  url: process.env.CLOUDFRONT_URL!,\n};\n";
+},"useData":true}],
+  ["addons/aws-elasticache/apps/server/src/aws/elasticache.ts", { kind: "raw", content: `import Redis from "ioredis";
+
+export function createCacheClient() {
+  return new Redis({
+    host: process.env.ELASTICACHE_HOST!,
+    port: Number(process.env.ELASTICACHE_PORT ?? 6379),
+    tls: process.env.ELASTICACHE_TLS === "true" ? {} : undefined,
+    maxRetriesPerRequest: 2,
+  });
+}
+` }],
+  ["addons/aws-eventbridge/apps/server/src/aws/eventbridge.ts.hbs", { kind: "template", "compiler":[8,">= 4.3.0"],"main":function(container,depth0,helpers,partials,data) {
+    var helper, lookupProperty = container.lookupProperty || function(parent: any, propertyName: any) {
+        if (Object.prototype.hasOwnProperty.call(parent, propertyName)) {
+          return parent[propertyName];
+        }
+        return undefined
+    };
+
+  return "import { EventBridgeClient, PutEventsCommand } from \"@aws-sdk/client-eventbridge\";\n\ntype JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };\n\nconst client = new EventBridgeClient({});\n\nexport function emitEvent(detailType: string, detail: JsonValue) {\n  return client.send(\n    new PutEventsCommand({\n      Entries: [\n        {\n          EventBusName: process.env.EVENT_BUS_NAME!,\n          Source: \""
+    + container.escapeExpression(((helper = (helper = lookupProperty(helpers,"projectName") || (depth0 != null ? lookupProperty(depth0,"projectName") : depth0)) != null ? helper : container.hooks.helperMissing),(typeof helper === "function" ? helper.call(depth0 != null ? depth0 : (container.nullContext || {}),{"name":"projectName","hash":{},"data":data,"loc":{"start":{"line":13,"column":19},"end":{"line":13,"column":34}}}) : helper)))
+    + ".app\",\n          DetailType: detailType,\n          Detail: JSON.stringify(detail),\n        },\n      ],\n    }),\n  );\n}\n";
+},"useData":true}],
+  ["addons/aws-kinesis/apps/server/src/aws/kinesis.ts", { kind: "raw", content: `import { KinesisClient, PutRecordCommand } from "@aws-sdk/client-kinesis";
+
+type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
+
+const client = new KinesisClient({});
+const encoder = new TextEncoder();
+
+export function putRecord(partitionKey: string, data: JsonValue) {
+  return client.send(
+    new PutRecordCommand({
+      StreamName: process.env.KINESIS_STREAM_NAME!,
+      PartitionKey: partitionKey,
+      Data: encoder.encode(JSON.stringify(data)),
+    }),
+  );
+}
+` }],
+  ["addons/aws-lambda-microvm/apps/server/src/aws/microvm.ts", { kind: "raw", content: `import { LambdaMicrovmsClient, RunMicrovmCommand } from "@aws-sdk/client-lambda-microvms";
+
+const client = new LambdaMicrovmsClient({});
+
+export function runSandbox() {
+  return client.send(
+    new RunMicrovmCommand({
+      imageIdentifier: process.env.MICROVM_IMAGE_ARN!,
+      idlePolicy: {
+        maxIdleDurationSeconds: 900,
+        suspendedDurationSeconds: 300,
+        autoResumeEnabled: true,
+      },
+    }),
+  );
+}
+` }],
+  ["addons/aws-lambda-microvm/apps/server/src/aws/microvm/Dockerfile", { kind: "raw", content: `FROM public.ecr.aws/lambda/microvms:al2023-minimal
+
+RUN dnf install -y nodejs && dnf clean all
+
+WORKDIR /app
+COPY server.mjs /app/server.mjs
+
+ENV PORT=8080
+EXPOSE 8080
+CMD ["node", "/app/server.mjs"]
+` }],
+  ["addons/aws-lambda-microvm/apps/server/src/aws/microvm/server.mjs", { kind: "raw", content: `import { createServer } from "node:http";
+
+const port = Number(process.env.PORT ?? 8080);
+
+createServer((request, response) => {
+  response.setHeader("content-type", "application/json");
+  response.end(JSON.stringify({ ok: true, path: request.url }));
+}).listen(port, () => {
+  console.log(\`microvm listening on \${port}\`);
+});
+` }],
+  ["addons/aws-s3/apps/server/src/aws/s3.ts", { kind: "raw", content: `import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
+
+const client = new S3Client({});
+
+export function putAsset(key: string, value: string) {
+  return client.send(
+    new PutObjectCommand({
+      Bucket: process.env.S3_BUCKET_NAME!,
+      Key: key,
+      Body: value,
+    }),
+  );
+}
+` }],
+  ["addons/aws-scheduler/apps/server/src/aws/scheduler.ts", { kind: "raw", content: `import { GetScheduleCommand, SchedulerClient } from "@aws-sdk/client-scheduler";
+
+const client = new SchedulerClient({});
+
+export function getSchedule() {
+  return client.send(
+    new GetScheduleCommand({
+      Name: process.env.SCHEDULER_SCHEDULE_NAME!,
+    }),
+  );
+}
+` }],
+  ["addons/aws-sns/apps/server/src/aws/sns.ts", { kind: "raw", content: `import { PublishCommand, SNSClient } from "@aws-sdk/client-sns";
+
+const client = new SNSClient({});
+
+export function publishNotification(message: string) {
+  return client.send(
+    new PublishCommand({
+      TopicArn: process.env.SNS_TOPIC_ARN!,
+      Message: message,
+    }),
+  );
+}
+` }],
+  ["addons/aws-sqs/apps/server/src/aws/sqs.ts", { kind: "raw", content: `import { SendMessageCommand, SQSClient } from "@aws-sdk/client-sqs";
+
+const client = new SQSClient({});
+
+export function enqueueJob(job: string) {
+  return client.send(
+    new SendMessageCommand({
+      QueueUrl: process.env.SQS_QUEUE_URL!,
+      MessageBody: job,
+    }),
+  );
+}
+` }],
   ["addons/biome/biome.json.hbs", { kind: "template", "0":function(container,depth0,helpers,partials,data) {
     return "	,\n	\"overrides\": [\n		{\n			\"includes\": [\"**/*.svelte\", \"**/*.vue\"],\n			\"linter\": {\n				\"rules\": {\n					\"style\": {\n						\"useConst\": \"off\",\n						\"useImportType\": \"off\"\n					},\n					\"correctness\": {\n						\"noUnusedVariables\": \"off\",\n						\"noUnusedImports\": \"off\"\n					}\n				}\n			}\n		}\n	]\n";
 },"compiler":[8,">= 4.3.0"],"main":function(container,depth0,helpers,partials,data) {
@@ -18,6 +176,86 @@ const RAW_TEMPLATE_ENTRIES: ReadonlyArray<readonly [string, TemplateEntry]> = [
     + ((stack1 = lookupProperty(helpers,"if").call(alias1,(lookupProperty(helpers,"or")||(depth0 && lookupProperty(depth0,"or"))||alias2).call(alias1,(lookupProperty(helpers,"includes")||(depth0 && lookupProperty(depth0,"includes"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"frontend") : depth0),"svelte",{"name":"includes","hash":{},"data":data,"loc":{"start":{"line":77,"column":11},"end":{"line":77,"column":39}}}),(lookupProperty(helpers,"includes")||(depth0 && lookupProperty(depth0,"includes"))||alias2).call(alias1,(depth0 != null ? lookupProperty(depth0,"frontend") : depth0),"nuxt",{"name":"includes","hash":{},"data":data,"loc":{"start":{"line":77,"column":40},"end":{"line":77,"column":66}}}),{"name":"or","hash":{},"data":data,"loc":{"start":{"line":77,"column":7},"end":{"line":77,"column":67}}}),{"name":"if","hash":{},"fn":container.program(0, data, 0),"inverse":container.noop,"data":data,"loc":{"start":{"line":77,"column":1},"end":{"line":96,"column":8}}})) != null ? stack1 : "")
     + "}\n";
 },"useData":true}],
+  ["addons/cloudflare-ai-search/apps/server/src/cloudflare/ai-search.ts", { kind: "raw", content: `import { ENV } from "../env.server";
+
+export function askSearch(query: string) {
+  return ENV.AI_SEARCH.chatCompletions({ messages: [{ role: "user", content: query }] });
+}
+` }],
+  ["addons/cloudflare-containers/apps/server/src/cloudflare/app-container.ts", { kind: "raw", content: `import { Container } from "@cloudflare/containers";
+
+export class AppContainer extends Container<Env> {
+  defaultPort = 80;
+}
+` }],
+  ["addons/cloudflare-durable-objects/apps/server/src/cloudflare/counter.ts", { kind: "raw", content: `import { DurableObject } from "cloudflare:workers";
+
+export class Counter extends DurableObject<Env> {
+  async increment(): Promise<number> {
+    const value = ((await this.ctx.storage.get<number>("value")) ?? 0) + 1;
+    await this.ctx.storage.put("value", value);
+    return value;
+  }
+}
+` }],
+  ["addons/cloudflare-flagship/apps/server/src/cloudflare/flagship.ts", { kind: "raw", content: `import { ENV } from "../env.server";
+
+export function isNewCheckoutEnabled(userId: string) {
+  return ENV.FEATURE_FLAGS.getBooleanValue("new-checkout", false, { userId });
+}
+` }],
+  ["addons/cloudflare-kv/apps/server/src/cloudflare/kv.ts", { kind: "raw", content: `import { ENV } from "../env.server";
+
+export function readValue(key: string) {
+  return ENV.KV_NAMESPACE.get(key);
+}
+` }],
+  ["addons/cloudflare-pipelines/apps/server/src/cloudflare/pipelines.ts", { kind: "raw", content: `import { ENV } from "../env.server";
+
+export function sendEvent(event: string) {
+  return ENV.PIPELINES.send([{ event, at: new Date().toISOString() }]);
+}
+` }],
+  ["addons/cloudflare-queues/apps/server/src/cloudflare/queue.ts", { kind: "raw", content: `import { ENV } from "../env.server";
+
+export function enqueueJob(job: string) {
+  return ENV.JOB_QUEUE.send(job);
+}
+` }],
+  ["addons/cloudflare-r2/apps/server/src/cloudflare/r2.ts", { kind: "raw", content: `import { ENV } from "../env.server";
+
+export function putAsset(key: string, value: string) {
+  return ENV.R2_BUCKET.put(key, value);
+}
+` }],
+  ["addons/cloudflare-realtime-kit/apps/server/src/cloudflare/realtime-kit.ts", { kind: "raw", content: `import { ENV } from "../env.server";
+
+export const realtimeKitAppId = ENV.REALTIME_KIT_APP_ID;
+` }],
+  ["addons/cloudflare-sandboxes/apps/server/src/cloudflare/sandbox.ts", { kind: "raw", content: `import { getSandbox, type Sandbox } from "@cloudflare/sandbox";
+
+import { ENV } from "../env.server";
+
+export { Sandbox } from "@cloudflare/sandbox";
+
+export function getAppSandbox(id = "default") {
+  return getSandbox(ENV.SANDBOX as DurableObjectNamespace<Sandbox>, id);
+}
+` }],
+  ["addons/cloudflare-stream/apps/server/src/cloudflare/stream.ts", { kind: "raw", content: `import { ENV } from "../env.server";
+
+export const stream = ENV.STREAM;
+` }],
+  ["addons/cloudflare-workers-ai/apps/server/src/cloudflare/workers-ai.ts", { kind: "raw", content: `import { generateText } from "ai";
+import { createWorkersAI } from "workers-ai-provider";
+
+import { ENV } from "../env.server";
+
+export function askWorkersAI(prompt: string) {
+  const workersai = createWorkersAI({ binding: ENV.AI });
+  return generateText({ model: workersai("@cf/meta/llama-3.1-8b-instruct"), prompt });
+}
+` }],
   ["addons/electrobun/apps/desktop/.gitignore", { kind: "raw", content: `.hutch/
 /artifacts/
 /build/
@@ -302,6 +540,39 @@ export default tseslint.config(
   return "# Lefthook configuration\n# https://github.com/evilmartians/lefthook\n\npre-commit:\n  parallel: true\n  jobs:\n"
     + ((stack1 = lookupProperty(helpers,"if").call(alias1,(lookupProperty(helpers,"includes")||(depth0 && lookupProperty(depth0,"includes"))||container.hooks.helperMissing).call(alias1,(depth0 != null ? lookupProperty(depth0,"addons") : depth0),"biome",{"name":"includes","hash":{},"data":data,"loc":{"start":{"line":7,"column":6},"end":{"line":7,"column":31}}}),{"name":"if","hash":{},"fn":container.program(0, data, 0),"inverse":container.program(1, data, 0),"data":data,"loc":{"start":{"line":7,"column":0},"end":{"line":36,"column":7}}})) != null ? stack1 : "");
 },"useData":true}],
+  ["addons/neon-ai-gateway/apps/server/src/neon/ai-gateway.ts", { kind: "raw", content: `import { createNeon } from "@neon/ai-sdk-provider";
+import { generateText } from "ai";
+
+const neon = createNeon({
+  baseURL: process.env.NEON_AI_GATEWAY_BASE_URL,
+  apiKey: process.env.NEON_AI_GATEWAY_TOKEN,
+});
+
+export function askNeonAI(prompt: string) {
+  return generateText({ model: neon("gpt-5-mini"), prompt });
+}
+` }],
+  ["addons/neon-buckets/apps/server/src/neon/buckets.ts", { kind: "raw", content: `import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
+
+const client = new S3Client({
+  endpoint: process.env.AWS_ENDPOINT_URL_S3,
+  region: process.env.AWS_REGION,
+  credentials: {
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
+  },
+});
+
+export function putAsset(key: string, value: string) {
+  return client.send(
+    new PutObjectCommand({
+      Bucket: process.env.S3_BUCKET_NAME!,
+      Key: key,
+      Body: value,
+    }),
+  );
+}
+` }],
   ["addons/pwa/apps/web/next/public/favicon/apple-touch-icon.png", { kind: "raw", content: `[Binary file]` }],
   ["addons/pwa/apps/web/next/public/favicon/favicon-96x96.png", { kind: "raw", content: `[Binary file]` }],
   ["addons/pwa/apps/web/next/public/favicon/favicon.svg", { kind: "raw", content: `<svg xmlns="http://www.w3.org/2000/svg" version="1.1" xmlns:xlink="http://www.w3.org/1999/xlink" width="92" height="92"><svg width="92" height="92" viewBox="0 0 92 92" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -23686,6 +23957,9 @@ export function plural(
     + container.escapeExpression(((helper = (helper = lookupProperty(helpers,"projectName") || (depth0 != null ? lookupProperty(depth0,"projectName") : depth0)) != null ? helper : container.hooks.helperMissing),(typeof helper === "function" ? helper.call(depth0 != null ? depth0 : (container.nullContext || {}),{"name":"projectName","hash":{},"data":data,"loc":{"start":{"line":2,"column":32},"end":{"line":2,"column":47}}}) : helper)))
     + "/i18n/routing\";\n\nconst links = hreflangLinks(Astro.url.pathname, Astro.url.origin);\n---\n\n{links.map(({ hreflang, href }) => (\n  <link rel=\"alternate\" hreflang={hreflang} href={href} />\n))}\n";
 },"useData":true}],
+  ["i18n/routing/surface/astro/middleware.ts.hbs", { kind: "template", "compiler":[8,">= 4.3.0"],"main":function(container,depth0,helpers,partials,data) {
+    return "import { defineMiddleware } from \"astro:middleware\";\n\nimport { paraglideMiddleware } from \"./paraglide/server.js\";\n\n/**\n * SSR locale negotiation (D5/D6).\n *\n * `paraglideMiddleware` resolves the request locale from the configured\n * strategies (URL, cookie, `Accept-Language`, host) and runs the render inside\n * `AsyncLocalStorage`, so `getLocale()` and the compiled messages return the\n * negotiated locale during server rendering instead of the base locale.\n */\nexport const onRequest = defineMiddleware((context, next) =>\n  paraglideMiddleware(context.request, ({ request }) => next(request)),\n);\n";
+},"useData":true}],
   ["i18n/routing/surface/next/hreflang.tsx.hbs", { kind: "template", "compiler":[8,">= 4.3.0"],"main":function(container,depth0,helpers,partials,data) {
     var helper, lookupProperty = container.lookupProperty || function(parent: any, propertyName: any) {
         if (Object.prototype.hasOwnProperty.call(parent, propertyName)) {
@@ -24348,16 +24622,18 @@ export function plural(
     + "/i18n/runtime\";\nimport { useTranslation } from \"i18next-vue\";\nimport { computed, onUnmounted, ref } from \"vue\";\nimport { useFormat } from \"~/composables/use-format\";\n\nconst { t, i18next } = useTranslation();\nconst locale = ref(currentLocale());\nconst syncLocale = () => {\n  locale.value = currentLocale();\n};\ni18next.on(\"languageChanged\", syncLocale);\nonUnmounted(() => {\n  i18next.off(\"languageChanged\", syncLocale);\n});\n\nconst formatters = useFormat();\nconst languageName = computed(() => formatters.value.displayName(locale.value) ?? locale.value);\nconst count = 2;\n\n// Message keys carry i18next `{{placeholders}}`; computing them here keeps the\n// literal out of Vue's `{{ }}` interpolation, which would close on the inner `}}`.\nconst heading = computed(() => t(\"i18n demo\"));\nconst greeting = computed(() => t(\"Hello, {{name}}!\", { name: \"Ada\" }));\nconst messages = computed(() => t(\"You have {{count}} new message\", { count }));\nconst currentLocaleLabel = computed(() =>\n  t(\"Current locale: {{locale}}\", { locale: locale.value }),\n);\n\nfunction changeLocale(option: string) {\n  if (isLocale(option)) void setLocale(option);\n}\n</script>\n\n<template>\n  <main class=\"container mx-auto max-w-2xl space-y-4 px-4 py-10\">\n    <h1 class=\"text-2xl font-semibold\">{{ heading }}</h1>\n    <p>{{ greeting }}</p>\n    <p>{{ messages }}</p>\n    <dl class=\"grid grid-cols-2 gap-2 text-sm\">\n      <dt class=\"text-muted-foreground\">{{ t(\"Language\") }}</dt>\n      <dd>{{ languageName }}</dd>\n      <dt class=\"text-muted-foreground\">{{ currentLocaleLabel }}</dt>\n      <dd>\n        {{ formatters.date(new Date(\"2026-10-14T12:00:00Z\")) }} ·\n        {{ formatters.currency(42.5, \"EUR\") }}\n      </dd>\n    </dl>\n    <div class=\"flex flex-wrap gap-2\">\n      <button\n        v-for=\"option in locales\"\n        :key=\"option\"\n        type=\"button\"\n        class=\"rounded-md border px-3 py-1 text-sm\"\n        @click=\"changeLocale(option)\"\n      >\n        {{ option }}\n      </button>\n    </div>\n  </main>\n</template>\n";
 },"useData":true}],
   ["i18n/surface/i18next/nuxt/app/plugins/i18n.ts.hbs", { kind: "template", "compiler":[8,">= 4.3.0"],"main":function(container,depth0,helpers,partials,data) {
-    var helper, lookupProperty = container.lookupProperty || function(parent: any, propertyName: any) {
+    var helper, alias1=depth0 != null ? depth0 : (container.nullContext || {}), alias2=container.hooks.helperMissing, alias3="function", alias4=container.escapeExpression, lookupProperty = container.lookupProperty || function(parent: any, propertyName: any) {
         if (Object.prototype.hasOwnProperty.call(parent, propertyName)) {
           return parent[propertyName];
         }
         return undefined
     };
 
-  return "// Registers the shared i18next instance with the i18next-vue plugin. Templates\n// get `$t`; components can use `useTranslation()` from `i18next-vue`.\nimport { initI18next } from \"@"
-    + container.escapeExpression(((helper = (helper = lookupProperty(helpers,"projectName") || (depth0 != null ? lookupProperty(depth0,"projectName") : depth0)) != null ? helper : container.hooks.helperMissing),(typeof helper === "function" ? helper.call(depth0 != null ? depth0 : (container.nullContext || {}),{"name":"projectName","hash":{},"data":data,"loc":{"start":{"line":3,"column":30},"end":{"line":3,"column":45}}}) : helper)))
-    + "/i18n/runtime\";\nimport I18NextVue from \"i18next-vue\";\n\nexport default defineNuxtPlugin((nuxtApp) => {\n  nuxtApp.vueApp.use(I18NextVue, { i18next: initI18next() });\n});\n";
+  return "// Registers the shared i18next instance with the i18next-vue plugin. Templates\n// get `$t`; components can use `useTranslation()` from `i18next-vue`.\n//\n// `@nuxtjs/i18n` owns locale detection (domain / prefix / cookie) and routing;\n// i18next owns the messages. Seed the instance with the module's active locale\n// and follow its switches, so SSR and navigation render the negotiated locale\n// instead of the base locale.\nimport { isLocale } from \"@"
+    + alias4(((helper = (helper = lookupProperty(helpers,"projectName") || (depth0 != null ? lookupProperty(depth0,"projectName") : depth0)) != null ? helper : alias2),(typeof helper === alias3 ? helper.call(alias1,{"name":"projectName","hash":{},"data":data,"loc":{"start":{"line":8,"column":27},"end":{"line":8,"column":42}}}) : helper)))
+    + "/i18n\";\nimport { initI18next } from \"@"
+    + alias4(((helper = (helper = lookupProperty(helpers,"projectName") || (depth0 != null ? lookupProperty(depth0,"projectName") : depth0)) != null ? helper : alias2),(typeof helper === alias3 ? helper.call(alias1,{"name":"projectName","hash":{},"data":data,"loc":{"start":{"line":9,"column":30},"end":{"line":9,"column":45}}}) : helper)))
+    + "/i18n/runtime\";\nimport I18NextVue from \"i18next-vue\";\n\nexport default defineNuxtPlugin((nuxtApp) => {\n  const activeLocale = nuxtApp.$i18n.locale.value;\n  const instance = initI18next(isLocale(activeLocale) ? activeLocale : undefined);\n\n  nuxtApp.vueApp.use(I18NextVue, { i18next: instance });\n\n  nuxtApp.hook(\"i18n:localeSwitched\", ({ newLocale }) => {\n    if (isLocale(newLocale)) void instance.changeLanguage(newLocale);\n  });\n});\n";
 },"useData":true}],
   ["i18n/surface/i18next/opentui-core/src/i18n-demo.ts.hbs", { kind: "template", "compiler":[8,">= 4.3.0"],"main":function(container,depth0,helpers,partials,data) {
     var helper, alias1=depth0 != null ? depth0 : (container.nullContext || {}), alias2=container.hooks.helperMissing, alias3="function", alias4=container.escapeExpression, lookupProperty = container.lookupProperty || function(parent: any, propertyName: any) {
@@ -26853,4 +27129,4 @@ export const EMBEDDED_TEMPLATES: Map<string, TemplateEntry> = new Map(RAW_TEMPLA
 
 export const EMBEDDED_PARTIALS: Map<string, CompiledTemplate> = new Map(RAW_PARTIAL_ENTRIES);
 
-export const TEMPLATE_COUNT = 847;
+export const TEMPLATE_COUNT = 874;
