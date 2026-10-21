@@ -188,7 +188,7 @@ describe("planWorkspaceApp", () => {
           "package.json",
           JSON.stringify({
             name: "acme",
-            workspaces: { packages: ["apps/*", "packages/*"], catalog: { next: "^16.3.4" } },
+            workspaces: { packages: ["apps/*", "packages/*"], catalog: { next: "^16.4.2" } },
           }),
         ],
         ["packages/config/package.json", JSON.stringify({ name: "@acme/config" })],
@@ -227,11 +227,11 @@ describe("planWorkspaceApp", () => {
         ],
         [
           "packages/config/package.json",
-          JSON.stringify({ name: "@acme/config", dependencies: { next: "^16.3.4" } }),
+          JSON.stringify({ name: "@acme/config", dependencies: { next: "^16.4.2" } }),
         ],
         [
           "packages/api/package.json",
-          JSON.stringify({ name: "@acme/api", dependencies: { next: "^16.3.4" } }),
+          JSON.stringify({ name: "@acme/api", dependencies: { next: "^16.4.2" } }),
         ],
       ]);
 
@@ -270,7 +270,7 @@ describe("planWorkspaceApp", () => {
       expect(root.devDependencies?.typescript).toBe("catalog:");
       expect(root.devDependencies?.varlock).toBe("catalog:");
       expect(root.dependencies).toBeUndefined();
-      expect(root.workspaces?.catalog?.next).toBe("^16.3.4");
+      expect(root.workspaces?.catalog?.next).toBe("^16.4.2");
     });
   });
 
@@ -295,7 +295,7 @@ describe("planWorkspaceApp", () => {
         ["packages/config/package.json", JSON.stringify({ name: "@acme/config" })],
         [
           "packages/api/package.json",
-          JSON.stringify({ name: "@acme/api", dependencies: { next: "^16.3.4" } }),
+          JSON.stringify({ name: "@acme/api", dependencies: { next: "^16.4.2" } }),
         ],
       ]);
     }
@@ -345,7 +345,7 @@ describe("planWorkspaceApp", () => {
         ["packages/config/package.json", JSON.stringify({ name: "@acme/config" })],
         [
           "packages/api/package.json",
-          JSON.stringify({ name: "@acme/api", dependencies: { next: "^16.3.4" } }),
+          JSON.stringify({ name: "@acme/api", dependencies: { next: "^16.4.2" } }),
         ],
       ]);
     }
@@ -387,7 +387,7 @@ describe("planWorkspaceApp", () => {
         ["packages/config/package.json", JSON.stringify({ name: "@acme/config" })],
         [
           "packages/api/package.json",
-          JSON.stringify({ name: "@acme/api", dependencies: { next: "^16.3.4" } }),
+          JSON.stringify({ name: "@acme/api", dependencies: { next: "^16.4.2" } }),
         ],
       ]);
 
