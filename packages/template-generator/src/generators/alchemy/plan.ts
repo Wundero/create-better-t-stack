@@ -48,6 +48,9 @@ export type AlchemyDeploymentPlan = {
   hasAxiomServerRuntime: boolean;
   hasAxiomWebRuntime: boolean;
   hasAxiomVercelRuntime: boolean;
+  hasTurnstile: boolean;
+  hasTurnstileServerRuntime: boolean;
+  hasTurnstileWebRuntime: boolean;
   needsStandaloneServerDev: boolean;
   needsStandaloneWebDev: boolean;
 };
@@ -121,6 +124,10 @@ export function createAlchemyDeploymentPlan(config: ProjectConfig): AlchemyDeplo
   const hasAxiomVercelRuntime =
     (hasAxiomWebRuntime && config.webDeploy === "vercel") ||
     (hasAxiomServerRuntime && config.serverDeploy === "vercel");
+  const hasTurnstile = config.addons.includes("turnstile");
+  const hasTurnstileServerRuntime =
+    hasTurnstile && (config.backend === "self" || config.serverDeploy === "cloudflare");
+  const hasTurnstileWebRuntime = hasTurnstile && config.webDeploy === "cloudflare";
 
   const web: AlchemyWebPlan = isAlchemyDeployTarget(config.webDeploy)
     ? {
@@ -150,6 +157,9 @@ export function createAlchemyDeploymentPlan(config: ProjectConfig): AlchemyDeplo
     hasAxiomServerRuntime,
     hasAxiomWebRuntime,
     hasAxiomVercelRuntime,
+    hasTurnstile,
+    hasTurnstileServerRuntime,
+    hasTurnstileWebRuntime,
     needsStandaloneServerDev: hasAxiomServerRuntime && server.target === "none",
     needsStandaloneWebDev: hasAxiomWebRuntime && web.target === "none",
   };

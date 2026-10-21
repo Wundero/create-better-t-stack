@@ -14,6 +14,7 @@ import {
   supportsConvexBetterAuth,
   isFrontendAllowedWithBackend,
   validateAddonCompatibility,
+  validateTurnstileCompatibility,
   supportsPrismaWebDeploy,
   hasCloudflareNextPostgresConflict,
   getDesktopDeployConflict,
@@ -87,7 +88,18 @@ function getAddonIssue(stack: StackState, addon: StackState["addons"][number]) {
     stack.auth,
     getStackBackend(stack.backend),
   );
-  return result.isCompatible ? null : (result.reason ?? "Incompatible addon");
+  if (!result.isCompatible) return result.reason ?? "Incompatible addon";
+
+  if (addon === "turnstile") {
+    const deployResult = validateTurnstileCompatibility({
+      webDeploy: stack.webDeploy,
+      serverDeploy: stack.serverDeploy,
+      backend: getStackBackend(stack.backend),
+    });
+    if (!deployResult.isCompatible) return deployResult.reason ?? "Incompatible addon";
+  }
+
+  return null;
 }
 
 export const getCategoryDisplayName = (categoryKey: string): string => {

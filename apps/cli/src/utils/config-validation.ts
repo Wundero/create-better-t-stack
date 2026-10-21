@@ -38,6 +38,7 @@ import {
   validateCloudflareWebDeployKnownIssues,
   validateWebDeployRequiresWebFrontend,
   validateWorkersCompatibility,
+  validateTurnstileCompatibility,
 } from "./compatibility-rules";
 import { ValidationError } from "./errors";
 
@@ -45,6 +46,16 @@ type ValidationResult = Result<void, ValidationError>;
 
 function validationErr(message: string): ValidationResult {
   return Result.err(new ValidationError({ message }));
+}
+
+function turnstileDeployError(config: Partial<ProjectConfig>): ValidationResult | undefined {
+  if (!config.addons?.includes("turnstile")) return undefined;
+  const turnstile = validateTurnstileCompatibility({
+    webDeploy: config.webDeploy,
+    serverDeploy: config.serverDeploy,
+    backend: config.backend,
+  });
+  return turnstile.isCompatible ? undefined : validationErr(turnstile.reason);
 }
 
 function hasResolvedWorkersD1Target(config: Partial<ProjectConfig>) {
@@ -483,6 +494,9 @@ export function validateFullConfig(
         config.backend,
         config.runtime,
       );
+
+      const turnstileError = turnstileDeployError(config);
+      if (turnstileError) yield* turnstileError;
       config.addons = [...new Set(config.addons)];
     }
 
@@ -530,6 +544,9 @@ export function validateConfigForProgrammaticUse(config: Partial<ProjectConfig>)
         config.backend,
         config.runtime,
       );
+
+      const turnstileError = turnstileDeployError(config);
+      if (turnstileError) yield* turnstileError;
     }
 
     yield* validateExamplesCompatibility(

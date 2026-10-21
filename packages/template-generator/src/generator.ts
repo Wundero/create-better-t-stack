@@ -1,3 +1,4 @@
+import { validateAddonCompatibility, validateTurnstileCompatibility } from "@better-t-stack/types";
 import { Result } from "better-result";
 
 import { writeBtsConfigToVfs } from "./bts-config";
@@ -58,6 +59,28 @@ export async function generate(
   return Result.tryPromise({
     try: async () => {
       const { config, templates } = options;
+
+      if (config.addons.includes("turnstile")) {
+        const addon = validateAddonCompatibility(
+          "turnstile",
+          config.frontend,
+          config.auth,
+          config.backend,
+          config.runtime,
+        );
+        const deploy = validateTurnstileCompatibility({
+          webDeploy: config.webDeploy,
+          serverDeploy: config.serverDeploy,
+          backend: config.backend,
+        });
+        const issue = !addon.isCompatible ? addon : !deploy.isCompatible ? deploy : undefined;
+        if (issue) {
+          throw new GeneratorError({
+            message: `turnstile addon: ${issue.reason}`,
+            phase: "initialization",
+          });
+        }
+      }
 
       if (!templates || templates.size === 0) {
         throw new GeneratorError({
