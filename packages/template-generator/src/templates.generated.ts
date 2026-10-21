@@ -4407,7 +4407,7 @@ export default function SignInForm({
 									onChange={(e) => field.handleChange(e.target.value)}
 								/>
 								{field.state.meta.errors.map((error) => (
-									<p key={error?.message} className="text-red-500">
+									<p key={error?.message} className="text-destructive">
 										{error?.message}
 									</p>
 								))}
@@ -4430,7 +4430,7 @@ export default function SignInForm({
 									onChange={(e) => field.handleChange(e.target.value)}
 								/>
 								{field.state.meta.errors.map((error) => (
-									<p key={error?.message} className="text-red-500">
+									<p key={error?.message} className="text-destructive">
 										{error?.message}
 									</p>
 								))}
@@ -4456,7 +4456,6 @@ export default function SignInForm({
 				<Button
 					variant="link"
 					onClick={onSwitchToSignUp}
-					className="text-indigo-600 hover:text-indigo-800"
 				>
 					Need an account? Sign Up
 				</Button>
@@ -4539,7 +4538,7 @@ export default function SignUpForm({
 									onChange={(e) => field.handleChange(e.target.value)}
 								/>
 								{field.state.meta.errors.map((error) => (
-									<p key={error?.message} className="text-red-500">
+									<p key={error?.message} className="text-destructive">
 										{error?.message}
 									</p>
 								))}
@@ -4562,7 +4561,7 @@ export default function SignUpForm({
 									onChange={(e) => field.handleChange(e.target.value)}
 								/>
 								{field.state.meta.errors.map((error) => (
-									<p key={error?.message} className="text-red-500">
+									<p key={error?.message} className="text-destructive">
 										{error?.message}
 									</p>
 								))}
@@ -4585,7 +4584,7 @@ export default function SignUpForm({
 									onChange={(e) => field.handleChange(e.target.value)}
 								/>
 								{field.state.meta.errors.map((error) => (
-									<p key={error?.message} className="text-red-500">
+									<p key={error?.message} className="text-destructive">
 										{error?.message}
 									</p>
 								))}
@@ -4611,7 +4610,6 @@ export default function SignUpForm({
 				<Button
 					variant="link"
 					onClick={onSwitchToSignIn}
-					className="text-indigo-600 hover:text-indigo-800"
 				>
 					Already have an account? Sign In
 				</Button>
@@ -4644,7 +4642,7 @@ export default function UserMenu() {
 			<DropdownMenuTrigger render={<Button variant="outline" />}>
 				{user?.name}
 			</DropdownMenuTrigger>
-			<DropdownMenuContent className="bg-card">
+			<DropdownMenuContent>
 				<DropdownMenuGroup>
 					<DropdownMenuLabel>My Account</DropdownMenuLabel>
 					<DropdownMenuSeparator />
@@ -4764,7 +4762,7 @@ export default function SignInForm({
                   onChange={(e) => field.handleChange(e.target.value)}
                 />
                 {field.state.meta.errors.map((error, index) => (
-                  <p key={\`\${field.name}-error-\${index}\`} className="text-red-500">
+                  <p key={\`\${field.name}-error-\${index}\`} className="text-destructive">
                     {error?.message}
                   </p>
                 ))}
@@ -4787,7 +4785,7 @@ export default function SignInForm({
                   onChange={(e) => field.handleChange(e.target.value)}
                 />
                 {field.state.meta.errors.map((error, index) => (
-                  <p key={\`\${field.name}-error-\${index}\`} className="text-red-500">
+                  <p key={\`\${field.name}-error-\${index}\`} className="text-destructive">
                     {error?.message}
                   </p>
                 ))}
@@ -4814,7 +4812,6 @@ export default function SignInForm({
         <Button
           variant="link"
           onClick={onSwitchToSignUp}
-          className="text-indigo-600 hover:text-indigo-800"
         >
           Need an account? Sign Up
         </Button>
@@ -4897,7 +4894,7 @@ export default function SignUpForm({
                   onChange={(e) => field.handleChange(e.target.value)}
                 />
                 {field.state.meta.errors.map((error, index) => (
-                  <p key={\`\${field.name}-error-\${index}\`} className="text-red-500">
+                  <p key={\`\${field.name}-error-\${index}\`} className="text-destructive">
                     {error?.message}
                   </p>
                 ))}
@@ -4920,7 +4917,7 @@ export default function SignUpForm({
                   onChange={(e) => field.handleChange(e.target.value)}
                 />
                 {field.state.meta.errors.map((error, index) => (
-                  <p key={\`\${field.name}-error-\${index}\`} className="text-red-500">
+                  <p key={\`\${field.name}-error-\${index}\`} className="text-destructive">
                     {error?.message}
                   </p>
                 ))}
@@ -4943,7 +4940,7 @@ export default function SignUpForm({
                   onChange={(e) => field.handleChange(e.target.value)}
                 />
                 {field.state.meta.errors.map((error, index) => (
-                  <p key={\`\${field.name}-error-\${index}\`} className="text-red-500">
+                  <p key={\`\${field.name}-error-\${index}\`} className="text-destructive">
                     {error?.message}
                   </p>
                 ))}
@@ -4970,7 +4967,6 @@ export default function SignUpForm({
         <Button
           variant="link"
           onClick={onSwitchToSignIn}
-          className="text-indigo-600 hover:text-indigo-800"
         >
           Already have an account? Sign In
         </Button>
@@ -5005,7 +5001,7 @@ export default function UserMenu() {
       <DropdownMenuTrigger render={<Button variant="outline" />}>
         {user?.name}
       </DropdownMenuTrigger>
-      <DropdownMenuContent className="bg-card">
+      <DropdownMenuContent>
         <DropdownMenuGroup>
           <DropdownMenuLabel>My Account</DropdownMenuLabel>
           <DropdownMenuSeparator />
@@ -5201,7 +5197,7 @@ export default function SignInForm({
                                     onChange={(e) => field.handleChange(e.target.value)}
                                 />
                                 {field.state.meta.errors.map((error, index) => (
-                                    <p key={\`\${field.name}-error-\${index}\`} className="text-red-500">
+                                    <p key={\`\${field.name}-error-\${index}\`} className="text-destructive">
                                         {error?.message}
                                     </p>
                                 ))}
@@ -5224,7 +5220,7 @@ export default function SignInForm({
                                     onChange={(e) => field.handleChange(e.target.value)}
                                 />
                                 {field.state.meta.errors.map((error, index) => (
-                                    <p key={\`\${field.name}-error-\${index}\`} className="text-red-500">
+                                    <p key={\`\${field.name}-error-\${index}\`} className="text-destructive">
                                         {error?.message}
                                     </p>
                                 ))}
@@ -5250,7 +5246,6 @@ export default function SignInForm({
                 <Button
                     variant="link"
                     onClick={onSwitchToSignUp}
-                    className="text-indigo-600 hover:text-indigo-800"
                 >
                     Need an account? Sign Up
                 </Button>
@@ -5337,7 +5332,7 @@ export default function SignUpForm({
                                     onChange={(e) => field.handleChange(e.target.value)}
                                 />
                                 {field.state.meta.errors.map((error, index) => (
-                                    <p key={\`\${field.name}-error-\${index}\`} className="text-red-500">
+                                    <p key={\`\${field.name}-error-\${index}\`} className="text-destructive">
                                         {error?.message}
                                     </p>
                                 ))}
@@ -5360,7 +5355,7 @@ export default function SignUpForm({
                                     onChange={(e) => field.handleChange(e.target.value)}
                                 />
                                 {field.state.meta.errors.map((error, index) => (
-                                    <p key={\`\${field.name}-error-\${index}\`} className="text-red-500">
+                                    <p key={\`\${field.name}-error-\${index}\`} className="text-destructive">
                                         {error?.message}
                                     </p>
                                 ))}
@@ -5383,7 +5378,7 @@ export default function SignUpForm({
                                     onChange={(e) => field.handleChange(e.target.value)}
                                 />
                                 {field.state.meta.errors.map((error, index) => (
-                                    <p key={\`\${field.name}-error-\${index}\`} className="text-red-500">
+                                    <p key={\`\${field.name}-error-\${index}\`} className="text-destructive">
                                         {error?.message}
                                     </p>
                                 ))}
@@ -5409,7 +5404,6 @@ export default function SignUpForm({
                 <Button
                     variant="link"
                     onClick={onSwitchToSignIn}
-                    className="text-indigo-600 hover:text-indigo-800"
                 >
                     Already have an account? Sign In
                 </Button>
@@ -5444,7 +5438,7 @@ export default function UserMenu() {
             <DropdownMenuTrigger render={<Button variant="outline" />}>
                 {user?.name}
             </DropdownMenuTrigger>
-            <DropdownMenuContent className="bg-card">
+            <DropdownMenuContent>
                 <DropdownMenuGroup>
                     <DropdownMenuLabel>My Account</DropdownMenuLabel>
                     <DropdownMenuSeparator />
@@ -5649,7 +5643,7 @@ export default function SignInForm({
                                     onChange={(e) => field.handleChange(e.target.value)}
                                 />
                                 {field.state.meta.errors.map((error) => (
-                                    <p key={error?.message} className="text-red-500">
+                                    <p key={error?.message} className="text-destructive">
                                         {error?.message}
                                     </p>
                                 ))}
@@ -5672,7 +5666,7 @@ export default function SignInForm({
                                     onChange={(e) => field.handleChange(e.target.value)}
                                 />
                                 {field.state.meta.errors.map((error) => (
-                                    <p key={error?.message} className="text-red-500">
+                                    <p key={error?.message} className="text-destructive">
                                         {error?.message}
                                     </p>
                                 ))}
@@ -5698,7 +5692,6 @@ export default function SignInForm({
                 <Button
                     variant="link"
                     onClick={onSwitchToSignUp}
-                    className="text-indigo-600 hover:text-indigo-800"
                 >
                     Need an account? Sign Up
                 </Button>
@@ -5785,7 +5778,7 @@ export default function SignUpForm({
                                     onChange={(e) => field.handleChange(e.target.value)}
                                 />
                                 {field.state.meta.errors.map((error) => (
-                                    <p key={error?.message} className="text-red-500">
+                                    <p key={error?.message} className="text-destructive">
                                         {error?.message}
                                     </p>
                                 ))}
@@ -5808,7 +5801,7 @@ export default function SignUpForm({
                                     onChange={(e) => field.handleChange(e.target.value)}
                                 />
                                 {field.state.meta.errors.map((error) => (
-                                    <p key={error?.message} className="text-red-500">
+                                    <p key={error?.message} className="text-destructive">
                                         {error?.message}
                                     </p>
                                 ))}
@@ -5831,7 +5824,7 @@ export default function SignUpForm({
                                     onChange={(e) => field.handleChange(e.target.value)}
                                 />
                                 {field.state.meta.errors.map((error) => (
-                                    <p key={error?.message} className="text-red-500">
+                                    <p key={error?.message} className="text-destructive">
                                         {error?.message}
                                     </p>
                                 ))}
@@ -5857,7 +5850,6 @@ export default function SignUpForm({
                 <Button
                     variant="link"
                     onClick={onSwitchToSignIn}
-                    className="text-indigo-600 hover:text-indigo-800"
                 >
                     Already have an account? Sign In
                 </Button>
@@ -5889,7 +5881,7 @@ export default function UserMenu() {
             <DropdownMenuTrigger render={<Button variant="outline" />}>
                 {user?.name}
             </DropdownMenuTrigger>
-            <DropdownMenuContent className="bg-card">
+            <DropdownMenuContent>
                 <DropdownMenuGroup>
                     <DropdownMenuLabel>My Account</DropdownMenuLabel>
                     <DropdownMenuSeparator />
@@ -9980,7 +9972,7 @@ export default function Dashboard({
 	{{#if (eq payments "polar")}}
 	customerState,
 	{{/if}}
-	session
+	session: _session
 }: {
 	{{#if (eq payments "polar")}}
 	customerState: CustomerState | null | undefined;
@@ -10209,7 +10201,7 @@ export default function SignInForm({
                   onChange={(e) => field.handleChange(e.target.value)}
                 />
                 {field.state.meta.errors.map((error) => (
-                  <p key={error?.message} className="text-red-500">
+                  <p key={error?.message} className="text-destructive">
                     {error?.message}
                   </p>
                 ))}
@@ -10232,7 +10224,7 @@ export default function SignInForm({
                   onChange={(e) => field.handleChange(e.target.value)}
                 />
                 {field.state.meta.errors.map((error) => (
-                  <p key={error?.message} className="text-red-500">
+                  <p key={error?.message} className="text-destructive">
                     {error?.message}
                   </p>
                 ))}
@@ -10258,7 +10250,6 @@ export default function SignInForm({
         <Button
           variant="link"
           onClick={onSwitchToSignUp}
-          className="text-indigo-600 hover:text-indigo-800"
         >
           Need an account? Sign Up
         </Button>
@@ -10347,7 +10338,7 @@ export default function SignUpForm({
                   onChange={(e) => field.handleChange(e.target.value)}
                 />
                 {field.state.meta.errors.map((error) => (
-                  <p key={error?.message} className="text-red-500">
+                  <p key={error?.message} className="text-destructive">
                     {error?.message}
                   </p>
                 ))}
@@ -10370,7 +10361,7 @@ export default function SignUpForm({
                   onChange={(e) => field.handleChange(e.target.value)}
                 />
                 {field.state.meta.errors.map((error) => (
-                  <p key={error?.message} className="text-red-500">
+                  <p key={error?.message} className="text-destructive">
                     {error?.message}
                   </p>
                 ))}
@@ -10393,7 +10384,7 @@ export default function SignUpForm({
                   onChange={(e) => field.handleChange(e.target.value)}
                 />
                 {field.state.meta.errors.map((error) => (
-                  <p key={error?.message} className="text-red-500">
+                  <p key={error?.message} className="text-destructive">
                     {error?.message}
                   </p>
                 ))}
@@ -10419,7 +10410,6 @@ export default function SignUpForm({
         <Button
           variant="link"
           onClick={onSwitchToSignIn}
-          className="text-indigo-600 hover:text-indigo-800"
         >
           Already have an account? Sign In
         </Button>
@@ -10466,7 +10456,7 @@ export default function UserMenu() {
       <DropdownMenuTrigger render={<Button variant="outline" />}>
         {session.user.name}
       </DropdownMenuTrigger>
-      <DropdownMenuContent className="bg-card">
+      <DropdownMenuContent>
         <DropdownMenuGroup>
           <DropdownMenuLabel>My Account</DropdownMenuLabel>
           <DropdownMenuSeparator />
@@ -10570,7 +10560,7 @@ export default function SignInForm({
                   onChange={(e) => field.handleChange(e.target.value)}
                 />
                 {field.state.meta.errors.map((error) => (
-                  <p key={error?.message} className="text-red-500">
+                  <p key={error?.message} className="text-destructive">
                     {error?.message}
                   </p>
                 ))}
@@ -10593,7 +10583,7 @@ export default function SignInForm({
                   onChange={(e) => field.handleChange(e.target.value)}
                 />
                 {field.state.meta.errors.map((error) => (
-                  <p key={error?.message} className="text-red-500">
+                  <p key={error?.message} className="text-destructive">
                     {error?.message}
                   </p>
                 ))}
@@ -10619,7 +10609,6 @@ export default function SignInForm({
         <Button
           variant="link"
           onClick={onSwitchToSignUp}
-          className="text-indigo-600 hover:text-indigo-800"
         >
           Need an account? Sign Up
         </Button>
@@ -10709,7 +10698,7 @@ export default function SignUpForm({
                   onChange={(e) => field.handleChange(e.target.value)}
                 />
                 {field.state.meta.errors.map((error) => (
-                  <p key={error?.message} className="text-red-500">
+                  <p key={error?.message} className="text-destructive">
                     {error?.message}
                   </p>
                 ))}
@@ -10732,7 +10721,7 @@ export default function SignUpForm({
                   onChange={(e) => field.handleChange(e.target.value)}
                 />
                 {field.state.meta.errors.map((error) => (
-                  <p key={error?.message} className="text-red-500">
+                  <p key={error?.message} className="text-destructive">
                     {error?.message}
                   </p>
                 ))}
@@ -10755,7 +10744,7 @@ export default function SignUpForm({
                   onChange={(e) => field.handleChange(e.target.value)}
                 />
                 {field.state.meta.errors.map((error) => (
-                  <p key={error?.message} className="text-red-500">
+                  <p key={error?.message} className="text-destructive">
                     {error?.message}
                   </p>
                 ))}
@@ -10781,7 +10770,6 @@ export default function SignUpForm({
         <Button
           variant="link"
           onClick={onSwitchToSignIn}
-          className="text-indigo-600 hover:text-indigo-800"
         >
           Already have an account? Sign In
         </Button>
@@ -10827,7 +10815,7 @@ export default function UserMenu() {
       <DropdownMenuTrigger render={<Button variant="outline" />}>
         {session.user.name}
       </DropdownMenuTrigger>
-      <DropdownMenuContent className="bg-card">
+      <DropdownMenuContent>
         <DropdownMenuGroup>
           <DropdownMenuLabel>My Account</DropdownMenuLabel>
           <DropdownMenuSeparator />
@@ -11023,7 +11011,7 @@ export default function SignInForm({ onSwitchToSignUp }: { onSwitchToSignUp: () 
                   onChange={(e) => field.handleChange(e.target.value)}
                 />
                 {field.state.meta.errors.map((error) => (
-                  <p key={error?.message} className="text-red-500">
+                  <p key={error?.message} className="text-destructive">
                     {error?.message}
                   </p>
                 ))}
@@ -11046,7 +11034,7 @@ export default function SignInForm({ onSwitchToSignUp }: { onSwitchToSignUp: () 
                   onChange={(e) => field.handleChange(e.target.value)}
                 />
                 {field.state.meta.errors.map((error) => (
-                  <p key={error?.message} className="text-red-500">
+                  <p key={error?.message} className="text-destructive">
                     {error?.message}
                   </p>
                 ))}
@@ -11072,7 +11060,6 @@ export default function SignInForm({ onSwitchToSignUp }: { onSwitchToSignUp: () 
         <Button
           variant="link"
           onClick={onSwitchToSignUp}
-          className="text-indigo-600 hover:text-indigo-800"
         >
           Need an account? Sign Up
         </Button>
@@ -11161,7 +11148,7 @@ export default function SignUpForm({ onSwitchToSignIn }: { onSwitchToSignIn: () 
                   onChange={(e) => field.handleChange(e.target.value)}
                 />
                 {field.state.meta.errors.map((error) => (
-                  <p key={error?.message} className="text-red-500">
+                  <p key={error?.message} className="text-destructive">
                     {error?.message}
                   </p>
                 ))}
@@ -11184,7 +11171,7 @@ export default function SignUpForm({ onSwitchToSignIn }: { onSwitchToSignIn: () 
                   onChange={(e) => field.handleChange(e.target.value)}
                 />
                 {field.state.meta.errors.map((error) => (
-                  <p key={error?.message} className="text-red-500">
+                  <p key={error?.message} className="text-destructive">
                     {error?.message}
                   </p>
                 ))}
@@ -11207,7 +11194,7 @@ export default function SignUpForm({ onSwitchToSignIn }: { onSwitchToSignIn: () 
                   onChange={(e) => field.handleChange(e.target.value)}
                 />
                 {field.state.meta.errors.map((error) => (
-                  <p key={error?.message} className="text-red-500">
+                  <p key={error?.message} className="text-destructive">
                     {error?.message}
                   </p>
                 ))}
@@ -11233,7 +11220,6 @@ export default function SignUpForm({ onSwitchToSignIn }: { onSwitchToSignIn: () 
         <Button
           variant="link"
           onClick={onSwitchToSignIn}
-          className="text-indigo-600 hover:text-indigo-800"
         >
           Already have an account? Sign In
         </Button>
@@ -11279,7 +11265,7 @@ export default function UserMenu() {
       <DropdownMenuTrigger render={<Button variant="outline" />}>
         {session.user.name}
       </DropdownMenuTrigger>
-      <DropdownMenuContent className="bg-card">
+      <DropdownMenuContent>
         <DropdownMenuGroup>
           <DropdownMenuLabel>My Account</DropdownMenuLabel>
           <DropdownMenuSeparator />
@@ -11484,7 +11470,7 @@ export default function SignInForm({ onSwitchToSignUp }: { onSwitchToSignUp: () 
                   onChange={(e) => field.handleChange(e.target.value)}
                 />
                 {field.state.meta.errors.map((error) => (
-                  <p key={error?.message} className="text-red-500">
+                  <p key={error?.message} className="text-destructive">
                     {error?.message}
                   </p>
                 ))}
@@ -11507,7 +11493,7 @@ export default function SignInForm({ onSwitchToSignUp }: { onSwitchToSignUp: () 
                   onChange={(e) => field.handleChange(e.target.value)}
                 />
                 {field.state.meta.errors.map((error) => (
-                  <p key={error?.message} className="text-red-500">
+                  <p key={error?.message} className="text-destructive">
                     {error?.message}
                   </p>
                 ))}
@@ -11533,7 +11519,6 @@ export default function SignInForm({ onSwitchToSignUp }: { onSwitchToSignUp: () 
         <Button
           variant="link"
           onClick={onSwitchToSignUp}
-          className="text-indigo-600 hover:text-indigo-800"
         >
           Need an account? Sign Up
         </Button>
@@ -11622,7 +11607,7 @@ export default function SignUpForm({ onSwitchToSignIn }: { onSwitchToSignIn: () 
                   onChange={(e) => field.handleChange(e.target.value)}
                 />
                 {field.state.meta.errors.map((error) => (
-                  <p key={error?.message} className="text-red-500">
+                  <p key={error?.message} className="text-destructive">
                     {error?.message}
                   </p>
                 ))}
@@ -11645,7 +11630,7 @@ export default function SignUpForm({ onSwitchToSignIn }: { onSwitchToSignIn: () 
                   onChange={(e) => field.handleChange(e.target.value)}
                 />
                 {field.state.meta.errors.map((error) => (
-                  <p key={error?.message} className="text-red-500">
+                  <p key={error?.message} className="text-destructive">
                     {error?.message}
                   </p>
                 ))}
@@ -11668,7 +11653,7 @@ export default function SignUpForm({ onSwitchToSignIn }: { onSwitchToSignIn: () 
                   onChange={(e) => field.handleChange(e.target.value)}
                 />
                 {field.state.meta.errors.map((error) => (
-                  <p key={error?.message} className="text-red-500">
+                  <p key={error?.message} className="text-destructive">
                     {error?.message}
                   </p>
                 ))}
@@ -11694,7 +11679,6 @@ export default function SignUpForm({ onSwitchToSignIn }: { onSwitchToSignIn: () 
         <Button
           variant="link"
           onClick={onSwitchToSignIn}
-          className="text-indigo-600 hover:text-indigo-800"
         >
           Already have an account? Sign In
         </Button>
@@ -11740,7 +11724,7 @@ export default function UserMenu() {
       <DropdownMenuTrigger render={<Button variant="outline" />}>
         {session.user.name}
       </DropdownMenuTrigger>
-      <DropdownMenuContent className="bg-card">
+      <DropdownMenuContent>
         <DropdownMenuGroup>
           <DropdownMenuLabel>My Account</DropdownMenuLabel>
           <DropdownMenuSeparator />
@@ -14455,8 +14439,12 @@ Use the Convex CLI to push your functions to a deployment. See everything
 the Convex CLI can do by running \`npx convex -h\` in your project root
 directory. To learn more, launch the docs with \`npx convex docs\`.
 `],
-  ["backend/convex/packages/backend/convex/schema.ts.hbs", `import { defineSchema, defineTable } from "convex/server";
+  ["backend/convex/packages/backend/convex/schema.ts.hbs", `{{#if (includes examples "todo")}}
+import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
+{{else}}
+import { defineSchema } from "convex/server";
+{{/if}}
 
 export default defineSchema({
 {{#if (includes examples "todo")}}
@@ -15848,7 +15836,9 @@ export * from "./auth";
 {{#if (includes examples "todo")}}
 export * from "./todo";
 {{/if}}
-export {};`],
+{{#unless (or (eq auth "better-auth") (includes examples "todo"))}}
+export {};
+{{/unless}}`],
   ["db/drizzle/mysql/drizzle.config.ts.hbs", `import { defineConfig } from "drizzle-kit";
 import "varlock/auto-load";
 
@@ -20950,7 +20940,7 @@ export default function AIPage() {
         </header>
         <main className="min-h-0 flex-1">
               {(!messages || messages.length === 0) && !isLoading ? (
-                <Empty className="mx-auto h-full max-w-3xl px-4">
+                <Empty className="mx-auto h-full max-w-3xl">
                   <EmptyHeader>
                     <EmptyMedia variant="icon">
                       <MessageCircleDashedIcon />
@@ -20966,7 +20956,7 @@ export default function AIPage() {
                   <MessageScrollerViewport>
                     <MessageScrollerContent
                       aria-busy={isBusy}
-                      className="mx-auto w-full max-w-3xl px-4 py-6"
+                      className="mx-auto w-full max-w-3xl"
                     >
                       {messages.map((message) => {
                         const isUser = message.role === "user";
@@ -21004,8 +20994,8 @@ export default function AIPage() {
                           <Message align="start">
                             <MessageBody>
                               <Bubble variant="secondary">
-                                <BubbleContent className="flex items-center gap-2">
-                                  <Loader2 className="size-3.5 animate-spin" />
+                                <BubbleContent className="flex items-center">
+                                  <Loader2 className="mr-2 size-3.5 animate-spin" />
                                   <span className="shimmer">Thinking...</span>
                                 </BubbleContent>
                               </Bubble>
@@ -21036,7 +21026,7 @@ export default function AIPage() {
                     autoFocus
                     disabled={isBusy}
                   />
-                  <InputGroupAddon align="block-end" className="pt-1">
+                  <InputGroupAddon align="block-end">
                     <InputGroupButton
                       type="submit"
                       variant="default"
@@ -21188,7 +21178,7 @@ export default function AIPage() {
         </header>
         <main className="min-h-0 flex-1">
               {messages.length === 0 && !isSending ? (
-                <Empty className="mx-auto h-full max-w-3xl px-4">
+                <Empty className="mx-auto h-full max-w-3xl">
                   <EmptyHeader>
                     <EmptyMedia variant="icon">
                       <MessageCircleDashedIcon />
@@ -21204,7 +21194,7 @@ export default function AIPage() {
                   <MessageScrollerViewport>
                     <MessageScrollerContent
                       aria-busy={isSending}
-                      className="mx-auto w-full max-w-3xl px-4 py-6"
+                      className="mx-auto w-full max-w-3xl"
                     >
                       {messages.map((message) => {
                         const isUser = message.role === "user";
@@ -21249,8 +21239,8 @@ export default function AIPage() {
                           <Message align="start">
                             <MessageBody>
                               <Bubble variant="secondary">
-                                <BubbleContent className="flex items-center gap-2">
-                                  <Loader2 className="size-3.5 animate-spin" />
+                                <BubbleContent className="flex items-center">
+                                  <Loader2 className="mr-2 size-3.5 animate-spin" />
                                   <span className="shimmer">Thinking...</span>
                                 </BubbleContent>
                               </Bubble>
@@ -21281,7 +21271,7 @@ export default function AIPage() {
                     autoFocus
                     disabled={isSending}
                   />
-                  <InputGroupAddon align="block-end" className="pt-1">
+                  <InputGroupAddon align="block-end">
                     <InputGroupButton
                       type="submit"
                       variant="default"
@@ -21459,7 +21449,7 @@ export default function AI() {
         </header>
         <main className="min-h-0 flex-1">
               {(!messages || messages.length === 0) && !isLoading ? (
-                <Empty className="mx-auto h-full max-w-3xl px-4">
+                <Empty className="mx-auto h-full max-w-3xl">
                   <EmptyHeader>
                     <EmptyMedia variant="icon">
                       <MessageCircleDashedIcon />
@@ -21475,7 +21465,7 @@ export default function AI() {
                   <MessageScrollerViewport>
                     <MessageScrollerContent
                       aria-busy={isBusy}
-                      className="mx-auto w-full max-w-3xl px-4 py-6"
+                      className="mx-auto w-full max-w-3xl"
                     >
                       {messages.map((message) => {
                         const isUser = message.role === "user";
@@ -21513,8 +21503,8 @@ export default function AI() {
                           <Message align="start">
                             <MessageBody>
                               <Bubble variant="secondary">
-                                <BubbleContent className="flex items-center gap-2">
-                                  <Loader2 className="size-3.5 animate-spin" />
+                                <BubbleContent className="flex items-center">
+                                  <Loader2 className="mr-2 size-3.5 animate-spin" />
                                   <span className="shimmer">Thinking...</span>
                                 </BubbleContent>
                               </Bubble>
@@ -21545,7 +21535,7 @@ export default function AI() {
                     autoFocus
                     disabled={isBusy}
                   />
-                  <InputGroupAddon align="block-end" className="pt-1">
+                  <InputGroupAddon align="block-end">
                     <InputGroupButton
                       type="submit"
                       variant="default"
@@ -21679,7 +21669,7 @@ export default function AI() {
         </header>
         <main className="min-h-0 flex-1">
               {messages.length === 0 && !isSending ? (
-                <Empty className="mx-auto h-full max-w-3xl px-4">
+                <Empty className="mx-auto h-full max-w-3xl">
                   <EmptyHeader>
                     <EmptyMedia variant="icon">
                       <MessageCircleDashedIcon />
@@ -21695,7 +21685,7 @@ export default function AI() {
                   <MessageScrollerViewport>
                     <MessageScrollerContent
                       aria-busy={isSending}
-                      className="mx-auto w-full max-w-3xl px-4 py-6"
+                      className="mx-auto w-full max-w-3xl"
                     >
                       {messages.map((message) => {
                         const isUser = message.role === "user";
@@ -21740,8 +21730,8 @@ export default function AI() {
                           <Message align="start">
                             <MessageBody>
                               <Bubble variant="secondary">
-                                <BubbleContent className="flex items-center gap-2">
-                                  <Loader2 className="size-3.5 animate-spin" />
+                                <BubbleContent className="flex items-center">
+                                  <Loader2 className="mr-2 size-3.5 animate-spin" />
                                   <span className="shimmer">Thinking...</span>
                                 </BubbleContent>
                               </Bubble>
@@ -21772,7 +21762,7 @@ export default function AI() {
                     autoFocus
                     disabled={isSending}
                   />
-                  <InputGroupAddon align="block-end" className="pt-1">
+                  <InputGroupAddon align="block-end">
                     <InputGroupButton
                       type="submit"
                       variant="default"
@@ -21955,7 +21945,7 @@ function RouteComponent() {
         </header>
         <main className="min-h-0 flex-1">
               {(!messages || messages.length === 0) && !isLoading ? (
-                <Empty className="mx-auto h-full max-w-3xl px-4">
+                <Empty className="mx-auto h-full max-w-3xl">
                   <EmptyHeader>
                     <EmptyMedia variant="icon">
                       <MessageCircleDashedIcon />
@@ -21971,7 +21961,7 @@ function RouteComponent() {
                   <MessageScrollerViewport>
                     <MessageScrollerContent
                       aria-busy={isBusy}
-                      className="mx-auto w-full max-w-3xl px-4 py-6"
+                      className="mx-auto w-full max-w-3xl"
                     >
                       {messages.map((message) => {
                         const isUser = message.role === "user";
@@ -22009,8 +21999,8 @@ function RouteComponent() {
                           <Message align="start">
                             <MessageBody>
                               <Bubble variant="secondary">
-                                <BubbleContent className="flex items-center gap-2">
-                                  <Loader2 className="size-3.5 animate-spin" />
+                                <BubbleContent className="flex items-center">
+                                  <Loader2 className="mr-2 size-3.5 animate-spin" />
                                   <span className="shimmer">Thinking...</span>
                                 </BubbleContent>
                               </Bubble>
@@ -22041,7 +22031,7 @@ function RouteComponent() {
                     autoFocus
                     disabled={isBusy}
                   />
-                  <InputGroupAddon align="block-end" className="pt-1">
+                  <InputGroupAddon align="block-end">
                     <InputGroupButton
                       type="submit"
                       variant="default"
@@ -22182,7 +22172,7 @@ function RouteComponent() {
         </header>
         <main className="min-h-0 flex-1">
               {messages.length === 0 && !isSending ? (
-                <Empty className="mx-auto h-full max-w-3xl px-4">
+                <Empty className="mx-auto h-full max-w-3xl">
                   <EmptyHeader>
                     <EmptyMedia variant="icon">
                       <MessageCircleDashedIcon />
@@ -22198,7 +22188,7 @@ function RouteComponent() {
                   <MessageScrollerViewport>
                     <MessageScrollerContent
                       aria-busy={isSending}
-                      className="mx-auto w-full max-w-3xl px-4 py-6"
+                      className="mx-auto w-full max-w-3xl"
                     >
                       {messages.map((message) => {
                         const isUser = message.role === "user";
@@ -22243,8 +22233,8 @@ function RouteComponent() {
                           <Message align="start">
                             <MessageBody>
                               <Bubble variant="secondary">
-                                <BubbleContent className="flex items-center gap-2">
-                                  <Loader2 className="size-3.5 animate-spin" />
+                                <BubbleContent className="flex items-center">
+                                  <Loader2 className="mr-2 size-3.5 animate-spin" />
                                   <span className="shimmer">Thinking...</span>
                                 </BubbleContent>
                               </Bubble>
@@ -22275,7 +22265,7 @@ function RouteComponent() {
                     autoFocus
                     disabled={isSending}
                   />
-                  <InputGroupAddon align="block-end" className="pt-1">
+                  <InputGroupAddon align="block-end">
                     <InputGroupButton
                       type="submit"
                       variant="default"
@@ -22458,7 +22448,7 @@ function RouteComponent() {
         </header>
         <main className="min-h-0 flex-1">
               {(!messages || messages.length === 0) && !isLoading ? (
-                <Empty className="mx-auto h-full max-w-3xl px-4">
+                <Empty className="mx-auto h-full max-w-3xl">
                   <EmptyHeader>
                     <EmptyMedia variant="icon">
                       <MessageCircleDashedIcon />
@@ -22474,7 +22464,7 @@ function RouteComponent() {
                   <MessageScrollerViewport>
                     <MessageScrollerContent
                       aria-busy={isBusy}
-                      className="mx-auto w-full max-w-3xl px-4 py-6"
+                      className="mx-auto w-full max-w-3xl"
                     >
                       {messages.map((message) => {
                         const isUser = message.role === "user";
@@ -22512,8 +22502,8 @@ function RouteComponent() {
                           <Message align="start">
                             <MessageBody>
                               <Bubble variant="secondary">
-                                <BubbleContent className="flex items-center gap-2">
-                                  <Loader2 className="size-3.5 animate-spin" />
+                                <BubbleContent className="flex items-center">
+                                  <Loader2 className="mr-2 size-3.5 animate-spin" />
                                   <span className="shimmer">Thinking...</span>
                                 </BubbleContent>
                               </Bubble>
@@ -22544,7 +22534,7 @@ function RouteComponent() {
                     autoFocus
                     disabled={isBusy}
                   />
-                  <InputGroupAddon align="block-end" className="pt-1">
+                  <InputGroupAddon align="block-end">
                     <InputGroupButton
                       type="submit"
                       variant="default"
@@ -22685,7 +22675,7 @@ function RouteComponent() {
         </header>
         <main className="min-h-0 flex-1">
               {messages.length === 0 && !isSending ? (
-                <Empty className="mx-auto h-full max-w-3xl px-4">
+                <Empty className="mx-auto h-full max-w-3xl">
                   <EmptyHeader>
                     <EmptyMedia variant="icon">
                       <MessageCircleDashedIcon />
@@ -22701,7 +22691,7 @@ function RouteComponent() {
                   <MessageScrollerViewport>
                     <MessageScrollerContent
                       aria-busy={isSending}
-                      className="mx-auto w-full max-w-3xl px-4 py-6"
+                      className="mx-auto w-full max-w-3xl"
                     >
                       {messages.map((message) => {
                         const isUser = message.role === "user";
@@ -22746,8 +22736,8 @@ function RouteComponent() {
                           <Message align="start">
                             <MessageBody>
                               <Bubble variant="secondary">
-                                <BubbleContent className="flex items-center gap-2">
-                                  <Loader2 className="size-3.5 animate-spin" />
+                                <BubbleContent className="flex items-center">
+                                  <Loader2 className="mr-2 size-3.5 animate-spin" />
                                   <span className="shimmer">Thinking...</span>
                                 </BubbleContent>
                               </Bubble>
@@ -22778,7 +22768,7 @@ function RouteComponent() {
                     autoFocus
                     disabled={isSending}
                   />
-                  <InputGroupAddon align="block-end" className="pt-1">
+                  <InputGroupAddon align="block-end">
                     <InputGroupButton
                       type="submit"
                       variant="default"
@@ -31118,7 +31108,7 @@ export default function Home() {
           {{#if (eq backend "convex")}}
           <div className="flex items-center gap-2">
             <div
-              className={\`h-2 w-2 rounded-full \${healthCheck === "OK" ? "bg-green-500" : healthCheck === undefined ? "bg-orange-400" : "bg-red-500"}\`}
+              className={\`h-2 w-2 rounded-full \${healthCheck === "OK" ? "bg-success" : healthCheck === undefined ? "bg-warning" : "bg-destructive"}\`}
             />
             <span className="text-sm text-muted-foreground">
               {healthCheck === undefined
@@ -31132,7 +31122,7 @@ export default function Home() {
             {{#unless (eq api "none")}}
             <div className="flex items-center gap-2">
               <div
-                className={\`h-2 w-2 rounded-full \${healthCheck.data ? "bg-green-500" : "bg-red-500"}\`}
+                className={\`h-2 w-2 rounded-full \${healthCheck.data ? "bg-success" : "bg-destructive"}\`}
               />
               <span className="text-sm text-muted-foreground">
                 {healthCheck.isLoading
@@ -31789,7 +31779,7 @@ const TITLE_TEXT = \`
     ╚═╝       ╚══════╝   ╚═╝   ╚═╝  ╚═╝ ╚═════╝╚═╝  ╚═╝
  \`;
 
-export function meta({}: Route.MetaArgs) {
+export function meta(_args: Route.MetaArgs) {
   return [{ title: "{{projectName}}" }, { name: "description", content: "{{projectName}} is a web application" }];
 }
 
@@ -31811,7 +31801,7 @@ export default function Home() {
           {{#if (eq backend "convex")}}
           <div className="flex items-center gap-2">
             <div
-              className={\`h-2 w-2 rounded-full \${healthCheck === "OK" ? "bg-green-500" : healthCheck === undefined ? "bg-orange-400" : "bg-red-500"}\`}
+              className={\`h-2 w-2 rounded-full \${healthCheck === "OK" ? "bg-success" : healthCheck === undefined ? "bg-warning" : "bg-destructive"}\`}
             />
             <span className="text-sm text-muted-foreground">
               {healthCheck === undefined
@@ -31826,7 +31816,7 @@ export default function Home() {
             <div className="flex items-center gap-2">
               <div
                 className={\`h-2 w-2 rounded-full \${
-                  healthCheck.data ? "bg-green-500" : "bg-red-500"
+                  healthCheck.data ? "bg-success" : "bg-destructive"
                 }\`}
               />
               <span className="text-sm text-muted-foreground">
@@ -32319,7 +32309,7 @@ function HomeComponent() {
           {{#if (eq backend "convex")}}
           <div className="flex items-center gap-2">
             <div
-              className={\`h-2 w-2 rounded-full \${healthCheck === "OK" ? "bg-green-500" : healthCheck === undefined ? "bg-orange-400" : "bg-red-500"}\`}
+              className={\`h-2 w-2 rounded-full \${healthCheck === "OK" ? "bg-success" : healthCheck === undefined ? "bg-warning" : "bg-destructive"}\`}
             />
             <span className="text-sm text-muted-foreground">
               {healthCheck === undefined
@@ -32333,7 +32323,7 @@ function HomeComponent() {
             {{#unless (eq api "none")}}
             <div className="flex items-center gap-2">
               <div
-                className={\`h-2 w-2 rounded-full \${healthCheck.data ? "bg-green-500" : "bg-red-500"}\`}
+                className={\`h-2 w-2 rounded-full \${healthCheck.data ? "bg-success" : "bg-destructive"}\`}
               />
               <span className="text-sm text-muted-foreground">
                 {healthCheck.isLoading
@@ -32920,7 +32910,7 @@ function HomeComponent() {
           {{#if (eq backend "convex")}}
           <div className="flex items-center gap-2">
             <div
-              className={\`h-2 w-2 rounded-full \${healthCheck.data === "OK" ? "bg-green-500" : healthCheck.isLoading ? "bg-orange-400" : "bg-red-500"}\`}
+              className={\`h-2 w-2 rounded-full \${healthCheck.data === "OK" ? "bg-success" : healthCheck.isLoading ? "bg-warning" : "bg-destructive"}\`}
             />
             <span className="text-muted-foreground text-sm">
               {healthCheck.isLoading
@@ -32934,7 +32924,7 @@ function HomeComponent() {
             {{#unless (eq api "none")}}
             <div className="flex items-center gap-2">
               <div
-                className={\`h-2 w-2 rounded-full \${healthCheck.data ? "bg-green-500" : "bg-red-500"}\`}
+                className={\`h-2 w-2 rounded-full \${healthCheck.data ? "bg-success" : "bg-destructive"}\`}
               />
               <span className="text-muted-foreground text-sm">
                 {healthCheck.isLoading
@@ -35670,6 +35660,8 @@ export { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider }
   --accent: oklch(0.97 0 0);
   --accent-foreground: oklch(0.205 0 0);
   --destructive: oklch(0.58 0.22 27);
+  --success: oklch(0.723 0.192 149.579);
+  --warning: oklch(0.75 0.183 55.934);
   --border: oklch(0.922 0 0);
   --input: oklch(0.922 0 0);
   --ring: oklch(0.708 0 0);
@@ -35705,6 +35697,8 @@ export { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider }
   --accent: oklch(0.371 0 0);
   --accent-foreground: oklch(0.985 0 0);
   --destructive: oklch(0.704 0.191 22.216);
+  --success: oklch(0.792 0.209 151.711);
+  --warning: oklch(0.828 0.189 84.429);
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
   --ring: oklch(0.556 0 0);
@@ -35742,6 +35736,8 @@ export { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider }
   --color-input: var(--input);
   --color-border: var(--border);
   --color-destructive: var(--destructive);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
   --color-accent-foreground: var(--accent-foreground);
   --color-accent: var(--accent);
   --color-muted-foreground: var(--muted-foreground);

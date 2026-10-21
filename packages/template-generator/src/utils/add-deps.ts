@@ -71,6 +71,7 @@ export const dependencyVersionMap = {
 
   oxlint: "^1.87.0",
   oxfmt: "^0.72.0",
+  "@shadcn/lint": "^0.2.0",
 
   husky: "^9.1.7",
   lefthook: "^2.2.1",

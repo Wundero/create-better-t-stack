@@ -46,7 +46,7 @@ export default function Home() {
           {{#if (eq backend "convex")}}
           <div className="flex items-center gap-2">
             <div
-              className={`h-2 w-2 rounded-full ${healthCheck === "OK" ? "bg-green-500" : healthCheck === undefined ? "bg-orange-400" : "bg-red-500"}`}
+              className={`h-2 w-2 rounded-full ${healthCheck === "OK" ? "bg-success" : healthCheck === undefined ? "bg-warning" : "bg-destructive"}`}
             />
             <span className="text-sm text-muted-foreground">
               {healthCheck === undefined
@@ -60,7 +60,7 @@ export default function Home() {
             {{#unless (eq api "none")}}
             <div className="flex items-center gap-2">
               <div
-                className={`h-2 w-2 rounded-full ${healthCheck.data ? "bg-green-500" : "bg-red-500"}`}
+                className={`h-2 w-2 rounded-full ${healthCheck.data ? "bg-success" : "bg-destructive"}`}
               />
               <span className="text-sm text-muted-foreground">
                 {healthCheck.isLoading

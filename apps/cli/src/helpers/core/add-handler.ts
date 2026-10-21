@@ -5,6 +5,7 @@ import {
   processAddonTemplates,
   processAddonsDeps,
   processNxConfig,
+  processOxlintConfig,
   processPackageConfigs,
   processPnpmWorkspaceConfig,
   processNpmScriptApprovals,
@@ -570,6 +571,10 @@ async function addHandlerInternal(
 
     if (addonsToAdd.includes("vite-plus")) {
       processVitePlusConfig(vfs, updatedConfig);
+    }
+
+    if (addonsToAdd.includes("oxlint")) {
+      processOxlintConfig(vfs, updatedConfig);
     }
 
     const hasTaskRunner = updatedAddons.some((addon) =>
