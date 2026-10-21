@@ -110,6 +110,7 @@ const stackCategoryLabels = {
   dbSetup: "Database setup",
   examples: "Example",
   git: "Git",
+  i18n: "Internationalization",
   install: "Dependency installation",
   nativeFrontend: "Native frontend",
   orm: "ORM",

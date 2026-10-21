@@ -1,0 +1,12 @@
+import { createFormatters, type Formatters } from "@{{projectName}}/i18n";
+import { createMemo, type Accessor } from "solid-js";
+
+import { getLocale } from "~/paraglide/runtime.js";
+
+/**
+ * Per-surface formatter glue (design D4): a memoized formatter bundle for the
+ * current locale. Switching locales reloads the document.
+ */
+export function useFormat(): Accessor<Formatters> {
+  return createMemo(() => createFormatters(getLocale()));
+}

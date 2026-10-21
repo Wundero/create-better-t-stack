@@ -24,9 +24,18 @@ import {
   supportsOrmDatabase,
   supportsDatabaseSetup,
   getDatabaseSetupDatabases,
+  validateI18nCompatibility,
+  getI18nRoutingSupport,
 } from "@better-t-stack/types";
 
-import { DEFAULT_STACK, type StackState, TECH_OPTIONS, isStackOption } from "@/lib/constant";
+import {
+  DEFAULT_I18N_OPTIONS,
+  DEFAULT_STACK,
+  type StackState,
+  TECH_OPTIONS,
+  isStackOption,
+} from "@/lib/constant";
+import { getI18nConfigFromStack } from "@/lib/stack-i18n";
 import { CATEGORY_ORDER } from "@/lib/stack-utils";
 
 import {
@@ -410,6 +419,43 @@ export const analyzeStackCompatibility = (stack: StackState): CompatibilityResul
     }
   }
 
+  if (nextStack.i18n !== "none") {
+    const i18nConfig = getI18nConfigFromStack(nextStack);
+    const compatibility = validateI18nCompatibility(nextStack.i18n, i18nConfig);
+    if (!compatibility.isCompatible) {
+      nextStack.i18n = "none";
+      nextStack.i18nOptions = undefined;
+      changed = true;
+      changes.push({
+        category: "i18n",
+        message: `i18n set to 'None' (${compatibility.reason})`,
+      });
+    } else {
+      const options = nextStack.i18nOptions ?? DEFAULT_I18N_OPTIONS;
+      const strategy = options.routing?.strategy ?? "cookie";
+      const routingSupport = getI18nRoutingSupport(strategy, i18nConfig, nextStack.i18n);
+      if (!routingSupport.isSupported) {
+        nextStack.i18nOptions = {
+          ...options,
+          routing: {
+            ...DEFAULT_I18N_OPTIONS.routing,
+            ...options.routing,
+            strategy: "cookie",
+            domains: undefined,
+          },
+        };
+        changed = true;
+        changes.push({
+          category: "i18n",
+          message: `i18n routing set to 'cookie' (${routingSupport.reason})`,
+        });
+      }
+      if (compatibility.warnings.length > 0) {
+        notes.i18n = { notes: [...compatibility.warnings], hasIssue: true };
+      }
+    }
+  }
+
   const incompatibleAddons = nextStack.addons.flatMap((addon) => {
     const issue = getAddonIssue(nextStack, addon);
     return issue ? [{ addon, issue }] : [];
@@ -751,6 +797,11 @@ export const getDisabledReason = (
     if (!supportsPaymentsAuth(optionId, currentStack.auth)) {
       return "Polar requires Better Auth";
     }
+  }
+
+  if (category === "i18n" && isStackOption("i18n", optionId) && optionId !== "none") {
+    const compatibility = validateI18nCompatibility(optionId, getI18nConfigFromStack(currentStack));
+    if (!compatibility.isCompatible) return compatibility.reason;
   }
 
   if (category === "addons" && isStackOption("addons", optionId)) {

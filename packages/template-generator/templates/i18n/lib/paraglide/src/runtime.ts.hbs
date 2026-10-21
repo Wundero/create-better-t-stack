@@ -1,0 +1,15 @@
+/**
+ * Paraglide runtime for `@{{projectName}}/i18n`.
+ *
+ * Vite-based apps compile their own messages through `paraglideVitePlugin`
+ * and import the generated modules directly. Hosts without a Vite pipeline
+ * (server, native, desktop, tui) import the compiled output from here;
+ * `i18n:compile` writes it into `./paraglide` before dev, build and
+ * check-types run.
+ *
+ * Message IDs are authored keys: `m.i18n_demo_heading()`.
+ */
+
+export { m } from "./paraglide/messages.js";
+export * from "./paraglide/runtime.js";
+export { paraglideMiddleware } from "./paraglide/server.js";

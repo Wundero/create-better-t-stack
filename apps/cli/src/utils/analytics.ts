@@ -1,6 +1,7 @@
 import { Result } from "better-result";
 
 import {
+  ANALYTICS_I18N_MAX_LOCALES,
   AnalyticsEventSchema,
   type AnalyticsEvent,
   type AnalyticsMode,
@@ -42,6 +43,11 @@ export function buildAnalyticsEvent(config: ProjectConfig, mode?: AnalyticsMode)
     examples: config.examples,
     auth: config.auth,
     payments: config.payments,
+    i18n: config.i18n,
+    i18nLocaleCount:
+      config.i18n !== undefined && config.i18n !== "none"
+        ? Math.min(config.i18nOptions?.locales.length ?? 0, ANALYTICS_I18N_MAX_LOCALES)
+        : undefined,
     git: config.git,
     packageManager: config.packageManager,
     install: config.install,
