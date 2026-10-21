@@ -81,7 +81,12 @@ const ADD_TEXT_FILE_PATHS = [
 ];
 
 const HOOK_ADDONS = ["husky", "lefthook"] as const satisfies readonly Addons[];
-const HOOK_LINTER_ADDONS = ["biome", "oxlint", "vite-plus"] as const satisfies readonly Addons[];
+const HOOK_LINTER_ADDONS = [
+  "biome",
+  "oxlint",
+  "eslint",
+  "vite-plus",
+] as const satisfies readonly Addons[];
 const fileExistsErrorSchema = z.object({ code: z.literal("EEXIST") });
 const configPackageScopeSchema = z
   .object({
