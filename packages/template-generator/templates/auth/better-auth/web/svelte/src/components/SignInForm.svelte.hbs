@@ -13,7 +13,7 @@
 		mounted = true;
 	});
 
-	let { switchToSignUp } = $props<{ switchToSignUp: () => void }>();{{#if (includes addons "turnstile")}}
+	let { switchToSignUp }: { switchToSignUp: () => void } = $props();{{#if (includes addons "turnstile")}}
 
 	let turnstileToken = $state<string | null>(null);
 	let turnstileResetKey = $state(0);{{/if}}
