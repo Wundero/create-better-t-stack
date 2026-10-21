@@ -214,8 +214,8 @@ npx ${CLI_PACKAGE_SPEC} my-app --yes
 
 ## Agent interfaces
 
-- JSON project creation: \`create-better-t-stack create-json --input '{...}'\`
-- JSON project updates: \`create-better-t-stack add-json --input '{...}'\`
+- JSON project creation: \`create-better-t-stack create-json --json '{...}'\`
+- JSON project updates: \`create-better-t-stack add-json --json '{...}'\`
 - JSON schemas: \`create-better-t-stack schema --name all\`
 - Local MCP server: \`npx ${CLI_PACKAGE_SPEC} mcp\`
 - [Agent workflow guide](${SITE_URL}/docs/cli/agent-workflows.mdx)

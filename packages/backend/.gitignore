@@ -1,5 +1,2 @@
 
 .env.local
-.wrangler/
-dist/
-.dev.vars
