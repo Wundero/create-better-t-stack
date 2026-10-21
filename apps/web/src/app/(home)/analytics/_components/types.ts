@@ -79,6 +79,7 @@ export type AggregatedAnalyticsData = {
   webDeployDistribution: ShareDistributionItem[];
   serverDeployDistribution: ShareDistributionItem[];
   paymentsDistribution: ShareDistributionItem[];
+  i18nDistribution: ShareDistributionItem[];
   nodeVersionDistribution: VersionDistribution;
   cliVersionDistribution: VersionDistribution;
   stackCombinationDistribution: ShareDistributionItem[];

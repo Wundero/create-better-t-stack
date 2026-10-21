@@ -1,0 +1,14 @@
+// Bun main-process glue for i18next. The webview uses the same catalogs
+// through `@{{projectName}}/i18n/runtime`; the host negotiates from the system.
+import { createFormatters, negotiateLocale } from "@{{projectName}}/i18n";
+import { createI18next } from "@{{projectName}}/i18n/runtime";
+import type { Locale } from "@{{projectName}}/i18n";
+
+export function hostI18n(locale: Locale = negotiateLocale({ system: process.env.LANG })) {
+  const instance = createI18next(locale);
+  return {
+    locale,
+    t: instance.getFixedT(locale),
+    format: createFormatters(locale),
+  };
+}

@@ -1,0 +1,27 @@
+import type { FastifyInstance } from "fastify";
+
+import { LOCALE_HEADER } from "@{{projectName}}/i18n/config";
+import { negotiateRequestLocale } from "@{{projectName}}/i18n/routing";
+import { runWithLocale } from "@{{projectName}}/i18n/server";
+
+function headerValue(value: string | string[] | undefined): string | undefined {
+  return Array.isArray(value) ? value[0] : value;
+}
+
+/**
+ * Negotiates the request locale (D5) and runs the rest of the request inside
+ * `runWithLocale`, so handlers read it back with `getRequestLocale()`.
+ * Called from `src/index.ts`.
+ */
+export function registerLocale(app: FastifyInstance): void {
+  app.addHook("onRequest", (request, _reply, done) => {
+    const locale = negotiateRequestLocale({
+      url: `${request.protocol}://${request.host}${request.url}`,
+      header: headerValue(request.headers[LOCALE_HEADER]),
+      cookieHeader: headerValue(request.headers.cookie),
+      acceptLanguage: headerValue(request.headers["accept-language"]),
+    });
+
+    runWithLocale(locale, () => done());
+  });
+}

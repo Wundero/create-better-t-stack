@@ -13,6 +13,10 @@ import {
   APISchema,
   AuthSchema,
   PaymentsSchema,
+  I18nSchema,
+  I18nOptionsSchema,
+  EmailRendererSchema,
+  EmailDeploySchema,
   WebDeploySchema,
   ServerDeploySchema,
   DirectoryConflictSchema,
@@ -74,6 +78,22 @@ export function getAuthJsonSchema() {
 
 export function getPaymentsJsonSchema() {
   return z.toJSONSchema(PaymentsSchema);
+}
+
+export function getI18nJsonSchema() {
+  return z.toJSONSchema(I18nSchema);
+}
+
+export function getI18nOptionsJsonSchema() {
+  return z.toJSONSchema(I18nOptionsSchema);
+}
+
+export function getEmailRendererJsonSchema() {
+  return z.toJSONSchema(EmailRendererSchema);
+}
+
+export function getEmailDeployJsonSchema() {
+  return z.toJSONSchema(EmailDeploySchema);
 }
 
 export function getWebDeployJsonSchema() {
@@ -139,6 +159,10 @@ export function getAllJsonSchemas() {
     api: getAPIJsonSchema(),
     auth: getAuthJsonSchema(),
     payments: getPaymentsJsonSchema(),
+    i18n: getI18nJsonSchema(),
+    i18nOptions: getI18nOptionsJsonSchema(),
+    emailRenderer: getEmailRendererJsonSchema(),
+    emailDeploy: getEmailDeployJsonSchema(),
     webDeploy: getWebDeployJsonSchema(),
     serverDeploy: getServerDeployJsonSchema(),
     directoryConflict: getDirectoryConflictJsonSchema(),

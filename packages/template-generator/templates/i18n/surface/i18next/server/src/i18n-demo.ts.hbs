@@ -1,0 +1,18 @@
+import type { Locale } from "@{{projectName}}/i18n";
+
+import { createRequestI18n } from "./i18n";
+
+/** Demo payload for the shared formatters and messages; the routing lane can
+ * serve it from a `/i18n-demo` route. */
+export function renderI18nDemo(locale?: Locale) {
+  const { locale: active, t, format } = createRequestI18n(locale);
+  return {
+    locale: active,
+    heading: t("i18n demo"),
+    greeting: t("Hello, \{{name}}!", { name: "Ada" }),
+    plural: t("You have \{{count}} new message", { count: 2 }),
+    language: format.displayName(active) ?? active,
+    date: format.date(new Date("2026-10-14T12:00:00Z")),
+    currency: format.currency(42.5, "EUR"),
+  };
+}

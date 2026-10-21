@@ -15,8 +15,12 @@ import {
   DatabaseSetupSchema,
   DbSetupOptionsSchema,
   DirectoryConflictSchema,
+  EmailDeploySchema,
+  EmailRendererSchema,
   ExamplesSchema,
   FrontendSchema,
+  I18nOptionsSchema,
+  I18nSchema,
   ORMSchema,
   PackageManagerSchema,
   PaymentsSchema,
@@ -49,6 +53,14 @@ const McpCreateProjectInputSchema = CreateInputSchema.safeExtend({
   api: APISchema.describe("Explicit API layer"),
   auth: AuthSchema.describe("Explicit authentication provider"),
   payments: PaymentsSchema.describe("Explicit payments provider"),
+  i18n: I18nSchema.optional().describe(
+    "Explicit internationalization library. Pass 'none' when the project should stay English-only.",
+  ),
+  i18nOptions: I18nOptionsSchema.optional().describe(
+    "i18n options: sourceLocale, locales, routing, and translateSkill.",
+  ),
+  emailRenderer: EmailRendererSchema.describe("Explicit email renderer"),
+  emailDeploy: EmailDeploySchema.describe("Explicit email deployment choice"),
   addons: z.array(AddonsSchema).describe("Explicit addon list. Use [] when no addons are needed."),
   examples: z
     .array(ExamplesSchema)
@@ -140,6 +152,8 @@ function getStackGuidance() {
         "api",
         "auth",
         "payments",
+        "emailRenderer",
+        "emailDeploy",
         "addons",
         "examples",
         "git",
@@ -148,8 +162,9 @@ function getStackGuidance() {
         "dbSetup",
         "webDeploy",
         "serverDeploy",
+        "i18n",
       ],
-      optionalFields: ["addonOptions", "dbSetupOptions", "directoryConflict"],
+      optionalFields: ["addonOptions", "dbSetupOptions", "i18nOptions", "directoryConflict"],
       rule: "Do not call bts_plan_project or bts_create_project with a partial payload. MCP project creation requires the full explicit stack config.",
     },
     fieldNotes: {
@@ -163,10 +178,15 @@ function getStackGuidance() {
         "webDeploy is always required. Use 'none' when no web deployment target is requested.",
       serverDeploy:
         "serverDeploy is always required. Use 'none' when no server deployment target is requested.",
+      emailRenderer:
+        "emailRenderer is always required. Use 'none' when no email rendering setup is requested.",
+      emailDeploy:
+        "emailDeploy is always required. Use 'none' when no email deployment target is requested.",
       packageManager:
         "packageManager is always required because installation and reproducible commands depend on it.",
       install:
         "install is always required. For MCP project creation, prefer false because many clients enforce request timeouts around long-running dependency installs.",
+      i18n: "i18n should be sent explicitly. Use 'none' when no internationalization is requested; when a library is selected, pass i18nOptions with locales and routing when the user cares about them.",
       git: "git is always required. Set it to true or false explicitly instead of relying on defaults.",
     },
     ambiguityRules: [

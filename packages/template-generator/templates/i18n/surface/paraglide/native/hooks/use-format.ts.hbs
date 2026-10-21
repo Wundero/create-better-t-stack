@@ -1,0 +1,10 @@
+import { createFormatters, type Formatters } from "@{{projectName}}/i18n";
+import { getLocale } from "@{{projectName}}/i18n/runtime";
+
+/**
+ * Per-surface formatter glue (design D4). Formatters are memoized per locale
+ * by the shared package; switching locales reloads the document.
+ */
+export function useFormat(): Formatters {
+  return createFormatters(getLocale());
+}
