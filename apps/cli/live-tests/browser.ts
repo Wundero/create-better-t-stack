@@ -2,7 +2,12 @@ import { writeFile } from "node:fs/promises";
 import path from "node:path";
 
 import { type ProjectConfig } from "@better-t-stack/types";
-import { chromium, expect as baseExpect, type Browser } from "@playwright/test";
+import {
+  chromium,
+  expect as baseExpect,
+  type APIRequestContext,
+  type Browser,
+} from "@playwright/test";
 import { z } from "zod";
 
 import { Blocked } from "./command";
@@ -44,6 +49,19 @@ export function verificationBlockers(config: ProjectConfig): string[] {
 
 export async function openBrowser(): Promise<Browser> {
   return chromium.launch();
+}
+
+export async function waitForDeployment(request: APIRequestContext, url: string) {
+  await expect(async () => {
+    const response = await request.get(url, { timeout: 5_000 });
+    try {
+      expect(response.status(), "Cloudflare home page becomes available after deployment").toBe(
+        200,
+      );
+    } finally {
+      await response.dispose();
+    }
+  }).toPass({ timeout: 60_000, intervals: [1_000, 2_000, 5_000] });
 }
 
 export async function verifyBrowser(
@@ -117,8 +135,8 @@ export async function verifyBrowser(
   });
   try {
     await authorizeDeployment(context.request, deployment);
-    let homeStatus: number | undefined;
     if (stage === "alchemy") {
+      let homeStatus: number | undefined;
       const urls = new Set([deployment.server, webUrl].flatMap((url) => (url ? [url] : [])));
       for (const url of urls) {
         await expect
@@ -134,10 +152,14 @@ export async function verifyBrowser(
           )
           .toBe(200);
       }
+      expect(homeStatus, "Deployed home page").toBe(200);
     } else {
-      homeStatus = (await page.goto(webUrl))?.status();
+      if ([config.webDeploy, config.serverDeploy].includes("cloudflare")) {
+        await waitForDeployment(context.request, webUrl);
+      }
+      const home = await page.goto(webUrl);
+      expect(home?.status(), "Deployed home page").toBe(200);
     }
-    expect(homeStatus, "Deployed home page").toBe(200);
     if (config.api !== "none")
       await expect(
         page.getByText(config.frontend.includes("nuxt") ? "Connected (OK)" : "Connected", {
@@ -319,7 +341,6 @@ export async function verifyBrowser(
         const iconUrl = new URL(icon.src, manifestResponse.url()).href;
         expect((await context.request.get(iconUrl)).status(), "PWA icon").toBe(200);
       }
-      await page.waitForFunction(() => navigator.serviceWorker.controller !== null);
       const cachedUrls = await page.evaluate(async () => {
         const urls: string[] = [];
         for (const key of await caches.keys())
