@@ -1,9 +1,14 @@
-import { isAlchemyDeployTarget, type ProjectConfig } from "@better-t-stack/types";
+import { isAlchemyDeployTarget, isProviderAddon, type ProjectConfig } from "@better-t-stack/types";
 import { parse, stringify } from "yaml";
 
 import type { VirtualFileSystem } from "../core/virtual-fs";
-import { getPrismaWebsiteFramework } from "../generators/alchemy/plan";
-import { addPackageDependency, dependencyVersionMap } from "../utils/add-deps";
+import { addonInfraDeps } from "../generators/alchemy/addons";
+import { createAlchemyDeploymentPlan, getPrismaWebsiteFramework } from "../generators/alchemy/plan";
+import {
+  addPackageDependency,
+  dependencyVersionMap,
+  type AvailableDependencies,
+} from "../utils/add-deps";
 
 // `@effect/platform-node`/`-bun` declare `@effect/platform-node-shared` with a caret on a
 // prerelease, and alchemy floats several `@effect/*` deps. Those ranges resolve to the newest
@@ -33,6 +38,23 @@ function alignAlchemyEffectPackages(vfs: VirtualFileSystem, config: ProjectConfi
   if (!pkg) return;
   pkg.overrides = { ...pkg.overrides, ...overrides };
   vfs.writeJson("package.json", pkg);
+}
+
+function isAvailableDependency(name: string): name is AvailableDependencies {
+  return Object.hasOwn(dependencyVersionMap, name);
+}
+
+function addonDevDependencies(config: ProjectConfig): AvailableDependencies[] {
+  if (!config.addons.some(isProviderAddon)) return [];
+  const plan = createAlchemyDeploymentPlan(config);
+  return addonInfraDeps(plan).map((name) => {
+    if (!isAvailableDependency(name)) {
+      throw new Error(
+        `Missing version for dependency: ${name}. Add it to dependencyVersionMap in add-deps.ts`,
+      );
+    }
+    return name;
+  });
 }
 
 export function processInfraDeps(vfs: VirtualFileSystem, config: ProjectConfig): void {
@@ -71,5 +93,14 @@ export function processInfraDeps(vfs: VirtualFileSystem, config: ProjectConfig):
       ],
     });
     alignAlchemyEffectPackages(vfs, config);
+  }
+
+  const addonDeps = addonDevDependencies(config);
+  if (addonDeps.length > 0) {
+    addPackageDependency({
+      vfs,
+      packagePath: infraPath,
+      devDependencies: addonDeps,
+    });
   }
 }
