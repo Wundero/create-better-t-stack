@@ -43,7 +43,21 @@ The hosted MCP server can't write files and doesn't accept `addonOptions` or `db
 6. **Prove it runs.** Run `<packageManager> install` in the new folder. With the user's OK, run the project's typecheck or build script from its `package.json`. If a step fails, report the exact error.
 7. **Report.** Give the stack and the next commands (`dev`, database setup such as `db:push`), taken from the generated `README.md` and `package.json`, not from memory.
 
-[references/cli.md](references/cli.md) has the full `create-json` payload, the flag form for a command the user pastes, and the Stack Builder URL keys.
+- **frontend** (array of app surfaces, not styling): `tanstack-router`, `react-router`, `tanstack-start`, `next`, `nuxt`, `svelte`, `solid`, `astro`, `native-bare`, `native-uniwind`, `native-unistyles`, `none`
+- **backend**: `hono`, `express`, `fastify`, `elysia`, `convex`, `self`, `none`
+- **runtime**: `bun`, `node`, `workers`, `none`
+- **database**: `none`, `sqlite`, `postgres`, `mysql`, `mongodb`
+- **orm**: `drizzle`, `prisma`, `mongoose`, `none`
+- **api**: `trpc`, `orpc`, `none`
+- **auth**: `better-auth`, `clerk`, `none`
+- **payments**: `polar`, `stripe`, `autumn`, `dodo`, `creem`, `chargebee`, `commet`, `none` (all providers require `better-auth`; only `polar` works with Convex or native-only stacks, and Autumn requires a React web frontend)
+- **addons**: `pwa`, `tauri`, `electrobun`, `starlight`, `biome`, `lefthook`, `husky`, `mcp`, `turborepo`, `nx`, `vite-plus`, `fumadocs`, `ultracite`, `oxlint`, `opentui`, `wxt`, `skills`, `evlog`, `none` (`nx`, `turborepo`, and `vite-plus` are mutually exclusive)
+- **examples**: `todo`, `ai`, `none`
+- **packageManager**: `npm`, `pnpm`, `bun`
+- **dbSetup**: `turso`, `neon`, `prisma-postgres`, `planetscale`, `mongodb-atlas`, `supabase`, `d1`, `docker`, `none`
+- **webDeploy** / **serverDeploy**: `cloudflare`, `docker`, `vercel`, `none`
+- **directoryConflict**: `merge`, `overwrite`, `increment`, `error`
+  [references/cli.md](references/cli.md) has the full `create-json` payload, the flag form for a command the user pastes, and the Stack Builder URL keys.
 
 ## Rules
 

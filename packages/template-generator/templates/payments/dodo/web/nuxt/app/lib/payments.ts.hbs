@@ -1,0 +1,44 @@
+import type { ComputedRef, Ref } from "vue";
+
+export interface PaymentState {
+  isActive: boolean;
+  planLabel: string;
+}
+
+export function usePayment(): {
+  state: ComputedRef<PaymentState>;
+  isLoading: Ref<boolean>;
+  checkout: () => Promise<void>;
+  portal: () => Promise<void>;
+} {
+  const { $authClient } = useNuxtApp();
+  const isActive = ref(false);
+  const isLoading = ref(true);
+
+  onMounted(async () => {
+    const { data, error } = await $authClient.dodopayments.customer.subscriptions.list({
+      query: { status: "active" },
+    });
+    isActive.value = !error && (data?.items?.length ?? 0) > 0;
+    isLoading.value = false;
+  });
+
+  const checkout = async () => {
+    const { data, error } = await $authClient.dodopayments.checkoutSession({ slug: "pro" });
+    if (error || !data?.url) return;
+    window.location.href = data.url;
+  };
+
+  const portal = async () => {
+    const { data, error } = await $authClient.dodopayments.customer.portal();
+    if (error || !data?.url) return;
+    window.location.href = data.url;
+  };
+
+  const state = computed<PaymentState>(() => ({
+    isActive: isActive.value,
+    planLabel: isActive.value ? "Pro" : "Free",
+  }));
+
+  return { state, isLoading, checkout, portal };
+}
