@@ -332,6 +332,7 @@ export const UltraciteEditorSchema = z
     "vscode",
     "cursor",
     "windsurf",
+    "devin",
     "codebuddy",
     "antigravity",
     "bob",
@@ -387,11 +388,28 @@ export const UltraciteAgentSchema = z
     "cursor-cli",
     "mistral-vibe",
     "vercel",
+    "snowflake-coco",
+    "kimi-code",
+    "xum",
+    "kiro-cli",
+    "fx",
+    "antigravity",
+    "grok",
   ])
   .describe("Ultracite agent integration");
 
 export const UltraciteHookSchema = z
-  .enum(["cursor", "windsurf", "codebuddy", "claude", "copilot"])
+  .enum([
+    "cursor",
+    "windsurf",
+    "devin",
+    "codebuddy",
+    "claude",
+    "codex",
+    "deepagents",
+    "copilot",
+    "grok",
+  ])
   .describe("Ultracite hook integration");
 
 export const DbSetupModeSchema = z
