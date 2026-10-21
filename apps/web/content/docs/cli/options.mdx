@@ -197,6 +197,10 @@ create-better-t-stack --database postgres --db-setup neon
 
 If you need structured control over database provisioning behavior, use `dbSetupOptions` with `create-json` or the programmatic API. See [Agent Workflows](/docs/cli/agent-workflows).
 
+For local Supabase development, install and start Docker or a compatible container runtime before choosing automatic setup.
+
+If you choose manual setup, follow the commands printed by the CLI and add your database URL as `DATABASE_URL` and `DIRECT_URL` in your app's `.env` file. Run Supabase commands from `packages/db`. See Supabase's [local development guide](https://supabase.com/docs/guides/local-development/cli/getting-started) for managing your local database.
+
 ## Backend Options
 
 ### `--backend <framework>`
@@ -208,6 +212,7 @@ Backend framework to use:
 - `express`: Express.js (popular, mature)
 - `fastify`: Fastify (fast, plugin-based)
 - `elysia`: Elysia (Bun-native)
+- `nitro`: Nitro 3 (experimental, portable, file-routed, H3-based)
 - `convex`: Convex backend
 - `self`: Self-hosted/custom backend
 
@@ -301,7 +306,7 @@ create-better-t-stack --auth none
 - if you choose a database, you should also choose an ORM
 - with `--backend convex`, `better-auth` supports `react-router`, `tanstack-router`, `tanstack-start`, `next`, and native Expo frontends
 - `clerk` requires a compatible frontend
-- Supported Clerk backends: `convex`, `hono`, `express`, `fastify`, `elysia`, and `self` with Next.js or TanStack Start
+- Supported Clerk backends: `convex`, `hono`, `express`, `fastify`, `elysia`, `nitro`, and `self` with Next.js or TanStack Start
 - Authentication is automatically set to `none` when using `--backend none`
 
 ## Payments
