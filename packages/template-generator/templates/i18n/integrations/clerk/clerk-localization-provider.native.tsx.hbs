@@ -1,0 +1,41 @@
+"use client";
+
+import { useEffect, useState, type ComponentProps } from "react";
+import { ClerkProvider } from "@clerk/expo";
+
+import { getDeviceLocaleTag } from "@/lib/device-locale";
+import { negotiateLocale } from "@{{projectName}}/i18n/config";
+import {
+  loadClerkLocalization,
+  type ClerkLocalization,
+} from "@{{projectName}}/i18n/integrations/clerk-client";
+
+type ClerkProviderProps = ComponentProps<typeof ClerkProvider>;
+
+/**
+ * Forwards every prop to `ClerkProvider` and lazily loads the `@clerk/localizations`
+ * bundle for the device locale (via `expo-localization`). Locales without a
+ * Clerk translation fall back to English.
+ *
+ * Clerk marks localization experimental and the hosted Account Portal stays in
+ * English.
+ */
+export function ClerkLocalizationProvider({ children, ...props }: ClerkProviderProps) {
+  const [localization, setLocalization] = useState<ClerkLocalization>();
+
+  useEffect(() => {
+    let cancelled = false;
+    void loadClerkLocalization(negotiateLocale({ system: getDeviceLocaleTag() })).then((next) => {
+      if (!cancelled && next !== undefined) setLocalization(next);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  return (
+    <ClerkProvider {...props} localization={localization}>
+      {children}
+    </ClerkProvider>
+  );
+}

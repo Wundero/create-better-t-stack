@@ -13,6 +13,8 @@ import {
   APISchema,
   AuthSchema,
   PaymentsSchema,
+  I18nSchema,
+  I18nOptionsSchema,
   WebDeploySchema,
   ServerDeploySchema,
   DirectoryConflictSchema,
@@ -21,6 +23,9 @@ import {
   DbSetupOptionsSchema,
   CreateInputSchema,
   AddInputSchema,
+  ScaffoldAppInputSchema,
+  ScaffoldPackageInputSchema,
+  GenerateInputSchema,
   ProjectConfigSchema,
   BetterTStackConfigSchema,
   BetterTStackConfigFileSchema,
@@ -76,6 +81,14 @@ export function getPaymentsJsonSchema() {
   return z.toJSONSchema(PaymentsSchema);
 }
 
+export function getI18nJsonSchema() {
+  return z.toJSONSchema(I18nSchema);
+}
+
+export function getI18nOptionsJsonSchema() {
+  return z.toJSONSchema(I18nOptionsSchema);
+}
+
 export function getWebDeployJsonSchema() {
   return z.toJSONSchema(WebDeploySchema);
 }
@@ -106,6 +119,18 @@ export function getCreateInputJsonSchema() {
 
 export function getAddInputJsonSchema() {
   return z.toJSONSchema(AddInputSchema);
+}
+
+export function getScaffoldAppInputJsonSchema() {
+  return z.toJSONSchema(ScaffoldAppInputSchema);
+}
+
+export function getScaffoldPackageInputJsonSchema() {
+  return z.toJSONSchema(ScaffoldPackageInputSchema);
+}
+
+export function getGenerateInputJsonSchema() {
+  return z.toJSONSchema(GenerateInputSchema);
 }
 
 export function getProjectConfigJsonSchema() {
@@ -139,6 +164,8 @@ export function getAllJsonSchemas() {
     api: getAPIJsonSchema(),
     auth: getAuthJsonSchema(),
     payments: getPaymentsJsonSchema(),
+    i18n: getI18nJsonSchema(),
+    i18nOptions: getI18nOptionsJsonSchema(),
     webDeploy: getWebDeployJsonSchema(),
     serverDeploy: getServerDeployJsonSchema(),
     directoryConflict: getDirectoryConflictJsonSchema(),
@@ -147,6 +174,9 @@ export function getAllJsonSchemas() {
     dbSetupOptions: getDbSetupOptionsJsonSchema(),
     createInput: getCreateInputJsonSchema(),
     addInput: getAddInputJsonSchema(),
+    scaffoldAppInput: getScaffoldAppInputJsonSchema(),
+    scaffoldPackageInput: getScaffoldPackageInputJsonSchema(),
+    generateInput: getGenerateInputJsonSchema(),
     projectConfig: getProjectConfigJsonSchema(),
     betterTStackConfig: getBetterTStackConfigJsonSchema(),
     betterTStackConfigFile: getBetterTStackConfigFileJsonSchema(),

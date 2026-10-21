@@ -1,0 +1,18 @@
+/**
+ * Nuxt UI locale object for the active `@nuxtjs/i18n` locale.
+ *
+ * Nuxt UI ships one locale object per language in `@nuxt/ui/locale`; the
+ * active one is bound to `<UApp :locale>` so Nuxt UI's built-in strings follow
+ * the negotiated locale.
+ *
+ * `computed` (Nuxt) and `useI18n` (`@nuxtjs/i18n`) are auto-imported.
+ */
+import * as nuxtUiLocales from "@nuxt/ui/locale";
+
+export function useUiLocale() {
+  const { locale } = useI18n();
+  return computed(() => {
+    const language = locale.value.split("-")[0] ?? "en";
+    return nuxtUiLocales[language as keyof typeof nuxtUiLocales] ?? nuxtUiLocales.en;
+  });
+}

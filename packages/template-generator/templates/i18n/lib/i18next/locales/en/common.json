@@ -1,0 +1,8 @@
+{
+  "i18n demo": "i18n demo",
+  "Hello, {{name}}!": "Hello, {{name}}!",
+  "You have {{count}} new message_one": "You have {{count}} new message",
+  "You have {{count}} new message_other": "You have {{count}} new messages",
+  "Language": "Language",
+  "Current locale: {{locale}}": "Current locale: {{locale}}"
+}

@@ -1,0 +1,39 @@
+# Translation Glossary
+
+The `i18n-translate` skill reads this file before translating anything. Keep it
+short and concrete: the rules below apply to every message in every locale.
+
+## Voice and tone
+
+- Second person, direct, no exclamation marks unless the source string has them.
+- Sentence case for UI strings and buttons.
+- Do not translate product names, brand names, code identifiers, or URLs.
+
+## Terms
+
+Add one row per product term so translations stay consistent.
+
+| Term | Rule                    | Notes |
+| ---- | ----------------------- | ----- |
+| —    | translate / keep as-is  | —     |
+
+## Locales
+
+Source locale: {{#if i18nOptions.sourceLocale}}`{{i18nOptions.sourceLocale}}`{{else}}`en`{{/if}}
+
+{{#if i18nOptions.locales}}
+{{#each i18nOptions.locales}}- `{{this}}`
+{{/each}}
+{{else}}
+- `en`
+- `es`
+- `fr`
+{{/if}}
+
+## Rules for translators
+
+- Preserve every placeholder, ICU argument, plural category (`one`, `other`, …)
+  and markup tag exactly as it appears in the source message.
+- Reorder placeholders only when the target language's grammar requires it.
+- When a term is missing here, choose the most common translation for the
+  product's domain and add it to the table above.

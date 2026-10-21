@@ -1,0 +1,61 @@
+import { createMemo, createSignal } from "solid-js";
+import { msg } from "@lingui/core/macro";
+import { useLingui } from "@lingui/solid";
+import { Trans } from "@lingui/solid/macro";
+
+import { LOCALE_COOKIE, locales, type Locale } from "@{{projectName}}/i18n/config";
+import { createFormatters } from "@{{projectName}}/i18n/format";
+import { activateLocale } from "@{{projectName}}/i18n/runtime";
+
+/**
+ * i18n demo: translated heading, interpolation, plural, currency, date and a
+ * locale switcher. Dates and numbers come from the shared `createFormatters`,
+ * never from Lingui (D4).
+ */
+export function I18nDemo() {
+  const { _, i18n } = useLingui();
+  const locale = () => i18n().locale as Locale;
+  const formatters = createMemo(() => createFormatters(locale()));
+  const [count, setCount] = createSignal(3);
+  const name = "Ada";
+  const unread = msg`{count, plural, one {# unread message} other {# unread messages}}`;
+
+  return (
+    <section class="rounded-lg border p-4">
+      <h2 class="mb-2 font-medium">
+        <Trans>Internationalization</Trans>
+      </h2>
+      <p>
+        <Trans>Hello {name}, welcome back!</Trans>
+      </p>
+      <p>{_({ ...unread, values: { count: count() } })}</p>
+      <p>{formatters().currency(42.5, "EUR")}</p>
+      <p>{formatters().date(new Date())}</p>
+      <div class="mt-3 flex flex-wrap items-center gap-3">
+        <button
+          type="button"
+          class="rounded border px-2 py-1 text-sm"
+          onClick={() => setCount((value) => value + 1)}
+        >
+          <Trans>Add a message</Trans>
+        </button>
+        <label class="flex items-center gap-2 text-sm">
+          <Trans>Language</Trans>
+          <select
+            class="rounded border bg-transparent px-1 py-0.5"
+            value={locale()}
+            onChange={(event) => {
+              const next = event.currentTarget.value as Locale;
+              window.localStorage.setItem(LOCALE_COOKIE, next);
+              void activateLocale(next);
+            }}
+          >
+            {locales.map((value) => (
+              <option value={value}>{value}</option>
+            ))}
+          </select>
+        </label>
+      </div>
+    </section>
+  );
+}
