@@ -1,13 +1,19 @@
 import {
+  I18N_LIBRARY_META,
+  getI18nIntegrations,
   getLocalD1Owner,
   isAlchemyDeployTarget,
   usesAlchemyManagedDatabase,
+  validateI18nCompatibility,
   type ProjectConfig,
 } from "@better-t-stack/types";
 
 import type { VirtualFileSystem } from "../core/virtual-fs";
 import { getDbScriptSupport } from "../utils/db-scripts";
 import { isDatabaseConsumedByDocker } from "../utils/docker-database";
+import { hasI18n } from "../utils/i18n";
+import { sharedRegistrableParent } from "./i18n/routing";
+import { getPortlessNames } from "./portless";
 
 function getDesktopStaticBuildNote(frontend: ProjectConfig["frontend"]): string {
   const staticBuildFrontends = new Map([
@@ -249,7 +255,8 @@ ${packageManagerRunCmd} dev
 \`\`\`
 
 ${generateRunningInstructions(frontend, backend, webPort, hasNative, isConvex)}
-${generateReactUiSection(hasReactWeb, projectName)}
+${generatePortlessSection(options)}
+${generateReactUiSection(hasReactWeb, projectName)}${generateI18nSection(options, packageManagerRunCmd)}
 ## Environment Configuration
 
 Each app owns its environment schema in \`.env.schema\`. Varlock generates \`src/env.ts\` during installation; run \`${packageManagerRunCmd} env:generate\` after changing a schema. Commit schemas, and keep secrets in ignored env files or your deployment platform.
@@ -370,6 +377,34 @@ function generateRunningInstructions(
   return instructions.join("\n");
 }
 
+function generatePortlessSection(config: ProjectConfig): string {
+  if (config.portless !== true) return "";
+
+  const { web, server } = getPortlessNames(config.projectName);
+  const lines = [
+    "## Portless Development",
+    "",
+    "This project uses Portless to serve the apps over trusted HTTPS `.localhost` domains instead of localhost ports.",
+    "",
+    "Trust the local certificate authority once (requires Node.js 24 or newer):",
+    "",
+    "```bash",
+    "portless trust",
+    "```",
+    "",
+  ];
+
+  if (hasWebFrontend(config.frontend)) {
+    lines.push(`- Web: https://${web}.localhost`);
+  }
+
+  if (config.backend !== "self" && config.backend !== "none") {
+    lines.push(`- API: https://${server}.localhost`);
+  }
+
+  return `\n${lines.join("\n")}\n`;
+}
+
 function generateReactUiSection(hasReactWeb: boolean, projectName: string): string {
   if (!hasReactWeb) return "";
 
@@ -400,6 +435,83 @@ import { Button } from "@${projectName}/ui/components/button"
 
 If you want to add app-specific blocks instead of shared primitives, run the shadcn CLI from \`apps/web\`.
 `;
+}
+
+function describeI18nRouting(config: ProjectConfig): string {
+  const routing = config.i18nOptions?.routing;
+
+  if (routing?.strategy === "prefix") {
+    const prefixDefault = routing.prefixDefaultLocale
+      ? " The source locale is prefixed as well."
+      : "";
+    return `Locale routing: **prefix**. The locale is the first URL segment (\`/fr/...\`), resolved through the shared \`localizeHref\` helper.${prefixDefault}`;
+  }
+
+  if (routing?.strategy === "domain") {
+    const entries = Object.entries(routing.domains ?? {});
+    const domains = entries.map(([locale, host]) => `\`${locale}\` → \`${host}\``).join(", ");
+    const parent = sharedRegistrableParent(entries.map(([, host]) => host));
+    const session = parent
+      ? `Better Auth shares one session across the domains through \`advanced.crossSubDomainCookies\` (\`${parent}\`).`
+      : "Each domain keeps its own Better Auth session; users sign in separately per domain.";
+    return `Locale routing: **domain**. Each locale maps to its own host${domains ? ` (${domains})` : ""}. ${session} Register the OAuth callback URL for every domain (\`https://<host>/api/auth/callback/<provider>\`). For local preview, append \`?locale=fr\` on \`localhost\` (or use \`<locale>.<app>.localhost\` with portless).`;
+  }
+
+  return "Locale routing: **cookie**. The locale is negotiated from the `x-app-locale` header, the `locale` cookie, `Accept-Language`, then the stored or system locale.";
+}
+
+function generateI18nSection(config: ProjectConfig, packageManagerRunCmd: string): string {
+  const library = config.i18n;
+  if (!library || library === "none") return "";
+
+  const meta = I18N_LIBRARY_META[library];
+  const locales = config.i18nOptions?.locales ?? ["en", "es", "fr"];
+  const sourceLocale = config.i18nOptions?.sourceLocale ?? "en";
+  const localeList = locales.map((locale) => `\`${locale}\``).join(", ");
+  const translateSkill = config.i18nOptions?.translateSkill ?? true;
+  const compatibility = validateI18nCompatibility(library, config);
+  const partialNotes = compatibility.isCompatible ? compatibility.warnings : [];
+  const integrations = getI18nIntegrations(config, library);
+
+  const sections = [
+    "## Internationalization",
+    "",
+    `This project uses **${meta.label}** (${meta.keyStyle} keys, ${meta.catalogFormat} catalogs). Configured locales: ${localeList}; the source locale is \`${sourceLocale}\`.`,
+    "",
+    describeI18nRouting(config),
+    "",
+    "All surfaces share one locale package in `packages/i18n`: `config.ts` (locales and negotiation), `format.ts` (`createFormatters(locale)`), and `server.ts` (request-scoped locale). Dates, numbers, currency, relative time and lists always go through `createFormatters`, never through library formatting.",
+    "",
+    "### Translation workflow",
+    "",
+    `- \`${packageManagerRunCmd} i18n:extract\`: extract messages into the source catalogs`,
+    `- \`${packageManagerRunCmd} i18n:pending --locale <locale> | --all [--limit N]\`: list pending messages as JSON`,
+    `- \`${packageManagerRunCmd} i18n:apply <file>\`: validate placeholders and ICU arguments, then write translations`,
+    `- \`${packageManagerRunCmd} i18n:compile\`: compile catalogs for the app runtimes (also runs before \`dev\` and \`build\`)`,
+    `- \`${packageManagerRunCmd} i18n:check\`: fail on missing or invalid entries; \`I18N_CHECK_ALLOW_MISSING=1\` relaxes it during development`,
+    `- \`${packageManagerRunCmd} i18n:export\`: write the normalized catalog (\`dist/catalog.json\`) for JS tooling`,
+    "",
+  ];
+
+  if (translateSkill) {
+    sections.push(
+      "Translations are agent-driven: pass `i18n:pending` output to the `i18n-translate` skill in `.agents/skills/`, which translates in batches through `i18n:apply` and `i18n:check`.",
+      "",
+    );
+  }
+
+  if (integrations.length > 0) {
+    sections.push(
+      `Also sets up: ${integrations.map((integration) => integration.label).join(", ")}.`,
+      "",
+    );
+  }
+
+  if (partialNotes.length > 0) {
+    sections.push("Partial support notes:", ...partialNotes.map((note) => `- ${note}`), "");
+  }
+
+  return `\n${sections.join("\n")}`;
 }
 
 function generateProjectStructure(config: ProjectConfig): string {
@@ -453,8 +565,12 @@ function generateProjectStructure(config: ProjectConfig): string {
     structure.push(`│   └── server/      # Backend API (${desc})`);
   }
 
-  if (isConvex || backend !== "none" || hasReactWeb) {
+  if (isConvex || backend !== "none" || hasReactWeb || hasI18n(config)) {
     structure.push("├── packages/");
+
+    if (hasI18n(config)) {
+      structure.push("│   ├── i18n/        # Shared locale configuration and Intl formatters");
+    }
 
     if (hasReactWeb) {
       structure.push("│   ├── ui/          # Shared shadcn/ui components and styles");
@@ -592,12 +708,14 @@ function generateFeaturesList(
     electrobun: "- **Electrobun** - Lightweight desktop shell for web frontends",
     biome: "- **Biome** - Linting and formatting",
     oxlint: "- **Oxlint** - Oxlint + Oxfmt (linting & formatting)",
+    eslint: "- **ESLint + Prettier** - Linting and formatting (oxlint, Vite+, or Biome preferred)",
     husky: "- **Husky** - Git hooks for code quality",
     starlight: "- **Starlight** - Documentation site with Astro",
     turborepo: "- **Turborepo** - Optimized monorepo build system",
     nx: "- **Nx** - Smart monorepo task orchestration and caching",
     "vite-plus":
       "- **Vite+** - Unified Vite toolchain, workspace task runner, linting, and formatting",
+    turnstile: "- **Cloudflare Turnstile** - CAPTCHA on Better Auth sign-in/sign-up",
   } satisfies Record<string, string>;
 
   for (const addon of addons) {
@@ -641,7 +759,9 @@ ${packageManagerRunCmd} db:generate
         ? "Prisma Postgres"
         : dbSetup === "planetscale"
           ? "PlanetScale"
-          : "Neon";
+          : dbSetup === "aurora"
+            ? "Aurora Serverless V2"
+            : "Neon";
     const migrationWorkflow =
       orm === "prisma"
         ? `The scaffold includes an initial Prisma migration when generated models need one. Create and commit later migrations with \`${packageManagerRunCmd} db:migrate\`; deployment applies checked-in migrations with \`prisma migrate deploy\`.`
@@ -649,7 +769,9 @@ ${packageManagerRunCmd} db:generate
     const costNote =
       dbSetup === "planetscale"
         ? "\n\nThe generated PlanetScale resource uses the `PS_DEV` size. PlanetScale may charge for this database; adjust `clusterSize` in `packages/infra/alchemy.run.ts` before deployment if needed."
-        : "";
+        : dbSetup === "aurora"
+          ? "\n\nAurora Serverless V2 bills per ACU-hour and keeps a 0.5 ACU minimum while idle. The generated network also creates a NAT gateway, and a Fargate server deployment adds an Application Load Balancer — both bill hourly even without traffic. Run `destroy` when the stage is no longer needed to stop these charges."
+          : "";
 
     return `${setup}Alchemy provisions ${provider}, passes its connection credentials directly to the deployed application, and manages database deployment in the same stack as the consuming app. You do not need to copy a hosted \`DATABASE_URL\` into the app environment.
 
@@ -807,6 +929,12 @@ function generateScriptsList(
     scripts += `\n- \`${packageManagerRunCmd} db:local\`: Start the local SQLite database`;
   }
 
+  if (hasI18n(config)) {
+    scripts += `\n- \`${packageManagerRunCmd} i18n:extract\`: Extract translation messages
+- \`${packageManagerRunCmd} i18n:compile\`: Compile translation catalogs (also runs before dev/build)
+- \`${packageManagerRunCmd} i18n:check\`: Fail on missing or invalid translations`;
+  }
+
   if (addons.includes("vite-plus")) {
     const hasVitePlusNativeHooks = !addons.includes("husky") && !addons.includes("lefthook");
 
@@ -822,6 +950,8 @@ function generateScriptsList(
     scripts += `\n- \`${packageManagerRunCmd} check\`: Run Biome formatting and linting`;
   } else if (addons.includes("oxlint")) {
     scripts += `\n- \`${packageManagerRunCmd} check\`: Run Oxlint and Oxfmt`;
+  } else if (addons.includes("eslint")) {
+    scripts += `\n- \`${packageManagerRunCmd} check\`: Run ESLint and Prettier`;
   }
 
   if (addons.includes("pwa")) {
@@ -873,6 +1003,16 @@ function generateScriptsList(
   return scripts;
 }
 
+function getAlchemyTargetLabel(
+  target: ProjectConfig["webDeploy"] | ProjectConfig["serverDeploy"],
+): string {
+  if (target === "cloudflare") return "Cloudflare";
+  if (target === "prisma") return "Prisma";
+  if (target === "aws") return "AWS";
+  if (target === "neon") return "Neon";
+  return target;
+}
+
 function generateDeploymentCommands(
   packageManagerRunCmd: string,
   webDeploy: ProjectConfig["webDeploy"],
@@ -884,10 +1024,9 @@ function generateDeploymentCommands(
   dbSetup: ProjectConfig["dbSetup"],
   addons: ProjectConfig["addons"],
 ): string {
-  const hasCloudflare = webDeploy === "cloudflare" || serverDeploy === "cloudflare";
-  const hasPrismaCompute = webDeploy === "prisma" || serverDeploy === "prisma";
   const hasAxiom = addons.includes("axiom");
-  const hasAlchemyCompute = hasCloudflare || hasPrismaCompute;
+  const hasTurnstile = addons.includes("turnstile");
+  const hasAlchemyCompute = isAlchemyDeployTarget(webDeploy) || isAlchemyDeployTarget(serverDeploy);
   const hasAlchemy = hasAlchemyCompute || hasAxiom;
   const hasDocker = webDeploy === "docker" || serverDeploy === "docker";
   const hasVercel = webDeploy === "vercel" || serverDeploy === "vercel";
@@ -900,11 +1039,9 @@ function generateDeploymentCommands(
 
   if (hasAlchemy) {
     const targetLabel = [
-      ...(isAlchemyDeployTarget(webDeploy)
-        ? [`web on ${webDeploy === "cloudflare" ? "Cloudflare" : "Prisma"}`]
-        : []),
+      ...(isAlchemyDeployTarget(webDeploy) ? [`web on ${getAlchemyTargetLabel(webDeploy)}`] : []),
       ...(isAlchemyDeployTarget(serverDeploy) && backend !== "self"
-        ? [`server on ${serverDeploy === "cloudflare" ? "Cloudflare" : "Prisma"}`]
+        ? [`server on ${getAlchemyTargetLabel(serverDeploy)}`]
         : []),
       ...(hasAxiom ? ["Axiom observability"] : []),
     ].join(" + ");
@@ -956,6 +1093,13 @@ function generateDeploymentCommands(
           "For a deployed Docker image, pass `AXIOM_API_KEY`, `AXIOM_DATASET`, and `AXIOM_EDGE_URL` through the target platform's secret manager. Local observed development runs through Alchemy with the credentials injected in memory.",
         );
       }
+    }
+
+    if (hasTurnstile) {
+      lines.push(
+        "",
+        "Alchemy creates a Cloudflare Turnstile widget and injects its public sitekey and secret into the deployed apps. Set `TURNSTILE_DOMAINS` in `.env` to a comma-separated list of the production hostname(s) before deploying; it defaults to `localhost,127.0.0.1` and development uses Cloudflare's always-pass test keys automatically.",
+      );
     }
 
     const hasWeb = hasWebFrontend(frontend);
@@ -1070,7 +1214,11 @@ function generateGitHooksSection(
   const hasLefthook = addons.includes("lefthook");
   const hasVitePlus = addons.includes("vite-plus");
   const hasVitePlusNativeHooks = hasVitePlus && !hasHusky && !hasLefthook;
-  const hasLinting = addons.includes("biome") || addons.includes("oxlint") || hasVitePlus;
+  const hasLinting =
+    addons.includes("biome") ||
+    addons.includes("oxlint") ||
+    addons.includes("eslint") ||
+    hasVitePlus;
 
   if (!hasHusky && !hasLinting) {
     return "";

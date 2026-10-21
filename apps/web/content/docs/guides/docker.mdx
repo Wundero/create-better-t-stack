@@ -46,7 +46,7 @@ Choosing `docker` as a deploy target generates:
 **Combined deployment (web + server + database):**
 
 ```npm
-npm create better-t-stack@latest my-app \
+npx @wundero/bts@latest my-app \
   --frontend tanstack-router \
   --backend hono \
   --runtime bun \
@@ -59,7 +59,7 @@ npm create better-t-stack@latest my-app \
 **Web-only (fullstack `self` backend):**
 
 ```npm
-npm create better-t-stack@latest my-app \
+npx @wundero/bts@latest my-app \
   --frontend next \
   --backend self \
   --web-deploy docker
@@ -68,7 +68,7 @@ npm create better-t-stack@latest my-app \
 **Server-only:**
 
 ```npm
-npm create better-t-stack@latest my-app \
+npx @wundero/bts@latest my-app \
   --frontend none \
   --backend fastify \
   --runtime node \

@@ -1,0 +1,24 @@
+export interface PaymentActionsProps {
+  isActive: boolean;
+  planLabel: string;
+  pending: boolean;
+  onCheckout: () => Promise<void>;
+  onPortal: () => Promise<void>;
+}
+
+export function PaymentActions(props: PaymentActionsProps) {
+  return (
+    <div>
+      <p>Plan: {props.planLabel}</p>
+      {props.isActive ? (
+        <button disabled={props.pending} onClick={() => void props.onPortal()}>
+          Manage Subscription
+        </button>
+      ) : (
+        <button disabled={props.pending} onClick={() => void props.onCheckout()}>
+          Upgrade to Pro
+        </button>
+      )}
+    </div>
+  );
+}

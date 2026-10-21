@@ -1,0 +1,31 @@
+import { Commet } from "@commet/node";
+
+export function createCommetClient(config: { COMMET_API_KEY: string }) {
+  return new Commet({ apiKey: config.COMMET_API_KEY });
+}
+
+let client: Commet | undefined;
+
+function getCommetClient(): Commet {
+  if (!client) {
+    const apiKey = process.env.COMMET_API_KEY;
+    if (!apiKey) {
+      throw new Error("COMMET_API_KEY is not set");
+    }
+    client = createCommetClient({ COMMET_API_KEY: apiKey });
+  }
+  return client;
+}
+
+export async function createCommetCheckoutUrl(params: {
+  userId: string;
+  planCode: string;
+  successUrl: string;
+}): Promise<string | null> {
+  const subscription = await getCommetClient().subscriptions.create({
+    customerId: params.userId,
+    planCode: params.planCode,
+    successUrl: params.successUrl,
+  });
+  return subscription.checkoutUrl ?? null;
+}

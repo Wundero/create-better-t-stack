@@ -1,7 +1,7 @@
 "use client";
 
+import { useTheme } from "@wrksz/themes/client";
 import { Check, Copy, Link2, QrCode, Share2, SquareTerminal, Terminal } from "lucide-react";
-import { useTheme } from "next-themes";
 import Image from "next/image";
 import QRCode from "qrcode";
 import React, { useEffect, useRef, useState } from "react";

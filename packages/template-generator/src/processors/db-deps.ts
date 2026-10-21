@@ -1,4 +1,4 @@
-import type { ProjectConfig } from "@better-t-stack/types";
+import { usesAlchemyManagedDatabase, type ProjectConfig } from "@better-t-stack/types";
 
 import type { VirtualFileSystem } from "../core/virtual-fs";
 import { addPackageDependency, type AvailableDependencies } from "../utils/add-deps";
@@ -21,6 +21,15 @@ export function processDatabaseDeps(vfs: VirtualFileSystem, config: ProjectConfi
     processDrizzleDeps(vfs, config, dbPkgPath, webPkgPath, webNeedsDbRuntime);
   } else if (orm === "mongoose") {
     addPackageDependency({ vfs, packagePath: dbPkgPath, dependencies: ["mongoose"] });
+  }
+
+  if (dbSetup === "aurora" && usesAlchemyManagedDatabase(config)) {
+    addPackageDependency({
+      vfs,
+      packagePath: dbPkgPath,
+      dependencies: ["@aws-sdk/client-rds-data"],
+      devDependencies: ["tsx"],
+    });
   }
 
   if (

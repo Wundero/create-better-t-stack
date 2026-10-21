@@ -1,9 +1,14 @@
-import type { ProjectConfig } from "@better-t-stack/types";
+import { isAlchemyDeployTarget, isProviderAddon, type ProjectConfig } from "@better-t-stack/types";
 import { parse, stringify } from "yaml";
 
 import type { VirtualFileSystem } from "../core/virtual-fs";
-import { getPrismaWebsiteFramework } from "../generators/alchemy/plan";
-import { addPackageDependency, dependencyVersionMap } from "../utils/add-deps";
+import { addonAppDeps, addonInfraDeps } from "../generators/alchemy/addons";
+import { createAlchemyDeploymentPlan, getPrismaWebsiteFramework } from "../generators/alchemy/plan";
+import {
+  addPackageDependency,
+  dependencyVersionMap,
+  type AvailableDependencies,
+} from "../utils/add-deps";
 
 // `@effect/platform-node`/`-bun` declare `@effect/platform-node-shared` with a caret on a
 // prerelease, and alchemy floats several `@effect/*` deps. Those ranges resolve to the newest
@@ -35,11 +40,43 @@ function alignAlchemyEffectPackages(vfs: VirtualFileSystem, config: ProjectConfi
   vfs.writeJson("package.json", pkg);
 }
 
+function isAvailableDependency(name: string): name is AvailableDependencies {
+  return Object.hasOwn(dependencyVersionMap, name);
+}
+
+function resolveAddonDependencies(names: string[]): AvailableDependencies[] {
+  return names.map((name) => {
+    if (!isAvailableDependency(name)) {
+      throw new Error(
+        `Missing version for dependency: ${name}. Add it to dependencyVersionMap in add-deps.ts`,
+      );
+    }
+    return name;
+  });
+}
+
+function addonDevDependencies(config: ProjectConfig): AvailableDependencies[] {
+  if (!config.addons.some(isProviderAddon)) return [];
+  return resolveAddonDependencies(addonInfraDeps(createAlchemyDeploymentPlan(config)));
+}
+
+function addonAppDependencies(config: ProjectConfig): AvailableDependencies[] {
+  if (!config.addons.some(isProviderAddon)) return [];
+  return resolveAddonDependencies(addonAppDeps(createAlchemyDeploymentPlan(config)));
+}
+
 export function processInfraDeps(vfs: VirtualFileSystem, config: ProjectConfig): void {
   const infraPath = "packages/infra/package.json";
   if (!vfs.exists(infraPath)) return;
 
   const { serverDeploy, webDeploy } = config;
+  if (webDeploy === "aws") {
+    addPackageDependency({
+      vfs,
+      packagePath: infraPath,
+      devDependencies: ["@alchemy.run/frontend-frameworks"],
+    });
+  }
   if (getPrismaWebsiteFramework(config)) {
     addPackageDependency({
       vfs,
@@ -47,10 +84,18 @@ export function processInfraDeps(vfs: VirtualFileSystem, config: ProjectConfig):
       devDependencies: ["@alchemy.run/frontend-frameworks", "@vercel/nft"],
     });
   }
+  if (config.emailDeploy === "ses") {
+    addPackageDependency({
+      vfs,
+      packagePath: infraPath,
+      dependencies: ["@aws-sdk/client-sesv2"],
+    });
+  }
   if (
-    ["cloudflare", "prisma"].includes(serverDeploy) ||
-    ["cloudflare", "prisma"].includes(webDeploy) ||
-    config.addons.includes("axiom")
+    isAlchemyDeployTarget(serverDeploy) ||
+    isAlchemyDeployTarget(webDeploy) ||
+    config.addons.includes("axiom") ||
+    config.emailDeploy === "ses"
   ) {
     addPackageDependency({
       vfs,
@@ -64,5 +109,32 @@ export function processInfraDeps(vfs: VirtualFileSystem, config: ProjectConfig):
       ],
     });
     alignAlchemyEffectPackages(vfs, config);
+  }
+
+  const addonDeps = addonDevDependencies(config);
+  if (addonDeps.length > 0) {
+    addPackageDependency({
+      vfs,
+      packagePath: infraPath,
+      devDependencies: addonDeps,
+    });
+  }
+
+  const addonRuntimeDeps = addonAppDependencies(config);
+  if (addonRuntimeDeps.length > 0) {
+    const serverPath = "apps/server/package.json";
+    const webPath = "apps/web/package.json";
+    const packagePath = vfs.exists(serverPath)
+      ? serverPath
+      : vfs.exists(webPath)
+        ? webPath
+        : undefined;
+    if (packagePath) {
+      addPackageDependency({
+        vfs,
+        packagePath,
+        dependencies: addonRuntimeDeps,
+      });
+    }
   }
 }

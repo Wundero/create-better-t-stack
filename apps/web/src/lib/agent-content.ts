@@ -1,3 +1,4 @@
+import { CLI_PACKAGE_SPEC } from "./cli-commands";
 import type { StackState } from "./constant";
 import {
   NPM_PACKAGE_URL,
@@ -108,14 +109,19 @@ const stackCategoryLabels = {
   backend: "Backend",
   database: "Database",
   dbSetup: "Database setup",
+  emailDeploy: "Email deploy",
+  emailRenderer: "Email renderer",
   examples: "Example",
   git: "Git",
+  i18n: "Internationalization",
   install: "Dependency installation",
   nativeFrontend: "Native frontend",
   orm: "ORM",
   packageManager: "Package manager",
   payments: "Payments",
+  portless: "Portless mode",
   runtime: "Runtime",
+  serverCompute: "Server compute",
   serverDeploy: "Server deployment",
   webDeploy: "Web deployment",
   webFrontend: "Web frontend",
@@ -198,13 +204,13 @@ Better-T-Stack does not expose a public hosted application API. The supported au
 ## Quick start
 
 \`\`\`bash
-npx create-better-t-stack@latest my-app
+npx ${CLI_PACKAGE_SPEC} my-app
 \`\`\`
 
 Non-interactive default project:
 
 \`\`\`bash
-npx create-better-t-stack@latest my-app --yes
+npx ${CLI_PACKAGE_SPEC} my-app --yes
 \`\`\`
 
 ## Agent interfaces
@@ -212,7 +218,7 @@ npx create-better-t-stack@latest my-app --yes
 - JSON project creation: \`create-better-t-stack create-json --json '{...}'\`
 - JSON project updates: \`create-better-t-stack add-json --json '{...}'\`
 - JSON schemas: \`create-better-t-stack schema --name all\`
-- Local MCP server: \`npx create-better-t-stack@latest mcp\`
+- Local MCP server: \`npx ${CLI_PACKAGE_SPEC} mcp\`
 - [Agent workflow guide](${SITE_URL}/docs/cli/agent-workflows.mdx)
 - [Programmatic API](${SITE_URL}/docs/cli/programmatic-api.mdx)
 

@@ -1,5 +1,8 @@
 {{#if (eq payments "polar")}}
 import { Button } from "@{{projectName}}/ui/components/button";
+{{else if (and (ne payments "none") (ne payments "polar"))}}
+import { PaymentActions } from "@/components/payment-actions";
+import { usePayment } from "@/lib/payments";
 {{/if}}
 import { authClient } from "@/lib/auth-client";
 {{#if (eq api "orpc")}}
@@ -43,16 +46,17 @@ export function HydrateFallback() {
 {{/unless}}
 export default function Dashboard({ loaderData }: Route.ComponentProps) {
   const { user{{#if (eq payments "polar")}}, customerState{{/if}} } = loaderData;
+{{#if (eq payments "polar")}}
+  const hasProSubscription = (customerState?.activeSubscriptions?.length ?? 0) > 0;
+{{else if (and (ne payments "none") (ne payments "polar"))}}
+  const { state, isLoading, checkout, portal } = usePayment();
+{{/if}}
 {{#if (eq api "orpc")}}
   const privateData = useQuery(orpc.privateData.queryOptions());
 {{/if}}
 {{#if (eq api "trpc")}}
   const privateData = useQuery(trpc.privateData.queryOptions());
 {{/if}}
-
-  {{#if (eq payments "polar")}}
-  const hasProSubscription = (customerState?.activeSubscriptions?.length ?? 0) > 0;
-  {{/if}}
 
   return (
     <div>
@@ -72,6 +76,14 @@ export default function Dashboard({ loaderData }: Route.ComponentProps) {
           Upgrade to Pro
         </Button>
       )}
+      {{else if (and (ne payments "none") (ne payments "polar"))}}
+      <PaymentActions
+        isActive={state.isActive}
+        planLabel={state.planLabel}
+        pending={isLoading}
+        onCheckout={checkout}
+        onPortal={portal}
+      />
       {{/if}}
     </div>
   );

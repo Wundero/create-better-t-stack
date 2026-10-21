@@ -1,10 +1,23 @@
 "use client";
-import { parseAsArrayOf, parseAsString, parseAsStringEnum, useQueryStates } from "nuqs";
+import { SHADCN_BASE_VALUES } from "@better-t-stack/types";
+import {
+  parseAsArrayOf,
+  parseAsBoolean,
+  parseAsString,
+  parseAsStringEnum,
+  useQueryStates,
+} from "nuqs";
 import { useCallback, useMemo } from "react";
 
-import { DEFAULT_STACK, type StackState, getStackOptionIds } from "@/lib/constant";
+import {
+  DEFAULT_I18N_OPTIONS,
+  DEFAULT_STACK,
+  type StackState,
+  getStackOptionIds,
+} from "@/lib/constant";
 
 import { sanitizeStackState, type RawStackLists } from "./sanitize-stack-addons";
+import { composeI18nOptions, flattenI18nOptions, I18N_ROUTING_STRATEGIES } from "./stack-i18n";
 import { stackUrlKeys } from "./stack-url-keys";
 
 export const stackParsers = {
@@ -35,6 +48,21 @@ export const stackParsers = {
   payments: parseAsStringEnum<StackState["payments"]>(getStackOptionIds("payments")).withDefault(
     DEFAULT_STACK.payments,
   ),
+  emailRenderer: parseAsStringEnum<StackState["emailRenderer"]>(
+    getStackOptionIds("emailRenderer"),
+  ).withDefault(DEFAULT_STACK.emailRenderer),
+  emailDeploy: parseAsStringEnum<StackState["emailDeploy"]>(
+    getStackOptionIds("emailDeploy"),
+  ).withDefault(DEFAULT_STACK.emailDeploy),
+  i18n: parseAsStringEnum<StackState["i18n"]>(getStackOptionIds("i18n")).withDefault(
+    DEFAULT_STACK.i18n,
+  ),
+  locales: parseAsArrayOf(parseAsString).withDefault(DEFAULT_I18N_OPTIONS.locales),
+  sourceLocale: parseAsString.withDefault(DEFAULT_I18N_OPTIONS.sourceLocale),
+  routing: parseAsStringEnum([...I18N_ROUTING_STRATEGIES]).withDefault(
+    DEFAULT_I18N_OPTIONS.routing.strategy,
+  ),
+  domains: parseAsString.withDefault(""),
   packageManager: parseAsStringEnum<StackState["packageManager"]>(
     getStackOptionIds("packageManager"),
   ).withDefault(DEFAULT_STACK.packageManager),
@@ -44,6 +72,9 @@ export const stackParsers = {
   install: parseAsStringEnum<StackState["install"]>(["true", "false"]).withDefault(
     DEFAULT_STACK.install,
   ),
+  portless: parseAsStringEnum<StackState["portless"]>(["true", "false"]).withDefault(
+    DEFAULT_STACK.portless,
+  ),
   webDeploy: parseAsStringEnum<StackState["webDeploy"]>(getStackOptionIds("webDeploy")).withDefault(
     DEFAULT_STACK.webDeploy,
   ),
@@ -51,6 +82,12 @@ export const stackParsers = {
     getStackOptionIds("serverDeploy"),
   ).withDefault(DEFAULT_STACK.serverDeploy),
   yolo: parseAsStringEnum<StackState["yolo"]>(["true", "false"]).withDefault(DEFAULT_STACK.yolo),
+  shadcnPreset: parseAsString.withDefault(DEFAULT_STACK.shadcnPreset),
+  shadcnBase: parseAsStringEnum<StackState["shadcnBase"]>([...SHADCN_BASE_VALUES]).withDefault(
+    DEFAULT_STACK.shadcnBase,
+  ),
+  shadcnRtl: parseAsBoolean.withDefault(DEFAULT_STACK.shadcnRtl),
+  shadcnPointer: parseAsBoolean.withDefault(DEFAULT_STACK.shadcnPointer),
   viewMode: parseAsStringEnum<"command" | "preview">(["command", "preview"]).withDefault("command"),
   selectedFile: parseAsString.withDefault(""),
 };
@@ -64,7 +101,14 @@ export const stackQueryStatesOptions = {
   clearOnDefault: true,
 };
 
-function getStackFromQueryState(queryState: RawStackLists): StackState {
+type I18nQueryFields = {
+  locales: string[];
+  sourceLocale: string;
+  routing: string;
+  domains: string;
+};
+
+function getStackFromQueryState(queryState: RawStackLists & I18nQueryFields): StackState {
   return sanitizeStackState({
     projectName: queryState.projectName,
     webFrontend: queryState.webFrontend,
@@ -77,15 +121,35 @@ function getStackFromQueryState(queryState: RawStackLists): StackState {
     dbSetup: queryState.dbSetup,
     auth: queryState.auth,
     payments: queryState.payments,
+    emailRenderer: queryState.emailRenderer,
+    emailDeploy: queryState.emailDeploy,
+    i18n: queryState.i18n,
+    i18nOptions: composeI18nOptions({
+      i18n: queryState.i18n,
+      locales: queryState.locales,
+      sourceLocale: queryState.sourceLocale,
+      routing: queryState.routing,
+      domains: queryState.domains,
+    }),
     packageManager: queryState.packageManager,
     addons: queryState.addons,
     examples: queryState.examples,
     git: queryState.git,
     install: queryState.install,
+    portless: queryState.portless,
     webDeploy: queryState.webDeploy,
     serverDeploy: queryState.serverDeploy,
     yolo: queryState.yolo,
+    shadcnPreset: queryState.shadcnPreset,
+    shadcnBase: queryState.shadcnBase,
+    shadcnRtl: queryState.shadcnRtl,
+    shadcnPointer: queryState.shadcnPointer,
   });
+}
+
+function toQueryUpdate(stack: StackState) {
+  const { i18nOptions, ...stackFields } = stack;
+  return { ...stackFields, ...flattenI18nOptions(i18nOptions) };
 }
 
 export function useStackState() {
@@ -103,7 +167,7 @@ export function useStackState() {
         const newStack = updates instanceof Function ? updates(currentStack) : updates;
         const finalStack = sanitizeStackState({ ...currentStack, ...newStack });
 
-        return finalStack;
+        return toQueryUpdate(finalStack);
       });
     },
     [setQueryState],

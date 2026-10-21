@@ -1,0 +1,52 @@
+import { Body, Container, Head, Hr, Html, Preview, Text } from "react-email";
+
+import { Button } from "../components/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "../components/card";
+
+export type WelcomeEmailProps = {
+  name: string;
+  url: string;
+  productName?: string;
+};
+
+export function WelcomeEmail({ name, url, productName = "Better T Stack" }: WelcomeEmailProps) {
+  return (
+    <Html>
+      <Head />
+      <Preview>Welcome to {productName}</Preview>
+      <Body
+        style=\{{ backgroundColor: "#f4f4f5", margin: 0, padding: "24px 0", fontFamily: "Arial, Helvetica, sans-serif" }}
+      >
+        <Container style=\{{ maxWidth: "560px", margin: "0 auto" }}>
+          <Card>
+            <CardHeader>
+              <CardTitle>Welcome, {name}</CardTitle>
+              <CardDescription>Your account is ready to go.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Text style=\{{ margin: 0, fontSize: "14px", lineHeight: "22px", color: "#3f3f46" }}>
+                Thanks for signing up for {productName}. Use the button below to get started.
+              </Text>
+            </CardContent>
+            <CardFooter>
+              <Button href={url}>Get started</Button>
+            </CardFooter>
+          </Card>
+          <Hr style=\{{ borderColor: "#e4e4e7", margin: "24px 0" }} />
+          <Text style=\{{ margin: 0, fontSize: "12px", color: "#71717a", textAlign: "center" }}>
+            If you did not create an account, you can safely ignore this email.
+          </Text>
+        </Container>
+      </Body>
+    </Html>
+  );
+}
+
+export default WelcomeEmail;

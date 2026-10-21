@@ -1,10 +1,17 @@
-import { api } from "@better-t-stack/backend/convex/_generated/api";
-import { preloadQuery } from "convex/nextjs";
 import type { Metadata } from "next";
 
+import {
+  fetchAnalyticsStats,
+  fetchDailyStats,
+  fetchMonthlyStats,
+  fetchWithFallback,
+  type MonthlyStats,
+} from "@/lib/api-client";
 import { SITE_URL } from "@/lib/site";
 
 import { AnalyticsClient } from "./analytics-client";
+
+const EMPTY_MONTHLY_STATS: MonthlyStats = { monthly: [], firstDate: null, lastDate: null };
 
 export const metadata: Metadata = {
   title: "Analytics - Better-T-Stack",
@@ -34,17 +41,17 @@ export const metadata: Metadata = {
 };
 
 export default async function Analytics() {
-  const [preloadedStats, preloadedDailyStats, preloadedMonthlyStats] = await Promise.all([
-    preloadQuery(api.analytics.getStats, {}),
-    preloadQuery(api.analytics.getDailyStats, { days: 30 }),
-    preloadQuery(api.analytics.getMonthlyStats, {}),
+  const [initialStats, initialDailyStats, initialMonthlyStats] = await Promise.all([
+    fetchWithFallback(() => fetchAnalyticsStats({ cache: "no-store" }), null),
+    fetchWithFallback(() => fetchDailyStats(30, { cache: "no-store" }), []),
+    fetchWithFallback(() => fetchMonthlyStats({ cache: "no-store" }), EMPTY_MONTHLY_STATS),
   ]);
 
   return (
     <AnalyticsClient
-      preloadedStats={preloadedStats}
-      preloadedDailyStats={preloadedDailyStats}
-      preloadedMonthlyStats={preloadedMonthlyStats}
+      initialStats={initialStats}
+      initialDailyStats={initialDailyStats}
+      initialMonthlyStats={initialMonthlyStats}
     />
   );
 }

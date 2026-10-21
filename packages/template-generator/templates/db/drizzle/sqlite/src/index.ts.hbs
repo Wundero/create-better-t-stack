@@ -6,7 +6,7 @@ import { drizzle } from "drizzle-orm/d1";
 export function createDb(env: DatabaseConfig) {
 	return drizzle(env.DB, { relations });
 }
-{{else if (or (eq runtime "bun") (eq runtime "node") (eq runtime "none"))}}
+{{else if (or (eq runtime "bun") (eq runtime "node") (eq runtime "lambda") (eq runtime "none"))}}
 import { relations } from "./relations";
 import { drizzle } from "drizzle-orm/libsql";
 import { createClient } from "@libsql/client";

@@ -1,0 +1,33 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "bts-api",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-09-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "bts-analytics",
+      "database_id": "b8dbf650-f98d-486f-9522-b3bdb301990a",
+      "migrations_dir": "migrations",
+    },
+  ],
+  "kv_namespaces": [
+    {
+      "binding": "OSS_STATS_KV",
+      "id": "1c925021cdb043c3938178b0558f9860",
+    },
+  ],
+  "triggers": {
+    "crons": ["0 */6 * * *"],
+  },
+  "routes": [
+    {
+      "pattern": "api.create.1d.gg",
+      "custom_domain": true,
+    },
+  ],
+  "observability": {
+    "enabled": true,
+  },
+}

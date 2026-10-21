@@ -1,0 +1,16 @@
+// Astro glue for i18next: a request-scoped translator. The locale middleware
+// (routing lane) wraps requests in `runWithLocale`; without it the negotiation
+// falls back to the source locale.
+import { createFormatters } from "@{{projectName}}/i18n";
+import { getRequestLocale } from "@{{projectName}}/i18n/server";
+import { initI18next } from "@{{projectName}}/i18n/runtime";
+import type { Locale } from "@{{projectName}}/i18n";
+
+export function getT(locale: Locale = getRequestLocale()) {
+  return initI18next(locale).getFixedT(locale);
+}
+
+/** Date, number, currency and list formatters for a request locale. */
+export function getFormat(locale: Locale = getRequestLocale()) {
+  return createFormatters(locale);
+}

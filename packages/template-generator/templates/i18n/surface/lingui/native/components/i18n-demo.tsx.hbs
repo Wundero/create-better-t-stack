@@ -1,0 +1,85 @@
+import { useMemo, useState } from "react";
+import { Pressable, StyleSheet, Text, View } from "react-native";
+import { useLingui } from "@lingui/react/macro";
+
+import { locales, type Locale } from "@{{projectName}}/i18n/config";
+import { createFormatters } from "@{{projectName}}/i18n/format";
+import { activateLocale } from "@{{projectName}}/i18n/runtime";
+
+import { I18nProvider } from "@/components/i18n-provider";
+
+/**
+ * i18n demo: translated heading, interpolation, plural, currency, date and a
+ * locale switcher. Dates and numbers come from the shared `createFormatters`,
+ * never from Lingui (D4).
+ */
+export function I18nDemo() {
+  return (
+    <I18nProvider>
+      <I18nDemoContent />
+    </I18nProvider>
+  );
+}
+
+function I18nDemoContent() {
+  const { t, i18n } = useLingui();
+  const locale = i18n.locale as Locale;
+  const formatters = useMemo(() => createFormatters(locale), [locale]);
+  const [count, setCount] = useState(3);
+  const name = "Ada";
+
+  return (
+    <View style={styles.card}>
+      <Text style={styles.title}>{t`Internationalization`}</Text>
+      <Text style={styles.body}>{t`Hello ${name}, welcome back!`}</Text>
+      <Text style={styles.body}>
+        {t`{count, plural, one {# unread message} other {# unread messages}}`}
+      </Text>
+      <Text style={styles.body}>{formatters.currency(42.5, "EUR")}</Text>
+      <Text style={styles.body}>{formatters.date(new Date())}</Text>
+      <View style={styles.row}>
+        <Pressable style={styles.button} onPress={() => setCount((value) => value + 1)}>
+          <Text style={styles.buttonText}>{t`Add a message`}</Text>
+        </Pressable>
+        {locales.map((value) => (
+          <Pressable
+            key={value}
+            style={value === locale ? styles.buttonActive : styles.button}
+            onPress={() => void activateLocale(value)}
+          >
+            <Text style={styles.buttonText}>{value}</Text>
+          </Pressable>
+        ))}
+      </View>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  card: {
+    borderRadius: 12,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: "#94a3b8",
+    padding: 16,
+    gap: 6,
+  },
+  title: { fontSize: 18, fontWeight: "600" },
+  body: { fontSize: 15 },
+  row: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 8 },
+  button: {
+    borderRadius: 8,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: "#94a3b8",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  buttonActive: {
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#2563eb",
+    backgroundColor: "#dbeafe",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  buttonText: { fontSize: 14 },
+});

@@ -1,0 +1,30 @@
+"use client";
+
+import { I18nProvider as LinguiI18nProvider } from "@lingui/react";
+import { setupI18n, type Messages } from "@lingui/core";
+import { useState, type ReactNode } from "react";
+
+import type { Locale } from "@{{projectName}}/i18n/config";
+
+/**
+ * Surface glue: provides one `@lingui/react` instance to the client tree,
+ * seeded with the catalog the server already negotiated (see
+ * `i18n-server-provider.tsx`). The store is created during the initial render
+ * on both the server and the client, so the SSR HTML and hydration share the
+ * same locale and messages. `<Trans>` and the `t` macro read this provider.
+ */
+export function I18nProvider({
+  children,
+  initialLocale,
+  initialMessages,
+}: {
+  children: ReactNode;
+  initialLocale: Locale;
+  initialMessages: Messages;
+}) {
+  const [i18n] = useState(() =>
+    setupI18n({ locale: initialLocale, messages: { [initialLocale]: initialMessages } }),
+  );
+
+  return <LinguiI18nProvider i18n={i18n}>{children}</LinguiI18nProvider>;
+}

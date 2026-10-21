@@ -13,9 +13,12 @@ import { processEnvDeps } from "./env-deps";
 import { processEnvVariables } from "./env-vars";
 import { processExamplesDeps } from "./examples-deps";
 import { processFrontendDeps } from "./frontend-deps";
+import { processI18nDeps } from "./i18n-deps";
 import { processInfraDeps } from "./infra-deps";
 import { processNxConfig } from "./nx-generator";
+import { processOxlintConfig } from "./oxlint-generator";
 import { processPaymentsDeps } from "./payments-deps";
+import { processPortlessMode } from "./portless";
 import { processPwaPlugins } from "./pwa-plugins";
 import { processReadme } from "./readme-generator";
 import { processRuntimeDeps } from "./runtime-deps";
@@ -34,12 +37,14 @@ export function processDependencies(vfs: VirtualFileSystem, config: ProjectConfi
   processApiDeps(vfs, config);
   processAuthDeps(vfs, config);
   processPaymentsDeps(vfs, config);
+  processI18nDeps(vfs, config);
   processDeployDeps(vfs, config);
   processAddonsDeps(vfs, config);
   processExamplesDeps(vfs, config);
   processTurboConfig(vfs, config);
   processNxConfig(vfs, config);
   processVitePlusConfig(vfs, config);
+  processOxlintConfig(vfs, config);
 }
 
 export {
@@ -52,9 +57,12 @@ export {
   processEnvDeps,
   processExamplesDeps,
   processFrontendDeps,
+  processI18nDeps,
   processInfraDeps,
   processPaymentsDeps,
+  processPortlessMode,
   processNxConfig,
+  processOxlintConfig,
   processReadme,
   processRuntimeDeps,
   processTurboConfig,

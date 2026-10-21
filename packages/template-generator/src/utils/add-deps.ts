@@ -16,6 +16,49 @@ export const dependencyVersionMap = {
   // TS 7 removes the compiler API required by vue-tsc, svelte-check and our tooling.
   typescript: "^6.0.3",
 
+  // i18n (checkpoint-1 pins, 2026-10-14). Seeded once by the orchestrator so the
+  // per-library lanes request these by name instead of racing on this map.
+  "@lingui/core": "6.9.1",
+  "@lingui/react": "6.9.1",
+  "@lingui/solid": "6.9.1",
+  "@lingui/vite-plugin": "6.9.1",
+  "@lingui/babel-plugin-lingui-macro": "6.9.1",
+  "@lingui/metro-transformer": "6.9.1",
+  "@lingui/cli": "6.9.1",
+  "@lingui/swc-plugin": "6.7.1",
+  "@lingui/format-po": "6.9.1",
+  "@lingui/extractor-vue": "6.9.1",
+  "@babel/core": "^7.29.7",
+  "@inlang/paraglide-js": "2.27.0",
+  "@inlang/paraglide-js-react": "^1.0.0",
+  "@inlang/paraglide-js-svelte": "^1.0.0",
+  "@inlang/paraglide-js-vue": "^1.0.0",
+  "@inlang/paraglide-js-solid": "^1.0.0",
+  i18next: "26.4.4",
+  "react-i18next": "17.0.16",
+  "i18next-vue": "5.4.0",
+  "i18next-cli": "1.75.3",
+  wuchale: "0.26.7",
+  "@wuchale/jsx": "^0.13.0",
+  "@wuchale/svelte": "^0.21.4",
+  "@wuchale/astro": "^0.5.1",
+  "@wuchale/json": "^0.3.0",
+  "@better-auth/i18n": "1.7.7",
+  "@clerk/localizations": "^4.23.0",
+  "@nuxtjs/i18n": "^10.6.0",
+  "@wxt-dev/i18n": "^0.2.8",
+
+  // Hermes `Intl` polyfills for the Expo/native surface (expo-localization).
+  "expo-localization": "~57.0.2",
+  "@formatjs/intl-getcanonicallocales": "^3.2.12",
+  "@formatjs/intl-locale": "^5.3.12",
+  "@formatjs/intl-pluralrules": "^6.3.15",
+  "@formatjs/intl-numberformat": "^9.4.3",
+  "@formatjs/intl-datetimeformat": "^7.8.1",
+  "@formatjs/intl-relativetimeformat": "^12.3.15",
+  "@formatjs/intl-listformat": "^8.3.15",
+  "@formatjs/intl-displaynames": "^7.3.15",
+
   "better-auth": "1.7.7",
   "@better-auth/core": "1.7.7",
   "@better-auth/drizzle-adapter": "1.7.7",
@@ -45,6 +88,16 @@ export const dependencyVersionMap = {
   "@types/ws": "^8.18.1",
   ws: "^8.21.3",
 
+  "@aws-sdk/client-rds-data": "^3.1140.0",
+  "@aws-sdk/client-s3": "^3.1143.0",
+  "@aws-sdk/client-sqs": "^3.1143.0",
+  "@aws-sdk/client-sns": "^3.1143.0",
+  "@aws-sdk/client-kinesis": "^3.1143.0",
+  "@aws-sdk/client-eventbridge": "^3.1143.0",
+  "@aws-sdk/client-scheduler": "^3.1143.0",
+  "@aws-sdk/client-lambda-microvms": "^3.1143.0",
+  ioredis: "^6.0.0",
+
   mysql2: "^3.24.3",
 
   "@prisma/client": "^7.10.0",
@@ -71,11 +124,20 @@ export const dependencyVersionMap = {
 
   oxlint: "^1.87.0",
   oxfmt: "^0.72.0",
+  "@shadcn/lint": "^0.2.0",
+
+  eslint: "^10.11.0",
+  "@eslint/js": "^10.0.1",
+  "typescript-eslint": "^8.70.1",
+  "eslint-config-prettier": "^10.1.8",
+  prettier: "^3.9.9",
+  globals: "^17.12.0",
 
   husky: "^9.1.7",
   lefthook: "^2.2.1",
   "lint-staged": "^17.6.0",
 
+  portless: "^0.15.6",
   tsx: "^4.23.13",
   "@types/node": "^26.4.1",
 
@@ -108,7 +170,9 @@ export const dependencyVersionMap = {
   unwasm: "^0.6.0",
 
   ai: "^7.0.93",
+  "@neon/ai-sdk-provider": "^0.10.0",
   "@ai-sdk/google": "^4.0.64",
+  "@ai-sdk/amazon-bedrock": "^5.0.102",
   "@ai-sdk/vue": "^4.0.93",
   "@ai-sdk/svelte": "^5.0.93",
   "@ai-sdk/react": "^4.0.96",
@@ -157,11 +221,15 @@ export const dependencyVersionMap = {
   wrangler: "^4.129.0",
   "@cloudflare/vite-plugin": "1.54.4",
   "@opennextjs/cloudflare": "^1.20.12",
+  "@cloudflare/containers": "^0.3.7",
+  "@cloudflare/sandbox": "0.12.6",
+  "workers-ai-provider": "^4.0.0",
   "@sveltejs/adapter-cloudflare": "^7.2.9",
   "@sveltejs/adapter-node": "^5.5.7",
   "@sveltejs/adapter-vercel": "^6.3.4",
   "@cloudflare/workers-types": "^5.20260906.1",
   "@alchemy.run/frontend-frameworks": "2.0.0-beta.83",
+  "@aws-sdk/client-sesv2": "^3.910.0",
   "@astrojs/node": "^11.1.5",
   "@astrojs/vercel": "^11.0.10",
 
@@ -189,6 +257,17 @@ export const dependencyVersionMap = {
   "@polar-sh/sdk": "^0.47.0",
   "@stripe/react-stripe-js": "^6.9.0",
   "@stripe/stripe-js": "^9.15.0",
+
+  "@better-auth/stripe": "^1.7.6",
+  stripe: "^22.6.2",
+  "@dodopayments/better-auth": "^1.6.6",
+  dodopayments: "^2.51.0",
+  "@creem_io/better-auth": "^2.0.4",
+  "@chargebee/better-auth": "^1.2.0",
+  chargebee: "^3.34.0",
+  "@commet/better-auth": "^8.1.0",
+  "@commet/node": "^9.3.0",
+  "autumn-js": "^1.3.19",
 
   evlog: "^2.30.1",
 } as const;

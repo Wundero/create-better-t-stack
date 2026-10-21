@@ -11,6 +11,7 @@ import type {
 } from "../types";
 import { WEB_FRAMEWORKS } from "../utils/compatibility";
 import {
+  supportsAwsWebDeploy,
   supportsPrismaWebDeploy,
   validateCloudflareWebDeployKnownIssues,
 } from "../utils/compatibility-rules";
@@ -57,6 +58,18 @@ function getDeploymentDisplay(deployment: WebDeploy): DeploymentDisplay {
       hint: "Deploy to Vercel with Services; not fully tested",
     };
   }
+  if (deployment === "aws") {
+    return {
+      label: "AWS",
+      hint: "Deploy to AWS with ECS Fargate or Lambda using Alchemy",
+    };
+  }
+  if (deployment === "hetzner") {
+    return {
+      label: "Hetzner",
+      hint: "Deploy to a Hetzner Cloud server using Alchemy",
+    };
+  }
   return {
     label: deployment,
     hint: `Add ${deployment} deployment`,
@@ -83,6 +96,10 @@ export async function getDeploymentChoice(
     return "cloudflare";
   }
 
+  if (addons.includes("turnstile")) {
+    return "cloudflare";
+  }
+
   const supportsPrismaCompute = supportsPrismaWebDeploy(frontend);
   const supportsCloudflare = validateCloudflareWebDeployKnownIssues({
     webDeploy: "cloudflare",
@@ -94,6 +111,8 @@ export async function getDeploymentChoice(
   const availableDeployments = [
     ...(supportsCloudflare ? (["cloudflare"] as const) : []),
     ...(supportsPrismaCompute ? (["prisma"] as const) : []),
+    ...(supportsAwsWebDeploy(frontend) ? (["aws"] as const) : []),
+    "hetzner",
     "docker",
     "vercel",
     "none",
@@ -133,6 +152,8 @@ export async function getDeploymentToAdd(frontend: Frontend[], existingDeploymen
   const deployments = [
     "cloudflare",
     ...(supportsPrismaCompute ? (["prisma"] as const) : []),
+    ...(supportsAwsWebDeploy(frontend) ? (["aws"] as const) : []),
+    "hetzner",
     "docker",
     "vercel",
   ] as const;

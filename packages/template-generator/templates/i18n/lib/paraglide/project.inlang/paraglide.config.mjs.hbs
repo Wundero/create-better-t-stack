@@ -1,0 +1,52 @@
+/**
+ * Paraglide compiler options shared by the CLI (`i18n:compile`) and every
+ * bundler plugin. App configs only pass `project` and a per-app `outdir`;
+ * everything else is defined here once.
+ *
+ * The `strategy` order mirrors the shared locale negotiation in
+ * `packages/i18n/src/config.ts`: the routing source first (when the project
+ * uses prefix or domain routing), then the `locale` cookie, then the
+ * browser/device language, then the base locale.
+ */
+export default {
+{{#if (eq i18nOptions.routing.strategy "prefix")}}
+  strategy: ["url", "cookie", "baseLocale"],
+{{else if (eq i18nOptions.routing.strategy "domain")}}
+  strategy: ["url", "cookie", "baseLocale"],
+{{else}}
+  strategy: ["cookie", "preferredLanguage", "baseLocale"],
+{{/if}}
+  // Matches LOCALE_COOKIE in packages/i18n/src/config.ts.
+  cookieName: "locale",
+  localStorageKey: "locale",
+  emitGitIgnore: true,
+  emitTsDeclarations: true,
+{{#if (eq i18nOptions.routing.strategy "prefix")}}
+{{#if i18nOptions.routing.prefixDefaultLocale}}
+  // Every locale, including the base locale, gets a URL prefix.
+  urlPatterns: [
+    {
+      pattern: "/:path(.*)?",
+      localized: [
+{{#each i18nOptions.locales}}
+        ["{{this}}", "/{{this}}/:path(.*)?"],
+{{/each}}
+      ],
+    },
+  ],
+{{/if}}
+{{/if}}
+{{#if (eq i18nOptions.routing.strategy "domain")}}
+  // Locale → host map. Locales without a host keep an unprefixed path.
+  urlPatterns: [
+    {
+      pattern: "/:path(.*)?",
+      localized: [
+{{#each i18nOptions.locales}}
+        ["{{this}}", "{{#if (lookup ../i18nOptions.routing.domains this)}}https://{{lookup ../i18nOptions.routing.domains this}}/:path(.*)?{{else}}/:path(.*)?{{/if}}"],
+{{/each}}
+      ],
+    },
+  ],
+{{/if}}
+};

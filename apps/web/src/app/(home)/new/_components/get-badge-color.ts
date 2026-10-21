@@ -26,6 +26,8 @@ export const getBadgeColors = (category: string): string => {
     case "git":
     case "webDeploy":
     case "serverDeploy":
+    case "emailRenderer":
+    case "emailDeploy":
     case "install":
       return "border-muted-foreground/30 bg-muted text-muted-foreground";
     default:

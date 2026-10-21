@@ -5,6 +5,7 @@ import type {
   ORMSchema,
   BackendSchema,
   RuntimeSchema,
+  ServerComputeSchema,
   FrontendSchema,
   AddonsSchema,
   ExamplesSchema,
@@ -13,6 +14,10 @@ import type {
   APISchema,
   AuthSchema,
   PaymentsSchema,
+  EmailRendererSchema,
+  EmailDeploySchema,
+  I18nSchema,
+  I18nOptionsSchema,
   WebDeploySchema,
   ServerDeploySchema,
   DirectoryConflictSchema,
@@ -22,10 +27,16 @@ import type {
   ProjectNameSchema,
   CreateInputSchema,
   AddInputSchema,
+  AppKindSchema,
+  ScaffoldAppInputSchema,
+  ScaffoldPackageInputSchema,
+  GenerateInputSchema,
   CLIInputSchema,
   ProjectConfigSchema,
   BetterTStackConfigSchema,
   InitResultSchema,
+  ShadcnBaseSchema,
+  ShadcnConfigSchema,
 } from "./schemas";
 
 // Inferred types from Zod schemas
@@ -33,6 +44,7 @@ export type Database = z.infer<typeof DatabaseSchema>;
 export type ORM = z.infer<typeof ORMSchema>;
 export type Backend = z.infer<typeof BackendSchema>;
 export type Runtime = z.infer<typeof RuntimeSchema>;
+export type ServerCompute = z.infer<typeof ServerComputeSchema>;
 export type Frontend = z.infer<typeof FrontendSchema>;
 export type Addons = z.infer<typeof AddonsSchema>;
 export type Examples = z.infer<typeof ExamplesSchema>;
@@ -41,6 +53,10 @@ export type DatabaseSetup = z.infer<typeof DatabaseSetupSchema>;
 export type API = z.infer<typeof APISchema>;
 export type Auth = z.infer<typeof AuthSchema>;
 export type Payments = z.infer<typeof PaymentsSchema>;
+export type EmailRenderer = z.infer<typeof EmailRendererSchema>;
+export type EmailDeploy = z.infer<typeof EmailDeploySchema>;
+export type I18n = z.infer<typeof I18nSchema>;
+export type I18nOptions = z.infer<typeof I18nOptionsSchema>;
 export type WebDeploy = z.infer<typeof WebDeploySchema>;
 export type ServerDeploy = z.infer<typeof ServerDeploySchema>;
 export type DirectoryConflict = z.infer<typeof DirectoryConflictSchema>;
@@ -48,9 +64,15 @@ export type Template = z.infer<typeof TemplateSchema>;
 export type AddonOptions = z.infer<typeof AddonOptionsSchema>;
 export type DbSetupOptions = z.infer<typeof DbSetupOptionsSchema>;
 export type ProjectName = z.infer<typeof ProjectNameSchema>;
+export type ShadcnBase = z.infer<typeof ShadcnBaseSchema>;
+export type ShadcnConfig = z.infer<typeof ShadcnConfigSchema>;
 
 export type CreateInput = z.infer<typeof CreateInputSchema>;
 export type AddInput = z.infer<typeof AddInputSchema>;
+export type AppKind = z.infer<typeof AppKindSchema>;
+export type ScaffoldAppInput = z.infer<typeof ScaffoldAppInputSchema>;
+export type ScaffoldPackageInput = z.infer<typeof ScaffoldPackageInputSchema>;
+export type GenerateInput = z.infer<typeof GenerateInputSchema>;
 export type CLIInput = z.infer<typeof CLIInputSchema>;
 export type ProjectConfig = z.infer<typeof ProjectConfigSchema>;
 export type BetterTStackConfig = z.infer<typeof BetterTStackConfigSchema>;

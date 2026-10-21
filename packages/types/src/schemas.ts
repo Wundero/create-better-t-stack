@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import { TASK_RUNNER_ADDONS, OBSERVABILITY_ADDONS } from "./compatibility";
+import { ALL_PAYMENT_IDS } from "./payment-providers";
 
 export const DatabaseSchema = z
   .enum(["none", "sqlite", "postgres", "mysql", "mongodb"])
@@ -13,8 +14,12 @@ export const BackendSchema = z
   .describe("Backend framework");
 
 export const RuntimeSchema = z
-  .enum(["bun", "node", "workers", "none"])
+  .enum(["bun", "node", "workers", "lambda", "none"])
   .describe("Runtime environment");
+
+export const ServerComputeSchema = z
+  .enum(["fargate", "lambda", "ec2", "eks"])
+  .describe("AWS server compute runtime");
 
 export const FrontendSchema = z
   .enum([
@@ -49,11 +54,44 @@ export const AddonsSchema = z
     "fumadocs",
     "ultracite",
     "oxlint",
+    "eslint",
     "opentui",
     "wxt",
     "skills",
     "evlog",
     "axiom",
+    "turnstile",
+    "cloudflare-durable-objects",
+    "cloudflare-containers",
+    "cloudflare-sandboxes",
+    "cloudflare-r2",
+    "cloudflare-kv",
+    "cloudflare-queues",
+    "cloudflare-workers-ai",
+    "cloudflare-ai-search",
+    "cloudflare-flagship",
+    "cloudflare-pipelines",
+    "cloudflare-stream",
+    "cloudflare-realtime-kit",
+    "aws-lambda-microvm",
+    "aws-s3",
+    "aws-bedrock",
+    "aws-sns",
+    "aws-sqs",
+    "aws-kinesis",
+    "aws-eventbridge",
+    "aws-scheduler",
+    "aws-cloudfront",
+    "aws-elasticache",
+    "fly-sprites",
+    "fly-redis",
+    "fly-tigris",
+    "railway-redis",
+    "railway-buckets",
+    "railway-sandboxes",
+    "neon-ai-gateway",
+    "neon-buckets",
+    "prisma-buckets",
     "none",
   ])
   .describe("Additional addons");
@@ -74,6 +112,14 @@ const AddonsListSchema = z.array(AddonsSchema).superRefine((addons, ctx) => {
       message: "`evlog` and `axiom` cannot be used together because Axiom includes evlog",
     });
   }
+
+  if (addons.includes("eslint") && addons.includes("vite-plus")) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message:
+        "`eslint` and `vite-plus` cannot be used together because Vite+ already provides linting and formatting",
+    });
+  }
 });
 
 export const ExamplesSchema = z
@@ -92,6 +138,9 @@ export const DatabaseSetupSchema = z
     "supabase",
     "d1",
     "docker",
+    "aurora",
+    "fly",
+    "railway",
     "none",
   ])
   .describe("Database hosting setup");
@@ -102,14 +151,64 @@ export const AuthSchema = z
   .enum(["better-auth", "clerk", "none"])
   .describe("Authentication provider");
 
-export const PaymentsSchema = z.enum(["polar", "none"]).describe("Payments provider");
+export const PaymentsSchema = z.enum(ALL_PAYMENT_IDS).describe("Payments provider");
+
+export const EmailRendererSchema = z.enum(["react-email", "none"]).describe("Email renderer");
+
+export const EmailDeploySchema = z.enum(["cloudflare", "ses", "none"]).describe("Email deploy");
+
+export const I18N_LIBRARY_VALUES = ["lingui", "paraglide", "i18next", "wuchale"] as const;
+
+export const I18N_VALUES = [...I18N_LIBRARY_VALUES, "none"] as const;
+
+export const I18nSchema = z.enum(I18N_VALUES).describe("Internationalization library");
+
+export const I18nRoutingStrategySchema = z
+  .enum(["cookie", "prefix", "domain"])
+  .describe("Locale routing strategy");
+
+export const I18nOptionsSchema = z
+  .strictObject({
+    sourceLocale: z
+      .string()
+      .default("en")
+      .describe("Canonical BCP-47 source locale; must be included in locales"),
+    locales: z
+      .array(z.string())
+      .default(["en", "es", "fr"])
+      .describe("Configured locales; must include the source locale"),
+    routing: z
+      .strictObject({
+        strategy: I18nRoutingStrategySchema.default("cookie"),
+        prefixDefaultLocale: z.boolean().default(false).describe("Prefix the source locale too"),
+        domains: z
+          .record(z.string(), z.string())
+          .optional()
+          .describe("Locale to host mapping; only for the domain strategy"),
+      })
+      .optional()
+      .describe("Locale routing configuration"),
+    translateSkill: z.boolean().default(true).describe("Generate the i18n-translate agent skill"),
+  })
+  .describe("Internationalization options");
 
 export const WebDeploySchema = z
-  .enum(["cloudflare", "prisma", "docker", "vercel", "none"])
+  .enum(["cloudflare", "prisma", "aws", "docker", "vercel", "hetzner", "none"])
   .describe("Web deployment");
 
 export const ServerDeploySchema = z
-  .enum(["cloudflare", "prisma", "docker", "vercel", "none"])
+  .enum([
+    "cloudflare",
+    "prisma",
+    "aws",
+    "docker",
+    "vercel",
+    "hetzner",
+    "fly",
+    "railway",
+    "neon",
+    "none",
+  ])
   .describe("Server deployment");
 
 export const DirectoryConflictSchema = z
@@ -511,8 +610,26 @@ export const ProjectNameSchema = z
   .refine((name) => name.toLowerCase() !== "node_modules", "Project name is reserved")
   .describe("Project name or path");
 
+export const SHADCN_BASE_VALUES = ["baseui", "radixui", "react-aria"] as const;
+
+export const ShadcnBaseSchema = z.enum(SHADCN_BASE_VALUES).describe("shadcn component base");
+
+export const SHADCN_BASE_TO_REGISTRY = {
+  baseui: "base",
+  radixui: "radix",
+  "react-aria": "aria",
+} as const;
+
+export const ShadcnConfigSchema = z.strictObject({
+  preset: z.string().min(2).optional(),
+  base: ShadcnBaseSchema.optional(),
+  rtl: z.boolean().optional(),
+  pointer: z.boolean().optional(),
+});
+
 export const CreateInputSchema = z
   .object({
+    shadcn: ShadcnConfigSchema.optional(),
     projectName: z.string().optional(),
     template: TemplateSchema.optional(),
     yes: z.boolean().optional(),
@@ -525,6 +642,10 @@ export const CreateInputSchema = z
     orm: ORMSchema.optional(),
     auth: AuthSchema.optional(),
     payments: PaymentsSchema.optional(),
+    emailRenderer: EmailRendererSchema.optional(),
+    emailDeploy: EmailDeploySchema.optional(),
+    i18n: I18nSchema.optional(),
+    i18nOptions: I18nOptionsSchema.optional(),
     frontend: z.array(FrontendSchema).optional(),
     addons: AddonsListSchema.optional(),
     examples: z.array(ExamplesSchema).optional(),
@@ -534,6 +655,7 @@ export const CreateInputSchema = z
     dbSetup: DatabaseSetupSchema.optional(),
     backend: BackendSchema.optional(),
     runtime: RuntimeSchema.optional(),
+    serverCompute: ServerComputeSchema.optional(),
     api: APISchema.optional(),
     webDeploy: WebDeploySchema.optional(),
     serverDeploy: ServerDeploySchema.optional(),
@@ -541,6 +663,7 @@ export const CreateInputSchema = z
     renderTitle: z.boolean().optional(),
     disableAnalytics: z.boolean().optional(),
     manualDb: z.boolean().optional(),
+    portless: z.boolean().optional(),
   })
   .strict()
   .refine((input) => !(input.manualDb !== undefined && input.dbSetupOptions?.mode !== undefined), {
@@ -561,11 +684,18 @@ export const WorkspacePackageNameSchema = z
 
 export const AddInputSchema = z
   .object({
+    shadcn: ShadcnConfigSchema.optional(),
     addons: AddonsListSchema.optional(),
     package: WorkspacePackageNameSchema.optional(),
+    envValidation: z.boolean().optional(),
     addonOptions: AddonOptionsSchema.optional(),
+    emailRenderer: EmailRendererSchema.optional(),
+    emailDeploy: EmailDeploySchema.optional(),
+    i18n: I18nSchema.optional(),
+    i18nOptions: I18nOptionsSchema.optional(),
     webDeploy: WebDeploySchema.optional(),
     serverDeploy: ServerDeploySchema.optional(),
+    serverCompute: ServerComputeSchema.optional(),
     projectDir: z.string().optional(),
     install: z.boolean().optional(),
     packageManager: PackageManagerSchema.optional(),
@@ -574,11 +704,134 @@ export const AddInputSchema = z
   })
   .strict();
 
+export const AppKindSchema = z
+  .enum(["frontend", "backend", "mobile"])
+  .describe("Kind of app to generate");
+
+export const AppNameSchema = z
+  .string()
+  .min(1, "App name cannot be empty")
+  .max(64, "App name must not exceed 64 characters")
+  .regex(/^[a-z0-9](?:[a-z0-9._-]*[a-z0-9])?$/, "App name must be an unscoped lowercase npm name")
+  .refine((name) => name !== "node_modules", "App name is reserved")
+  .describe("Name of an app to scaffold");
+
+export const ScaffoldPackageInputSchema = z
+  .strictObject({
+    name: WorkspacePackageNameSchema,
+    envValidation: z.boolean().optional().describe("Set up env var validation with varlock"),
+    projectDir: z.string().optional(),
+    install: z.boolean().optional(),
+    dryRun: z.boolean().optional(),
+    packageManager: PackageManagerSchema.optional(),
+    disableAnalytics: z.boolean().optional(),
+  })
+  .describe("Input for scaffolding a workspace package");
+
+const NATIVE_FRONTENDS: ReadonlySet<z.infer<typeof FrontendSchema>> = new Set([
+  "native-bare",
+  "native-uniwind",
+  "native-unistyles",
+]);
+
+const UNGENERATABLE_BACKENDS: ReadonlySet<z.infer<typeof BackendSchema>> = new Set([
+  "none",
+  "self",
+  "convex",
+]);
+
+const ScaffoldAppInputBaseSchema = z.strictObject({
+  kind: AppKindSchema,
+  name: AppNameSchema,
+  frontend: FrontendSchema.optional().describe("Frontend framework for the app"),
+  backend: BackendSchema.optional().describe("Backend framework for the app"),
+  projectDir: z.string().optional(),
+  install: z.boolean().optional(),
+  dryRun: z.boolean().optional(),
+  packageManager: PackageManagerSchema.optional(),
+  disableAnalytics: z.boolean().optional(),
+});
+
+export const ScaffoldAppInputSchema = ScaffoldAppInputBaseSchema.superRefine((input, ctx) => {
+  const hasNativeFrontend = input.frontend !== undefined && NATIVE_FRONTENDS.has(input.frontend);
+  const hasWebFrontend =
+    input.frontend !== undefined && input.frontend !== "none" && !hasNativeFrontend;
+
+  if (input.backend !== undefined && input.kind !== "backend") {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["backend"],
+      message: `\`backend\` is not allowed when \`kind\` is "${input.kind}"`,
+    });
+  }
+
+  if (input.kind === "frontend") {
+    if (input.frontend === undefined) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["frontend"],
+        message: '`frontend` is required when `kind` is "frontend"',
+      });
+    } else if (!hasWebFrontend) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["frontend"],
+        message: '`frontend` must be a web frontend when `kind` is "frontend"',
+      });
+    }
+    return;
+  }
+
+  if (input.kind === "backend") {
+    if (input.backend === undefined) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["backend"],
+        message: '`backend` is required when `kind` is "backend"',
+      });
+    } else if (UNGENERATABLE_BACKENDS.has(input.backend)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["backend"],
+        message:
+          '`backend` must be "hono", "express", "fastify", or "elysia" when `kind` is "backend"',
+      });
+    }
+    return;
+  }
+
+  if (input.frontend === undefined) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["frontend"],
+      message: '`frontend` is required when `kind` is "mobile"',
+    });
+  } else if (!hasNativeFrontend) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["frontend"],
+      message: '`frontend` must be a native frontend when `kind` is "mobile"',
+    });
+  }
+});
+
+/**
+ * Refinement-free partial of `ScaffoldAppInputSchema` for surfaces that collect
+ * fields incrementally (CLI flags, interactive filling) and validate later.
+ */
+export const ScaffoldAppInputPartialSchema = ScaffoldAppInputBaseSchema.partial();
+
+export const GenerateInputSchema = z.discriminatedUnion("target", [
+  ScaffoldPackageInputSchema.extend({ target: z.literal("package") }),
+  ScaffoldAppInputSchema.extend({ target: z.literal("app") }),
+]);
+
 export const CLIInputSchema = CreateInputSchema.safeExtend({
   projectDirectory: z.string().optional(),
 }).strict();
 
 export const ProjectConfigSchema = z.object({
+  shadcn: ShadcnConfigSchema.optional(),
   projectName: z.string(),
   projectDir: z.string(),
   relativePath: z.string(),
@@ -588,11 +841,16 @@ export const ProjectConfigSchema = z.object({
   orm: ORMSchema,
   backend: BackendSchema,
   runtime: RuntimeSchema,
+  serverCompute: ServerComputeSchema.optional(),
   frontend: z.array(FrontendSchema),
   addons: AddonsListSchema,
   examples: z.array(ExamplesSchema),
   auth: AuthSchema,
   payments: PaymentsSchema,
+  emailRenderer: EmailRendererSchema,
+  emailDeploy: EmailDeploySchema,
+  i18n: I18nSchema.default("none"),
+  i18nOptions: I18nOptionsSchema.optional(),
   git: z.boolean(),
   packageManager: PackageManagerSchema,
   install: z.boolean(),
@@ -600,9 +858,11 @@ export const ProjectConfigSchema = z.object({
   api: APISchema,
   webDeploy: WebDeploySchema,
   serverDeploy: ServerDeploySchema,
+  portless: z.boolean().optional(),
 });
 
 export const BetterTStackConfigSchema = z.object({
+  shadcn: ShadcnConfigSchema.optional(),
   version: z.string().describe("CLI version used to create this project"),
   createdAt: z.string().describe("Timestamp when the project was created"),
   reproducibleCommand: z.string().optional().describe("Command to reproduce this project setup"),
@@ -612,16 +872,22 @@ export const BetterTStackConfigSchema = z.object({
   orm: ORMSchema,
   backend: BackendSchema,
   runtime: RuntimeSchema,
+  serverCompute: ServerComputeSchema.optional(),
   frontend: z.array(FrontendSchema),
   addons: AddonsListSchema,
   examples: z.array(ExamplesSchema),
   auth: AuthSchema,
   payments: PaymentsSchema,
+  emailRenderer: EmailRendererSchema.optional(),
+  emailDeploy: EmailDeploySchema.optional(),
+  i18n: I18nSchema.default("none"),
+  i18nOptions: I18nOptionsSchema.optional(),
   packageManager: PackageManagerSchema,
   dbSetup: DatabaseSetupSchema,
   api: APISchema,
   webDeploy: WebDeploySchema,
   serverDeploy: ServerDeploySchema,
+  portless: z.boolean().optional(),
 });
 
 export const BetterTStackConfigFileSchema = BetterTStackConfigSchema.safeExtend({
@@ -650,6 +916,7 @@ export const DATABASE_VALUES = DatabaseSchema.options;
 export const ORM_VALUES = ORMSchema.options;
 export const BACKEND_VALUES = BackendSchema.options;
 export const RUNTIME_VALUES = RuntimeSchema.options;
+export const SERVER_COMPUTE_VALUES = ServerComputeSchema.options;
 export const FRONTEND_VALUES = FrontendSchema.options;
 export const ADDONS_VALUES = AddonsSchema.options;
 export const EXAMPLES_VALUES = ExamplesSchema.options;
@@ -658,6 +925,9 @@ export const DATABASE_SETUP_VALUES = DatabaseSetupSchema.options;
 export const API_VALUES = APISchema.options;
 export const AUTH_VALUES = AuthSchema.options;
 export const PAYMENTS_VALUES = PaymentsSchema.options;
+export const EMAIL_RENDERER_VALUES = EmailRendererSchema.options;
+export const EMAIL_DEPLOY_VALUES = EmailDeploySchema.options;
+export const I18N_ROUTING_STRATEGY_VALUES = I18nRoutingStrategySchema.options;
 export const WEB_DEPLOY_VALUES = WebDeploySchema.options;
 export const SERVER_DEPLOY_VALUES = ServerDeploySchema.options;
 export const DIRECTORY_CONFLICT_VALUES = DirectoryConflictSchema.options;

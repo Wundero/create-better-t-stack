@@ -27,6 +27,9 @@ import { devToolsMiddleware } from "@ai-sdk/devtools";
 {{#if (eq auth "better-auth")}}
 import { auth } from "@{{projectName}}/auth";
 {{/if}}
+{{#if (eq payments "commet")}}
+import { createCommetCheckoutUrl } from "@{{projectName}}/auth/lib/payments";
+{{/if}}
 {{#if (eq auth "clerk")}}
 import { clerkPlugin } from "@clerk/fastify";
 {{/if}}
@@ -37,7 +40,8 @@ const baseCorsConfig = {
 	allowedHeaders: [
 		"Content-Type",
 		"Authorization",
-		"X-Requested-With"
+		"X-Requested-With"{{#if (includes addons "turnstile")}},
+		"x-captcha-response"{{/if}}
 	],
 	credentials: true,
 	maxAge: 86400,
@@ -169,6 +173,34 @@ fastify.route({
 });
 {{/if}}
 
+{{#if (eq payments "commet")}}
+fastify.post("/api/payments/commet/checkout", async (request, reply) => {
+	const headers = new Headers();
+	Object.entries(request.headers).forEach(([key, value]) => {
+		if (value) headers.append(key, value.toString());
+	});
+	const session = await auth.api.getSession({ headers });
+	if (!session?.user) {
+		reply.status(401).send({ error: "Unauthorized" });
+		return;
+	}
+
+	const body = (request.body ?? {}) as { planCode?: string };
+	const planCode = body.planCode ?? "pro";
+	const successUrl = `${ENV.CORS_ORIGIN}/success`;
+	const url = await createCommetCheckoutUrl({
+		userId: session.user.id,
+		planCode,
+		successUrl,
+	});
+	if (!url) {
+		reply.status(204).send();
+		return;
+	}
+	reply.send({ url });
+});
+{{/if}}
+
 {{#if (eq api "trpc")}}
 fastify.register(fastifyTRPCPlugin, {
 	prefix: "{{apiPrefix webDeploy serverDeploy}}/trpc",
@@ -209,7 +241,7 @@ fastify.get('/', async () => {
 	return 'OK';
 });
 
-fastify.listen({ port: 3000{{#if (or (eq serverDeploy "docker") (eq serverDeploy "prisma"))}}, host: "0.0.0.0"{{/if}} }, (err) => {
+fastify.listen({ port: {{#if portless}}Number(process.env.PORT) || 3000{{else}}3000{{/if}}{{#if (or (eq serverDeploy "docker") (eq serverDeploy "prisma"))}}, host: "0.0.0.0"{{/if}} }, (err) => {
 	if (err) {
 		fastify.log.error(err);
 		process.exit(1);
