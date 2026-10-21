@@ -1,4 +1,4 @@
-import type { ProjectConfig } from "@better-t-stack/types";
+import { usesAlchemyManagedDatabase, type ProjectConfig } from "@better-t-stack/types";
 
 import type { VirtualFileSystem } from "../core/virtual-fs";
 import { type TemplateData, processTemplatesFromPrefix } from "./utils";
@@ -29,6 +29,16 @@ export async function processDbTemplates(
       vfs,
       templates,
       `db-setup/docker-compose/${config.database}`,
+      "packages/db",
+      config,
+    );
+  }
+
+  if (config.dbSetup === "aurora" && usesAlchemyManagedDatabase(config)) {
+    processTemplatesFromPrefix(
+      vfs,
+      templates,
+      `db-setup/aurora/${config.orm}`,
       "packages/db",
       config,
     );

@@ -1,4 +1,4 @@
-import type { ProjectConfig } from "@better-t-stack/types";
+import { isAlchemyDeployTarget, type ProjectConfig } from "@better-t-stack/types";
 import { parse, stringify } from "yaml";
 
 import type { VirtualFileSystem } from "../core/virtual-fs";
@@ -47,9 +47,16 @@ export function processInfraDeps(vfs: VirtualFileSystem, config: ProjectConfig):
       devDependencies: ["@alchemy.run/frontend-frameworks", "@vercel/nft"],
     });
   }
+  if (webDeploy === "aws") {
+    addPackageDependency({
+      vfs,
+      packagePath: infraPath,
+      devDependencies: ["@alchemy.run/frontend-frameworks"],
+    });
+  }
   if (
-    ["cloudflare", "prisma"].includes(serverDeploy) ||
-    ["cloudflare", "prisma"].includes(webDeploy) ||
+    isAlchemyDeployTarget(serverDeploy) ||
+    isAlchemyDeployTarget(webDeploy) ||
     config.addons.includes("axiom")
   ) {
     addPackageDependency({

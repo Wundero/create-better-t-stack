@@ -56,7 +56,7 @@ export default defineConfig({
     // Rolldown's dynamic-entry chunking (Vite 8.2+/rolldown 1.2.x) duplicates the
     // server-functions namespace during Nitro's SSR re-bundle. Inline the SSR service
     // until the upstream chunking fix lands. https://github.com/rolldown/rolldown/issues/10734
-    nitro({ serverEntry: false, inlineDynamicImports: true }),
+    nitro({ serverEntry: false, inlineDynamicImports: true{{#if (eq webDeploy "aws")}}, preset: "aws-lambda", awsLambda: { streaming: true }{{/if}} }),
 {{/unless}}
     fileRoutes({ httpMethods: true }),
     tailwindcss(),
