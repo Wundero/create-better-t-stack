@@ -26579,19 +26579,17 @@ const { title = "{{projectName}}" } = Astro.props;
 import Layout from "../layouts/Layout.astro";
 
 const TITLE_TEXT = \`
- ██████╗ ███████╗████████╗████████╗███████╗██████╗
- ██╔══██╗██╔════╝╚══██╔══╝╚══██╔══╝██╔════╝██╔══██╗
- ██████╔╝█████╗     ██║      ██║   █████╗  ██████╔╝
- ██╔══██╗██╔══╝     ██║      ██║   ██╔══╝  ██╔══██╗
- ██████╔╝███████╗   ██║      ██║   ███████╗██║  ██║
- ╚═════╝ ╚══════╝   ╚═╝      ╚═╝   ╚══════╝╚═╝  ╚═╝
+ _|_|_|    _|_|_|_|  _|_|_|_|_|  _|_|_|_|_|  _|_|_|_|  _|_|_|
+ _|    _|  _|            _|          _|      _|        _|    _|
+ _|_|_|    _|_|_|        _|          _|      _|_|_|    _|_|_|
+ _|    _|  _|            _|          _|      _|        _|    _|
+ _|_|_|    _|_|_|_|      _|          _|      _|_|_|_|  _|    _|
 
- ████████╗    ███████╗████████╗ █████╗  ██████╗██╗  ██╗
- ╚══██╔══╝    ██╔════╝╚══██╔══╝██╔══██╗██╔════╝██║ ██╔╝
-    ██║       ███████╗   ██║   ███████║██║     █████╔╝
-    ██║       ╚════██║   ██║   ██╔══██║██║     ██╔═██╗
-    ██║       ███████║   ██║   ██║  ██║╚██████╗██║  ██╗
-    ╚═╝       ╚══════╝   ╚═╝   ╚═╝  ╚═╝ ╚═════╝╚═╝  ╚═╝
+ _|_|_|_|_|        _|_|_|  _|_|_|_|_|    _|_|      _|_|_|  _|    _|
+     _|          _|            _|      _|    _|  _|        _|  _|
+     _|            _|_|        _|      _|_|_|_|  _|        _|_|
+     _|                _|      _|      _|    _|  _|        _|  _|
+     _|          _|_|_|        _|      _|    _|    _|_|_|  _|    _|
  \`;
 ---
 
@@ -30623,19 +30621,17 @@ import { useQuery } from '@tanstack/vue-query'
 {{/if}}
 
 const TITLE_TEXT = \`
- ██████╗ ███████╗████████╗████████╗███████╗██████╗
- ██╔══██╗██╔════╝╚══██╔══╝╚══██╔══╝██╔════╝██╔══██╗
- ██████╔╝█████╗     ██║      ██║   █████╗  ██████╔╝
- ██╔══██╗██╔══╝     ██║      ██║   ██╔══╝  ██╔══██╗
- ██████╔╝███████╗   ██║      ██║   ███████╗██║  ██║
- ╚═════╝ ╚══════╝   ╚═╝      ╚═╝   ╚══════╝╚═╝  ╚═╝
+ _|_|_|    _|_|_|_|  _|_|_|_|_|  _|_|_|_|_|  _|_|_|_|  _|_|_|
+ _|    _|  _|            _|          _|      _|        _|    _|
+ _|_|_|    _|_|_|        _|          _|      _|_|_|    _|_|_|
+ _|    _|  _|            _|          _|      _|        _|    _|
+ _|_|_|    _|_|_|_|      _|          _|      _|_|_|_|  _|    _|
 
- ████████╗    ███████╗████████╗ █████╗  ██████╗██╗  ██╗
- ╚══██╔══╝    ██╔════╝╚══██╔══╝██╔══██╗██╔════╝██║ ██╔╝
-    ██║       ███████╗   ██║   ███████║██║     █████╔╝
-    ██║       ╚════██║   ██║   ██╔══██║██║     ██╔═██╗
-    ██║       ███████║   ██║   ██║  ██║╚██████╗██║  ██╗
-    ╚═╝       ╚══════╝   ╚═╝   ╚═╝  ╚═╝ ╚═════╝╚═╝  ╚═╝
+ _|_|_|_|_|        _|_|_|  _|_|_|_|_|    _|_|      _|_|_|  _|    _|
+     _|          _|            _|      _|    _|  _|        _|  _|
+     _|            _|_|        _|      _|_|_|_|  _|        _|_|
+     _|                _|      _|      _|    _|  _|        _|  _|
+     _|          _|_|_|        _|      _|    _|    _|_|_|  _|    _|
  \`;
 
 {{#if (eq backend "convex")}}
@@ -30971,7 +30967,7 @@ initOpenNextCloudflareForDev();
     "@swc/helpers": "^0.5.23",
     "lucide-react": "^1.41.0",
     "next": "^16.4.2",
-    "next-themes": "^0.4.6",
+    "@wrksz/themes": "^2.0.2",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "sonner": "^2.0.8",
@@ -31002,6 +30998,7 @@ import { getToken } from "@/lib/auth-server";
 {{/if}}
 import Providers from "@/components/providers";
 import Header from "@/components/header";
+import { ThemeProvider } from "@wrksz/themes/next";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -31030,12 +31027,20 @@ export default async function RootLayout({
       <body
         className={\`\${geistSans.variable} \${geistMono.variable} antialiased\`}
       >
-        <Providers initialToken={token}>
-          <div className="grid grid-rows-[auto_1fr] h-svh">
-            <Header />
-            {children}
-          </div>
-        </Providers>
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="system"
+          enableSystem
+          disableTransitionOnChange
+          storage="hybrid"
+        >
+          <Providers initialToken={token}>
+            <div className="grid grid-rows-[auto_1fr] h-svh">
+              <Header />
+              {children}
+            </div>
+          </Providers>
+        </ThemeProvider>
       </body>
     </html>
   );
@@ -31051,19 +31056,27 @@ export default function RootLayout({
 			<body
 				className={\`\${geistSans.variable} \${geistMono.variable} antialiased\`}
 			>
-				{{#if (eq auth "clerk")}}<ClerkProvider>
-					<Providers>
+				<ThemeProvider
+					attribute="class"
+					defaultTheme="system"
+					enableSystem
+					disableTransitionOnChange
+					storage="hybrid"
+				>
+					{{#if (eq auth "clerk")}}<ClerkProvider>
+						<Providers>
+							<div className="grid grid-rows-[auto_1fr] h-svh">
+								<Header />
+								{children}
+							</div>
+						</Providers>
+					</ClerkProvider>{{else}}<Providers>
 						<div className="grid grid-rows-[auto_1fr] h-svh">
 							<Header />
 							{children}
 						</div>
-					</Providers>
-				</ClerkProvider>{{else}}<Providers>
-					<div className="grid grid-rows-[auto_1fr] h-svh">
-						<Header />
-						{children}
-					</div>
-				</Providers>{{/if}}
+					</Providers>{{/if}}
+				</ThemeProvider>
 			</body>
 		</html>
 	);
@@ -31085,19 +31098,17 @@ import { trpc } from "@/utils/trpc";
 {{/if}}
 
 const TITLE_TEXT = \`
- ██████╗ ███████╗████████╗████████╗███████╗██████╗
- ██╔══██╗██╔════╝╚══██╔══╝╚══██╔══╝██╔════╝██╔══██╗
- ██████╔╝█████╗     ██║      ██║   █████╗  ██████╔╝
- ██╔══██╗██╔══╝     ██║      ██║   ██╔══╝  ██╔══██╗
- ██████╔╝███████╗   ██║      ██║   ███████╗██║  ██║
- ╚═════╝ ╚══════╝   ╚═╝      ╚═╝   ╚══════╝╚═╝  ╚═╝
+ _|_|_|    _|_|_|_|  _|_|_|_|_|  _|_|_|_|_|  _|_|_|_|  _|_|_|
+ _|    _|  _|            _|          _|      _|        _|    _|
+ _|_|_|    _|_|_|        _|          _|      _|_|_|    _|_|_|
+ _|    _|  _|            _|          _|      _|        _|    _|
+ _|_|_|    _|_|_|_|      _|          _|      _|_|_|_|  _|    _|
 
- ████████╗    ███████╗████████╗ █████╗  ██████╗██╗  ██╗
- ╚══██╔══╝    ██╔════╝╚══██╔══╝██╔══██╗██╔════╝██║ ██╔╝
-    ██║       ███████╗   ██║   ███████║██║     █████╔╝
-    ██║       ╚════██║   ██║   ██╔══██║██║     ██╔═██╗
-    ██║       ███████║   ██║   ██║  ██║╚██████╗██║  ██╗
-    ╚═╝       ╚══════╝   ╚═╝   ╚═╝  ╚═╝ ╚═════╝╚═╝  ╚═╝
+ _|_|_|_|_|        _|_|_|  _|_|_|_|_|    _|_|      _|_|_|  _|    _|
+     _|          _|            _|      _|    _|  _|        _|  _|
+     _|            _|_|        _|      _|_|_|_|  _|        _|_|
+     _|                _|      _|      _|    _|  _|        _|  _|
+     _|          _|_|_|        _|      _|    _|    _|_|_|  _|    _|
  \`;
 
 export default function Home() {
@@ -31154,7 +31165,7 @@ export default function Home() {
 
 import * as React from "react"
 import { Moon, Sun } from "lucide-react"
-import { useTheme } from "next-themes"
+import { useTheme } from "@wrksz/themes/client"
 import { Button } from "@{{projectName}}/ui/components/button"
 import {
   DropdownMenu,
@@ -31223,7 +31234,6 @@ import { queryClient } from "@/utils/trpc";
 {{/if}}
 {{/unless}}
 {{/if}}
-import { ThemeProvider } from "./theme-provider";
 import { Toaster } from "@{{projectName}}/ui/components/sonner";
 
 {{#if (eq backend "convex")}}
@@ -31258,12 +31268,7 @@ export default function Providers({
 {{/if}}
 }) {
   return (
-    <ThemeProvider
-      attribute="class"
-      defaultTheme="system"
-      enableSystem
-      disableTransitionOnChange
-    >
+    <>
       {{#if (eq backend "convex")}}
       {{#if (eq auth "clerk")}}
       <ConvexProviderWithClerk client={convex} useAuth={useAuth}>
@@ -31299,20 +31304,8 @@ export default function Providers({
       {{/unless}}
       {{/if}}
       <Toaster richColors />
-    </ThemeProvider>
+    </>
   );
-}
-`],
-  ["frontend/react/next/src/components/theme-provider.tsx.hbs", `"use client"
-
-import * as React from "react"
-import { ThemeProvider as NextThemesProvider } from "next-themes"
-
-export function ThemeProvider({
-  children,
-  ...props
-}: React.ComponentProps<typeof NextThemesProvider>) {
-  return <NextThemesProvider {...props}>{children}</NextThemesProvider>
 }
 `],
   ["frontend/react/next/tsconfig.json.hbs", `{
@@ -31379,7 +31372,7 @@ export function ThemeProvider({
     "@react-router/serve": "^8.3.1",
     "isbot": "^5.2.2",
     "lucide-react": "^1.41.0",
-    "next-themes": "^0.4.6",
+    "@wrksz/themes": "^2.0.2",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "react-router": "^8.3.1",
@@ -31441,16 +31434,16 @@ export function ModeToggle() {
 }
 `],
   ["frontend/react/react-router/src/components/theme-provider.tsx.hbs", `import * as React from "react";
-import { ThemeProvider as NextThemesProvider } from "next-themes";
+import { ClientThemeProvider } from "@wrksz/themes/client";
 
 export function ThemeProvider({
   children,
   ...props
-}: React.ComponentProps<typeof NextThemesProvider>) {
-  return <NextThemesProvider {...props}>{children}</NextThemesProvider>;
+}: React.ComponentProps<typeof ClientThemeProvider>) {
+  return <ClientThemeProvider {...props}>{children}</ClientThemeProvider>;
 }
 
-export { useTheme } from "next-themes";
+export { useTheme } from "@wrksz/themes/client";
 `],
   ["frontend/react/react-router/src/root.tsx.hbs", `import {
   isRouteErrorResponse,
@@ -31464,6 +31457,7 @@ import type { Route } from "./+types/root";
 import "./index.css";
 import Header from "./components/header";
 import { ThemeProvider } from "./components/theme-provider";
+import { ThemeScript } from "@wrksz/themes/script";
 import { Toaster } from "@{{projectName}}/ui/components/sonner";
 {{#if (eq auth "clerk")}}
 import { ClerkProvider{{#if (or (eq backend "convex") (ne api "none"))}}, useAuth{{/if}} } from "@clerk/react-router";
@@ -31538,6 +31532,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <Meta />
         <Links />
+        <ThemeScript attribute="class" defaultTheme="dark" storageKey="vite-ui-theme" />
       </head>
       <body>
         {children}
@@ -31774,19 +31769,17 @@ import { useQuery } from "@tanstack/react-query";
 {{/if}}
 
 const TITLE_TEXT = \`
- ██████╗ ███████╗████████╗████████╗███████╗██████╗
- ██╔══██╗██╔════╝╚══██╔══╝╚══██╔══╝██╔════╝██╔══██╗
- ██████╔╝█████╗     ██║      ██║   █████╗  ██████╔╝
- ██╔══██╗██╔══╝     ██║      ██║   ██╔══╝  ██╔══██╗
- ██████╔╝███████╗   ██║      ██║   ███████╗██║  ██║
- ╚═════╝ ╚══════╝   ╚═╝      ╚═╝   ╚══════╝╚═╝  ╚═╝
+ _|_|_|    _|_|_|_|  _|_|_|_|_|  _|_|_|_|_|  _|_|_|_|  _|_|_|
+ _|    _|  _|            _|          _|      _|        _|    _|
+ _|_|_|    _|_|_|        _|          _|      _|_|_|    _|_|_|
+ _|    _|  _|            _|          _|      _|        _|    _|
+ _|_|_|    _|_|_|_|      _|          _|      _|_|_|_|  _|    _|
 
- ████████╗    ███████╗████████╗ █████╗  ██████╗██╗  ██╗
- ╚══██╔══╝    ██╔════╝╚══██╔══╝██╔══██╗██╔════╝██║ ██╔╝
-    ██║       ███████╗   ██║   ███████║██║     █████╔╝
-    ██║       ╚════██║   ██║   ██╔══██║██║     ██╔═██╗
-    ██║       ███████║   ██║   ██║  ██║╚██████╗██║  ██╗
-    ╚═╝       ╚══════╝   ╚═╝   ╚═╝  ╚═╝ ╚═════╝╚═╝  ╚═╝
+ _|_|_|_|_|        _|_|_|  _|_|_|_|_|    _|_|      _|_|_|  _|    _|
+     _|          _|            _|      _|    _|  _|        _|  _|
+     _|            _|_|        _|      _|_|_|_|  _|        _|_|
+     _|                _|      _|      _|    _|  _|        _|  _|
+     _|          _|_|_|        _|      _|    _|    _|_|_|  _|    _|
  \`;
 
 export function meta({}: Route.MetaArgs) {
@@ -31962,7 +31955,7 @@ export default defineConfig({{#if (and (or (eq webDeploy "vercel") (eq webDeploy
 		"@tailwindcss/vite": "^4.3.3",
 		"@tanstack/react-router": "^1.170.44",
 		"lucide-react": "^1.56.0",
-        "next-themes": "^0.4.6",
+        "@wrksz/themes": "^2.0.2",
 		"react": "^19.3.0",
 		"react-dom": "^19.3.0",
         "sonner": "^2.0.8"
@@ -32011,16 +32004,16 @@ export function ModeToggle() {
 }
 `],
   ["frontend/react/tanstack-router/src/components/theme-provider.tsx.hbs", `import * as React from "react";
-import { ThemeProvider as NextThemesProvider } from "next-themes";
+import { ClientThemeProvider } from "@wrksz/themes/client";
 
 export function ThemeProvider({
   children,
   ...props
-}: React.ComponentProps<typeof NextThemesProvider>) {
-  return <NextThemesProvider {...props}>{children}</NextThemesProvider>;
+}: React.ComponentProps<typeof ClientThemeProvider>) {
+  return <ClientThemeProvider {...props}>{children}</ClientThemeProvider>;
 }
 
-export { useTheme } from "next-themes";
+export { useTheme } from "@wrksz/themes/client";
 `],
   ["frontend/react/tanstack-router/src/main.tsx.hbs", `import { RouterProvider, createRouter } from "@tanstack/react-router";
 import ReactDOM from "react-dom/client";
@@ -32284,19 +32277,17 @@ export const Route = createFileRoute("/")({
 });
 
 const TITLE_TEXT = \`
- ██████╗ ███████╗████████╗████████╗███████╗██████╗
- ██╔══██╗██╔════╝╚══██╔══╝╚══██╔══╝██╔════╝██╔══██╗
- ██████╔╝█████╗     ██║      ██║   █████╗  ██████╔╝
- ██╔══██╗██╔══╝     ██║      ██║   ██╔══╝  ██╔══██╗
- ██████╔╝███████╗   ██║      ██║   ███████╗██║  ██║
- ╚═════╝ ╚══════╝   ╚═╝      ╚═╝   ╚══════╝╚═╝  ╚═╝
+ _|_|_|    _|_|_|_|  _|_|_|_|_|  _|_|_|_|_|  _|_|_|_|  _|_|_|
+ _|    _|  _|            _|          _|      _|        _|    _|
+ _|_|_|    _|_|_|        _|          _|      _|_|_|    _|_|_|
+ _|    _|  _|            _|          _|      _|        _|    _|
+ _|_|_|    _|_|_|_|      _|          _|      _|_|_|_|  _|    _|
 
- ████████╗    ███████╗████████╗ █████╗  ██████╗██╗  ██╗
- ╚══██╔══╝    ██╔════╝╚══██╔══╝██╔══██╗██╔════╝██║ ██╔╝
-    ██║       ███████╗   ██║   ███████║██║     █████╔╝
-    ██║       ╚════██║   ██║   ██╔══██║██║     ██╔═██╗
-    ██║       ███████║   ██║   ██║  ██║╚██████╗██║  ██╗
-    ╚═╝       ╚══════╝   ╚═╝   ╚═╝  ╚═╝ ╚═════╝╚═╝  ╚═╝
+ _|_|_|_|_|        _|_|_|  _|_|_|_|_|    _|_|      _|_|_|  _|    _|
+     _|          _|            _|      _|    _|  _|        _|  _|
+     _|            _|_|        _|      _|_|_|_|  _|        _|_|
+     _|                _|      _|      _|    _|  _|        _|  _|
+     _|          _|_|_|        _|      _|    _|    _|_|_|  _|    _|
  \`;
 
 function HomeComponent() {
@@ -32417,7 +32408,6 @@ export default defineConfig({
     "@tanstack/react-router": "^1.170.44",
     "@tanstack/react-start": "^1.169.1",
     "lucide-react": "^1.56.0",
-    "next-themes": "^0.4.6",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
     "sonner": "^2.0.8",
@@ -32886,19 +32876,17 @@ export const Route = createFileRoute("/")({
 });
 
 const TITLE_TEXT = \`
- ██████╗ ███████╗████████╗████████╗███████╗██████╗
- ██╔══██╗██╔════╝╚══██╔══╝╚══██╔══╝██╔════╝██╔══██╗
- ██████╔╝█████╗     ██║      ██║   █████╗  ██████╔╝
- ██╔══██╗██╔══╝     ██║      ██║   ██╔══╝  ██╔══██╗
- ██████╔╝███████╗   ██║      ██║   ███████╗██║  ██║
- ╚═════╝ ╚══════╝   ╚═╝      ╚═╝   ╚══════╝╚═╝  ╚═╝
+ _|_|_|    _|_|_|_|  _|_|_|_|_|  _|_|_|_|_|  _|_|_|_|  _|_|_|
+ _|    _|  _|            _|          _|      _|        _|    _|
+ _|_|_|    _|_|_|        _|          _|      _|_|_|    _|_|_|
+ _|    _|  _|            _|          _|      _|        _|    _|
+ _|_|_|    _|_|_|_|      _|          _|      _|_|_|_|  _|    _|
 
- ████████╗    ███████╗████████╗ █████╗  ██████╗██╗  ██╗
- ╚══██╔══╝    ██╔════╝╚══██╔══╝██╔══██╗██╔════╝██║ ██╔╝
-    ██║       ███████╗   ██║   ███████║██║     █████╔╝
-    ██║       ╚════██║   ██║   ██╔══██║██║     ██╔═██╗
-    ██║       ███████║   ██║   ██║  ██║╚██████╗██║  ██╗
-    ╚═╝       ╚══════╝   ╚═╝   ╚═╝  ╚═╝ ╚═════╝╚═╝  ╚═╝
+ _|_|_|_|_|        _|_|_|  _|_|_|_|_|    _|_|      _|_|_|  _|    _|
+     _|          _|            _|      _|    _|  _|        _|  _|
+     _|            _|_|        _|      _|_|_|_|  _|        _|_|
+     _|                _|      _|      _|    _|  _|        _|  _|
+     _|          _|_|_|        _|      _|    _|    _|_|_|  _|    _|
  \`;
 
 function HomeComponent() {
@@ -33414,19 +33402,17 @@ import { orpc } from "~/utils/orpc";
 {{/if}}
 
 const TITLE_TEXT = \`
- ██████╗ ███████╗████████╗████████╗███████╗██████╗
- ██╔══██╗██╔════╝╚══██╔══╝╚══██╔══╝██╔════╝██╔══██╗
- ██████╔╝█████╗     ██║      ██║   █████╗  ██████╔╝
- ██╔══██╗██╔══╝     ██║      ██║   ██╔══╝  ██╔══██╗
- ██████╔╝███████╗   ██║      ██║   ███████╗██║  ██║
- ╚═════╝ ╚══════╝   ╚═╝      ╚═╝   ╚══════╝╚═╝  ╚═╝
+ _|_|_|    _|_|_|_|  _|_|_|_|_|  _|_|_|_|_|  _|_|_|_|  _|_|_|
+ _|    _|  _|            _|          _|      _|        _|    _|
+ _|_|_|    _|_|_|        _|          _|      _|_|_|    _|_|_|
+ _|    _|  _|            _|          _|      _|        _|    _|
+ _|_|_|    _|_|_|_|      _|          _|      _|_|_|_|  _|    _|
 
- ████████╗    ███████╗████████╗ █████╗  ██████╗██╗  ██╗
- ╚══██╔══╝    ██╔════╝╚══██╔══╝██╔══██╗██╔════╝██║ ██╔╝
-    ██║       ███████╗   ██║   ███████║██║     █████╔╝
-    ██║       ╚════██║   ██║   ██╔══██║██║     ██╔═██╗
-    ██║       ███████║   ██║   ██║  ██║╚██████╗██║  ██╗
-    ╚═╝       ╚══════╝   ╚═╝   ╚═╝  ╚═╝ ╚═════╝╚═╝  ╚═╝
+ _|_|_|_|_|        _|_|_|  _|_|_|_|_|    _|_|      _|_|_|  _|    _|
+     _|          _|            _|      _|    _|  _|        _|  _|
+     _|            _|_|        _|      _|_|_|_|  _|        _|_|
+     _|                _|      _|      _|    _|  _|        _|  _|
+     _|          _|_|_|        _|      _|    _|    _|_|_|  _|    _|
  \`;
 
 export default function Home() {
@@ -33792,20 +33778,18 @@ import { api } from "@{{projectName}}/backend/convex/_generated/api";
 const healthCheck = useQuery(api.healthCheck.get, {});
 
 const TITLE_TEXT = \`
-   ██████╗ ███████╗████████╗████████╗███████╗██████╗
-   ██╔══██╗██╔════╝╚══██╔══╝╚══██╔══╝██╔════╝██╔══██╗
-   ██████╔╝█████╗     ██║      ██║   █████╗  ██████╔╝
-   ██╔══██╗██╔══╝     ██║      ██║   ██╔══╝  ██╔══██╗
-   ██████╔╝███████╗   ██║      ██║   ███████╗██║  ██║
-   ╚═════╝ ╚══════╝   ╚═╝      ╚═╝   ╚══════╝╚═╝  ╚═╝
+ _|_|_|    _|_|_|_|  _|_|_|_|_|  _|_|_|_|_|  _|_|_|_|  _|_|_|
+ _|    _|  _|            _|          _|      _|        _|    _|
+ _|_|_|    _|_|_|        _|          _|      _|_|_|    _|_|_|
+ _|    _|  _|            _|          _|      _|        _|    _|
+ _|_|_|    _|_|_|_|      _|          _|      _|_|_|_|  _|    _|
 
-   ████████╗    ███████╗████████╗ █████╗  ██████╗██╗  ██╗
-   ╚══██╔══╝    ██╔════╝╚══██╔══╝██╔══██╗██╔════╝██║ ██╔╝
-      ██║       ███████╗   ██║   ███████║██║     █████╔╝
-      ██║       ╚════██║   ██║   ██╔══██║██║     ██╔═██╗
-      ██║       ███████║   ██║   ██║  ██║╚██████╗██║  ██╗
-      ╚═╝       ╚══════╝   ╚═╝   ╚═╝  ╚═╝ ╚═════╝╚═╝  ╚═╝
-   \`;
+ _|_|_|_|_|        _|_|_|  _|_|_|_|_|    _|_|      _|_|_|  _|    _|
+     _|          _|            _|      _|    _|  _|        _|  _|
+     _|            _|_|        _|      _|_|_|_|  _|        _|_|
+     _|                _|      _|      _|    _|  _|        _|  _|
+     _|          _|_|_|        _|      _|    _|    _|_|_|  _|    _|
+ \`;
 </script>
 
 <div class="container mx-auto max-w-3xl px-4 py-2">
@@ -33837,20 +33821,18 @@ const healthCheck = createQuery(() => orpc.healthCheck.queryOptions());
 {{/if}}
 
 const TITLE_TEXT = \`
-   ██████╗ ███████╗████████╗████████╗███████╗██████╗
-   ██╔══██╗██╔════╝╚══██╔══╝╚══██╔══╝██╔════╝██╔══██╗
-   ██████╔╝█████╗     ██║      ██║   █████╗  ██████╔╝
-   ██╔══██╗██╔══╝     ██║      ██║   ██╔══╝  ██╔══██╗
-   ██████╔╝███████╗   ██║      ██║   ███████╗██║  ██║
-   ╚═════╝ ╚══════╝   ╚═╝      ╚═╝   ╚══════╝╚═╝  ╚═╝
+ _|_|_|    _|_|_|_|  _|_|_|_|_|  _|_|_|_|_|  _|_|_|_|  _|_|_|
+ _|    _|  _|            _|          _|      _|        _|    _|
+ _|_|_|    _|_|_|        _|          _|      _|_|_|    _|_|_|
+ _|    _|  _|            _|          _|      _|        _|    _|
+ _|_|_|    _|_|_|_|      _|          _|      _|_|_|_|  _|    _|
 
-   ████████╗    ███████╗████████╗ █████╗  ██████╗██╗  ██╗
-   ╚══██╔══╝    ██╔════╝╚══██╔══╝██╔══██╗██╔════╝██║ ██╔╝
-      ██║       ███████╗   ██║   ███████║██║     █████╔╝
-      ██║       ╚════██║   ██║   ██╔══██║██║     ██╔═██╗
-      ██║       ███████║   ██║   ██║  ██║╚██████╗██║  ██╗
-      ╚═╝       ╚══════╝   ╚═╝   ╚═╝  ╚═╝ ╚═════╝╚═╝  ╚═╝
-   \`;
+ _|_|_|_|_|        _|_|_|  _|_|_|_|_|    _|_|      _|_|_|  _|    _|
+     _|          _|            _|      _|    _|  _|        _|  _|
+     _|            _|_|        _|      _|_|_|_|  _|        _|_|
+     _|                _|      _|      _|    _|  _|        _|  _|
+     _|          _|_|_|        _|      _|    _|    _|_|_|  _|    _|
+ \`;
 </script>
 
 <div class="container mx-auto max-w-3xl px-4 py-2">
@@ -34057,7 +34039,7 @@ export default defineConfig({
     "class-variance-authority": "^0.7.1",
     "cn": "^0.2.5",
     "lucide-react": "^1.41.0",
-    "next-themes": "^0.4.6",
+    "@wrksz/themes": "^2.0.2",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "sonner": "^2.0.8",
@@ -35508,13 +35490,14 @@ export { Skeleton }
 `],
   ["packages/ui/src/components/sonner.tsx.hbs", `"use client"
 
-import { useTheme } from "next-themes"
+import { ThemeContext } from "@wrksz/themes/client"
 import { Toaster as Sonner, type ToasterProps } from "sonner"
+import { useContext } from "react"
 
 import { CircleCheckIcon, InfoIcon, Loader2Icon, OctagonXIcon, TriangleAlertIcon } from "lucide-react"
 
 const Toaster = ({ ...props }: ToasterProps) => {
-  const { theme = "system" } = useTheme()
+  const theme = useContext(ThemeContext)?.theme ?? "system"
 
   return (
     <Sonner
@@ -35992,4 +35975,4 @@ export default function Success() {
 `]
 ]);
 
-export const TEMPLATE_COUNT = 545;
+export const TEMPLATE_COUNT = 544;
