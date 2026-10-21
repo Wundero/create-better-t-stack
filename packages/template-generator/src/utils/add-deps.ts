@@ -128,7 +128,7 @@ export const dependencyVersionMap = {
   "@trpc/server": "^11.19.0",
   "@trpc/client": "^11.19.0",
 
-  next: "^16.3.4",
+  next: "^16.4.2",
   nitro: "3.0.260903-beta",
 
   convex: "^1.45.0",
