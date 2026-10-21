@@ -29,7 +29,7 @@ export function processDeployDeps(vfs: VirtualFileSystem, config: ProjectConfig)
     addPackageDependency({
       vfs,
       packagePath: "apps/web/package.json",
-      customDevDependencies: { "@opennextjs/aws": "^4.1.5" },
+      customDevDependencies: { "@opennextjs/aws": "^4.1.11" },
     });
   }
 
