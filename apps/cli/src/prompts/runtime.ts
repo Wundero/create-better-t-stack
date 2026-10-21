@@ -33,7 +33,7 @@ export async function getRuntimeChoice(
     },
   ];
 
-  if (backend && supportsRuntimeBackend("workers", backend)) {
+  if (backend && (supportsRuntimeBackend("workers", backend) || backend === "nitro")) {
     runtimeOptions.push({
       value: "workers",
       label: "Cloudflare Workers",
