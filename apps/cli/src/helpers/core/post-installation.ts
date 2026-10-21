@@ -15,6 +15,7 @@ import type {
 } from "../../types";
 import {
   getLocalD1Owner,
+  I18N_LIBRARY_META,
   isAlchemyDeployTarget,
   usesAlchemyManagedDatabase,
   webFrontends,
@@ -152,6 +153,7 @@ export async function displayPostInstallInstructions(
     config.payments === "polar" && config.auth === "better-auth"
       ? getPolarInstructions(backend, packageManager)
       : "";
+  const i18nInstructions = getI18nInstructions(runCmd, config);
 
   const bunWebNativeWarning =
     packageManager === "bun" && hasNative && hasWeb ? getBunWebNativeWarning() : "";
@@ -278,6 +280,7 @@ export async function displayPostInstallInstructions(
   if (clerkInstructions) output += `\n${clerkInstructions.trim()}\n`;
   if (betterAuthConvexInstructions) output += `\n${betterAuthConvexInstructions.trim()}\n`;
   if (polarInstructions) output += `\n${polarInstructions.trim()}\n`;
+  if (i18nInstructions) output += `\n${i18nInstructions.trim()}\n`;
   // Deploy steps come last so env sync happens after auth/payment keys exist
   if (alchemyDeployInstructions) output += `\n${alchemyDeployInstructions.trim()}\n`;
 
@@ -547,6 +550,30 @@ function getStarlightInstructions(runCmd: string) {
   )} Start docs site: ${`cd apps/docs && ${runCmd} dev`}\n${pc.cyan(
     "•",
   )} Build docs site: ${`cd apps/docs && ${runCmd} build`}`;
+}
+
+function getI18nInstructions(runCmd: string, config: ProjectConfig) {
+  const library = config.i18n;
+  if (library === undefined || library === "none") return "";
+
+  const lines = [`${pc.bold(`${I18N_LIBRARY_META[library].label} i18n:`)}`];
+
+  const locales = config.i18nOptions?.locales;
+  if (locales && locales.length > 0) {
+    lines.push(`${pc.cyan("•")} Locales: ${locales.join(", ")}`);
+  }
+
+  lines.push(
+    `${pc.cyan("•")} Extract messages: ${runCmd} i18n:extract`,
+    `${pc.cyan("•")} Compile catalogs: ${runCmd} i18n:compile`,
+    `${pc.cyan("•")} Check missing translations: ${runCmd} i18n:check`,
+  );
+
+  if (config.i18nOptions?.translateSkill ?? true) {
+    lines.push(`${pc.cyan("•")} Translate with the i18n-translate agent skill`);
+  }
+
+  return lines.join("\n");
 }
 
 function getNoOrmWarning() {

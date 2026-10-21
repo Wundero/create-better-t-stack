@@ -1,5 +1,7 @@
 import type { ProjectConfig } from "@better-t-stack/types";
 
+import { hasI18n } from "./i18n";
+
 function normalizeMultiValues(values: string[] | undefined): string[] {
   if (!values || values.length === 0) return [];
   const filtered = values.filter((value) => value !== "none");
@@ -43,8 +45,46 @@ export function generateReproducibleCommand(config: ProjectConfig): string {
   flags.push(`--auth ${config.auth}`);
   flags.push(`--payments ${config.payments}`);
 
+  if (hasI18n(config)) {
+    flags.push(`--i18n ${config.i18n}`);
+    const i18nOptions = config.i18nOptions;
+    if (i18nOptions) {
+      flags.push(`--i18n-locales ${i18nOptions.locales.join(",")}`);
+      if (i18nOptions.sourceLocale !== i18nOptions.locales[0]) {
+        flags.push(`--i18n-source-locale ${i18nOptions.sourceLocale}`);
+      }
+      const routing = i18nOptions.routing;
+      if (routing && routing.strategy !== "cookie") {
+        flags.push(`--i18n-routing ${routing.strategy}`);
+      }
+      for (const [locale, host] of Object.entries(routing?.domains ?? {})) {
+        flags.push(`--i18n-domain ${locale}=${host}`);
+      }
+      if (!i18nOptions.translateSkill) {
+        flags.push("--no-i18n-skill");
+      }
+    }
+  }
+
   flags.push(formatMultiFlag("--addons", addons));
   flags.push(formatMultiFlag("--examples", examples));
+
+  const shadcn = config.shadcn;
+  if (shadcn) {
+    const base = shadcn.base ?? "baseui";
+    if (shadcn.preset) {
+      flags.push(`--shadcn-preset ${shadcn.preset}`);
+    }
+    if (base !== "baseui") {
+      flags.push(`--shadcn-base ${base}`);
+    }
+    if (shadcn.rtl === true) {
+      flags.push("--shadcn-rtl");
+    }
+    if (shadcn.pointer === true) {
+      flags.push("--shadcn-pointer");
+    }
+  }
 
   flags.push(`--db-setup ${config.dbSetup}`);
   if (config.dbSetupOptions?.mode === "manual") {

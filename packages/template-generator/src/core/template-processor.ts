@@ -1,4 +1,8 @@
-import { type ProjectConfig, usesAlchemyManagedDatabase } from "@better-t-stack/types";
+import {
+  type ProjectConfig,
+  usesAlchemyManagedDatabase,
+  usesShadcnLocaleDirection,
+} from "@better-t-stack/types";
 import Handlebars from "handlebars";
 import isBinaryPath from "is-binary-path";
 
@@ -8,6 +12,9 @@ Handlebars.registerHelper("and", (...args) => args.slice(0, -1).every(Boolean));
 Handlebars.registerHelper("or", (...args) => args.slice(0, -1).some(Boolean));
 Handlebars.registerHelper("not", (a) => !a);
 Handlebars.registerHelper("includes", (arr, val) => Array.isArray(arr) && arr.includes(val));
+Handlebars.registerHelper("usesShadcnDirection", (shadcn, i18n, i18nOptions) =>
+  usesShadcnLocaleDirection({ shadcn, i18n, i18nOptions }),
+);
 // Mirrors the sanitizers expo prebuild applies when it suggests identifiers.
 const reservedAndroidSegments = new Set([
   "abstract",

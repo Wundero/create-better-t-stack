@@ -104,6 +104,41 @@ export const AuthSchema = z
 
 export const PaymentsSchema = z.enum(["polar", "none"]).describe("Payments provider");
 
+export const I18N_LIBRARY_VALUES = ["lingui", "paraglide", "i18next", "wuchale"] as const;
+
+export const I18N_VALUES = [...I18N_LIBRARY_VALUES, "none"] as const;
+
+export const I18nSchema = z.enum(I18N_VALUES).describe("Internationalization library");
+
+export const I18nRoutingStrategySchema = z
+  .enum(["cookie", "prefix", "domain"])
+  .describe("Locale routing strategy");
+
+export const I18nOptionsSchema = z
+  .strictObject({
+    sourceLocale: z
+      .string()
+      .default("en")
+      .describe("Canonical BCP-47 source locale; must be included in locales"),
+    locales: z
+      .array(z.string())
+      .default(["en", "es", "fr"])
+      .describe("Configured locales; must include the source locale"),
+    routing: z
+      .strictObject({
+        strategy: I18nRoutingStrategySchema.default("cookie"),
+        prefixDefaultLocale: z.boolean().default(false).describe("Prefix the source locale too"),
+        domains: z
+          .record(z.string(), z.string())
+          .optional()
+          .describe("Locale to host mapping; only for the domain strategy"),
+      })
+      .optional()
+      .describe("Locale routing configuration"),
+    translateSkill: z.boolean().default(true).describe("Generate the i18n-translate agent skill"),
+  })
+  .describe("Internationalization options");
+
 export const WebDeploySchema = z
   .enum(["cloudflare", "prisma", "docker", "vercel", "none"])
   .describe("Web deployment");
@@ -511,8 +546,26 @@ export const ProjectNameSchema = z
   .refine((name) => name.toLowerCase() !== "node_modules", "Project name is reserved")
   .describe("Project name or path");
 
+export const SHADCN_BASE_VALUES = ["baseui", "radixui", "react-aria"] as const;
+
+export const ShadcnBaseSchema = z.enum(SHADCN_BASE_VALUES).describe("shadcn component base");
+
+export const SHADCN_BASE_TO_REGISTRY = {
+  baseui: "base",
+  radixui: "radix",
+  "react-aria": "aria",
+} as const;
+
+export const ShadcnConfigSchema = z.strictObject({
+  preset: z.string().min(2).optional(),
+  base: ShadcnBaseSchema.optional(),
+  rtl: z.boolean().optional(),
+  pointer: z.boolean().optional(),
+});
+
 export const CreateInputSchema = z
   .object({
+    shadcn: ShadcnConfigSchema.optional(),
     projectName: z.string().optional(),
     template: TemplateSchema.optional(),
     yes: z.boolean().optional(),
@@ -525,6 +578,8 @@ export const CreateInputSchema = z
     orm: ORMSchema.optional(),
     auth: AuthSchema.optional(),
     payments: PaymentsSchema.optional(),
+    i18n: I18nSchema.optional(),
+    i18nOptions: I18nOptionsSchema.optional(),
     frontend: z.array(FrontendSchema).optional(),
     addons: AddonsListSchema.optional(),
     examples: z.array(ExamplesSchema).optional(),
@@ -561,9 +616,12 @@ export const WorkspacePackageNameSchema = z
 
 export const AddInputSchema = z
   .object({
+    shadcn: ShadcnConfigSchema.optional(),
     addons: AddonsListSchema.optional(),
     package: WorkspacePackageNameSchema.optional(),
     addonOptions: AddonOptionsSchema.optional(),
+    i18n: I18nSchema.optional(),
+    i18nOptions: I18nOptionsSchema.optional(),
     webDeploy: WebDeploySchema.optional(),
     serverDeploy: ServerDeploySchema.optional(),
     projectDir: z.string().optional(),
@@ -579,6 +637,7 @@ export const CLIInputSchema = CreateInputSchema.safeExtend({
 }).strict();
 
 export const ProjectConfigSchema = z.object({
+  shadcn: ShadcnConfigSchema.optional(),
   projectName: z.string(),
   projectDir: z.string(),
   relativePath: z.string(),
@@ -593,6 +652,8 @@ export const ProjectConfigSchema = z.object({
   examples: z.array(ExamplesSchema),
   auth: AuthSchema,
   payments: PaymentsSchema,
+  i18n: I18nSchema.default("none"),
+  i18nOptions: I18nOptionsSchema.optional(),
   git: z.boolean(),
   packageManager: PackageManagerSchema,
   install: z.boolean(),
@@ -603,6 +664,7 @@ export const ProjectConfigSchema = z.object({
 });
 
 export const BetterTStackConfigSchema = z.object({
+  shadcn: ShadcnConfigSchema.optional(),
   version: z.string().describe("CLI version used to create this project"),
   createdAt: z.string().describe("Timestamp when the project was created"),
   reproducibleCommand: z.string().optional().describe("Command to reproduce this project setup"),
@@ -617,6 +679,8 @@ export const BetterTStackConfigSchema = z.object({
   examples: z.array(ExamplesSchema),
   auth: AuthSchema,
   payments: PaymentsSchema,
+  i18n: I18nSchema.default("none"),
+  i18nOptions: I18nOptionsSchema.optional(),
   packageManager: PackageManagerSchema,
   dbSetup: DatabaseSetupSchema,
   api: APISchema,
@@ -658,6 +722,7 @@ export const DATABASE_SETUP_VALUES = DatabaseSetupSchema.options;
 export const API_VALUES = APISchema.options;
 export const AUTH_VALUES = AuthSchema.options;
 export const PAYMENTS_VALUES = PaymentsSchema.options;
+export const I18N_ROUTING_STRATEGY_VALUES = I18nRoutingStrategySchema.options;
 export const WEB_DEPLOY_VALUES = WebDeploySchema.options;
 export const SERVER_DEPLOY_VALUES = ServerDeploySchema.options;
 export const DIRECTORY_CONFLICT_VALUES = DirectoryConflictSchema.options;

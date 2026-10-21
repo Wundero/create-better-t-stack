@@ -24,6 +24,11 @@ import {
   isUserCancellation,
 } from "../../utils/errors";
 import { getUserPkgManager } from "../../utils/get-package-manager";
+import {
+  type I18nCliFlagFields,
+  normalizeResolvedI18n,
+  resolveI18nCliFlags,
+} from "../../utils/i18n-cli";
 import { validateAgentSafePathInput } from "../../utils/input-hardening";
 import {
   findAvailableIncrementedPath,
@@ -59,10 +64,11 @@ export interface CreateHandlerOptions {
   mode?: AnalyticsMode;
 }
 
-type CreateCommandInput = CreateInput & {
-  projectName?: string;
-  open?: ProjectLauncher;
-};
+type CreateCommandInput = CreateInput &
+  I18nCliFlagFields & {
+    projectName?: string;
+    open?: ProjectLauncher;
+  };
 
 /**
  * Result type for project creation
@@ -102,6 +108,7 @@ function createEmptyResult(
       examples: [],
       auth: "none",
       payments: "none",
+      i18n: "none",
       git: false,
       packageManager: "npm",
       install: false,
@@ -292,10 +299,15 @@ async function createProjectHandlerInternal(
 
     const { finalResolvedPath, finalBaseName } = resolveProjectDirectoryPath(finalPathInput);
 
-    const originalInput = {
+    const i18nFlagsResult = resolveI18nCliFlags({
       ...input,
       projectDirectory: input.projectName,
-    };
+    });
+    if (i18nFlagsResult.isErr()) {
+      return Result.err(i18nFlagsResult.error);
+    }
+
+    const originalInput = i18nFlagsResult.value;
 
     const providedFlags = getProvidedFlags(originalInput);
 
@@ -390,6 +402,8 @@ async function createProjectHandlerInternal(
       );
       config = gatherResult;
     }
+
+    config = normalizeResolvedI18n(config);
 
     const effectiveDbSetupOptions = resolveProjectDbSetupOptions(config, {
       manualDb: cliInput.manualDb ?? input.manualDb,

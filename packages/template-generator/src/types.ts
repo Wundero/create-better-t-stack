@@ -1,6 +1,9 @@
 import type { ProjectConfig } from "@better-t-stack/types";
 import { TaggedError } from "better-result";
 
+import type { ResolvedShadcnTheme } from "./shadcn/resolve";
+import type { ShadcnRegistryClient } from "./shadcn/types";
+
 export interface VirtualFile {
   type: "file";
   path: string;
@@ -32,6 +35,10 @@ export interface GeneratorOptions {
   templates?: Map<string, string>;
   /** CLI version string for bts.jsonc */
   version?: string;
+  /** Injectable registry client; defaults to the HTTP client when omitted. */
+  registry?: ShadcnRegistryClient;
+  /** Pre-resolved shadcn theme; skips registry resolution when provided. */
+  shadcn?: ResolvedShadcnTheme;
 }
 
 /**

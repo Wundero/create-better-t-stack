@@ -1,0 +1,15 @@
+import { hostI18n } from "./i18n";
+
+/** Demo payload rendered by the host process (logs, native menus, tray). */
+export function renderI18nDemo() {
+  const { locale, t, format } = hostI18n();
+  return {
+    locale,
+    heading: t("i18n demo"),
+    greeting: t("Hello, \{{name}}!", { name: "Ada" }),
+    plural: t("You have \{{count}} new message", { count: 2 }),
+    language: format.displayName(locale) ?? locale,
+    date: format.date(new Date("2026-10-14T12:00:00Z")),
+    currency: format.currency(42.5, "EUR"),
+  };
+}
