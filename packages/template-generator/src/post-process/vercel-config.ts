@@ -4,23 +4,13 @@
  */
 
 import type { ProjectConfig } from "@better-t-stack/types";
+import type { ServiceConfig, Services } from "@vercel/build-utils";
 
 import type { VirtualFileSystem } from "../core/virtual-fs";
 
-type VercelRewrite = { source: string; destination: string | { service: string } };
+type VercelRewrite = NonNullable<ServiceConfig["rewrites"]>[number];
 
 type PackageJson = { varlock?: { loadPath: string } };
-
-type VercelService = {
-  root: string;
-  framework: string;
-  entrypoint?: string;
-  installCommand?: string;
-  buildCommand?: string;
-  outputDirectory?: string;
-  functions?: Record<string, { includeFiles: string }>;
-  rewrites?: VercelRewrite[];
-};
 
 function getWebFramework(frontend: ProjectConfig["frontend"], isDesktop: boolean): string {
   if (frontend.includes("next")) return "nextjs";
@@ -53,10 +43,10 @@ export function processVercelConfig(vfs: VirtualFileSystem, config: ProjectConfi
     frontend.includes("tanstack-router") || (frontend.includes("react-router") && isDesktop);
   const installCommand = `cd ../.. && ${packageManager} install`;
 
-  const services: Record<string, VercelService> = {};
+  const services: Services = {};
 
   if (hasWeb) {
-    const web: VercelService = {
+    const web: ServiceConfig = {
       root: "apps/web",
       framework: getWebFramework(frontend, isDesktop),
       installCommand,
@@ -64,6 +54,11 @@ export function processVercelConfig(vfs: VirtualFileSystem, config: ProjectConfi
     if (hasServer) {
       // Same-origin /api: the client calls the domain it was served from
       web.buildCommand = `${getPublicServerUrlVar(frontend)}=/api ${packageManager} run build`;
+      if (!isStaticSpa) {
+        // SSR calls the server over an internal, deployment-aware URL that skips
+        // Deployment Protection, so protected previews still render their data
+        web.bindings = [{ type: "service", service: "server", format: "url", env: "SERVER_URL" }];
+      }
     }
     if (frontend.includes("react-router") && isDesktop) {
       web.outputDirectory = "build/client";
@@ -75,25 +70,48 @@ export function processVercelConfig(vfs: VirtualFileSystem, config: ProjectConfi
   }
 
   if (hasServer) {
-    services.server = {
-      root: "apps/server",
-      framework: backend,
-      entrypoint: "src/index.ts",
-      installCommand,
-      // Vercel compiles the entrypoint itself; a dist bundle would be deployed apart
-      // from apps/server/node_modules, which bun and pnpm installs rely on
-      buildCommand: `${packageManager} run env:generate && ${packageManager} run check-types`,
-      functions: {
-        // varlock/auto-load runs the Varlock CLI, which file tracing can't follow.
-        // Paths are relative to the repository root, the function's working directory
-        "src/index.ts": {
-          includeFiles:
-            "{package.json,apps/server/.env.schema,node_modules/.bin/varlock,node_modules/varlock/**}",
+    if (backend === "nitro") {
+      // Vercel's Nitro preset builds `.output`, so there is no `src/index.ts` entrypoint,
+      // no varlock trace config, and the default build command must not be overridden.
+      const server: ServiceConfig = {
+        root: "apps/server",
+        framework: backend,
+        installCommand,
+      };
+      if (hasWeb) {
+        // The client targets same-origin `/api` (web buildCommand seeds `..._SERVER_URL=/api`),
+        // but Nitro's file routes are absolute (`/rpc`, `/trpc`, `/api-reference`). Strip the
+        // `/api` prefix before the request reaches Nitro — except `/api/auth`, which better-auth
+        // derives its own router base path from and must receive unstripped.
+        server.routes = [
+          {
+            src: "/api/((?!auth(?:/|$)).*)",
+            transforms: [{ type: "request.path", op: "set", args: "/$1" }],
+          },
+        ];
+      }
+      services.server = server;
+    } else {
+      services.server = {
+        root: "apps/server",
+        framework: backend,
+        entrypoint: "src/index.ts",
+        installCommand,
+        // Vercel compiles the entrypoint itself; a dist bundle would be deployed apart
+        // from apps/server/node_modules, which bun and pnpm installs rely on
+        buildCommand: `${packageManager} run env:generate && ${packageManager} run check-types`,
+        functions: {
+          // varlock/auto-load runs the Varlock CLI, which file tracing can't follow.
+          // Paths are relative to the repository root, the function's working directory
+          "src/index.ts": {
+            includeFiles:
+              "{package.json,apps/server/.env.schema,node_modules/.bin/varlock,node_modules/varlock/**}",
+          },
         },
-      },
-    };
-    const pkg = vfs.readJson<PackageJson>("package.json");
-    if (pkg) vfs.writeJson("package.json", { ...pkg, varlock: { loadPath: "./apps/server/" } });
+      };
+      const pkg = vfs.readJson<PackageJson>("package.json");
+      if (pkg) vfs.writeJson("package.json", { ...pkg, varlock: { loadPath: "./apps/server/" } });
+    }
   }
 
   if (config.orm === "prisma" && config.database !== "none") {
@@ -116,10 +134,11 @@ export function processVercelConfig(vfs: VirtualFileSystem, config: ProjectConfi
     rewrites.push({ source: "/(.*)", destination: { service: "server" } });
   }
 
-  vfs.writeJson("vercel.json", {
+  const vercelConfig = {
     $schema: "https://openapi.vercel.sh/vercel.json",
     bunVersion: runtime === "bun" ? "1.x" : undefined,
     services,
     rewrites,
-  });
+  };
+  vfs.writeFile("vercel.json", JSON.stringify(vercelConfig, null, 2));
 }

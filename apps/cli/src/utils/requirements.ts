@@ -4,7 +4,7 @@ import { Result } from "better-result";
 import { execa } from "execa";
 import { clean, coerce, satisfies } from "semver";
 
-import type { PackageManager, ProjectConfig } from "../types";
+import { isAlchemyDeployTarget, type PackageManager, type ProjectConfig } from "../types";
 import { CLIError } from "./errors";
 import { shouldSkipExternalCommands } from "./external-commands";
 
@@ -84,7 +84,7 @@ function getNodeToolingRequirements(config: RequirementConfig): VersionRequireme
         addNodeRequirement(requirements, ">=22.12.0", "Astro 7");
         break;
       case "nuxt":
-        addNodeRequirement(requirements, "^22.19.0 || ^24.11.0 || >=26.0.0", "Nuxt 4");
+        addNodeRequirement(requirements, "^22.22.3 || ^24.15.0 || >=26.0.0", "Nuxt 4.6");
         break;
       case "solid":
         addNodeRequirement(requirements, ">=24.0.0", "Solid");
@@ -93,9 +93,18 @@ function getNodeToolingRequirements(config: RequirementConfig): VersionRequireme
         addNodeRequirement(requirements, ">=22.22.0", "React Router 8");
         break;
       case "svelte":
+        addNodeRequirement(requirements, ">=22.17.0", "SvelteKit 3");
+        break;
       case "tanstack-router":
-      case "tanstack-start":
         addNodeRequirement(requirements, "^20.19.0 || >=22.12.0", "Vite 8");
+        break;
+      case "tanstack-start":
+        addNodeRequirement(requirements, ">=22.12.0", "TanStack Start 1.169");
+        addNodeRequirement(
+          requirements,
+          "^22.22.2 || ^24.15.0 || >=26.0.0",
+          "TanStack Start test tooling (jsdom 30.1)",
+        );
         break;
       case "next":
         addNodeRequirement(requirements, ">=20.9.0", "Next.js 16");
@@ -108,7 +117,9 @@ function getNodeToolingRequirements(config: RequirementConfig): VersionRequireme
     }
   }
 
-  if (!["none", "self", "convex"].includes(config.backend)) {
+  if (config.backend === "nitro") {
+    addNodeRequirement(requirements, "^20.19.0 || >=22.12.0", "Nitro 3");
+  } else if (!["none", "self", "convex"].includes(config.backend)) {
     addNodeRequirement(
       requirements,
       "^22.18.0 || >=24.11.0",
@@ -128,6 +139,30 @@ function getNodeToolingRequirements(config: RequirementConfig): VersionRequireme
     addNodeRequirement(requirements, ">=22.0.0", "AI SDK 7");
   }
 
+  requirements.push(...getAddonNodeRequirements(config));
+
+  if (config.webDeploy === "cloudflare" || config.serverDeploy === "cloudflare") {
+    addNodeRequirement(requirements, ">=22.0.0", "Wrangler 4");
+  }
+
+  if (
+    isAlchemyDeployTarget(config.webDeploy) ||
+    isAlchemyDeployTarget(config.serverDeploy) ||
+    config.addons.includes("axiom")
+  ) {
+    addNodeRequirement(requirements, "^24.11.1 || >=25.1.0", "the Alchemy CLI");
+  }
+
+  return requirements;
+}
+
+function getAddonNodeRequirements(config: RequirementConfig): VersionRequirement[] {
+  const requirements: VersionRequirement[] = [];
+
+  if (config.addons.includes("ultracite")) {
+    addNodeRequirement(requirements, ">=22.18.0", "the Ultracite CLI");
+  }
+
   if (
     config.addons.includes("oxlint") ||
     (config.addons.includes("ultracite") && config.addonOptions?.ultracite?.linter === "oxlint")
@@ -140,7 +175,7 @@ function getNodeToolingRequirements(config: RequirementConfig): VersionRequireme
   }
 
   if (config.addons.includes("vite-plus")) {
-    addNodeRequirement(requirements, "^20.19.0 || ^22.18.0 || >=24.11.0", "Vite+");
+    addNodeRequirement(requirements, "^22.18.0 || ^24.11.0 || >=26.0.0", "Vite+");
   }
 
   if (config.addons.includes("starlight")) {
@@ -151,8 +186,8 @@ function getNodeToolingRequirements(config: RequirementConfig): VersionRequireme
     addNodeRequirement(requirements, ">=22.0.0", "WXT");
   }
 
-  if (config.webDeploy === "cloudflare" || config.serverDeploy === "cloudflare") {
-    addNodeRequirement(requirements, ">=22.0.0", "Wrangler 4");
+  if (config.addons.includes("skills")) {
+    addNodeRequirement(requirements, ">=22.20.0", "the Skills CLI");
   }
 
   return requirements;
@@ -189,9 +224,9 @@ export function getLocalVersionRequirements(
 ): VersionRequirement[] {
   const requirements = getBaselineRequirements(config.packageManager, hostRuntime);
 
-  if (config.packageManager !== "bun") {
-    requirements.push(...getNodeToolingRequirements(config));
-  } else if (config.runtime === "node") {
+  // Generated tooling commands retain their Node shebangs, including under bun run.
+  requirements.push(...getNodeToolingRequirements(config));
+  if (config.runtime === "node") {
     addNodeRequirement(requirements, ">=22.0.0", "the selected Node.js server runtime");
   }
 

@@ -13,7 +13,6 @@
  */
 const LIGHT_VARIANT_MATCHES = [
   "drizzle",
-  "prisma",
   "express",
   "clerk",
   "planetscale",

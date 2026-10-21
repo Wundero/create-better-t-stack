@@ -29,7 +29,7 @@ export function processDeployDeps(vfs: VirtualFileSystem, config: ProjectConfig)
     addPackageDependency({
       vfs,
       packagePath: "apps/web/package.json",
-      customDevDependencies: { "@opennextjs/aws": "^4.1.5" },
+      customDevDependencies: { "@opennextjs/aws": "^4.1.11" },
     });
   }
 
@@ -210,9 +210,7 @@ export function processDeployDeps(vfs: VirtualFileSystem, config: ProjectConfig)
       addPackageDependency({
         vfs,
         packagePath: webPkgPath,
-        devDependencies: needsWranglerLocalD1
-          ? ["@sveltejs/adapter-cloudflare", "wrangler"]
-          : ["@sveltejs/adapter-cloudflare"],
+        devDependencies: ["@sveltejs/adapter-cloudflare", "wrangler"],
       });
     } else if (frontend.includes("solid") && needsWranglerLocalD1) {
       addPackageDependency({

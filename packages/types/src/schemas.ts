@@ -9,7 +9,7 @@ export const DatabaseSchema = z
 export const ORMSchema = z.enum(["drizzle", "prisma", "mongoose", "none"]).describe("ORM type");
 
 export const BackendSchema = z
-  .enum(["hono", "express", "fastify", "elysia", "convex", "self", "none"])
+  .enum(["hono", "express", "fastify", "elysia", "nitro", "convex", "self", "none"])
   .describe("Backend framework");
 
 export const RuntimeSchema = z
@@ -372,6 +372,7 @@ export const UltraciteEditorSchema = z
     "vscode",
     "cursor",
     "windsurf",
+    "devin",
     "codebuddy",
     "antigravity",
     "bob",
@@ -427,11 +428,28 @@ export const UltraciteAgentSchema = z
     "cursor-cli",
     "mistral-vibe",
     "vercel",
+    "snowflake-coco",
+    "kimi-code",
+    "xum",
+    "kiro-cli",
+    "fx",
+    "antigravity",
+    "grok",
   ])
   .describe("Ultracite agent integration");
 
 export const UltraciteHookSchema = z
-  .enum(["cursor", "windsurf", "codebuddy", "claude", "copilot"])
+  .enum([
+    "cursor",
+    "windsurf",
+    "devin",
+    "codebuddy",
+    "claude",
+    "codex",
+    "deepagents",
+    "copilot",
+    "grok",
+  ])
   .describe("Ultracite hook integration");
 
 export const DbSetupModeSchema = z
