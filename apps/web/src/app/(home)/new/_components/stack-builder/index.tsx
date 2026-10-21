@@ -20,6 +20,7 @@ import { cn } from "@/lib/utils";
 
 import { ActionButtons } from "../action-buttons";
 import { PreviewPanel, useStackPreview } from "../preview-panel";
+import { ShadcnThemeSection } from "../shadcn-theme";
 import { SpecialSponsorsPanel } from "../special-sponsors-panel";
 import { CategoryNav, scrollToCategorySection } from "./category-nav";
 import { SelectedStackBadges } from "./selected-stack-badges";
@@ -348,6 +349,7 @@ export function StackBuilder({ specialSponsors = [] }: StackBuilderProps) {
               <div ref={scrollAreaRef} className="min-h-0 flex-1">
                 <ScrollArea className="h-full overflow-hidden scroll-smooth">
                   <main className="@container p-2 sm:p-4">
+                    <ShadcnThemeSection stack={effectiveStack} onChange={setStack} />
                     <TechCategories
                       mode="desktop"
                       stack={effectiveStack}
@@ -492,6 +494,8 @@ export function StackBuilder({ specialSponsors = [] }: StackBuilderProps) {
                       </div>
                     )}
                   </div>
+
+                  <ShadcnThemeSection stack={effectiveStack} onChange={setStack} />
 
                   <TechCategories
                     mode="mobile"

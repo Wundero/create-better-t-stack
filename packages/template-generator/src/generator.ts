@@ -17,6 +17,9 @@ import {
   processEnvVariables,
 } from "./processors";
 import { processVarlock } from "./processors/varlock";
+import { createHttpShadcnRegistryClient, resolveShadcnTheme } from "./shadcn";
+import type { GenerationContext } from "./shadcn/context";
+import type { ResolvedShadcnTheme } from "./shadcn/resolve";
 import {
   type TemplateData,
   processBaseTemplate,
@@ -38,6 +41,12 @@ import { GeneratorError } from "./types";
 import { generateReproducibleCommand } from "./utils/reproducible-command";
 
 export type { TemplateData };
+
+const REACT_WEB_FRONTENDS = ["tanstack-router", "react-router", "tanstack-start", "next"];
+
+function hasReactWebFrontend(config: GeneratorOptions["config"]): boolean {
+  return config.frontend.some((frontend) => REACT_WEB_FRONTENDS.includes(frontend));
+}
 
 /**
  * Generates a virtual project file tree from templates and configuration.
@@ -68,13 +77,33 @@ export async function generate(
 
       const vfs = new VirtualFileSystem();
 
+      let resolvedShadcn: ResolvedShadcnTheme | undefined = options.shadcn;
+      if (config.shadcn !== undefined && hasReactWebFrontend(config)) {
+        if (resolvedShadcn === undefined) {
+          const client = options.registry ?? createHttpShadcnRegistryClient();
+          const resolution = await resolveShadcnTheme(config, client);
+          if (resolution.isErr()) {
+            throw new GeneratorError({
+              message: resolution.error.message,
+              phase: "shadcn-resolution",
+              cause: resolution.error,
+            });
+          }
+          resolvedShadcn = resolution.value;
+        }
+      } else {
+        resolvedShadcn = undefined;
+      }
+      const context: GenerationContext =
+        resolvedShadcn === undefined ? {} : { shadcn: resolvedShadcn };
+
       await processBaseTemplate(vfs, templates, config);
       await processFrontendTemplates(vfs, templates, config);
       await processBackendTemplates(vfs, templates, config);
       await processDbTemplates(vfs, templates, config);
       await processApiTemplates(vfs, templates, config);
       await processConfigPackage(vfs, templates, config);
-      await processUiPackage(vfs, templates, config);
+      await processUiPackage(vfs, templates, config, context);
       await processAuthTemplates(vfs, templates, config);
       await processPaymentsTemplates(vfs, templates, config);
       await processAddonTemplates(vfs, templates, config);

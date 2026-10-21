@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "../index.css";
-{{#if (eq auth "clerk")}}import { ClerkProvider } from "@clerk/nextjs";
+{{#if shadcn.rtl}}import { DirectionProvider } from "@{{projectName}}/ui/components/direction";
+{{/if}}{{#if (eq auth "clerk")}}import { ClerkProvider } from "@clerk/nextjs";
 {{/if}}{{#if (and (eq backend "convex") (eq auth "better-auth"))}}
 import { getToken } from "@/lib/auth-server";
 {{/if}}
@@ -31,16 +32,18 @@ export default async function RootLayout({
 }>) {
   const token = await getToken();
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en" suppressHydrationWarning{{#if shadcn.rtl}} dir="rtl"{{/if}}>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <Providers initialToken={token}>
+        {{#if shadcn.rtl}}<DirectionProvider direction="rtl">
+        {{/if}}<Providers initialToken={token}>
           <div className="grid grid-rows-[auto_1fr] h-svh">
             <Header />
             {children}
           </div>
-        </Providers>
+        </Providers>{{#if shadcn.rtl}}
+        </DirectionProvider>{{/if}}
       </body>
     </html>
   );
@@ -52,11 +55,12 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
 	return (
-		<html lang="en" suppressHydrationWarning>
+		<html lang="en" suppressHydrationWarning{{#if shadcn.rtl}} dir="rtl"{{/if}}>
 			<body
 				className={`${geistSans.variable} ${geistMono.variable} antialiased`}
 			>
-				{{#if (eq auth "clerk")}}<ClerkProvider>
+				{{#if shadcn.rtl}}<DirectionProvider direction="rtl">
+				{{/if}}{{#if (eq auth "clerk")}}<ClerkProvider>
 					<Providers>
 						<div className="grid grid-rows-[auto_1fr] h-svh">
 							<Header />
@@ -68,7 +72,8 @@ export default function RootLayout({
 						<Header />
 						{children}
 					</div>
-				</Providers>{{/if}}
+				</Providers>{{/if}}{{#if shadcn.rtl}}
+				</DirectionProvider>{{/if}}
 			</body>
 		</html>
 	);

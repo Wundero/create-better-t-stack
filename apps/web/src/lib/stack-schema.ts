@@ -1,7 +1,8 @@
-import { ProjectConfigSchema } from "@better-t-stack/types";
+import { ProjectConfigSchema, SHADCN_BASE_VALUES } from "@better-t-stack/types";
 import { z } from "zod";
 
 import { DEFAULT_STACK, TECH_OPTIONS, getStackOptionIds, type StackState } from "./constant";
+import { getShadcnConfig } from "./shadcn-config";
 import { getStackBackend, getStackFrontends } from "./stack-model";
 import { formatProjectName } from "./stack-utils";
 
@@ -28,6 +29,10 @@ const stackFields = {
   webDeploy: option("webDeploy"),
   serverDeploy: option("serverDeploy"),
   yolo: z.enum(["true", "false"]),
+  shadcnPreset: z.string(),
+  shadcnBase: z.enum(SHADCN_BASE_VALUES),
+  shadcnRtl: z.boolean(),
+  shadcnPointer: z.boolean(),
 };
 
 export const StackUpdateSchema = z.object(stackFields).partial();
@@ -52,13 +57,19 @@ export const StackStateSchema = z.object({
   webDeploy: stackFields.webDeploy.default(DEFAULT_STACK.webDeploy),
   serverDeploy: stackFields.serverDeploy.default(DEFAULT_STACK.serverDeploy),
   yolo: stackFields.yolo.default(DEFAULT_STACK.yolo),
+  shadcnPreset: stackFields.shadcnPreset.default(DEFAULT_STACK.shadcnPreset),
+  shadcnBase: stackFields.shadcnBase.default(DEFAULT_STACK.shadcnBase),
+  shadcnRtl: stackFields.shadcnRtl.default(DEFAULT_STACK.shadcnRtl),
+  shadcnPointer: stackFields.shadcnPointer.default(DEFAULT_STACK.shadcnPointer),
 });
 
 export function stackStateToConfig(stack: StackState) {
   const projectPath = formatProjectName(stack.projectName);
   const projectName = projectPath.split(/[\\/]/).filter(Boolean).at(-1) || "my-better-t-app";
+  const shadcn = getShadcnConfig(stack);
   return ProjectConfigSchema.parse({
     ...stack,
+    shadcn,
     projectName: projectName === "." ? "my-better-t-app" : projectName,
     projectDir: "/virtual",
     relativePath: "./virtual",
