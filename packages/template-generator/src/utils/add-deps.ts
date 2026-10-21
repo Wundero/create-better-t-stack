@@ -128,7 +128,7 @@ export const dependencyVersionMap = {
   "@trpc/server": "^11.19.0",
   "@trpc/client": "^11.19.0",
 
-  next: "^16.3.4",
+  next: "^16.4.2",
   nitro: "3.0.260903-beta",
 
   convex: "^1.45.0",
@@ -158,7 +158,7 @@ export const dependencyVersionMap = {
 
   wrangler: "^4.129.0",
   "@cloudflare/vite-plugin": "1.54.4",
-  "@opennextjs/cloudflare": "^1.20.6",
+  "@opennextjs/cloudflare": "^1.20.12",
   "@sveltejs/adapter-cloudflare": "^7.2.9",
   "@sveltejs/adapter-node": "^5.5.7",
   "@sveltejs/adapter-vercel": "^6.3.4",
