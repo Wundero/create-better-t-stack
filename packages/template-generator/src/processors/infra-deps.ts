@@ -2,7 +2,7 @@ import { isAlchemyDeployTarget, isProviderAddon, type ProjectConfig } from "@bet
 import { parse, stringify } from "yaml";
 
 import type { VirtualFileSystem } from "../core/virtual-fs";
-import { addonInfraDeps } from "../generators/alchemy/addons";
+import { addonAppDeps, addonInfraDeps } from "../generators/alchemy/addons";
 import { createAlchemyDeploymentPlan, getPrismaWebsiteFramework } from "../generators/alchemy/plan";
 import {
   addPackageDependency,
@@ -44,10 +44,8 @@ function isAvailableDependency(name: string): name is AvailableDependencies {
   return Object.hasOwn(dependencyVersionMap, name);
 }
 
-function addonDevDependencies(config: ProjectConfig): AvailableDependencies[] {
-  if (!config.addons.some(isProviderAddon)) return [];
-  const plan = createAlchemyDeploymentPlan(config);
-  return addonInfraDeps(plan).map((name) => {
+function resolveAddonDependencies(names: string[]): AvailableDependencies[] {
+  return names.map((name) => {
     if (!isAvailableDependency(name)) {
       throw new Error(
         `Missing version for dependency: ${name}. Add it to dependencyVersionMap in add-deps.ts`,
@@ -55,6 +53,16 @@ function addonDevDependencies(config: ProjectConfig): AvailableDependencies[] {
     }
     return name;
   });
+}
+
+function addonDevDependencies(config: ProjectConfig): AvailableDependencies[] {
+  if (!config.addons.some(isProviderAddon)) return [];
+  return resolveAddonDependencies(addonInfraDeps(createAlchemyDeploymentPlan(config)));
+}
+
+function addonAppDependencies(config: ProjectConfig): AvailableDependencies[] {
+  if (!config.addons.some(isProviderAddon)) return [];
+  return resolveAddonDependencies(addonAppDeps(createAlchemyDeploymentPlan(config)));
 }
 
 export function processInfraDeps(vfs: VirtualFileSystem, config: ProjectConfig): void {
@@ -102,5 +110,23 @@ export function processInfraDeps(vfs: VirtualFileSystem, config: ProjectConfig):
       packagePath: infraPath,
       devDependencies: addonDeps,
     });
+  }
+
+  const addonRuntimeDeps = addonAppDependencies(config);
+  if (addonRuntimeDeps.length > 0) {
+    const serverPath = "apps/server/package.json";
+    const webPath = "apps/web/package.json";
+    const packagePath = vfs.exists(serverPath)
+      ? serverPath
+      : vfs.exists(webPath)
+        ? webPath
+        : undefined;
+    if (packagePath) {
+      addPackageDependency({
+        vfs,
+        packagePath,
+        dependencies: addonRuntimeDeps,
+      });
+    }
   }
 }
