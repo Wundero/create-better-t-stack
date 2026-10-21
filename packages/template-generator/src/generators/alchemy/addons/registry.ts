@@ -8,6 +8,16 @@ import {
 
 import type { AlchemyDeploymentPlan } from "../plan";
 import type { AlchemyWriter } from "../writer";
+import { awsBedrockRenderer } from "./aws/bedrock";
+import { awsCloudfrontRenderer } from "./aws/cloudfront";
+import { awsElastiCacheRenderer } from "./aws/elasticache";
+import { awsEventBridgeRenderer } from "./aws/eventbridge";
+import { awsKinesisRenderer } from "./aws/kinesis";
+import { awsLambdaMicrovmRenderer } from "./aws/lambda-microvm";
+import { awsS3Renderer } from "./aws/s3";
+import { awsSchedulerRenderer } from "./aws/scheduler";
+import { awsSnsRenderer } from "./aws/sns";
+import { awsSqsRenderer } from "./aws/sqs";
 import { cloudflareAiSearchRenderer } from "./cloudflare/ai-search";
 import { cloudflareContainersRenderer } from "./cloudflare/containers";
 import { cloudflareDurableObjectsRenderer } from "./cloudflare/durable-objects";
@@ -23,6 +33,16 @@ import { cloudflareWorkersAiRenderer } from "./cloudflare/workers-ai";
 import type { AddonRenderer } from "./types";
 
 export const ADDON_RENDERERS = {
+  "aws-s3": awsS3Renderer,
+  "aws-sqs": awsSqsRenderer,
+  "aws-sns": awsSnsRenderer,
+  "aws-kinesis": awsKinesisRenderer,
+  "aws-eventbridge": awsEventBridgeRenderer,
+  "aws-scheduler": awsSchedulerRenderer,
+  "aws-cloudfront": awsCloudfrontRenderer,
+  "aws-elasticache": awsElastiCacheRenderer,
+  "aws-bedrock": awsBedrockRenderer,
+  "aws-lambda-microvm": awsLambdaMicrovmRenderer,
   "cloudflare-durable-objects": cloudflareDurableObjectsRenderer,
   "cloudflare-containers": cloudflareContainersRenderer,
   "cloudflare-sandboxes": cloudflareSandboxesRenderer,
@@ -70,7 +90,7 @@ export function writeAddonImports(writer: AlchemyWriter, plan: AlchemyDeployment
   }
 }
 
-export function writeAddonResources(writer: AlchemyWriter, plan: AlchemyDeploymentPlan): void {
+export function writeAddonResources(writer: AlchemyWriter, plan: AlchemyDeploymentPlan): boolean {
   let wroteResources = false;
   for (const renderer of registeredRenderers(plan)) {
     if (!renderer.resources) continue;
@@ -78,6 +98,7 @@ export function writeAddonResources(writer: AlchemyWriter, plan: AlchemyDeployme
     renderer.resources(writer, plan);
     wroteResources = true;
   }
+  return wroteResources;
 }
 
 export function addonBindings(plan: AlchemyDeploymentPlan): string[] {
@@ -94,4 +115,18 @@ export function addonInfraDeps(plan: AlchemyDeploymentPlan): string[] {
 
 export function addonAppDeps(plan: AlchemyDeploymentPlan): string[] {
   return registeredRenderers(plan).flatMap((renderer) => renderer.appDeps?.(plan) ?? []);
+}
+
+export function addonUsesServerHost(plan: AlchemyDeploymentPlan): boolean {
+  return registeredRenderers(plan).some(
+    (renderer) => renderer.serverPrelude !== undefined || renderer.hostBindings !== undefined,
+  );
+}
+
+export function writeAddonServerPrelude(writer: AlchemyWriter, plan: AlchemyDeploymentPlan): void {
+  for (const renderer of registeredRenderers(plan)) renderer.serverPrelude?.(writer, plan);
+}
+
+export function writeAddonHostBindings(writer: AlchemyWriter, plan: AlchemyDeploymentPlan): void {
+  for (const renderer of registeredRenderers(plan)) renderer.hostBindings?.(writer, plan);
 }
