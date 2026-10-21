@@ -57,6 +57,7 @@ function providerLayers(plan: AlchemyDeploymentPlan): string[] {
   const layers: string[] = [];
   if (plan.hasCloudflare) layers.push("Cloudflare.providers()");
   if (plan.hasAws && !plan.hasAwsNetwork) layers.push("AWS.providers()");
+  if (plan.hasNeonServer && plan.managedDatabase.kind !== "neon") layers.push("Neon.providers()");
   if (plan.hasAlchemyManagedDatabase || plan.hasPrismaDeploy) layers.push("databaseProviders");
   if (plan.hasAxiom) layers.push("Axiom.providers()");
   if (plan.emailSes && !plan.hasAws) layers.push("AWS.providers()");
@@ -87,7 +88,7 @@ function writeImports(writer: AlchemyWriter, plan: AlchemyDeploymentPlan): void 
     writer.writeLine('import * as SES from "alchemy/AWS/SES";');
   }
   if (usesCommand(plan)) writer.writeLine('import * as Command from "alchemy/Command";');
-  if (plan.managedDatabase.kind === "neon") {
+  if (plan.hasNeonServer || plan.managedDatabase.kind === "neon") {
     writer.writeLine('import * as Neon from "alchemy/Neon";');
   }
   if (
@@ -248,7 +249,12 @@ export function generateAlchemyRun(config: ProjectConfig): string {
   writeAwsNetworkResources(writer, plan);
   if (plan.hasAwsNetwork) writer.blankLine();
   writeDatabaseResources(writer, plan);
-  if (plan.hasAlchemyManagedDatabase || plan.hasPrismaDeploy || plan.hasD1Resource) {
+  if (
+    plan.hasAlchemyManagedDatabase ||
+    plan.hasPrismaDeploy ||
+    plan.hasD1Resource ||
+    plan.hasNeonServer
+  ) {
     writer.blankLine();
   }
   writeObservabilityResources(writer, plan);
