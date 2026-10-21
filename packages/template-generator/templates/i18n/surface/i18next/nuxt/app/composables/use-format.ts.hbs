@@ -1,0 +1,17 @@
+// Vue composable glue (D4): reactive `Intl` formatters for the active locale.
+import { createFormatters } from "@{{projectName}}/i18n";
+import { currentLocale, i18next } from "@{{projectName}}/i18n/runtime";
+import type { Locale } from "@{{projectName}}/i18n";
+import { computed, onScopeDispose, ref } from "vue";
+
+export function useFormat() {
+  const locale = ref<Locale>(currentLocale());
+  const sync = () => {
+    locale.value = currentLocale();
+  };
+  i18next.on("languageChanged", sync);
+  onScopeDispose(() => {
+    i18next.off("languageChanged", sync);
+  });
+  return computed(() => createFormatters(locale.value));
+}

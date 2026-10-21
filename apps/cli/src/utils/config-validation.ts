@@ -38,13 +38,26 @@ import {
   validateCloudflareWebDeployKnownIssues,
   validateWebDeployRequiresWebFrontend,
   validateWorkersCompatibility,
+  validateTurnstileCompatibility,
 } from "./compatibility-rules";
-import { ValidationError } from "./errors";
+import { CLIError, ValidationError } from "./errors";
+import { validateI18nConfig } from "./i18n-cli";
 
 type ValidationResult = Result<void, ValidationError>;
+type ConfigValidationResult = Result<void, ValidationError | CLIError>;
 
 function validationErr(message: string): ValidationResult {
   return Result.err(new ValidationError({ message }));
+}
+
+function turnstileDeployError(config: Partial<ProjectConfig>): ValidationResult | undefined {
+  if (!config.addons?.includes("turnstile")) return undefined;
+  const turnstile = validateTurnstileCompatibility({
+    webDeploy: config.webDeploy,
+    serverDeploy: config.serverDeploy,
+    backend: config.backend,
+  });
+  return turnstile.isCompatible ? undefined : validationErr(turnstile.reason);
 }
 
 function hasResolvedWorkersD1Target(config: Partial<ProjectConfig>) {
@@ -426,7 +439,7 @@ export function validateFullConfig(
   config: Partial<ProjectConfig>,
   providedFlags: Set<string>,
   options: CLIInput,
-): ValidationResult {
+): ConfigValidationResult {
   return Result.gen(function* () {
     yield* validateDatabaseOrmAuth(config, providedFlags);
     yield* validateDatabaseSetup(config, providedFlags);
@@ -483,6 +496,9 @@ export function validateFullConfig(
         config.backend,
         config.runtime,
       );
+
+      const turnstileError = turnstileDeployError(config);
+      if (turnstileError) yield* turnstileError;
       config.addons = [...new Set(config.addons)];
     }
 
@@ -501,11 +517,15 @@ export function validateFullConfig(
       config.frontend ?? [],
     );
 
+    yield* validateI18nConfig(config);
+
     return Result.ok(undefined);
   });
 }
 
-export function validateConfigForProgrammaticUse(config: Partial<ProjectConfig>): ValidationResult {
+export function validateConfigForProgrammaticUse(
+  config: Partial<ProjectConfig>,
+): ConfigValidationResult {
   return Result.gen(function* () {
     yield* validateDatabaseOrmAuth(config);
 
@@ -530,6 +550,9 @@ export function validateConfigForProgrammaticUse(config: Partial<ProjectConfig>)
         config.backend,
         config.runtime,
       );
+
+      const turnstileError = turnstileDeployError(config);
+      if (turnstileError) yield* turnstileError;
     }
 
     yield* validateExamplesCompatibility(
@@ -539,6 +562,8 @@ export function validateConfigForProgrammaticUse(config: Partial<ProjectConfig>)
       config.frontend ?? [],
       config.api,
     );
+
+    yield* validateI18nConfig(config);
 
     return Result.ok(undefined);
   });

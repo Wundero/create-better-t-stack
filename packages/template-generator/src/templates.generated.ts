@@ -425,6 +425,758 @@ export default defineConfig({
   images: ["public/logo.png"],
 });
 `],
+  ["addons/turnstile/astro/apps/web/src/components/Turnstile.astro.hbs", `{{#if (includes addons "turnstile")}}
+---
+interface Props {
+  action?: string;
+}
+
+const { action } = Astro.props;
+---
+
+<div class="cf-turnstile-container" data-action={action}></div>
+
+<script>
+{{#if (and i18n (ne i18n "none"))}}
+  import { LOCALE_COOKIE, negotiateLocale } from "@{{projectName}}/i18n/config";
+  import { getTurnstileLanguage } from "@{{projectName}}/i18n/integrations/turnstile";
+
+{{/if}}
+  type TurnstileWidgetId = string;
+
+  interface TurnstileRenderOptions {
+    sitekey: string;
+    action?: string;
+{{#if (and i18n (ne i18n "none"))}}
+    language?: string;
+{{/if}}
+    callback: (token: string) => void;
+    "expired-callback": () => void;
+    "error-callback": () => void;
+  }
+
+  interface TurnstileApi {
+    render: (container: HTMLElement, options: TurnstileRenderOptions) => TurnstileWidgetId;
+    remove: (widgetId: TurnstileWidgetId) => void;
+    reset: (widgetId: TurnstileWidgetId) => void;
+    getResponse: (widgetId?: TurnstileWidgetId) => string | undefined;
+  }
+
+  declare global {
+    interface Window {
+      turnstile?: TurnstileApi;
+      __resetTurnstile?: () => void;
+    }
+  }
+
+  const TURNSTILE_SCRIPT_SRC =
+    "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
+
+  let turnstileScriptPromise: Promise<void> | null = null;
+
+  function loadTurnstileScript(): Promise<void> {
+    if (window.turnstile) {
+      return Promise.resolve();
+    }
+
+    if (turnstileScriptPromise) {
+      return turnstileScriptPromise;
+    }
+
+    turnstileScriptPromise = new Promise<void>((resolve, reject) => {
+      const existingScript = document.querySelector<HTMLScriptElement>(
+        \`script[src="\${TURNSTILE_SCRIPT_SRC}"]\`,
+      );
+
+      if (existingScript) {
+        existingScript.addEventListener("load", () => resolve());
+        existingScript.addEventListener("error", () => {
+          turnstileScriptPromise = null;
+          reject(new Error("Failed to load the Turnstile script"));
+        });
+        return;
+      }
+
+      const script = document.createElement("script");
+      script.src = TURNSTILE_SCRIPT_SRC;
+      script.async = true;
+      script.defer = true;
+      script.addEventListener("load", () => resolve());
+      script.addEventListener("error", () => {
+        turnstileScriptPromise = null;
+        reject(new Error("Failed to load the Turnstile script"));
+      });
+      document.head.appendChild(script);
+    });
+
+    return turnstileScriptPromise;
+  }
+
+{{#if (and i18n (ne i18n "none"))}}
+  function turnstileLanguage(): string {
+    if (typeof window === "undefined") {
+      return "auto";
+    }
+    return getTurnstileLanguage(
+      negotiateLocale({
+        pathname: window.location.pathname,
+        host: window.location.host,
+        stored: window.localStorage.getItem(LOCALE_COOKIE) ?? undefined,
+        system: navigator.language,
+      }),
+    );
+  }
+
+{{/if}}
+  function renderWidget(container: HTMLElement): void {
+    if (container.dataset.turnstileRendered === "true") {
+      return;
+    }
+
+    container.dataset.turnstileRendered = "true";
+
+    void loadTurnstileScript()
+      .then(() => {
+        if (!window.turnstile) {
+          return;
+        }
+
+        const widgetId = window.turnstile.render(container, {
+          sitekey: import.meta.env.PUBLIC_TURNSTILE_SITE_KEY,
+          action: container.dataset.action,
+{{#if (and i18n (ne i18n "none"))}}
+          language: turnstileLanguage(),
+{{/if}}
+          callback: (token) => {
+            document.dispatchEvent(
+              new CustomEvent("turnstile-token", { detail: { token } }),
+            );
+          },
+          "expired-callback": () => {
+            document.dispatchEvent(
+              new CustomEvent("turnstile-token", { detail: { token: null } }),
+            );
+          },
+          "error-callback": () => {
+            document.dispatchEvent(
+              new CustomEvent("turnstile-token", { detail: { token: null } }),
+            );
+          },
+        });
+
+        container.dataset.turnstileWidgetId = widgetId;
+        window.__resetTurnstile = () => {
+          window.turnstile?.reset(widgetId);
+        };
+      })
+      .catch((error) => {
+        container.dataset.turnstileRendered = "false";
+        console.error(error);
+      });
+  }
+
+  function initTurnstileWidgets(): void {
+    document
+      .querySelectorAll<HTMLElement>(".cf-turnstile-container")
+      .forEach(renderWidget);
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", initTurnstileWidgets);
+  } else {
+    initTurnstileWidgets();
+  }
+
+  document.addEventListener("astro:page-load", initTurnstileWidgets);
+</script>
+{{/if}}
+`],
+  ["addons/turnstile/nuxt/apps/web/app/components/Turnstile.client.vue.hbs", `{{#if (includes addons "turnstile")}}
+<script setup lang="ts">
+{{#if (and i18n (ne i18n "none"))}}
+import { LOCALE_COOKIE, negotiateLocale } from "@{{projectName}}/i18n/config"
+import { getTurnstileLanguage } from "@{{projectName}}/i18n/integrations/turnstile"
+{{/if}}
+
+const props = withDefaults(
+  defineProps<{
+    siteKey: string
+    action?: string
+    resetKey?: number
+  }>(),
+  {
+    resetKey: 0,
+  },
+)
+
+const emit = defineEmits<{
+  "update:token": [token: string | null]
+}>()
+
+type TurnstileWidgetId = string
+
+interface TurnstileRenderOptions {
+  sitekey: string
+  action?: string
+{{#if (and i18n (ne i18n "none"))}}
+  language?: string
+{{/if}}
+  callback: (token: string) => void
+  "expired-callback": () => void
+  "error-callback": () => void
+}
+
+interface TurnstileApi {
+  render: (container: HTMLElement, options: TurnstileRenderOptions) => TurnstileWidgetId
+  remove: (widgetId: TurnstileWidgetId) => void
+  reset: (widgetId: TurnstileWidgetId) => void
+}
+
+const TURNSTILE_SCRIPT_SRC = "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit"
+
+let turnstileScriptPromise: Promise<void> | null = null
+
+function getTurnstile(): TurnstileApi | undefined {
+  if (typeof window === "undefined") {
+    return undefined
+  }
+
+  return (window as Window & { turnstile?: TurnstileApi }).turnstile
+}
+
+function loadTurnstileScript(): Promise<void> {
+  if (typeof window === "undefined") {
+    return Promise.reject(new Error("Turnstile can only load in the browser"))
+  }
+
+  if (getTurnstile()) {
+    return Promise.resolve()
+  }
+
+  if (turnstileScriptPromise) {
+    return turnstileScriptPromise
+  }
+
+  turnstileScriptPromise = new Promise<void>((resolve, reject) => {
+    const existingScript = document.querySelector<HTMLScriptElement>(
+      \`script[src="\${TURNSTILE_SCRIPT_SRC}"]\`,
+    )
+
+    if (existingScript) {
+      existingScript.addEventListener("load", () => resolve())
+      existingScript.addEventListener("error", () => {
+        turnstileScriptPromise = null
+        reject(new Error("Failed to load the Turnstile script"))
+      })
+      return
+    }
+
+    const script = document.createElement("script")
+    script.src = TURNSTILE_SCRIPT_SRC
+    script.async = true
+    script.defer = true
+    script.addEventListener("load", () => resolve())
+    script.addEventListener("error", () => {
+      turnstileScriptPromise = null
+      reject(new Error("Failed to load the Turnstile script"))
+    })
+    document.head.appendChild(script)
+  })
+
+  return turnstileScriptPromise
+}
+
+{{#if (and i18n (ne i18n "none"))}}
+function turnstileLanguage(): string {
+  if (typeof window === "undefined") {
+    return "auto"
+  }
+  return getTurnstileLanguage(
+    negotiateLocale({
+      pathname: window.location.pathname,
+      host: window.location.host,
+      stored: window.localStorage.getItem(LOCALE_COOKIE) ?? undefined,
+      system: navigator.language,
+    }),
+  )
+}
+{{/if}}
+
+const container = ref<HTMLDivElement | null>(null)
+let widgetId: TurnstileWidgetId | null = null
+
+onMounted(() => {
+  if (!container.value) {
+    return
+  }
+
+  void loadTurnstileScript()
+    .then(() => {
+      const turnstile = getTurnstile()
+
+      if (!turnstile || !container.value) {
+        return
+      }
+
+      widgetId = turnstile.render(container.value, {
+        sitekey: props.siteKey,
+        action: props.action,
+{{#if (and i18n (ne i18n "none"))}}
+        language: turnstileLanguage(),
+{{/if}}
+        callback: (token) => emit("update:token", token),
+        "expired-callback": () => emit("update:token", null),
+        "error-callback": () => emit("update:token", null),
+      })
+    })
+    .catch(() => {
+      emit("update:token", null)
+    })
+})
+
+onBeforeUnmount(() => {
+  const turnstile = getTurnstile()
+
+  if (widgetId !== null && turnstile) {
+    turnstile.remove(widgetId)
+  }
+
+  widgetId = null
+})
+
+watch(
+  () => props.resetKey,
+  () => {
+    emit("update:token", null)
+
+    const turnstile = getTurnstile()
+
+    if (widgetId !== null && turnstile) {
+      turnstile.reset(widgetId)
+    }
+  },
+)
+</script>
+
+<template>
+  <div ref="container"></div>
+</template>
+{{/if}}
+`],
+  ["addons/turnstile/react/apps/web/src/components/turnstile-widget.tsx.hbs", `"use client";
+
+import { useEffect, useRef } from "react";
+{{#if (and i18n (ne i18n "none"))}}
+import { LOCALE_COOKIE, negotiateLocale } from "@{{projectName}}/i18n/config";
+import { getTurnstileLanguage } from "@{{projectName}}/i18n/integrations/turnstile";
+{{/if}}
+
+const TURNSTILE_SCRIPT_SRC =
+  "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
+
+type TurnstileWidgetId = string;
+
+interface TurnstileRenderOptions {
+  sitekey: string;
+  action?: string;
+{{#if (and i18n (ne i18n "none"))}}
+  language?: string;
+{{/if}}
+  callback: (token: string) => void;
+  "expired-callback": () => void;
+  "error-callback": () => void;
+}
+
+interface TurnstileApi {
+  render: (container: HTMLElement, options: TurnstileRenderOptions) => TurnstileWidgetId;
+  remove: (widgetId: TurnstileWidgetId) => void;
+  reset: (widgetId: TurnstileWidgetId) => void;
+}
+
+declare global {
+  interface Window {
+    turnstile?: TurnstileApi;
+  }
+}
+
+interface TurnstileWidgetProps {
+  siteKey: string;
+  action?: string;
+  onToken: (token: string | null) => void;
+  resetKey?: number;
+}
+
+let turnstileScriptPromise: Promise<void> | null = null;
+
+function loadTurnstileScript(): Promise<void> {
+  if (typeof window === "undefined") {
+    return Promise.resolve();
+  }
+
+  if (window.turnstile) {
+    return Promise.resolve();
+  }
+
+  if (turnstileScriptPromise) {
+    return turnstileScriptPromise;
+  }
+
+  turnstileScriptPromise = new Promise<void>((resolve, reject) => {
+    const existingScript = document.querySelector<HTMLScriptElement>(
+      \`script[src="\${TURNSTILE_SCRIPT_SRC}"]\`,
+    );
+
+    if (existingScript) {
+      existingScript.addEventListener("load", () => resolve());
+      existingScript.addEventListener("error", () => {
+        turnstileScriptPromise = null;
+        reject(new Error("Failed to load the Turnstile script"));
+      });
+      return;
+    }
+
+    const script = document.createElement("script");
+    script.src = TURNSTILE_SCRIPT_SRC;
+    script.async = true;
+    script.defer = true;
+    script.addEventListener("load", () => resolve());
+    script.addEventListener("error", () => {
+      turnstileScriptPromise = null;
+      reject(new Error("Failed to load the Turnstile script"));
+    });
+    document.head.appendChild(script);
+  });
+
+  return turnstileScriptPromise;
+}
+
+{{#if (and i18n (ne i18n "none"))}}
+function turnstileLanguage(): string {
+  if (typeof window === "undefined") {
+    return "auto";
+  }
+  return getTurnstileLanguage(
+    negotiateLocale({
+      pathname: window.location.pathname,
+      host: window.location.host,
+      stored: window.localStorage.getItem(LOCALE_COOKIE) ?? undefined,
+      system: navigator.language,
+    }),
+  );
+}
+{{/if}}
+
+export function TurnstileWidget({ siteKey, action, onToken, resetKey }: TurnstileWidgetProps) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const widgetIdRef = useRef<TurnstileWidgetId | null>(null);
+  const onTokenRef = useRef(onToken);
+  const previousResetKeyRef = useRef(resetKey);
+
+  useEffect(() => {
+    onTokenRef.current = onToken;
+  }, [onToken]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    loadTurnstileScript()
+      .then(() => {
+        if (cancelled || !containerRef.current || !window.turnstile) {
+          return;
+        }
+
+        widgetIdRef.current = window.turnstile.render(containerRef.current, {
+          sitekey: siteKey,
+          action,
+{{#if (and i18n (ne i18n "none"))}}
+          language: turnstileLanguage(),
+{{/if}}
+          callback: (token) => onTokenRef.current(token),
+          "expired-callback": () => onTokenRef.current(null),
+          "error-callback": () => onTokenRef.current(null),
+        });
+      })
+      .catch(() => {
+        onTokenRef.current(null);
+      });
+
+    return () => {
+      cancelled = true;
+      if (widgetIdRef.current !== null && window.turnstile) {
+        window.turnstile.remove(widgetIdRef.current);
+      }
+      widgetIdRef.current = null;
+    };
+  }, [siteKey, action]);
+
+  useEffect(() => {
+    if (previousResetKeyRef.current === resetKey) {
+      return;
+    }
+
+    previousResetKeyRef.current = resetKey;
+    onTokenRef.current(null);
+
+    if (widgetIdRef.current !== null && window.turnstile) {
+      window.turnstile.reset(widgetIdRef.current);
+    }
+  }, [resetKey]);
+
+  return <div ref={containerRef} />;
+}
+`],
+  ["addons/turnstile/solid/apps/web/src/components/Turnstile.tsx.hbs", `import { createEffect, on, onCleanup, onMount } from "solid-js";
+{{#if (and i18n (ne i18n "none"))}}
+import { LOCALE_COOKIE, negotiateLocale } from "@{{projectName}}/i18n/config";
+import { getTurnstileLanguage } from "@{{projectName}}/i18n/integrations/turnstile";
+{{/if}}
+
+type TurnstileWidgetOptions = {
+  sitekey: string;
+  action?: string;
+{{#if (and i18n (ne i18n "none"))}}
+  language?: string;
+{{/if}}
+  callback?: (token: string) => void;
+  "expired-callback"?: () => void;
+  "error-callback"?: () => void;
+};
+
+type TurnstileApi = {
+  render: (container: HTMLElement, options: TurnstileWidgetOptions) => string;
+  reset: (widgetId?: string) => void;
+  remove: (widgetId?: string) => void;
+};
+
+declare global {
+  interface Window {
+    turnstile?: TurnstileApi;
+  }
+}
+
+const SCRIPT_URL = "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
+
+// Module-level singleton so multiple widgets share one script load.
+let scriptPromise: Promise<void> | null = null;
+
+function loadScript(): Promise<void> {
+  if (typeof window === "undefined") return Promise.resolve();
+  if (window.turnstile) return Promise.resolve();
+  if (scriptPromise) return scriptPromise;
+
+  scriptPromise = new Promise<void>((resolve, reject) => {
+    const existing = document.querySelector<HTMLScriptElement>(\`script[src="\${SCRIPT_URL}"]\`);
+    if (existing) {
+      existing.addEventListener("load", () => resolve(), { once: true });
+      return;
+    }
+
+    const script = document.createElement("script");
+    script.src = SCRIPT_URL;
+    script.async = true;
+    script.defer = true;
+    script.addEventListener("load", () => resolve(), { once: true });
+    script.addEventListener("error", () => reject(new Error("Failed to load Turnstile")), {
+      once: true,
+    });
+    document.head.appendChild(script);
+  });
+
+  return scriptPromise;
+}
+
+{{#if (and i18n (ne i18n "none"))}}
+function turnstileLanguage(): string {
+  if (typeof window === "undefined") return "auto";
+  return getTurnstileLanguage(
+    negotiateLocale({
+      pathname: window.location.pathname,
+      host: window.location.host,
+      stored: window.localStorage.getItem(LOCALE_COOKIE) ?? undefined,
+      system: navigator.language,
+    }),
+  );
+}
+{{/if}}
+
+export default function Turnstile(props: {
+  siteKey: string;
+  action?: string;
+  onToken: (token: string | null) => void;
+  resetKey?: number;
+}) {
+  let container: HTMLDivElement | undefined;
+  let widgetId: string | undefined;
+  let disposed = false;
+
+  onMount(() => {
+    loadScript()
+      .then(() => {
+        if (disposed || !container || typeof window === "undefined" || !window.turnstile) {
+          return;
+        }
+        widgetId = window.turnstile.render(container, {
+          sitekey: props.siteKey,
+          action: props.action,
+{{#if (and i18n (ne i18n "none"))}}
+          language: turnstileLanguage(),
+{{/if}}
+          callback: (token) => props.onToken(token),
+          "expired-callback": () => props.onToken(null),
+          "error-callback": () => props.onToken(null),
+        });
+      })
+      .catch(() => props.onToken(null));
+  });
+
+  onCleanup(() => {
+    disposed = true;
+    if (widgetId && typeof window !== "undefined" && window.turnstile) {
+      window.turnstile.remove(widgetId);
+    }
+  });
+
+  createEffect(
+    on(
+      () => props.resetKey,
+      () => {
+        if (!widgetId || typeof window === "undefined" || !window.turnstile) return;
+        props.onToken(null);
+        window.turnstile.reset(widgetId);
+      },
+      { defer: true },
+    ),
+  );
+
+  return <div ref={container} />;
+}
+`],
+  ["addons/turnstile/svelte/apps/web/src/components/Turnstile.svelte.hbs", `<script lang="ts">
+	import { onDestroy, onMount } from 'svelte';
+{{#if (and i18n (ne i18n "none"))}}
+	import { LOCALE_COOKIE, negotiateLocale } from '@{{projectName}}/i18n/config';
+	import { getTurnstileLanguage } from '@{{projectName}}/i18n/integrations/turnstile';
+{{/if}}
+
+	export let siteKey: string;
+	export let action: string | undefined = undefined;
+	export let resetKey = 0;
+	export let onToken: (token: string | null) => void = () => {};
+
+	type TurnstileWidgetOptions = {
+		sitekey: string;
+		action?: string;
+{{#if (and i18n (ne i18n "none"))}}
+		language?: string;
+{{/if}}
+		callback?: (token: string) => void;
+		'expired-callback'?: () => void;
+		'error-callback'?: () => void;
+	};
+
+	type TurnstileApi = {
+		render: (container: HTMLElement, options: TurnstileWidgetOptions) => string;
+		reset: (widgetId?: string) => void;
+		remove: (widgetId?: string) => void;
+	};
+
+	declare global {
+		interface Window {
+			turnstile?: TurnstileApi;
+		}
+	}
+
+	const SCRIPT_URL = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit';
+
+	let scriptPromise: Promise<void> | null = null;
+
+	let container: HTMLDivElement | undefined = undefined;
+	let widgetId: string | undefined = undefined;
+
+	function loadScript(): Promise<void> {
+		if (typeof window === 'undefined') return Promise.resolve();
+		if (window.turnstile) return Promise.resolve();
+		if (scriptPromise) return scriptPromise;
+
+		scriptPromise = new Promise<void>((resolve, reject) => {
+			const existing = document.querySelector<HTMLScriptElement>(\`script[src="\${SCRIPT_URL}"]\`);
+			if (existing) {
+				existing.addEventListener('load', () => resolve(), { once: true });
+				return;
+			}
+
+			const script = document.createElement('script');
+			script.src = SCRIPT_URL;
+			script.async = true;
+			script.defer = true;
+			script.addEventListener('load', () => resolve(), { once: true });
+			script.addEventListener('error', () => reject(new Error('Failed to load Turnstile')), {
+				once: true,
+			});
+			document.head.appendChild(script);
+		});
+
+		return scriptPromise;
+	}
+
+{{#if (and i18n (ne i18n "none"))}}
+	function turnstileLanguage(): string {
+		if (typeof window === 'undefined') return 'auto';
+		return getTurnstileLanguage(
+			negotiateLocale({
+				pathname: window.location.pathname,
+				host: window.location.host,
+				stored: window.localStorage.getItem(LOCALE_COOKIE) ?? undefined,
+				system: navigator.language,
+			}),
+		);
+	}
+{{/if}}
+
+	onMount(() => {
+		let cancelled = false;
+
+		loadScript()
+			.then(() => {
+				if (cancelled || !container || typeof window === 'undefined' || !window.turnstile) {
+					return;
+				}
+				widgetId = window.turnstile.render(container, {
+					sitekey: siteKey,
+					action,
+{{#if (and i18n (ne i18n "none"))}}
+					language: turnstileLanguage(),
+{{/if}}
+					callback: (token) => onToken(token),
+					'expired-callback': () => onToken(null),
+					'error-callback': () => onToken(null),
+				});
+			})
+			.catch(() => onToken(null));
+
+		return () => {
+			cancelled = true;
+		};
+	});
+
+	onDestroy(() => {
+		if (widgetId && typeof window !== 'undefined' && window.turnstile) {
+			window.turnstile.remove(widgetId);
+		}
+	});
+
+	$: if (resetKey > 0 && widgetId && typeof window !== 'undefined' && window.turnstile) {
+		onToken(null);
+		window.turnstile.reset(widgetId);
+	}
+</script>
+
+<div bind:this={container}></div>
+`],
   ["api/orpc/context.ts.hbs", `import type { Context as ApiContext } from "@{{projectName}}/api/context";
 {{#if (ne database "none")}}
 import { {{#if (or (eq runtime "workers") (eq serverDeploy "cloudflare") (and (eq backend "self") (eq webDeploy "cloudflare")))}}getDb{{else}}db{{/if}} } from "@{{projectName}}/app-services";
@@ -1021,17 +1773,35 @@ export const DELETE = handleRequest;`],
 import { createORPCClient } from "@orpc/client";
 import { RPCLink } from "@orpc/client/fetch";
 import { createTanstackQueryUtils } from "@orpc/tanstack-query";
+{{#if (and i18n (ne i18n "none") (ne auth "better-auth"))}}
+import { localeFetch } from "@{{projectName}}/i18n/client";
+{{/if}}
+{{#if (and i18n (ne i18n "none") (eq auth "better-auth"))}}
+import { localeInit } from "@{{projectName}}/i18n/client";
+{{/if}}
 
 export default defineNuxtPlugin(() => {
   const rpcLink = new RPCLink({
     url: \`\${window.location.origin}/rpc\`,
+    {{#if (and i18n (ne i18n "none") (ne auth "better-auth"))}}
+    fetch: localeFetch,
+    {{/if}}
     {{#if (eq auth "better-auth")}}
+{{#if (and i18n (ne i18n "none"))}}
+    fetch(url, options) {
+        return fetch(url, localeInit({
+        ...options,
+        credentials: "include",
+        }));
+    },
+{{else}}
     fetch(url, options) {
         return fetch(url, {
         ...options,
         credentials: "include",
         });
     },
+{{/if}}
     {{/if}}
   });
 
@@ -1370,6 +2140,9 @@ import { createTanstackQueryUtils } from "@orpc/tanstack-query";
 import { QueryCache, QueryClient } from "@tanstack/react-query";
 import type { AppRouterClient } from "@{{projectName}}/api/routers/index";
 import { ENV } from "../src/env";
+{{#if (and i18n (ne i18n "none"))}}
+import { localeHeader } from "@{{projectName}}/i18n/client";
+{{/if}}
 {{#if (eq auth "better-auth")}}
 import { authClient } from "@/lib/auth-client";
 import { Platform } from "react-native";
@@ -1416,24 +2189,37 @@ export const link = new RPCLink({
 		});
 	},
 	async headers() {
+{{#if (and i18n (ne i18n "none"))}}
 		if (Platform.OS === "web") {
-			return {};
+			return localeHeader();
 		}
+{{/if}}
 		const headers = new Map<string, string>();
 		const cookies = await authClient.getCookie();
 		if (cookies) {
 			headers.set("Cookie", cookies);
 		}
+{{#if (and i18n (ne i18n "none"))}}
+		return { ...localeHeader(), ...Object.fromEntries(headers) };
+{{else}}
 		return Object.fromEntries(headers);
+{{/if}}
 	},
 {{else if (eq auth "clerk")}}
 	headers: async () => {
 		const token = await getClerkAuthToken();
+{{#if (and i18n (ne i18n "none"))}}
+		return { ...localeHeader(), ...(token ? { Authorization: \`Bearer \${token}\` } : {}) };
+{{else}}
 		return token ? { Authorization: \`Bearer \${token}\` } : {};
+{{/if}}
 	},
 	fetch: expoFetch,
 {{else}}
 	fetch: expoFetch,
+{{#if (and i18n (ne i18n "none"))}}
+	headers: () => localeHeader(),
+{{/if}}
 {{/if}}
 });
 
@@ -1622,11 +2408,20 @@ export type AppRouter = typeof appRouter;
 
 import { createORPCClient } from "@orpc/client";
 import { RPCLink } from "@orpc/client/fetch";
+{{#if (and i18n (ne i18n "none") (or (eq backend "self") (ne auth "better-auth")))}}
+import { localeFetch } from "@{{projectName}}/i18n/client";
+{{/if}}
+{{#if (and i18n (ne i18n "none") (ne backend "self") (eq auth "better-auth"))}}
+import { localeInit } from "@{{projectName}}/i18n/client";
+{{/if}}
 
 {{#if (eq backend "self")}}
 export const link = new RPCLink({
   // Lazy: this module is imported during SSR where window does not exist
   url: () => \`\${window.location.origin}/rpc\`,
+{{#if (and i18n (ne i18n "none"))}}
+  fetch: localeFetch,
+{{/if}}
 });
 {{else}}
 import { ENV } from "../env{{#if (eq webDeploy "cloudflare")}}.public{{/if}}";
@@ -1639,13 +2434,25 @@ export const link = new RPCLink({
 {{else}}
   url: \`\${ENV.PUBLIC_SERVER_URL.replace(/\\/$/, "")}/rpc\`,
 {{/if}}
+{{#if (and i18n (ne i18n "none") (ne auth "better-auth"))}}
+  fetch: localeFetch,
+{{/if}}
 {{#if (eq auth "better-auth")}}
+{{#if (and i18n (ne i18n "none"))}}
+  fetch(url, options) {
+    return fetch(url, localeInit({
+      ...options,
+      credentials: "include",
+    }));
+  },
+{{else}}
   fetch(url, options) {
     return fetch(url, {
       ...options,
       credentials: "include",
     });
   },
+{{/if}}
 {{/if}}
 });
 {{/if}}
@@ -1657,6 +2464,12 @@ import type { AppRouterClient } from "@{{projectName}}/api/routers/index";
 import { createORPCClient } from '@orpc/client'
 import { RPCLink } from '@orpc/client/fetch'
 import { createTanstackQueryUtils } from "@orpc/tanstack-query";
+{{#if (and i18n (ne i18n "none"))}}
+import { localeHeader } from "@{{projectName}}/i18n/client";
+{{/if}}
+{{#if (and i18n (ne i18n "none") (eq auth "better-auth"))}}
+import { localeInit } from "@{{projectName}}/i18n/client";
+{{/if}}
 
 {{> getServerUrlSpaces}}
 
@@ -1670,14 +2483,28 @@ export default defineNuxtPlugin(() => {
 
   const rpcLink = new RPCLink({
     url: rpcUrl,
-    headers: import.meta.server ? useRequestHeaders(["cookie"]) : {},
+    headers: () => ({
+{{#if (and i18n (ne i18n "none"))}}
+      ...localeHeader(),
+{{/if}}
+      ...(import.meta.server ? useRequestHeaders(["cookie"]) : {}),
+    }),
     {{#if (eq auth "better-auth")}}
+{{#if (and i18n (ne i18n "none"))}}
+    fetch(url, options) {
+        return fetch(url, localeInit({
+        ...options,
+        credentials: "include",
+        }));
+    },
+{{else}}
     fetch(url, options) {
         return fetch(url, {
         ...options,
         credentials: "include",
         });
     },
+{{/if}}
     {{/if}}
   })
 
@@ -1750,6 +2577,12 @@ import { RPCLink } from "@orpc/client/fetch";
 import { createTanstackQueryUtils } from "@orpc/tanstack-query";
 import { QueryCache, QueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+{{#if (and i18n (ne i18n "none") (ne auth "better-auth"))}}
+import { localeFetch } from "@{{projectName}}/i18n/client";
+{{/if}}
+{{#if (and i18n (ne i18n "none") (eq auth "better-auth"))}}
+import { localeInit } from "@{{projectName}}/i18n/client";
+{{/if}}
 {{#if (and (includes frontend "tanstack-start") (eq backend "self"))}}
 import { createRouterClient } from "@orpc/server";
 import type { RouterClient } from "@orpc/server";
@@ -1813,13 +2646,25 @@ const getORPCClient = createIsomorphicFn()
 	.client((): RouterClient<typeof appRouter> => {
 			const link = new RPCLink({
 			url: \`\${window.location.origin}/api/rpc\`,
+{{#if (and i18n (ne i18n "none") (ne auth "better-auth"))}}
+			fetch: localeFetch,
+{{/if}}
 {{#if (eq auth "better-auth")}}
+{{#if (and i18n (ne i18n "none"))}}
+			fetch(url, options) {
+				return fetch(url, localeInit({
+					...options,
+					credentials: "include",
+				}));
+			},
+{{else}}
 			fetch(url, options) {
 				return fetch(url, {
 					...options,
 					credentials: "include",
 				});
 			},
+{{/if}}
 {{/if}}
 		});
 
@@ -1834,6 +2679,9 @@ const link = new RPCLink({
 {{else}}
 	url: \`\${ENV.VITE_SERVER_URL.replace(/\\/$/, "")}/rpc\`,
 {{/if}}
+{{#if (and i18n (ne i18n "none") (ne auth "better-auth"))}}
+	fetch: localeFetch,
+{{/if}}
 {{#if (eq auth "clerk")}}
 	headers: async () => {
 		const token = await getClerkAuthToken();
@@ -1841,12 +2689,21 @@ const link = new RPCLink({
 	},
 {{/if}}
 {{#if (eq auth "better-auth")}}
+{{#if (and i18n (ne i18n "none"))}}
+	fetch(url, options) {
+		return fetch(url, localeInit({
+			...options,
+			credentials: "include",
+		}));
+	},
+{{else}}
 	fetch(url, options) {
 		return fetch(url, {
 			...options,
 			credentials: "include",
 		});
 	},
+{{/if}}
 {{/if}}
 });
 
@@ -1868,6 +2725,9 @@ export const link = new RPCLink({
 	url: \`\${ENV.VITE_SERVER_URL.replace(/\\/$/, "")}/rpc\`,
 {{/if}}
 {{/if}}
+{{#if (and i18n (ne i18n "none") (ne auth "better-auth"))}}
+	fetch: localeFetch,
+{{/if}}
 {{#if (eq auth "clerk")}}
 	headers: async () => {
 		{{#if (includes frontend "next")}}
@@ -1888,12 +2748,21 @@ export const link = new RPCLink({
 	},
 {{/if}}
 {{#if (eq auth "better-auth")}}
+{{#if (and i18n (ne i18n "none"))}}
+	fetch(url, options) {
+		return fetch(url, localeInit({
+			...options,
+			credentials: "include",
+		}));
+	},
+{{else}}
 	fetch(url, options) {
 		return fetch(url, {
 			...options,
 			credentials: "include",
 		});
 	},
+{{/if}}
 {{#if (includes frontend "next")}}
 	headers: async () => {
 		if (typeof window !== "undefined") {
@@ -1920,6 +2789,12 @@ import { QueryCache, QueryClient } from "@tanstack/solid-query";
 import { getRequestEvent } from "@solidjs/web";
 {{/unless}}
 import type { AppRouterClient } from "@{{projectName}}/api/routers/index";
+{{#if (and i18n (ne i18n "none") (ne auth "better-auth"))}}
+import { localeFetch } from "@{{projectName}}/i18n/client";
+{{/if}}
+{{#if (and i18n (ne i18n "none") (eq auth "better-auth"))}}
+import { localeInit } from "@{{projectName}}/i18n/client";
+{{/if}}
 {{#unless (eq backend "self")}}
 import { ENV } from "../env{{#if (eq webDeploy "cloudflare")}}.public{{/if}}";
 {{/unless}}
@@ -1941,13 +2816,25 @@ const link = new RPCLink({
 
 		return \`\${window.location.origin}/rpc\`;
 	},
+{{#if (and i18n (ne i18n "none") (ne auth "better-auth"))}}
+	fetch: localeFetch,
+{{/if}}
 {{#if (eq auth "better-auth")}}
+{{#if (and i18n (ne i18n "none"))}}
+	fetch(url, options) {
+		return fetch(url, localeInit({
+			...options,
+			credentials: "include",
+		}));
+	},
+{{else}}
 	fetch(url, options) {
 		return fetch(url, {
 			...options,
 			credentials: "include",
 		});
 	},
+{{/if}}
 {{/if}}
 });
 {{else}}
@@ -1960,13 +2847,25 @@ const link = new RPCLink({
 	url: \`\${ENV.VITE_SERVER_URL.replace(/\\/$/, "")}/rpc\`,
 {{/if}}
 	headers: () => getRequestEvent()?.request.headers ?? {},
+{{#if (and i18n (ne i18n "none") (ne auth "better-auth"))}}
+	fetch: localeFetch,
+{{/if}}
 {{#if (eq auth "better-auth")}}
+{{#if (and i18n (ne i18n "none"))}}
+	fetch(url, options) {
+		return fetch(url, localeInit({
+			...options,
+			credentials: "include",
+		}));
+	},
+{{else}}
 	fetch(url, options) {
 		return fetch(url, {
 			...options,
 			credentials: "include",
 		});
 	},
+{{/if}}
 {{/if}}
 });
 {{/if}}
@@ -1993,6 +2892,12 @@ import { RPCLink } from "@orpc/client/fetch";
 import { createTanstackQueryUtils } from "@orpc/tanstack-query";
 import { QueryCache, QueryClient } from "@tanstack/svelte-query";
 import type { AppRouterClient } from "@{{projectName}}/api/routers/index";
+{{#if (and i18n (ne i18n "none") (ne auth "better-auth"))}}
+import { localeFetch } from "@{{projectName}}/i18n/client";
+{{/if}}
+{{#if (and i18n (ne i18n "none") (eq auth "better-auth"))}}
+import { localeInit } from "@{{projectName}}/i18n/client";
+{{/if}}
 
 export const queryClient = new QueryClient({
 	queryCache: new QueryCache({
@@ -2022,13 +2927,25 @@ export const link = new RPCLink({
 	url: \`\${ENV.PUBLIC_SERVER_URL.replace(/\\/$/, "")}/rpc\`,
 {{/if}}
 	{{/if}}
+	{{#if (and i18n (ne i18n "none") (ne auth "better-auth"))}}
+	fetch: localeFetch,
+	{{/if}}
 	{{#if (eq auth "better-auth")}}
+{{#if (and i18n (ne i18n "none"))}}
+	fetch(url, options) {
+		return fetch(url, localeInit({
+			...options,
+			credentials: "include",
+		}));
+	},
+{{else}}
 	fetch(url, options) {
 		return fetch(url, {
 			...options,
 			credentials: "include",
 		});
 	},
+{{/if}}
 	{{/if}}
 });
 
@@ -2424,6 +3341,9 @@ import { createTRPCClient, httpBatchLink } from "@trpc/client";
 import { createTRPCOptionsProxy } from "@trpc/tanstack-react-query";
 import type { AppRouter } from "@{{projectName}}/api/routers/index";
 import { ENV } from "../src/env";
+{{#if (and i18n (ne i18n "none"))}}
+import { localeHeader } from "@{{projectName}}/i18n/client";
+{{/if}}
 
 export const queryClient = new QueryClient();
 
@@ -2435,6 +3355,11 @@ const trpcClient = createTRPCClient<AppRouter>({
 {{else}}
 			url: \`\${ENV.EXPO_PUBLIC_SERVER_URL}{{apiPrefix webDeploy serverDeploy}}/trpc\`,
 {{/if}}
+{{#if (and i18n (ne i18n "none"))}}
+{{#unless (or (eq auth "better-auth") (eq auth "clerk"))}}
+			headers: () => localeHeader(),
+{{/unless}}
+{{/if}}
 {{#if (eq auth "better-auth")}}
 			fetch:
 				function (url, options) {
@@ -2445,20 +3370,30 @@ const trpcClient = createTRPCClient<AppRouter>({
 					});
 				},
 			async headers() {
+{{#if (and i18n (ne i18n "none"))}}
 				if (Platform.OS === "web") {
-					return {};
+					return localeHeader();
 				}
+{{/if}}
 				const headers = new Map<string, string>();
 				const cookies = await authClient.getCookie();
 				if (cookies) {
 					headers.set("Cookie", cookies);
 				}
+{{#if (and i18n (ne i18n "none"))}}
+				return { ...localeHeader(), ...Object.fromEntries(headers) };
+{{else}}
 				return Object.fromEntries(headers);
+{{/if}}
 			},
 {{else if (eq auth "clerk")}}
 			headers: async function () {
 				const token = await getClerkAuthToken();
+{{#if (and i18n (ne i18n "none"))}}
+				return { ...localeHeader(), ...(token ? { Authorization: \`Bearer \${token}\` } : {}) };
+{{else}}
 				return token ? { Authorization: \`Bearer \${token}\` } : {};
+{{/if}}
 			},
 {{/if}}
 		}),
@@ -2652,6 +3587,12 @@ import { createTRPCClient, httpBatchLink } from '@trpc/client';
 import { createTRPCOptionsProxy } from '@trpc/tanstack-react-query';
 import type { AppRouter } from "@{{projectName}}/api/routers/index";
 import { toast } from 'sonner';
+{{#if (and i18n (ne i18n "none") (ne auth "better-auth"))}}
+import { localeFetch } from "@{{projectName}}/i18n/client";
+{{/if}}
+{{#if (and i18n (ne i18n "none") (eq auth "better-auth"))}}
+import { localeInit } from "@{{projectName}}/i18n/client";
+{{/if}}
 {{#unless (eq backend "self")}}
 
 {{> getServerUrl}}
@@ -2687,6 +3628,9 @@ const trpcClient = createTRPCClient<AppRouter>({
 			url: \`\${process.env.NEXT_PUBLIC_SERVER_URL!.replace(/\\/$/, "")}/trpc\`,
 {{/if}}
 {{/if}}
+{{#if (and i18n (ne i18n "none") (ne auth "better-auth"))}}
+			fetch: localeFetch,
+{{/if}}
 {{#if (eq auth "clerk")}}
 			headers: async () => {
 				if (typeof window !== "undefined") {
@@ -2702,12 +3646,21 @@ const trpcClient = createTRPCClient<AppRouter>({
 			},
 {{/if}}
 {{#if (eq auth "better-auth")}}
+{{#if (and i18n (ne i18n "none"))}}
+			fetch(url, options) {
+				return fetch(url, localeInit({
+					...options,
+					credentials: "include",
+				}));
+			},
+{{else}}
 			fetch(url, options) {
 				return fetch(url, {
 					...options,
 					credentials: "include",
 				});
 			},
+{{/if}}
 {{/if}}
 		}),
 	],
@@ -2732,6 +3685,12 @@ import { createTRPCClient, httpBatchLink } from "@trpc/client";
 import { createTRPCOptionsProxy } from "@trpc/tanstack-react-query";
 import { toast } from "sonner";
 import { ENV } from "../env{{#if (eq webDeploy "cloudflare")}}.public{{/if}}";
+{{#if (and i18n (ne i18n "none") (ne auth "better-auth"))}}
+import { localeFetch } from "@{{projectName}}/i18n/client";
+{{/if}}
+{{#if (and i18n (ne i18n "none") (eq auth "better-auth"))}}
+import { localeInit } from "@{{projectName}}/i18n/client";
+{{/if}}
 {{#if (eq auth "clerk")}}
 import { getClerkAuthToken } from "@/utils/clerk-auth";
 {{/if}}
@@ -2761,6 +3720,9 @@ export const trpcClient = createTRPCClient<AppRouter>({
 {{else}}
 			url: \`\${ENV.VITE_SERVER_URL.replace(/\\/$/, "")}/trpc\`,
 {{/if}}
+{{#if (and i18n (ne i18n "none") (ne auth "better-auth"))}}
+			fetch: localeFetch,
+{{/if}}
 {{#if (eq auth "clerk")}}
 			headers: async () => {
 				const token = await getClerkAuthToken();
@@ -2768,12 +3730,21 @@ export const trpcClient = createTRPCClient<AppRouter>({
 			},
 {{/if}}
 {{#if (eq auth "better-auth")}}
+{{#if (and i18n (ne i18n "none"))}}
+			fetch(url, options) {
+				return fetch(url, localeInit({
+					...options,
+					credentials: "include",
+				}));
+			},
+{{else}}
 			fetch(url, options) {
 				return fetch(url, {
 					...options,
 					credentials: "include",
 				});
 			},
+{{/if}}
 {{/if}}
 		}),
 	],
@@ -8382,6 +9353,9 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
   "devDependencies": {}
 }`],
   ["auth/better-auth/server/base/src/index.ts.hbs", `import { betterAuth } from "better-auth";
+{{#if (includes addons "turnstile")}}
+import { captcha } from "better-auth/plugins";
+{{/if}}
 {{#if (eq orm "prisma")}}
 import { prismaAdapter } from "better-auth/adapters/prisma";
 {{else if (eq orm "drizzle")}}
@@ -8407,6 +9381,9 @@ export type AuthConfig = {
 {{#if (eq payments "polar")}}
   POLAR_ACCESS_TOKEN: string;
   POLAR_SUCCESS_URL: string;
+{{/if}}
+{{#if (includes addons "turnstile")}}
+  TURNSTILE_SECRET_KEY: string;
 {{/if}}
 };
 
@@ -8446,6 +9423,13 @@ export function createAuth(env: AuthConfig{{#if (ne database "none")}}, database
     },
 {{/if}}
     plugins: [
+{{#if (includes addons "turnstile")}}
+      captcha({
+        provider: "cloudflare-turnstile",
+        secretKey: env.TURNSTILE_SECRET_KEY,
+        endpoints: ["/sign-in/email", "/sign-up/email"],
+      }),
+{{/if}}
 {{#if (eq payments "polar")}}
       polar({
         client: createPolarClient(env),
@@ -9143,6 +10127,9 @@ model Verification {
 `],
   ["auth/better-auth/web/astro/src/components/SignInForm.astro.hbs", `---
 import { authClient } from "../lib/auth-client";
+{{#if (includes addons "turnstile")}}
+import Turnstile from "./Turnstile.astro";
+{{/if}}
 ---
 
 <div class="mx-auto mt-10 w-full max-w-md p-6">
@@ -9174,6 +10161,9 @@ import { authClient } from "../lib/auth-client";
       />
       <p id="password-error" class="text-sm text-red-500 hidden"></p>
     </div>
+    {{#if (includes addons "turnstile")}}
+    <Turnstile action="sign-in" />
+    {{/if}}
 
     <p id="form-error" class="text-sm text-red-500 hidden"></p>
 
@@ -9200,6 +10190,14 @@ import { authClient } from "../lib/auth-client";
   const passwordInput = document.getElementById("password") as HTMLInputElement;
   const formError = document.getElementById("form-error") as HTMLParagraphElement;
   const submitButton = form.querySelector('button[type="submit"]') as HTMLButtonElement;
+{{#if (includes addons "turnstile")}}
+  const getTurnstileToken = () => window.turnstile?.getResponse?.() ?? null;
+  submitButton.disabled = !getTurnstileToken();
+  document.addEventListener("turnstile-token", (event) => {
+    const token = (event as CustomEvent<{ token: string | null }>).detail?.token ?? null;
+    submitButton.disabled = !token;
+  });
+{{/if}}
 
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
@@ -9209,10 +10207,16 @@ import { authClient } from "../lib/auth-client";
     submitButton.textContent = "Signing in...";
 
     try {
+{{#if (includes addons "turnstile")}}
+      const token = getTurnstileToken();
+{{/if}}
       await authClient.signIn.email(
         {
           email: emailInput.value,
           password: passwordInput.value,
+{{#if (includes addons "turnstile")}}
+          fetchOptions: { headers: token ? { "x-captcha-response": token } : undefined },
+{{/if}}
         },
         {
           onSuccess: () => {
@@ -9221,6 +10225,9 @@ import { authClient } from "../lib/auth-client";
           onError: (ctx) => {
             formError.textContent = ctx.error.message || "Sign in failed. Please try again.";
             formError.classList.remove("hidden");
+{{#if (includes addons "turnstile")}}
+            window.__resetTurnstile?.();
+{{/if}}
           },
         }
       );
@@ -9228,7 +10235,11 @@ import { authClient } from "../lib/auth-client";
       formError.textContent = "An unexpected error occurred.";
       formError.classList.remove("hidden");
     } finally {
+{{#if (includes addons "turnstile")}}
+      submitButton.disabled = !getTurnstileToken();
+{{else}}
       submitButton.disabled = false;
+{{/if}}
       submitButton.textContent = "Sign In";
     }
   });
@@ -9236,6 +10247,9 @@ import { authClient } from "../lib/auth-client";
 `],
   ["auth/better-auth/web/astro/src/components/SignUpForm.astro.hbs", `---
 import { authClient } from "../lib/auth-client";
+{{#if (includes addons "turnstile")}}
+import Turnstile from "./Turnstile.astro";
+{{/if}}
 ---
 
 <div class="mx-auto mt-10 w-full max-w-md p-6">
@@ -9279,6 +10293,9 @@ import { authClient } from "../lib/auth-client";
       />
       <p class="text-xs text-neutral-500">Must be at least 8 characters</p>
     </div>
+    {{#if (includes addons "turnstile")}}
+    <Turnstile action="sign-up" />
+    {{/if}}
 
     <p id="form-error" class="text-sm text-red-500 hidden"></p>
 
@@ -9306,6 +10323,14 @@ import { authClient } from "../lib/auth-client";
   const passwordInput = document.getElementById("password") as HTMLInputElement;
   const formError = document.getElementById("form-error") as HTMLParagraphElement;
   const submitButton = form.querySelector('button[type="submit"]') as HTMLButtonElement;
+{{#if (includes addons "turnstile")}}
+  const getTurnstileToken = () => window.turnstile?.getResponse?.() ?? null;
+  submitButton.disabled = !getTurnstileToken();
+  document.addEventListener("turnstile-token", (event) => {
+    const token = (event as CustomEvent<{ token: string | null }>).detail?.token ?? null;
+    submitButton.disabled = !token;
+  });
+{{/if}}
 
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
@@ -9315,11 +10340,17 @@ import { authClient } from "../lib/auth-client";
     submitButton.textContent = "Creating account...";
 
     try {
+{{#if (includes addons "turnstile")}}
+      const token = getTurnstileToken();
+{{/if}}
       await authClient.signUp.email(
         {
           name: nameInput.value,
           email: emailInput.value,
           password: passwordInput.value,
+{{#if (includes addons "turnstile")}}
+          fetchOptions: { headers: token ? { "x-captcha-response": token } : undefined },
+{{/if}}
         },
         {
           onSuccess: () => {
@@ -9328,6 +10359,9 @@ import { authClient } from "../lib/auth-client";
           onError: (ctx) => {
             formError.textContent = ctx.error.message || "Sign up failed. Please try again.";
             formError.classList.remove("hidden");
+{{#if (includes addons "turnstile")}}
+            window.__resetTurnstile?.();
+{{/if}}
           },
         }
       );
@@ -9335,13 +10369,20 @@ import { authClient } from "../lib/auth-client";
       formError.textContent = "An unexpected error occurred.";
       formError.classList.remove("hidden");
     } finally {
+{{#if (includes addons "turnstile")}}
+      submitButton.disabled = !getTurnstileToken();
+{{else}}
       submitButton.disabled = false;
+{{/if}}
       submitButton.textContent = "Sign Up";
     }
   });
 </script>
 `],
   ["auth/better-auth/web/astro/src/lib/auth-client.ts.hbs", `import { createAuthClient } from "better-auth/client";
+{{#if (and i18n (ne i18n "none"))}}
+import { localeFetch } from "@{{projectName}}/i18n/client";
+{{/if}}
 {{#if (eq payments "polar")}}
 import { polarClient } from "@polar-sh/better-auth/client";
 {{/if}}
@@ -9356,6 +10397,9 @@ import { ENV } from "../env{{#if (eq webDeploy "cloudflare")}}.public{{/if}}";
 
 {{/if}}
 export const authClient = createAuthClient({
+{{#if (and i18n (ne i18n "none"))}}
+  fetchOptions: { customFetchImpl: localeFetch },
+{{/if}}
 {{#if (ne backend "self")}}
 {{#if (and (eq webDeploy serverDeploy) (or (eq webDeploy "vercel") (eq webDeploy "docker")))}}
   baseURL: {{#if (eq webDeploy "vercel")}}\`\${getServerUrl(ENV.PUBLIC_SERVER_URL)}/auth\`{{else}}new URL("/api/auth", getServerUrl(ENV.PUBLIC_SERVER_URL)).toString(){{/if}},
@@ -9536,6 +10580,11 @@ const emit = defineEmits(['switchToSignUp'])
 
 const toast = useToast()
 const loading = ref(false)
+{{#if (includes addons "turnstile")}}
+const turnstileToken = ref<string | null>(null)
+const turnstileResetKey = ref(0)
+const turnstileSiteKey = useRuntimeConfig().public.turnstileSiteKey
+{{/if}}
 
 const fields: AuthFormField[] = [
   {
@@ -9570,6 +10619,11 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
       {
         email: event.data.email,
         password: event.data.password,
+{{#if (includes addons "turnstile")}}
+        fetchOptions: turnstileToken.value
+          ? { headers: { "x-captcha-response": turnstileToken.value } }
+          : undefined,
+{{/if}}
       },
       {
         onSuccess: () => {
@@ -9578,6 +10632,10 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
         },
         onError: (error) => {
           toast.add({ title: 'Sign in failed', description: error.error.message })
+{{#if (includes addons "turnstile")}}
+          turnstileToken.value = null
+          turnstileResetKey.value += 1
+{{/if}}
         },
       },
     )
@@ -9597,7 +10655,7 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
         :fields="fields"
         title="Welcome Back"
         icon="i-lucide-log-in"
-        :submit="{ label: 'Sign In', loading }"
+        :submit="{ label: 'Sign In', loading{{#if (includes addons "turnstile")}}, disabled: !turnstileToken{{/if}} }"
         @submit="onSubmit"
       >
         <template #description>
@@ -9606,6 +10664,16 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
             Sign Up
           </ULink>
         </template>
+{{#if (includes addons "turnstile")}}
+        <template #footer>
+          <Turnstile
+            :site-key="turnstileSiteKey"
+            action="sign-in"
+            @update:token="(t) => (turnstileToken = t)"
+            :reset-key="turnstileResetKey"
+          />
+        </template>
+{{/if}}
       </UAuthForm>
     </UPageCard>
   </div>
@@ -9621,6 +10689,11 @@ const emit = defineEmits(['switchToSignIn'])
 
 const toast = useToast()
 const loading = ref(false)
+{{#if (includes addons "turnstile")}}
+const turnstileToken = ref<string | null>(null)
+const turnstileResetKey = ref(0)
+const turnstileSiteKey = useRuntimeConfig().public.turnstileSiteKey
+{{/if}}
 
 const fields: AuthFormField[] = [
   {
@@ -9665,6 +10738,11 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
         name: event.data.name,
         email: event.data.email,
         password: event.data.password,
+{{#if (includes addons "turnstile")}}
+        fetchOptions: turnstileToken.value
+          ? { headers: { "x-captcha-response": turnstileToken.value } }
+          : undefined,
+{{/if}}
       },
       {
         onSuccess: () => {
@@ -9673,6 +10751,10 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
         },
         onError: (error) => {
           toast.add({ title: 'Sign up failed', description: error.error.message })
+{{#if (includes addons "turnstile")}}
+          turnstileToken.value = null
+          turnstileResetKey.value += 1
+{{/if}}
         },
       },
     )
@@ -9692,7 +10774,7 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
         :fields="fields"
         title="Create Account"
         icon="i-lucide-user-plus"
-        :submit="{ label: 'Sign Up', loading }"
+        :submit="{ label: 'Sign Up', loading{{#if (includes addons "turnstile")}}, disabled: !turnstileToken{{/if}} }"
         @submit="onSubmit"
       >
         <template #description>
@@ -9701,6 +10783,16 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
             Sign In
           </ULink>
         </template>
+{{#if (includes addons "turnstile")}}
+        <template #footer>
+          <Turnstile
+            :site-key="turnstileSiteKey"
+            action="sign-up"
+            @update:token="(t) => (turnstileToken = t)"
+            :reset-key="turnstileResetKey"
+          />
+        </template>
+{{/if}}
       </UAuthForm>
     </UPageCard>
   </div>
@@ -9895,6 +10987,9 @@ watchEffect(() => {
 </template>
 `],
   ["auth/better-auth/web/nuxt/app/plugins/auth-client.ts.hbs", `import { createAuthClient } from "better-auth/vue";
+{{#if (and i18n (ne i18n "none"))}}
+import { localeFetch, localeHeader } from "@{{projectName}}/i18n/client";
+{{/if}}
 {{#if (eq payments "polar")}}
 import { polarClient } from "@polar-sh/better-auth/client";
 {{/if}}
@@ -9914,7 +11009,15 @@ export default defineNuxtPlugin(() => {
 
   const authClient = createAuthClient({
     fetchOptions: {
+{{#if (and i18n (ne i18n "none"))}}
+      customFetchImpl: localeFetch,
+      headers: {
+        ...localeHeader(),
+        ...(import.meta.server ? useRequestHeaders(["cookie"]) : {}),
+      },
+{{else}}
       headers: import.meta.server ? useRequestHeaders(["cookie"]) : undefined,
+{{/if}}
     },
     {{#if (ne backend "self")}}
     baseURL: {{#if (and (eq webDeploy "vercel") (eq serverDeploy "vercel"))}}\`\${serverOrigin}/auth\`{{else}}new URL("/api/auth", serverOrigin).toString(){{/if}},
@@ -9934,6 +11037,9 @@ export default defineNuxtPlugin(() => {
 });
 `],
   ["auth/better-auth/web/react/base/src/lib/auth-client.ts.hbs", `import { createAuthClient } from "better-auth/react";
+{{#if (and i18n (ne i18n "none"))}}
+import { localeFetch } from "@{{projectName}}/i18n/client";
+{{/if}}
 {{#if (eq payments "polar")}}
 import { polarClient } from "@polar-sh/better-auth/client";
 {{/if}}
@@ -9946,6 +11052,9 @@ import { ENV } from "../env{{#if (eq webDeploy "cloudflare")}}.public{{/if}}";
 {{/unless}}
 
 export const authClient = createAuthClient({
+{{#if (and i18n (ne i18n "none"))}}
+  fetchOptions: { customFetchImpl: localeFetch },
+{{/if}}
 {{#unless (eq backend "self")}}
 {{#if (and (eq webDeploy serverDeploy) (or (eq webDeploy "vercel") (eq webDeploy "docker")))}}
   baseURL: {{#if (eq webDeploy "vercel")}}\`\${getServerUrl({{#if (includes frontend "next")}}process.env.NEXT_PUBLIC_SERVER_URL!{{else}}ENV.VITE_SERVER_URL{{/if}})}/auth\`{{else}}new URL("/api/auth", getServerUrl({{#if (includes frontend "next")}}process.env.NEXT_PUBLIC_SERVER_URL!{{else}}ENV.VITE_SERVER_URL{{/if}})).toString(){{/if}},
@@ -10140,6 +11249,10 @@ import { Button } from "@{{projectName}}/ui/components/button";
 import { Input } from "@{{projectName}}/ui/components/input";
 import { Label } from "@{{projectName}}/ui/components/label";
 import { useRouter } from "next/navigation";
+{{#if (includes addons "turnstile")}}
+import { useState } from "react";
+import { TurnstileWidget } from "./turnstile-widget";
+{{/if}}
 
 export default function SignInForm({
   onSwitchToSignUp,
@@ -10148,6 +11261,10 @@ export default function SignInForm({
 }) {
   const router = useRouter()
   const { isPending } = authClient.useSession();
+{{#if (includes addons "turnstile")}}
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const [turnstileResetKey, setTurnstileResetKey] = useState(0);
+{{/if}}
 
   const form = useForm({
     defaultValues: {
@@ -10159,6 +11276,9 @@ export default function SignInForm({
         {
           email: value.email,
           password: value.password,
+{{#if (includes addons "turnstile")}}
+          fetchOptions: turnstileToken ? { headers: { "x-captcha-response": turnstileToken } } : undefined,
+{{/if}}
         },
         {
           onSuccess: () => {
@@ -10167,6 +11287,10 @@ export default function SignInForm({
           },
           onError: (error) => {
             toast.error(error.error.message || error.error.statusText);
+{{#if (includes addons "turnstile")}}
+            setTurnstileToken(null);
+            setTurnstileResetKey((key) => key + 1);
+{{/if}}
           },
         },
       );
@@ -10241,12 +11365,24 @@ export default function SignInForm({
           </form.Field>
         </div>
 
+{{#if (includes addons "turnstile")}}
+        <TurnstileWidget
+          siteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY!}
+          action="sign-in"
+          onToken={setTurnstileToken}
+          resetKey={turnstileResetKey}
+        />
+{{/if}}
         <form.Subscribe selector={(state) => ({ canSubmit: state.canSubmit, isSubmitting: state.isSubmitting })}>
           {({ canSubmit, isSubmitting }) => (
             <Button
               type="submit"
               className="w-full"
+{{#if (includes addons "turnstile")}}
+              disabled={!canSubmit || isSubmitting || !turnstileToken}
+{{else}}
               disabled={!canSubmit || isSubmitting}
+{{/if}}
             >
               {isSubmitting ? "Submitting..." : "Sign In"}
             </Button>
@@ -10276,6 +11412,10 @@ import { Button } from "@{{projectName}}/ui/components/button";
 import { Input } from "@{{projectName}}/ui/components/input";
 import { Label } from "@{{projectName}}/ui/components/label";
 import { useRouter } from "next/navigation";
+{{#if (includes addons "turnstile")}}
+import { useState } from "react";
+import { TurnstileWidget } from "./turnstile-widget";
+{{/if}}
 
 export default function SignUpForm({
   onSwitchToSignIn,
@@ -10284,6 +11424,10 @@ export default function SignUpForm({
 }) {
   const router = useRouter();
   const { isPending } = authClient.useSession();
+{{#if (includes addons "turnstile")}}
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const [turnstileResetKey, setTurnstileResetKey] = useState(0);
+{{/if}}
 
   const form = useForm({
     defaultValues: {
@@ -10297,6 +11441,9 @@ export default function SignUpForm({
           email: value.email,
           password: value.password,
           name: value.name,
+{{#if (includes addons "turnstile")}}
+          fetchOptions: turnstileToken ? { headers: { "x-captcha-response": turnstileToken } } : undefined,
+{{/if}}
         },
         {
           onSuccess: () => {
@@ -10305,6 +11452,10 @@ export default function SignUpForm({
           },
           onError: (error) => {
             toast.error(error.error.message || error.error.statusText);
+{{#if (includes addons "turnstile")}}
+            setTurnstileToken(null);
+            setTurnstileResetKey((key) => key + 1);
+{{/if}}
           },
         },
       );
@@ -10402,12 +11553,24 @@ export default function SignUpForm({
           </form.Field>
         </div>
 
+{{#if (includes addons "turnstile")}}
+        <TurnstileWidget
+          siteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY!}
+          action="sign-up"
+          onToken={setTurnstileToken}
+          resetKey={turnstileResetKey}
+        />
+{{/if}}
         <form.Subscribe selector={(state) => ({ canSubmit: state.canSubmit, isSubmitting: state.isSubmitting })}>
           {({ canSubmit, isSubmitting }) => (
             <Button
               type="submit"
               className="w-full"
+{{#if (includes addons "turnstile")}}
+              disabled={!canSubmit || isSubmitting || !turnstileToken}
+{{else}}
               disabled={!canSubmit || isSubmitting}
+{{/if}}
             >
               {isSubmitting ? "Submitting..." : "Sign Up"}
             </Button>
@@ -10500,6 +11663,10 @@ import Loader from "./loader";
 import { Button } from "@{{projectName}}/ui/components/button";
 import { Input } from "@{{projectName}}/ui/components/input";
 import { Label } from "@{{projectName}}/ui/components/label";
+{{#if (includes addons "turnstile")}}
+import { useState } from "react";
+import { TurnstileWidget } from "./turnstile-widget";
+{{/if}}
 
 export default function SignInForm({
   onSwitchToSignUp,
@@ -10508,6 +11675,10 @@ export default function SignInForm({
 }) {
   const navigate = useNavigate();
   const { isPending, refetch } = authClient.useSession();
+{{#if (includes addons "turnstile")}}
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const [turnstileResetKey, setTurnstileResetKey] = useState(0);
+{{/if}}
 
   const form = useForm({
     defaultValues: {
@@ -10519,6 +11690,9 @@ export default function SignInForm({
         {
           email: value.email,
           password: value.password,
+{{#if (includes addons "turnstile")}}
+          fetchOptions: turnstileToken ? { headers: { "x-captcha-response": turnstileToken } } : undefined,
+{{/if}}
         },
         {
           onSuccess: async () => {
@@ -10528,6 +11702,10 @@ export default function SignInForm({
           },
           onError: (error) => {
             toast.error(error.error.message || error.error.statusText);
+{{#if (includes addons "turnstile")}}
+            setTurnstileToken(null);
+            setTurnstileResetKey((key) => key + 1);
+{{/if}}
           },
         }
       );
@@ -10602,12 +11780,24 @@ export default function SignInForm({
           </form.Field>
         </div>
 
+{{#if (includes addons "turnstile")}}
+        <TurnstileWidget
+          siteKey={import.meta.env.VITE_TURNSTILE_SITE_KEY}
+          action="sign-in"
+          onToken={setTurnstileToken}
+          resetKey={turnstileResetKey}
+        />
+{{/if}}
         <form.Subscribe selector={(state) => ({ canSubmit: state.canSubmit, isSubmitting: state.isSubmitting })}>
           {({ canSubmit, isSubmitting }) => (
             <Button
               type="submit"
               className="w-full"
+{{#if (includes addons "turnstile")}}
+              disabled={!canSubmit || isSubmitting || !turnstileToken}
+{{else}}
               disabled={!canSubmit || isSubmitting}
+{{/if}}
             >
               {isSubmitting ? "Submitting..." : "Sign In"}
             </Button>
@@ -10637,6 +11827,10 @@ import Loader from "./loader";
 import { Button } from "@{{projectName}}/ui/components/button";
 import { Input } from "@{{projectName}}/ui/components/input";
 import { Label } from "@{{projectName}}/ui/components/label";
+{{#if (includes addons "turnstile")}}
+import { useState } from "react";
+import { TurnstileWidget } from "./turnstile-widget";
+{{/if}}
 
 export default function SignUpForm({
   onSwitchToSignIn,
@@ -10645,6 +11839,10 @@ export default function SignUpForm({
 }) {
   const navigate = useNavigate();
   const { isPending, refetch } = authClient.useSession();
+{{#if (includes addons "turnstile")}}
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const [turnstileResetKey, setTurnstileResetKey] = useState(0);
+{{/if}}
 
   const form = useForm({
     defaultValues: {
@@ -10658,6 +11856,9 @@ export default function SignUpForm({
           email: value.email,
           password: value.password,
           name: value.name,
+{{#if (includes addons "turnstile")}}
+          fetchOptions: turnstileToken ? { headers: { "x-captcha-response": turnstileToken } } : undefined,
+{{/if}}
         },
         {
           onSuccess: async () => {
@@ -10667,6 +11868,10 @@ export default function SignUpForm({
           },
           onError: (error) => {
             toast.error(error.error.message || error.error.statusText);
+{{#if (includes addons "turnstile")}}
+            setTurnstileToken(null);
+            setTurnstileResetKey((key) => key + 1);
+{{/if}}
           },
         }
       );
@@ -10764,12 +11969,24 @@ export default function SignUpForm({
           </form.Field>
         </div>
 
+{{#if (includes addons "turnstile")}}
+        <TurnstileWidget
+          siteKey={import.meta.env.VITE_TURNSTILE_SITE_KEY}
+          action="sign-up"
+          onToken={setTurnstileToken}
+          resetKey={turnstileResetKey}
+        />
+{{/if}}
         <form.Subscribe selector={(state) => ({ canSubmit: state.canSubmit, isSubmitting: state.isSubmitting })}>
           {({ canSubmit, isSubmitting }) => (
             <Button
               type="submit"
               className="w-full"
+{{#if (includes addons "turnstile")}}
+              disabled={!canSubmit || isSubmitting || !turnstileToken}
+{{else}}
               disabled={!canSubmit || isSubmitting}
+{{/if}}
             >
               {isSubmitting ? "Submitting..." : "Sign Up"}
             </Button>
@@ -10954,12 +12171,20 @@ import Loader from "./loader";
 import { Button } from "@{{projectName}}/ui/components/button";
 import { Input } from "@{{projectName}}/ui/components/input";
 import { Label } from "@{{projectName}}/ui/components/label";
+{{#if (includes addons "turnstile")}}
+import { useState } from "react";
+import { TurnstileWidget } from "./turnstile-widget";
+{{/if}}
 
 export default function SignInForm({ onSwitchToSignUp }: { onSwitchToSignUp: () => void }) {
   const navigate = useNavigate({
     from: "/",
   });
   const { isPending } = authClient.useSession();
+{{#if (includes addons "turnstile")}}
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const [turnstileResetKey, setTurnstileResetKey] = useState(0);
+{{/if}}
 
   const form = useForm({
     defaultValues: {
@@ -10971,6 +12196,9 @@ export default function SignInForm({ onSwitchToSignUp }: { onSwitchToSignUp: () 
         {
           email: value.email,
           password: value.password,
+{{#if (includes addons "turnstile")}}
+          fetchOptions: turnstileToken ? { headers: { "x-captcha-response": turnstileToken } } : undefined,
+{{/if}}
         },
         {
           onSuccess: () => {
@@ -10981,6 +12209,10 @@ export default function SignInForm({ onSwitchToSignUp }: { onSwitchToSignUp: () 
           },
           onError: (error) => {
             toast.error(error.error.message || error.error.statusText);
+{{#if (includes addons "turnstile")}}
+            setTurnstileToken(null);
+            setTurnstileResetKey((key) => key + 1);
+{{/if}}
           },
         },
       );
@@ -11055,12 +12287,24 @@ export default function SignInForm({ onSwitchToSignUp }: { onSwitchToSignUp: () 
           </form.Field>
         </div>
 
+{{#if (includes addons "turnstile")}}
+        <TurnstileWidget
+          siteKey={import.meta.env.VITE_TURNSTILE_SITE_KEY}
+          action="sign-in"
+          onToken={setTurnstileToken}
+          resetKey={turnstileResetKey}
+        />
+{{/if}}
         <form.Subscribe selector={(state) => ({ canSubmit: state.canSubmit, isSubmitting: state.isSubmitting })}>
           {({ canSubmit, isSubmitting }) => (
             <Button
               type="submit"
               className="w-full"
+{{#if (includes addons "turnstile")}}
+              disabled={!canSubmit || isSubmitting || !turnstileToken}
+{{else}}
               disabled={!canSubmit || isSubmitting}
+{{/if}}
             >
               {isSubmitting ? "Submitting..." : "Sign In"}
             </Button>
@@ -11090,12 +12334,20 @@ import Loader from "./loader";
 import { Button } from "@{{projectName}}/ui/components/button";
 import { Input } from "@{{projectName}}/ui/components/input";
 import { Label } from "@{{projectName}}/ui/components/label";
+{{#if (includes addons "turnstile")}}
+import { useState } from "react";
+import { TurnstileWidget } from "./turnstile-widget";
+{{/if}}
 
 export default function SignUpForm({ onSwitchToSignIn }: { onSwitchToSignIn: () => void }) {
   const navigate = useNavigate({
     from: "/",
   });
   const { isPending } = authClient.useSession();
+{{#if (includes addons "turnstile")}}
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const [turnstileResetKey, setTurnstileResetKey] = useState(0);
+{{/if}}
 
   const form = useForm({
     defaultValues: {
@@ -11109,6 +12361,9 @@ export default function SignUpForm({ onSwitchToSignIn }: { onSwitchToSignIn: () 
           email: value.email,
           password: value.password,
           name: value.name,
+{{#if (includes addons "turnstile")}}
+          fetchOptions: turnstileToken ? { headers: { "x-captcha-response": turnstileToken } } : undefined,
+{{/if}}
         },
         {
           onSuccess: () => {
@@ -11119,6 +12374,10 @@ export default function SignUpForm({ onSwitchToSignIn }: { onSwitchToSignIn: () 
           },
           onError: (error) => {
             toast.error(error.error.message || error.error.statusText);
+{{#if (includes addons "turnstile")}}
+            setTurnstileToken(null);
+            setTurnstileResetKey((key) => key + 1);
+{{/if}}
           },
         },
       );
@@ -11216,12 +12475,24 @@ export default function SignUpForm({ onSwitchToSignIn }: { onSwitchToSignIn: () 
           </form.Field>
         </div>
 
+{{#if (includes addons "turnstile")}}
+        <TurnstileWidget
+          siteKey={import.meta.env.VITE_TURNSTILE_SITE_KEY}
+          action="sign-up"
+          onToken={setTurnstileToken}
+          resetKey={turnstileResetKey}
+        />
+{{/if}}
         <form.Subscribe selector={(state) => ({ canSubmit: state.canSubmit, isSubmitting: state.isSubmitting })}>
           {({ canSubmit, isSubmitting }) => (
             <Button
               type="submit"
               className="w-full"
+{{#if (includes addons "turnstile")}}
+              disabled={!canSubmit || isSubmitting || !turnstileToken}
+{{else}}
               disabled={!canSubmit || isSubmitting}
+{{/if}}
             >
               {isSubmitting ? "Submitting..." : "Sign Up"}
             </Button>
@@ -11415,12 +12686,20 @@ import Loader from "./loader";
 import { Button } from "@{{projectName}}/ui/components/button";
 import { Input } from "@{{projectName}}/ui/components/input";
 import { Label } from "@{{projectName}}/ui/components/label";
+{{#if (includes addons "turnstile")}}
+import { useState } from "react";
+import { TurnstileWidget } from "./turnstile-widget";
+{{/if}}
 
 export default function SignInForm({ onSwitchToSignUp }: { onSwitchToSignUp: () => void }) {
   const navigate = useNavigate({
     from: "/",
   });
   const { isPending } = authClient.useSession();
+{{#if (includes addons "turnstile")}}
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const [turnstileResetKey, setTurnstileResetKey] = useState(0);
+{{/if}}
 
   const form = useForm({
     defaultValues: {
@@ -11432,6 +12711,9 @@ export default function SignInForm({ onSwitchToSignUp }: { onSwitchToSignUp: () 
         {
           email: value.email,
           password: value.password,
+{{#if (includes addons "turnstile")}}
+          fetchOptions: turnstileToken ? { headers: { "x-captcha-response": turnstileToken } } : undefined,
+{{/if}}
         },
         {
           onSuccess: () => {
@@ -11442,6 +12724,10 @@ export default function SignInForm({ onSwitchToSignUp }: { onSwitchToSignUp: () 
           },
           onError: (error) => {
             toast.error(error.error.message || error.error.statusText);
+{{#if (includes addons "turnstile")}}
+            setTurnstileToken(null);
+            setTurnstileResetKey((key) => key + 1);
+{{/if}}
           },
         },
       );
@@ -11516,12 +12802,24 @@ export default function SignInForm({ onSwitchToSignUp }: { onSwitchToSignUp: () 
           </form.Field>
         </div>
 
+{{#if (includes addons "turnstile")}}
+        <TurnstileWidget
+          siteKey={import.meta.env.VITE_TURNSTILE_SITE_KEY}
+          action="sign-in"
+          onToken={setTurnstileToken}
+          resetKey={turnstileResetKey}
+        />
+{{/if}}
         <form.Subscribe selector={(state) => ({ canSubmit: state.canSubmit, isSubmitting: state.isSubmitting })}>
           {({ canSubmit, isSubmitting }) => (
             <Button
               type="submit"
               className="w-full"
+{{#if (includes addons "turnstile")}}
+              disabled={!canSubmit || isSubmitting || !turnstileToken}
+{{else}}
               disabled={!canSubmit || isSubmitting}
+{{/if}}
             >
               {isSubmitting ? "Submitting..." : "Sign In"}
             </Button>
@@ -11551,12 +12849,20 @@ import Loader from "./loader";
 import { Button } from "@{{projectName}}/ui/components/button";
 import { Input } from "@{{projectName}}/ui/components/input";
 import { Label } from "@{{projectName}}/ui/components/label";
+{{#if (includes addons "turnstile")}}
+import { useState } from "react";
+import { TurnstileWidget } from "./turnstile-widget";
+{{/if}}
 
 export default function SignUpForm({ onSwitchToSignIn }: { onSwitchToSignIn: () => void }) {
   const navigate = useNavigate({
     from: "/",
   });
   const { isPending } = authClient.useSession();
+{{#if (includes addons "turnstile")}}
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const [turnstileResetKey, setTurnstileResetKey] = useState(0);
+{{/if}}
 
   const form = useForm({
     defaultValues: {
@@ -11570,6 +12876,9 @@ export default function SignUpForm({ onSwitchToSignIn }: { onSwitchToSignIn: () 
           email: value.email,
           password: value.password,
           name: value.name,
+{{#if (includes addons "turnstile")}}
+          fetchOptions: turnstileToken ? { headers: { "x-captcha-response": turnstileToken } } : undefined,
+{{/if}}
         },
         {
           onSuccess: () => {
@@ -11580,6 +12889,10 @@ export default function SignUpForm({ onSwitchToSignIn }: { onSwitchToSignIn: () 
           },
           onError: (error) => {
             toast.error(error.error.message || error.error.statusText);
+{{#if (includes addons "turnstile")}}
+            setTurnstileToken(null);
+            setTurnstileResetKey((key) => key + 1);
+{{/if}}
           },
         },
       );
@@ -11677,12 +12990,24 @@ export default function SignUpForm({ onSwitchToSignIn }: { onSwitchToSignIn: () 
           </form.Field>
         </div>
 
+{{#if (includes addons "turnstile")}}
+        <TurnstileWidget
+          siteKey={import.meta.env.VITE_TURNSTILE_SITE_KEY}
+          action="sign-up"
+          onToken={setTurnstileToken}
+          resetKey={turnstileResetKey}
+        />
+{{/if}}
         <form.Subscribe selector={(state) => ({ canSubmit: state.canSubmit, isSubmitting: state.isSubmitting })}>
           {({ canSubmit, isSubmitting }) => (
             <Button
               type="submit"
               className="w-full"
+{{#if (includes addons "turnstile")}}
+              disabled={!canSubmit || isSubmitting || !turnstileToken}
+{{else}}
               disabled={!canSubmit || isSubmitting}
+{{/if}}
             >
               {isSubmitting ? "Submitting..." : "Sign Up"}
             </Button>
@@ -11958,7 +13283,8 @@ function RouteComponent() {
 }
 `],
   ["auth/better-auth/web/solid/src/components/sign-in-form.tsx.hbs", `import { useNavigate } from "@solidjs/router";
-import { createSignal, onSettled, Show } from "solid-js";
+import { createSignal, onSettled, Show } from "solid-js";{{#if (includes addons "turnstile")}}
+import Turnstile from "./Turnstile";{{/if}}
 import { authClient } from "~/lib/auth-client";
 import z from "zod";
 
@@ -11974,7 +13300,10 @@ export default function SignInForm({ onSwitchToSignUp }: { onSwitchToSignUp: () 
   const [hydrated, setHydrated] = createSignal(false);
   onSettled(() => {
     setHydrated(true);
-  });
+  });{{#if (includes addons "turnstile")}}
+
+  const [turnstileToken, setTurnstileToken] = createSignal<string | null>(null);
+  const [turnstileResetKey, setTurnstileResetKey] = createSignal(0);{{/if}}
 
   const submit = async (event: SubmitEvent & { currentTarget: HTMLFormElement }) => {
     event.preventDefault();
@@ -11985,9 +13314,16 @@ export default function SignInForm({ onSwitchToSignUp }: { onSwitchToSignUp: () 
     }
 
     setIsSubmitting(true);
-    setError();
+    setError();{{#if (includes addons "turnstile")}}
+    const captchaToken = turnstileToken();{{/if}}
     try {
-      await authClient.signIn.email(result.data, {
+      await authClient.signIn.email({{#if (includes addons "turnstile")}}
+        {
+          ...result.data,
+          fetchOptions: captchaToken
+            ? { headers: { "x-captcha-response": captchaToken } }
+            : undefined,
+        }, {{else}}result.data, {{/if}}{
         onSuccess: async () => {
           await authClient.useSession.get().refetch();
           const session = authClient.useSession.get();
@@ -11998,7 +13334,9 @@ export default function SignInForm({ onSwitchToSignUp }: { onSwitchToSignUp: () 
           navigate("/dashboard");
         },
         onError: ({ error }) => {
-          setError(error.message);
+          setError(error.message);{{#if (includes addons "turnstile")}}
+          setTurnstileToken(null);
+          setTurnstileResetKey((key) => key + 1);{{/if}}
         },
       });
     } finally {
@@ -12025,11 +13363,17 @@ export default function SignInForm({ onSwitchToSignUp }: { onSwitchToSignUp: () 
             class="w-full rounded border p-2"
           />
         </div>
-        <Show when={error()}>{(message) => <p class="text-sm text-red-600">{message()}</p>}</Show>
+        <Show when={error()}>{(message) => <p class="text-sm text-red-600">{message()}</p>}</Show>{{#if (includes addons "turnstile")}}
+        <Turnstile
+          siteKey={import.meta.env.VITE_TURNSTILE_SITE_KEY}
+          action="sign-in"
+          onToken={setTurnstileToken}
+          resetKey={turnstileResetKey()}
+        />{{/if}}
         <button
           type="submit"
           class="w-full rounded bg-indigo-600 p-2 text-white hover:bg-indigo-700 disabled:opacity-50"
-          disabled={!hydrated() || isSubmitting()}
+          disabled={{#if (includes addons "turnstile")}}{!hydrated() || isSubmitting() || !turnstileToken()}{{else}}{!hydrated() || isSubmitting()}{{/if}}
         >
           {isSubmitting() ? "Submitting..." : "Sign In"}
         </button>
@@ -12048,7 +13392,8 @@ export default function SignInForm({ onSwitchToSignUp }: { onSwitchToSignUp: () 
 }
 `],
   ["auth/better-auth/web/solid/src/components/sign-up-form.tsx.hbs", `import { useNavigate } from "@solidjs/router";
-import { createSignal, onSettled, Show } from "solid-js";
+import { createSignal, onSettled, Show } from "solid-js";{{#if (includes addons "turnstile")}}
+import Turnstile from "./Turnstile";{{/if}}
 import { authClient } from "~/lib/auth-client";
 import z from "zod";
 
@@ -12065,7 +13410,10 @@ export default function SignUpForm({ onSwitchToSignIn }: { onSwitchToSignIn: () 
   const [hydrated, setHydrated] = createSignal(false);
   onSettled(() => {
     setHydrated(true);
-  });
+  });{{#if (includes addons "turnstile")}}
+
+  const [turnstileToken, setTurnstileToken] = createSignal<string | null>(null);
+  const [turnstileResetKey, setTurnstileResetKey] = createSignal(0);{{/if}}
 
   const submit = async (event: SubmitEvent & { currentTarget: HTMLFormElement }) => {
     event.preventDefault();
@@ -12076,9 +13424,16 @@ export default function SignUpForm({ onSwitchToSignIn }: { onSwitchToSignIn: () 
     }
 
     setIsSubmitting(true);
-    setError();
+    setError();{{#if (includes addons "turnstile")}}
+    const captchaToken = turnstileToken();{{/if}}
     try {
-      await authClient.signUp.email(result.data, {
+      await authClient.signUp.email({{#if (includes addons "turnstile")}}
+        {
+          ...result.data,
+          fetchOptions: captchaToken
+            ? { headers: { "x-captcha-response": captchaToken } }
+            : undefined,
+        }, {{else}}result.data, {{/if}}{
         onSuccess: async () => {
           await authClient.useSession.get().refetch();
           const session = authClient.useSession.get();
@@ -12089,7 +13444,9 @@ export default function SignUpForm({ onSwitchToSignIn }: { onSwitchToSignIn: () 
           navigate("/dashboard");
         },
         onError: ({ error }) => {
-          setError(error.message);
+          setError(error.message);{{#if (includes addons "turnstile")}}
+          setTurnstileToken(null);
+          setTurnstileResetKey((key) => key + 1);{{/if}}
         },
       });
     } finally {
@@ -12120,11 +13477,17 @@ export default function SignUpForm({ onSwitchToSignIn }: { onSwitchToSignIn: () 
             class="w-full rounded border p-2"
           />
         </div>
-        <Show when={error()}>{(message) => <p class="text-sm text-red-600">{message()}</p>}</Show>
+        <Show when={error()}>{(message) => <p class="text-sm text-red-600">{message()}</p>}</Show>{{#if (includes addons "turnstile")}}
+        <Turnstile
+          siteKey={import.meta.env.VITE_TURNSTILE_SITE_KEY}
+          action="sign-up"
+          onToken={setTurnstileToken}
+          resetKey={turnstileResetKey()}
+        />{{/if}}
         <button
           type="submit"
           class="w-full rounded bg-indigo-600 p-2 text-white hover:bg-indigo-700 disabled:opacity-50"
-          disabled={!hydrated() || isSubmitting()}
+          disabled={{#if (includes addons "turnstile")}}{!hydrated() || isSubmitting() || !turnstileToken()}{{else}}{!hydrated() || isSubmitting()}{{/if}}
         >
           {isSubmitting() ? "Submitting..." : "Sign Up"}
         </button>
@@ -12310,7 +13673,9 @@ export default function Login() {
 	import { onMount } from 'svelte';
 	import { z } from 'zod';
 	import { authClient } from '#lib/auth-client.ts';
-	import { goto } from '$app/navigation';
+	import { goto } from '$app/navigation';{{#if (includes addons "turnstile")}}
+	import { PUBLIC_TURNSTILE_SITE_KEY } from '$env/static/public';
+	import Turnstile from './Turnstile.svelte';{{/if}}
 
 	const session = authClient.useSession();
 	let mounted = $state(false);
@@ -12318,7 +13683,10 @@ export default function Login() {
 		mounted = true;
 	});
 
-	let { switchToSignUp }: { switchToSignUp: () => void } = $props();
+	let { switchToSignUp }: { switchToSignUp: () => void } = $props();{{#if (includes addons "turnstile")}}
+
+	let turnstileToken = $state<string | null>(null);
+	let turnstileResetKey = $state(0);{{/if}}
 
 	const validationSchema = z.object({
 		email: z.email('Invalid email address'),
@@ -12328,15 +13696,24 @@ export default function Login() {
 	const form = createForm(() => ({
 		defaultValues: { email: '', password: '' },
 		onSubmit: async ({ value }) => {
-				await authClient.signIn.email(
-					{ email: value.email, password: value.password },
+				await authClient.signIn.email({{#if (includes addons "turnstile")}}
+					{
+						email: value.email,
+						password: value.password,
+						fetchOptions: turnstileToken
+							? { headers: { 'x-captcha-response': turnstileToken } }
+							: undefined,
+					},{{else}}
+					{ email: value.email, password: value.password },{{/if}}
 					{
 						onSuccess: async () => {
 							await $session.refetch();
 							await goto('/dashboard');
 						},
 						onError: (error) => {
-							console.log(error.error.message || 'Sign in failed. Please try again.');
+							console.log(error.error.message || 'Sign in failed. Please try again.');{{#if (includes addons "turnstile")}}
+							turnstileToken = null;
+							turnstileResetKey += 1;{{/if}}
 						},
 					}
 				);
@@ -12405,11 +13782,18 @@ export default function Login() {
 						{/if}
 					</div>
 				{/snippet}
-			</form.Field>
+			</form.Field>{{#if (includes addons "turnstile")}}
+
+			<Turnstile
+				siteKey={PUBLIC_TURNSTILE_SITE_KEY}
+				action="sign-in"
+				onToken={(t) => (turnstileToken = t)}
+				resetKey={turnstileResetKey}
+			/>{{/if}}
 
 			<form.Subscribe selector={(state: typeof form.state): SubmitState => ({ canSubmit: state.canSubmit, isSubmitting: state.isSubmitting })}>
 				{#snippet children(state: SubmitState)}
-					<button type="submit" class="w-full" disabled={!state.canSubmit || state.isSubmitting}>
+					<button type="submit" class="w-full" disabled={{#if (includes addons "turnstile")}}{!state.canSubmit || state.isSubmitting || !turnstileToken}{{else}}{!state.canSubmit || state.isSubmitting}{{/if}}>
 						{state.isSubmitting ? 'Submitting...' : 'Sign In'}
 					</button>
 				{/snippet}
@@ -12429,7 +13813,9 @@ export default function Login() {
 	import { onMount } from 'svelte';
 	import { z } from 'zod';
 	import { authClient } from '#lib/auth-client.ts';
-	import { goto } from '$app/navigation';
+	import { goto } from '$app/navigation';{{#if (includes addons "turnstile")}}
+	import { PUBLIC_TURNSTILE_SITE_KEY } from '$env/static/public';
+	import Turnstile from './Turnstile.svelte';{{/if}}
 
 	const session = authClient.useSession();
 	let mounted = $state(false);
@@ -12437,7 +13823,10 @@ export default function Login() {
 		mounted = true;
 	});
 
-	let { switchToSignIn }: { switchToSignIn: () => void } = $props();
+	let { switchToSignIn }: { switchToSignIn: () => void } = $props();{{#if (includes addons "turnstile")}}
+
+	let turnstileToken = $state<string | null>(null);
+	let turnstileResetKey = $state(0);{{/if}}
 
 	const validationSchema = z.object({
 		name: z.string().min(2, 'Name must be at least 2 characters'),
@@ -12453,7 +13842,10 @@ export default function Login() {
 					{
 						email: value.email,
 						password: value.password,
-						name: value.name,
+						name: value.name,{{#if (includes addons "turnstile")}}
+						fetchOptions: turnstileToken
+							? { headers: { 'x-captcha-response': turnstileToken } }
+							: undefined,{{/if}}
 					},
 					{
 						onSuccess: async () => {
@@ -12461,7 +13853,9 @@ export default function Login() {
 							await goto('/dashboard');
 						},
 						onError: (error) => {
-							console.log(error.error.message || 'Sign up failed. Please try again.');
+							console.log(error.error.message || 'Sign up failed. Please try again.');{{#if (includes addons "turnstile")}}
+							turnstileToken = null;
+							turnstileResetKey += 1;{{/if}}
 						},
 					}
 				);
@@ -12552,11 +13946,18 @@ export default function Login() {
 						{/if}
 					</div>
 				{/snippet}
-			</form.Field>
+			</form.Field>{{#if (includes addons "turnstile")}}
+
+			<Turnstile
+				siteKey={PUBLIC_TURNSTILE_SITE_KEY}
+				action="sign-up"
+				onToken={(t) => (turnstileToken = t)}
+				resetKey={turnstileResetKey}
+			/>{{/if}}
 
 			<form.Subscribe selector={(state: typeof form.state): SubmitState => ({ canSubmit: state.canSubmit, isSubmitting: state.isSubmitting })}>
 				{#snippet children(state: SubmitState)}
-					<button type="submit" class="w-full" disabled={!state.canSubmit || state.isSubmitting}>
+					<button type="submit" class="w-full" disabled={{#if (includes addons "turnstile")}}{!state.canSubmit || state.isSubmitting || !turnstileToken}{{else}}{!state.canSubmit || state.isSubmitting}{{/if}}>
 						{state.isSubmitting ? 'Submitting...' : 'Sign Up'}
 					</button>
 				{/snippet}
@@ -12628,6 +14029,9 @@ export default function Login() {
 import { ENV } from "../env{{#if (eq webDeploy "cloudflare")}}.public{{else}}.generated{{/if}}";
 {{/unless}}
 import { createAuthClient } from "better-auth/svelte";
+{{#if (and i18n (ne i18n "none"))}}
+import { localeFetch } from "@{{projectName}}/i18n/client";
+{{/if}}
 {{#if (eq payments "polar")}}
 import { polarClient } from "@polar-sh/better-auth/client";
 {{/if}}
@@ -12637,6 +14041,9 @@ import { polarClient } from "@polar-sh/better-auth/client";
 
 {{/unless}}
 export const authClient = createAuthClient({
+{{#if (and i18n (ne i18n "none"))}}
+  fetchOptions: { customFetchImpl: localeFetch },
+{{/if}}
 {{#unless (eq backend "self")}}
 {{#if (and (eq webDeploy serverDeploy) (or (eq webDeploy "vercel") (eq webDeploy "docker")))}}
   baseURL: {{#if (eq webDeploy "vercel")}}\`\${getServerUrl(ENV.PUBLIC_SERVER_URL)}/auth\`{{else}}new URL("/api/auth", getServerUrl(ENV.PUBLIC_SERVER_URL)).toString(){{/if}},
@@ -14677,7 +16084,7 @@ const apiHandler = new OpenAPIHandler(appRouter, {
 			origin: {{#if (and (ne backend "self") (or (includes addons "electrobun") (includes addons "tauri")))}}[ENV.CORS_ORIGIN, ...desktopOrigins]{{else}}ENV.CORS_ORIGIN{{/if}},
 			methods: ["GET", "POST", "OPTIONS"],
 {{#if (or (eq auth "better-auth") (eq auth "clerk"))}}
-			allowedHeaders: ["Content-Type", "Authorization"],
+			allowedHeaders: ["Content-Type", "Authorization"{{#if (includes addons "turnstile")}}, "x-captcha-response"{{/if}}],
 {{/if}}
 {{#if (eq auth "better-auth")}}
 			credentials: true,
@@ -14831,7 +16238,7 @@ app.use(
 		origin: {{#if (and (ne backend "self") (or (includes addons "electrobun") (includes addons "tauri")))}}[ENV.CORS_ORIGIN, ...desktopOrigins]{{else}}ENV.CORS_ORIGIN{{/if}},
 		methods: ["GET", "POST", "OPTIONS"],
 {{#if (or (eq auth "better-auth") (eq auth "clerk"))}}
-		allowedHeaders: ["Content-Type", "Authorization"],
+		allowedHeaders: ["Content-Type", "Authorization"{{#if (includes addons "turnstile")}}, "x-captcha-response"{{/if}}],
 {{/if}}
 {{#if (eq auth "better-auth")}}
 		credentials: true,
@@ -14987,7 +16394,8 @@ const baseCorsConfig = {
 	allowedHeaders: [
 		"Content-Type",
 		"Authorization",
-		"X-Requested-With"
+		"X-Requested-With"{{#if (includes addons "turnstile")}},
+		"x-captcha-response"{{/if}}
 	],
 	credentials: true,
 	maxAge: 86400,
@@ -15212,7 +16620,7 @@ app.use(
 		origin: {{#if (and (ne backend "self") (or (includes addons "electrobun") (includes addons "tauri")))}}[ENV.CORS_ORIGIN, ...desktopOrigins]{{else}}ENV.CORS_ORIGIN{{/if}},
 		allowMethods: ["GET", "POST", "OPTIONS"],
 {{#if (or (eq auth "better-auth") (eq auth "clerk"))}}
-		allowHeaders: ["Content-Type", "Authorization"],
+		allowHeaders: ["Content-Type", "Authorization"{{#if (includes addons "turnstile")}}, "x-captcha-response"{{/if}}],
 {{/if}}
 {{#if (eq auth "better-auth")}}
 		credentials: true,
@@ -30848,6 +32256,16 @@ export default defineNuxtConfig({
     serverUrl: "",
     public: {
       serverUrl: process.env.NUXT_PUBLIC_SERVER_URL ?? "",
+      {{#if (includes addons "turnstile")}}
+      turnstileSiteKey: process.env.NUXT_PUBLIC_TURNSTILE_SITE_KEY ?? "",
+      {{/if}}
+    }
+  },
+  {{/if}}
+  {{#if (and (includes addons "turnstile") (eq backend "self"))}}
+  runtimeConfig: {
+    public: {
+      turnstileSiteKey: process.env.NUXT_PUBLIC_TURNSTILE_SITE_KEY ?? "",
     }
   },
   {{/if}}
@@ -32463,6 +33881,12 @@ import { TRPCProvider } from "./utils/trpc";
 {{#unless (eq backend "self")}}
 import { ENV } from "./env{{#if (eq webDeploy "cloudflare")}}.public{{/if}}";
 {{/unless}}
+{{#if (and i18n (ne i18n "none") (eq api "trpc") (ne auth "better-auth"))}}
+import { localeFetch } from "@{{projectName}}/i18n/client";
+{{/if}}
+{{#if (and i18n (ne i18n "none") (eq api "trpc") (eq auth "better-auth"))}}
+import { localeInit } from "@{{projectName}}/i18n/client";
+{{/if}}
 {{#if (eq auth "clerk")}}
 import { getClerkAuthToken } from "@/utils/clerk-auth";
 {{/if}}
@@ -32540,6 +33964,9 @@ const trpcClient = createTRPCClient<AppRouter>({
 {{else}}
 			url: \`\${ENV.VITE_SERVER_URL.replace(/\\/$/, "")}/trpc\`,
 {{/if}}
+{{#if (and i18n (ne i18n "none") (ne auth "better-auth"))}}
+			fetch: localeFetch,
+{{/if}}
 {{#if (eq auth "clerk")}}
 			headers: async () => {
 				const token = await getClerkAuthToken();
@@ -32547,12 +33974,21 @@ const trpcClient = createTRPCClient<AppRouter>({
 			},
 {{/if}}
 {{#if (eq auth "better-auth")}}
+{{#if (and i18n (ne i18n "none"))}}
+			fetch(url, options) {
+				return fetch(url, localeInit({
+					...options,
+					credentials: "include",
+				}));
+			},
+{{else}}
 			fetch(url, options) {
 				return fetch(url, {
 					...options,
 					credentials: "include",
 				});
 			},
+{{/if}}
 {{/if}}
 		}),
 	],
@@ -33956,6 +35392,11159 @@ export default defineConfig({
   },
 {{/if}}
 });
+`],
+  ["i18n/integrations/clerk/clerk-client.ts.hbs", `/**
+ * Lazy Clerk localization loading (emitted only for projects that use Clerk).
+ *
+ * \`@clerk/localizations\` ships one bundle per locale; the bundle for the active
+ * locale is imported on demand and cached. Locales without a bundle resolve
+ * \`undefined\`, and the provider falls back to Clerk's English default.
+ *
+ * Clerk marks localization experimental and does not localize the hosted
+ * Account Portal, which stays in English.
+ */
+
+import { clerkLocalizationExportName } from "./clerk";
+
+type ClerkLocalizations = typeof import("@clerk/localizations");
+
+export type ClerkLocalization = ClerkLocalizations["enUS"];
+
+const cache = new Map<string, ClerkLocalization>();
+
+export async function loadClerkLocalization(
+  locale: string,
+): Promise<ClerkLocalization | undefined> {
+  const exportName = clerkLocalizationExportName(locale);
+  if (exportName === undefined) return undefined;
+
+  const cached = cache.get(exportName);
+  if (cached !== undefined) return cached;
+
+  const clerkLocalizations: ClerkLocalizations = await import("@clerk/localizations");
+  const resource = clerkLocalizations[exportName as keyof ClerkLocalizations];
+  cache.set(exportName, resource);
+  return resource;
+}
+`],
+  ["i18n/integrations/clerk/clerk-localization-provider.native.tsx.hbs", `"use client";
+
+import { useEffect, useState, type ComponentProps } from "react";
+import { ClerkProvider } from "@clerk/expo";
+
+import { getDeviceLocaleTag } from "@/lib/device-locale";
+import { negotiateLocale } from "@{{projectName}}/i18n/config";
+import {
+  loadClerkLocalization,
+  type ClerkLocalization,
+} from "@{{projectName}}/i18n/integrations/clerk-client";
+
+type ClerkProviderProps = ComponentProps<typeof ClerkProvider>;
+
+/**
+ * Forwards every prop to \`ClerkProvider\` and lazily loads the \`@clerk/localizations\`
+ * bundle for the device locale (via \`expo-localization\`). Locales without a
+ * Clerk translation fall back to English.
+ *
+ * Clerk marks localization experimental and the hosted Account Portal stays in
+ * English.
+ */
+export function ClerkLocalizationProvider({ children, ...props }: ClerkProviderProps) {
+  const [localization, setLocalization] = useState<ClerkLocalization>();
+
+  useEffect(() => {
+    let cancelled = false;
+    void loadClerkLocalization(negotiateLocale({ system: getDeviceLocaleTag() })).then((next) => {
+      if (!cancelled && next !== undefined) setLocalization(next);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  return (
+    <ClerkProvider {...props} localization={localization}>
+      {children}
+    </ClerkProvider>
+  );
+}
+`],
+  ["i18n/integrations/clerk/clerk-localization-provider.tsx.hbs", `{{#if (includes frontend "next")}}"use client";
+
+{{/if}}import { useEffect, useState, type ComponentProps } from "react";
+{{#if (includes frontend "next")}}
+import { ClerkProvider } from "@clerk/nextjs";
+{{else if (includes frontend "tanstack-start")}}
+import { ClerkProvider } from "@clerk/tanstack-react-start";
+{{else if (includes frontend "react-router")}}
+import { ClerkProvider } from "@clerk/react-router";
+{{else}}
+import { ClerkProvider } from "@clerk/react";
+{{/if}}
+
+import { LOCALE_COOKIE, negotiateLocale } from "@{{projectName}}/i18n/config";
+import {
+  loadClerkLocalization,
+  type ClerkLocalization,
+} from "@{{projectName}}/i18n/integrations/clerk-client";
+
+type ClerkProviderProps = ComponentProps<typeof ClerkProvider>;
+
+/**
+ * Forwards every prop to \`ClerkProvider\` and lazily loads the \`@clerk/localizations\`
+ * bundle for the negotiated locale. The bundle is cached by the shared helper;
+ * locales without a Clerk translation fall back to English.
+ *
+ * Clerk marks localization experimental and the hosted Account Portal stays in
+ * English.
+ */
+export function ClerkLocalizationProvider({ children, ...props }: ClerkProviderProps) {
+  const [localization, setLocalization] = useState<ClerkLocalization>();
+
+  useEffect(() => {
+    const stored =
+      typeof window === "undefined"
+        ? undefined
+        : (window.localStorage.getItem(LOCALE_COOKIE) ?? undefined);
+    let cancelled = false;
+    void loadClerkLocalization(negotiateLocale({ stored })).then((next) => {
+      if (!cancelled && next !== undefined) setLocalization(next);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  return (
+    <ClerkProvider {...props} localization={localization}>
+      {children}
+    </ClerkProvider>
+  );
+}
+`],
+  ["i18n/integrations/expo/device-locale.ts.hbs", `import { getLocales } from "expo-localization";
+
+/**
+ * Device locale from \`expo-localization\`, fed into the shared negotiation
+ * contract as the \`system\` source. Hermes' \`Intl\` is incomplete, so the
+ * polyfills in \`polyfills/intl.ts\` back both this call and the shared
+ * formatters.
+ */
+export function getDeviceLocaleTag(): string | undefined {
+  const [primary] = getLocales();
+  return primary?.languageTag ?? undefined;
+}
+`],
+  ["i18n/integrations/fumadocs/lib/i18n.ts.hbs", `import { defineI18n } from "fumadocs-core/i18n";
+
+/**
+ * Fumadocs i18n configuration. Fumadocs ships its own UI strings; the shared
+ * locale package only provides the configured languages.
+ *
+ * Wire this into \`lib/source.ts\` by passing \`i18n\` to the Fumadocs \`loader\`.
+ */
+export const i18n = defineI18n({
+  defaultLanguage: {{#if i18nOptions.sourceLocale}}"{{i18nOptions.sourceLocale}}"{{else}}"en"{{/if}},
+  languages: [
+{{#if i18nOptions.locales}}
+{{#each i18nOptions.locales}}    "{{this}}",
+{{/each}}
+{{else}}
+    "en",
+    "es",
+    "fr",
+{{/if}}
+  ],
+});
+`],
+  ["i18n/integrations/nuxt/use-ui-locale.ts.hbs", `/**
+ * Nuxt UI locale object for the active \`@nuxtjs/i18n\` locale.
+ *
+ * Nuxt UI ships one locale object per language in \`@nuxt/ui/locale\`; the
+ * active one is bound to \`<UApp :locale>\` so Nuxt UI's built-in strings follow
+ * the negotiated locale.
+ *
+ * \`computed\` (Nuxt) and \`useI18n\` (\`@nuxtjs/i18n\`) are auto-imported.
+ */
+import * as nuxtUiLocales from "@nuxt/ui/locale";
+
+export function useUiLocale() {
+  const { locale } = useI18n();
+  return computed(() => {
+    const language = locale.value.split("-")[0] ?? "en";
+    return nuxtUiLocales[language as keyof typeof nuxtUiLocales] ?? nuxtUiLocales.en;
+  });
+}
+`],
+  ["i18n/integrations/turnstile/turnstile.ts.hbs", `/**
+ * Turnstile language support.
+ *
+ * Cloudflare Turnstile ships its own widget translations. The widget's
+ * \`language\` option is bound to the locale negotiated by \`@{{projectName}}/i18n/config\`;
+ * a locale without a Turnstile translation falls back to \`"auto"\`, which lets
+ * Turnstile use the visitor's browser language.
+ *
+ * Reference: https://developers.cloudflare.com/turnstile/reference/supported-languages/
+ */
+
+/** Turnstile language codes: the documented 2-letter forms, \`zh-tw\` and \`tlh\`. */
+export const TURNSTILE_LANGUAGES: ReadonlySet<string> = new Set([
+  "ar",
+  "bg",
+  "cs",
+  "da",
+  "de",
+  "el",
+  "en",
+  "es",
+  "fa",
+  "fi",
+  "fr",
+  "he",
+  "hi",
+  "hr",
+  "hu",
+  "id",
+  "it",
+  "ja",
+  "ko",
+  "lt",
+  "ms",
+  "nb",
+  "nl",
+  "pl",
+  "pt",
+  "ro",
+  "ru",
+  "sk",
+  "sl",
+  "sr",
+  "sv",
+  "th",
+  "tl",
+  "tlh",
+  "tr",
+  "uk",
+  "vi",
+  "zh",
+  "zh-tw",
+]);
+
+/**
+ * Turnstile \`language\` value for a BCP-47 locale. An exact match wins
+ * (\`zh-tw\`, \`en\`), then a region-only truncation (\`en-us\` → \`en\`,
+ * \`zh-cn\` → \`zh\`). Script variants are never truncated (\`zh-hant\` is not
+ * Simplified Chinese), so unsupported locales fall back to \`"auto"\`.
+ */
+export function getTurnstileLanguage(locale: string): string {
+  const normalized = locale.trim().toLowerCase();
+  if (TURNSTILE_LANGUAGES.has(normalized)) return normalized;
+
+  const [language, ...subtags] = normalized.split("-");
+  const regionOnly = subtags.length === 1 && /^([a-z]{2}|[0-9]{3})$/.test(subtags[0] ?? "");
+  if (regionOnly && language !== undefined && TURNSTILE_LANGUAGES.has(language)) {
+    return language;
+  }
+  return "auto";
+}
+`],
+  ["i18n/integrations/wxt/sync-wxt.ts.hbs", `/**
+ * \`i18n:sync-wxt\` — writes \`apps/extension/locales/<locale>.yml\` from the
+ * reserved \`extension.*\` section of the normalized catalog
+ * (\`packages/i18n/dist/catalog.json\`, produced by \`i18n:export\`).
+ *
+ * \`@wxt-dev/i18n\` reads these YAML files for the runtime API and for the
+ * manifest \`name\`/\`description\` localization. The package's \`i18n:sync-wxt\`
+ * script runs \`i18n:export\` first, so the catalog is always fresh.
+ */
+
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { dirname, join, resolve } from "node:path";
+
+interface CatalogMessage {
+  readonly source: string;
+  readonly translations?: Readonly<Record<string, string>>;
+}
+
+interface Catalog {
+  readonly sourceLocale: string;
+  readonly locales: readonly string[];
+  readonly messages: Readonly<Record<string, CatalogMessage>>;
+}
+
+type YamlValue = string | { readonly [key: string]: YamlValue };
+
+const EXTENSION_PREFIX = "extension.";
+const packageRoot = resolve(import.meta.dir, "..");
+const catalogPath = join(packageRoot, "dist", "catalog.json");
+const localeDir = resolve(packageRoot, "../../apps/extension/locales");
+
+function readCatalog(): Catalog | undefined {
+  if (!existsSync(catalogPath)) {
+    console.warn(\`i18n:sync-wxt: \${catalogPath} is missing. Run \\\`i18n:export\\\` first.\`);
+    return undefined;
+  }
+  return JSON.parse(readFileSync(catalogPath, "utf8")) as Catalog;
+}
+
+/** \`extension.popup.title\` → \`{ popup: { title: ... } }\`. */
+function assignNested(root: Record<string, YamlValue>, key: string, value: string): void {
+  const segments = key.split(".");
+  let cursor: Record<string, YamlValue> = root;
+  for (const segment of segments.slice(0, -1)) {
+    const existing = cursor[segment];
+    if (typeof existing === "object" && existing !== null) {
+      cursor = existing as Record<string, YamlValue>;
+    } else {
+      const next: Record<string, YamlValue> = {};
+      cursor[segment] = next;
+      cursor = next;
+    }
+  }
+  const last = segments[segments.length - 1];
+  if (last !== undefined) cursor[last] = value;
+}
+
+function quoteKey(key: string): string {
+  return /^[A-Za-z0-9_.-]+$/.test(key) ? key : JSON.stringify(key);
+}
+
+function toYaml(value: YamlValue, indent = 0): string {
+  const padding = "  ".repeat(indent);
+  if (typeof value === "string") return \`\${padding}\${JSON.stringify(value)}\\n\`;
+  return Object.entries(value)
+    .map(([key, child]) => {
+      if (typeof child === "string") return \`\${padding}\${quoteKey(key)}: \${JSON.stringify(child)}\\n\`;
+      return \`\${padding}\${quoteKey(key)}:\\n\${toYaml(child, indent + 1)}\`;
+    })
+    .join("");
+}
+
+function extensionMessages(catalog: Catalog, locale: string): Record<string, YamlValue> {
+  const root: Record<string, YamlValue> = {};
+  for (const [id, message] of Object.entries(catalog.messages)) {
+    if (!id.startsWith(EXTENSION_PREFIX)) continue;
+    const value = message.translations?.[locale] ?? message.source;
+    assignNested(root, id.slice(EXTENSION_PREFIX.length), value);
+  }
+  return root;
+}
+
+function main(): void {
+  const catalog = readCatalog();
+  if (catalog === undefined) {
+    process.exitCode = 1;
+    return;
+  }
+
+  const reserved = Object.keys(catalog.messages).filter((id) => id.startsWith(EXTENSION_PREFIX));
+  if (reserved.length === 0) {
+    console.warn(
+      \`i18n:sync-wxt: the catalog has no \\\`\${EXTENSION_PREFIX}*\\\` messages; nothing to sync.\`,
+    );
+    return;
+  }
+
+  if (!existsSync(dirname(localeDir))) {
+    console.warn(\`i18n:sync-wxt: \${localeDir} does not exist; skipping the WXT app.\`);
+    return;
+  }
+
+  mkdirSync(localeDir, { recursive: true });
+  for (const locale of catalog.locales) {
+    const messages = extensionMessages(catalog, locale);
+    writeFileSync(join(localeDir, \`\${locale}.yml\`), toYaml(messages), "utf8");
+  }
+  console.log(
+    \`i18n:sync-wxt: wrote \${catalog.locales.length} locale file(s) to apps/extension/locales.\`,
+  );
+}
+
+main();
+`],
+  ["i18n/integrations/zod/zod-client.ts.hbs", `/**
+ * Client-side Zod locale wiring (emitted only for projects that use Zod).
+ *
+ * Calling \`z.config\` is global: it is applied on the client when the locale
+ * changes and never on the server. The locale module is imported lazily and
+ * cached per export name, so only the active locale ships to the browser.
+ */
+
+import { zodLocaleExportName } from "./zod";
+
+type ZodModule = typeof import("zod");
+type ZodLocales = typeof import("zod/locales");
+
+const configuredLocales = new Set<string>();
+
+/**
+ * Applies the Zod locale for \`locale\` on the client. Resolves \`false\` when the
+ * locale has no Zod translation or when running on the server (where
+ * \`z.config\` must stay untouched — translate issues at the boundary instead).
+ */
+export async function applyZodLocale(locale: string): Promise<boolean> {
+  if ((globalThis as { window?: unknown }).window === undefined) return false;
+  const exportName = zodLocaleExportName(locale);
+  if (exportName === undefined) return false;
+  if (configuredLocales.has(exportName)) return true;
+
+  const [zod, locales]: [ZodModule, ZodLocales] = await Promise.all([
+    import("zod"),
+    import("zod/locales"),
+  ]);
+  const factory = locales[exportName as keyof ZodLocales];
+  zod.z.config(factory());
+  configuredLocales.add(exportName);
+  return true;
+}
+`],
+  ["i18n/lib/i18next/i18next.config.ts.hbs", `import { defineConfig } from "i18next-cli";
+
+/**
+ * Extractor configuration for the shared catalogs.
+ *
+ * Natural-language keys with separators disabled: the extractor reads
+ * \`t("Save changes")\` as one flat key and writes \`locales/<locale>/common.json\`.
+ * Run \`bun run i18n:extract\` from the project root or \`packages/i18n\`.
+ */
+export default defineConfig({
+  locales: [
+{{#if i18nOptions.locales}}
+{{#each i18nOptions.locales}}
+    "{{this}}",
+{{/each}}
+{{else}}
+    "en",
+    "es",
+    "fr",
+{{/if}}
+  ],
+  extract: {
+    input: [
+      "../../apps/**/*.{ts,tsx,js,jsx,vue,svelte,astro}",
+      "../../packages/**/*.{ts,tsx,js,jsx}",
+    ],
+    ignore: [
+      "../../packages/i18n/**",
+      // The \`input\` globs are relative to this file (\`packages/i18n\`), so a
+      // hoisted or workspace-local dependency resolves to \`../../…/node_modules\`.
+      // The bare \`**/node_modules/**\` form does not match that leading \`../\`.
+      "../../node_modules/**",
+      "../../**/node_modules/**",
+      "**/node_modules/**",
+      "**/dist/**",
+      "**/.next/**",
+      "**/.nuxt/**",
+      "**/.svelte-kit/**",
+      "**/.expo/**",
+      "**/.output/**",
+      "**/routeTree.gen.ts",
+    ],
+    output: "locales/\\{{language}}/\\{{namespace}}.json",
+    defaultNS: "common",
+    keySeparator: false,
+    nsSeparator: false,
+    removeUnusedKeys: true,
+    sort: false,
+  },
+});
+`],
+  ["i18n/lib/i18next/locales/en/common.json", `{
+  "i18n demo": "i18n demo",
+  "Hello, {{name}}!": "Hello, {{name}}!",
+  "You have {{count}} new message_one": "You have {{count}} new message",
+  "You have {{count}} new message_other": "You have {{count}} new messages",
+  "Language": "Language",
+  "Current locale: {{locale}}": "Current locale: {{locale}}"
+}
+`],
+  ["i18n/lib/i18next/scripts/apply.ts", `/**
+ * \`i18n:apply <file>\` — validates translations from the \`i18n-translate\` skill
+ * and writes them into the catalogs (design D8).
+ *
+ * The file is either \`{ "items": [{ id, locale, translation }] }\` or a bare
+ * array of the same items. Items whose \`{{placeholders}}\` differ from the
+ * source are rejected and stay pending.
+ */
+
+import { readFileSync } from "node:fs";
+
+import { locales, sourceLocale } from "../src/config";
+import { applyTranslations, packageRoot, type ApplyItem } from "./lib/catalogs";
+
+interface ApplyPayload {
+  readonly items?: readonly ApplyItem[];
+}
+
+const [file] = process.argv.slice(2).filter((argument) => !argument.startsWith("--"));
+if (!file) {
+  console.error("usage: i18n:apply <file>");
+  process.exit(1);
+}
+
+const payload = JSON.parse(readFileSync(file, "utf8")) as readonly ApplyItem[] | ApplyPayload;
+const candidates = Array.isArray(payload) ? payload : (payload.items ?? []);
+// Decode at the file boundary: an item is usable only with all three fields.
+const items = candidates.filter(
+  (item) => Boolean(item.id) && Boolean(item.locale) && Boolean(item.translation),
+);
+
+const result = applyTranslations(packageRoot(), { locales, sourceLocale }, items);
+for (const rejection of result.rejected) {
+  console.error(\`rejected \${rejection.locale} "\${rejection.id}": \${rejection.reason}\`);
+}
+console.log(
+  \`Applied \${result.appliedCount} translation(s)\` +
+    (result.rejected.length > 0 ? \`, rejected \${result.rejected.length}\` : ""),
+);
+if (result.rejected.length > 0) process.exit(1);
+`],
+  ["i18n/lib/i18next/scripts/check.ts", `/**
+ * \`i18n:check\` — fails on missing, untranslated or placeholder-invalid entries.
+ * \`I18N_CHECK_ALLOW_MISSING=1\` relaxes missing/untranslated entries during
+ * development; placeholder mismatches always fail (design D8).
+ */
+
+import { locales, sourceLocale } from "../src/config";
+import { checkCatalogs, packageRoot } from "./lib/catalogs";
+
+const allowMissing = process.env.I18N_CHECK_ALLOW_MISSING === "1";
+const result = checkCatalogs(packageRoot(), { locales, sourceLocale }, { allowMissing });
+
+for (const problem of result.problems.slice(0, 50)) {
+  console.error(\`\${problem.locale} "\${problem.id}": \${problem.reason}\`);
+}
+if (result.problems.length > 0) {
+  console.error(\`\${result.problems.length} problem(s) across \${result.checked} checked entries\`);
+  process.exit(1);
+}
+console.log(\`i18n:check passed (\${result.checked} checked entries)\`);
+`],
+  ["i18n/lib/i18next/scripts/compile.ts", `/**
+ * \`i18n:compile\` — i18next resolves keys at runtime, so there is no build step;
+ * this validates that every configured locale catalog is present and parseable
+ * before \`dev\` and \`build\` run.
+ */
+
+import { sourceLocale, locales } from "../src/config";
+import { packageRoot, readCatalog } from "./lib/catalogs";
+
+const root = packageRoot();
+
+for (const locale of locales) {
+  readCatalog(root, locale);
+}
+
+console.log(\`i18n:compile OK for \${locales.join(", ")} (source \${sourceLocale})\`);
+`],
+  ["i18n/lib/i18next/scripts/contract.ts", `/**
+ * The library-independent translation-script contract (design D8).
+ *
+ * \`i18n:pending\`, \`i18n:apply\` and \`i18n:check\` speak the same JSON shapes for
+ * every i18n library. This module is the single definition of those shapes:
+ * the \`i18n-translate\` skill writes exactly the file \`decodeApplyFile\`
+ * accepts, \`parsePendingReport\` validates what \`i18n:pending\` prints, and
+ * \`i18n:check\` reads the \`I18N_CHECK_ALLOW_MISSING\` environment variable.
+ *
+ * Everything here is library-independent: no compatibility rules, no catalog
+ * formats and no library imports. Each library ships an identical copy so the
+ * generated \`packages/i18n/scripts/contract.ts\` always matches the scripts
+ * next to it.
+ */
+
+/** One untranslated message from \`i18n:pending\`. */
+export interface PendingItem {
+  readonly id: string;
+  readonly locale: string;
+  readonly source: string;
+  readonly context: string | null;
+  readonly comments: readonly string[];
+  readonly references: readonly string[];
+  readonly placeholders: readonly string[];
+  /** Library-specific: \`missing\`, \`empty\`, \`pending\`, \`fuzzy\`, \`obsolete\`, … */
+  readonly status: string;
+}
+
+/** The JSON envelope \`i18n:pending\` prints on stdout. */
+export interface PendingReport {
+  readonly library: string;
+  readonly sourceLocale: string;
+  readonly items: readonly PendingItem[];
+}
+
+/**
+ * One item of the file passed to \`i18n:apply <file>\`.
+ *
+ * \`translation\` is a single form. \`translations\` carries one entry per plural
+ * form (in the locale's CLDR order) for libraries whose catalogs store plural
+ * forms separately, such as wuchale. Exactly one of the two is required.
+ */
+export interface ApplyItem {
+  readonly id: string;
+  readonly locale: string;
+  readonly translation?: string;
+  readonly translations?: readonly string[];
+  readonly context?: string | null;
+}
+
+/** The file \`i18n:apply <file>\` consumes. */
+export interface ApplyFile {
+  readonly items: readonly ApplyItem[];
+}
+
+export interface ApplyFileOptions {
+  /**
+   * Translations are written for target locales only; the source locale is
+   * edited in the catalogs directly. An item for the source locale is a
+   * contract violation.
+   */
+  readonly sourceLocale: string;
+}
+
+/** \`i18n:check\` relaxes missing translations when this is \`"1"\`. */
+export const I18N_CHECK_ALLOW_MISSING = "I18N_CHECK_ALLOW_MISSING";
+
+export function isMissingAllowed(
+  environment: Record<string, string | undefined> = process.env,
+): boolean {
+  return environment[I18N_CHECK_ALLOW_MISSING] === "1";
+}
+
+/** Raised when output or input violates the D8 contract. */
+export class I18nContractError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "I18nContractError";
+  }
+}
+
+function fail(message: string): never {
+  throw new I18nContractError(message);
+}
+
+function requireNonEmptyString(value: string | undefined, path: string): string {
+  if (value === undefined || value.trim().length === 0) {
+    fail(\`\${path} must be a non-empty string\`);
+  }
+  return value;
+}
+
+function requireStringArray(value: readonly string[] | undefined, path: string): readonly string[] {
+  if (!Array.isArray(value)) fail(\`\${path} must be an array of strings\`);
+  return value;
+}
+
+function normalizePendingItem(item: PendingItem, path: string): PendingItem {
+  return {
+    id: requireNonEmptyString(item.id, \`\${path}.id\`),
+    locale: requireNonEmptyString(item.locale, \`\${path}.locale\`),
+    source: requireNonEmptyString(item.source, \`\${path}.source\`),
+    context: item.context ?? null,
+    comments: requireStringArray(item.comments, \`\${path}.comments\`),
+    references: requireStringArray(item.references, \`\${path}.references\`),
+    placeholders: requireStringArray(item.placeholders, \`\${path}.placeholders\`),
+    status: requireNonEmptyString(item.status, \`\${path}.status\`),
+  };
+}
+
+/** Parses and validates the stdout of \`i18n:pending\`. */
+export function parsePendingReport(stdout: string): PendingReport {
+  let parsed: Partial<PendingReport> | null;
+  try {
+    parsed = JSON.parse(stdout) as Partial<PendingReport> | null;
+  } catch (error) {
+    fail(
+      \`i18n:pending output is not JSON: \${error instanceof Error ? error.message : String(error)}\`,
+    );
+  }
+  if (!parsed || Array.isArray(parsed)) fail("i18n:pending output must be an object");
+
+  const items = parsed.items;
+  if (!Array.isArray(items)) fail("i18n:pending output must contain an items array");
+
+  return {
+    library: requireNonEmptyString(parsed.library, "library"),
+    sourceLocale: requireNonEmptyString(parsed.sourceLocale, "sourceLocale"),
+    items: items.map((item, index) => normalizePendingItem(item, \`items[\${index}]\`)),
+  };
+}
+
+interface ApplyItemDraft {
+  id: string;
+  locale: string;
+  translation?: string;
+  translations?: readonly string[];
+  context: string | null;
+}
+
+function normalizeApplyItem(
+  item: ApplyItem,
+  path: string,
+  options: ApplyFileOptions,
+): ApplyItemDraft {
+  const id = requireNonEmptyString(item.id, \`\${path}.id\`);
+  const locale = requireNonEmptyString(item.locale, \`\${path}.locale\`);
+  if (locale === options.sourceLocale) {
+    fail(\`\${path}.locale is the source locale "\${locale}"; edit the source catalog instead\`);
+  }
+
+  const translation = item.translation;
+  const translations = item.translations;
+  if (translation === undefined && translations === undefined) {
+    fail(\`\${path} needs a translation or a translations array\`);
+  }
+
+  const draft: ApplyItemDraft = { id, locale, context: item.context ?? null };
+  if (translation !== undefined) {
+    draft.translation = requireNonEmptyString(translation, \`\${path}.translation\`);
+  }
+  if (translations !== undefined) {
+    if (!Array.isArray(translations) || translations.length === 0) {
+      fail(\`\${path}.translations must contain at least one form\`);
+    }
+    draft.translations = translations;
+  }
+  return draft;
+}
+
+/**
+ * Parses and validates the \`i18n:apply <file>\` payload: an object with a
+ * non-empty \`items\` array, every item targeting a configured non-source
+ * locale, with no duplicate \`(id, locale)\` pair.
+ */
+export function decodeApplyFile(text: string, options: ApplyFileOptions): ApplyFile {
+  let parsed: Partial<ApplyFile> | null;
+  try {
+    parsed = JSON.parse(text) as Partial<ApplyFile> | null;
+  } catch (error) {
+    fail(\`the apply file is not JSON: \${error instanceof Error ? error.message : String(error)}\`);
+  }
+  if (!parsed || Array.isArray(parsed)) {
+    fail('the apply file must be an object with an "items" array');
+  }
+
+  const items = parsed.items;
+  if (!Array.isArray(items)) fail('the apply file must contain an "items" array');
+  if (items.length === 0) {
+    fail("the apply file must contain at least one item; skip i18n:apply when nothing is pending");
+  }
+
+  const seen = new Set<string>();
+  const decoded = items.map((item, index) => {
+    const parsedItem = normalizeApplyItem(item, \`items[\${index}]\`, options);
+    const key = \`\${parsedItem.id}\\u0000\${parsedItem.locale}\`;
+    if (seen.has(key)) {
+      fail(\`items[\${index}] duplicates \${parsedItem.id} (\${parsedItem.locale})\`);
+    }
+    seen.add(key);
+    return parsedItem;
+  });
+
+  return { items: decoded };
+}
+`],
+  ["i18n/lib/i18next/scripts/export.ts", `/**
+ * \`i18n:export\` — writes the normalized catalog (\`dist/catalog.json\`) consumed
+ * by JS tooling (e.g. \`i18n:sync-wxt\`): one message per source-text id with
+ * every locale converted to the ICU subset.
+ */
+
+import { mkdirSync, writeFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+
+import { locales, sourceLocale } from "../src/config";
+import { icuMessagesById, packageRoot, readCatalogSet } from "./lib/catalogs";
+
+export interface NormalizedMessage {
+  /** The source-locale ICU message. */
+  readonly source: string;
+  readonly context: null;
+  readonly translations: Readonly<Record<string, string>>;
+}
+
+export interface NormalizedCatalog {
+  readonly sourceLocale: string;
+  readonly locales: readonly string[];
+  readonly messages: Readonly<Record<string, NormalizedMessage>>;
+}
+
+export function buildNormalizedCatalog(root: string = packageRoot()): NormalizedCatalog {
+  const catalogs = readCatalogSet(root, { locales, sourceLocale });
+  const icuByLocale = new Map<string, Map<string, string>>();
+  for (const locale of locales) {
+    const messages = new Map<string, string>();
+    for (const message of icuMessagesById(catalogs.get(locale) ?? {})) {
+      messages.set(message.id, message.icu);
+    }
+    icuByLocale.set(locale, messages);
+  }
+
+  const sourceMessages = icuMessagesById(catalogs.get(sourceLocale) ?? {});
+  const messages: Record<string, NormalizedMessage> = {};
+  for (const sourceMessage of sourceMessages) {
+    const translations: Record<string, string> = {};
+    for (const locale of locales) {
+      translations[locale] = icuByLocale.get(locale)?.get(sourceMessage.id) ?? sourceMessage.icu;
+    }
+    messages[sourceMessage.id] = { source: sourceMessage.icu, context: null, translations };
+  }
+
+  return { sourceLocale, locales, messages };
+}
+
+export function runExport(root: string = packageRoot()): string {
+  const output = join(root, "dist", "catalog.json");
+  mkdirSync(dirname(output), { recursive: true });
+  writeFileSync(output, \`\${JSON.stringify(buildNormalizedCatalog(root), null, 2)}\\n\`);
+  return output;
+}
+
+if (import.meta.main) {
+  console.log(\`i18n:export wrote \${runExport()}\`);
+}
+`],
+  ["i18n/lib/i18next/scripts/extract.ts", `/**
+ * \`i18n:extract\` — runs the i18next-cli extractor over the app sources and
+ * updates \`locales/<locale>/common.json\` with natural-language keys.
+ *
+ * The extractor walks \`apps/**\` and \`packages/**\` from \`i18next.config.ts\`;
+ * extra arguments are forwarded (\`--watch\`, \`--ci\`, …).
+ */
+
+import { packageRoot } from "./lib/catalogs";
+
+const root = packageRoot();
+const forwarded = process.argv.slice(2);
+
+const extractor = Bun.spawn(["bunx", "i18next-cli", "extract", ...forwarded], {
+  cwd: root,
+  stdout: "inherit",
+  stderr: "inherit",
+});
+
+const exitCode = await extractor.exited;
+if (exitCode !== 0) process.exit(exitCode);
+`],
+  ["i18n/lib/i18next/scripts/lib/catalogs.ts", `/**
+ * Catalog file access and the uniform script contract (design D8) for
+ * i18next: \`locales/<locale>/<namespace>.json\`, natural-language keys with
+ * separators disabled, plural suffixes (\`_one\`, \`_other\`) and \`{{placeholders}}\`.
+ */
+
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+
+import {
+  exportCatalogEntries,
+  interpolationNames,
+  type CatalogEntry,
+  type IcuMessage,
+} from "./icu";
+
+export const DEFAULT_NAMESPACE = "common";
+
+export interface I18nScriptConfig {
+  readonly locales: readonly string[];
+  readonly sourceLocale: string;
+}
+
+export interface Catalog {
+  readonly [id: string]: string;
+}
+
+export interface PendingItem {
+  readonly id: string;
+  readonly locale: string;
+  readonly source: string;
+  readonly context: string | null;
+  readonly comments: readonly string[];
+  readonly references: readonly string[];
+  readonly placeholders: readonly string[];
+  readonly status: "missing" | "pending";
+}
+
+export interface PendingOptions {
+  readonly locale?: string;
+  readonly all?: boolean;
+  readonly limit?: number;
+}
+
+export interface ApplyItem {
+  readonly id: string;
+  readonly locale: string;
+  readonly translation: string;
+}
+
+export interface ApplyRejection {
+  readonly id: string;
+  readonly locale: string;
+  readonly reason: string;
+}
+
+export interface ApplyResult {
+  readonly appliedCount: number;
+  readonly rejected: ApplyRejection[];
+}
+
+export interface CheckProblem {
+  readonly id: string;
+  readonly locale: string;
+  readonly reason: string;
+}
+
+export interface CheckResult {
+  readonly checked: number;
+  readonly problems: CheckProblem[];
+}
+
+/** Root of the generated \`@<project>/i18n\` package (this file lives in \`scripts/lib\`). */
+export function packageRoot(): string {
+  return dirname(dirname(import.meta.dir));
+}
+
+export function catalogPath(root: string, locale: string, namespace = DEFAULT_NAMESPACE): string {
+  return join(root, "locales", locale, \`\${namespace}.json\`);
+}
+
+export function readCatalog(root: string, locale: string, namespace = DEFAULT_NAMESPACE): Catalog {
+  const path = catalogPath(root, locale, namespace);
+  if (!existsSync(path)) return {};
+  return JSON.parse(readFileSync(path, "utf8")) as Catalog;
+}
+
+export function writeCatalog(
+  root: string,
+  locale: string,
+  catalog: Catalog,
+  namespace = DEFAULT_NAMESPACE,
+): void {
+  const path = catalogPath(root, locale, namespace);
+  mkdirSync(dirname(path), { recursive: true });
+  const sorted: Catalog = {};
+  for (const id of Object.keys(catalog).sort()) {
+    const value = catalog[id];
+    if (value !== undefined) sorted[id] = value;
+  }
+  writeFileSync(path, \`\${JSON.stringify(sorted, null, 2)}\\n\`);
+}
+
+export function readCatalogSet(
+  root: string,
+  config: I18nScriptConfig,
+  namespace = DEFAULT_NAMESPACE,
+): Map<string, Catalog> {
+  const catalogs = new Map<string, Catalog>();
+  for (const locale of config.locales) {
+    catalogs.set(locale, readCatalog(root, locale, namespace));
+  }
+  return catalogs;
+}
+
+function entriesOf(catalog: Catalog): CatalogEntry[] {
+  return Object.entries(catalog).map(([id, value]) => ({ id, value }));
+}
+
+/** ICU messages for one locale, keyed by the i18next source-text id. */
+export function icuMessagesById(catalog: Catalog): IcuMessage[] {
+  return exportCatalogEntries(entriesOf(catalog));
+}
+
+function targetLocales(config: I18nScriptConfig, options: PendingOptions): string[] {
+  if (options.locale) return [options.locale];
+  if (options.all) return config.locales.filter((locale) => locale !== config.sourceLocale);
+  throw new Error("i18n:pending needs --locale <locale> or --all");
+}
+
+/** Untranslated entries: missing from the target catalog or still equal to the source. */
+export function collectPending(
+  root: string,
+  config: I18nScriptConfig,
+  options: PendingOptions,
+): PendingItem[] {
+  const source = readCatalog(root, config.sourceLocale);
+  const items: PendingItem[] = [];
+  const limit = options.limit ?? Number.POSITIVE_INFINITY;
+
+  for (const locale of targetLocales(config, options)) {
+    const target = readCatalog(root, locale);
+    for (const [id, sourceValue] of Object.entries(source)) {
+      if (items.length >= limit) return items;
+      const targetValue = target[id];
+      if (targetValue === undefined) {
+        items.push(pendingItem(id, locale, sourceValue, "missing"));
+      } else if (targetValue === sourceValue) {
+        items.push(pendingItem(id, locale, sourceValue, "pending"));
+      }
+    }
+  }
+  return items;
+}
+
+function pendingItem(
+  id: string,
+  locale: string,
+  source: string,
+  status: "missing" | "pending",
+): PendingItem {
+  return {
+    id,
+    locale,
+    source,
+    context: null,
+    comments: [],
+    references: [],
+    placeholders: interpolationNames(source),
+    status,
+  };
+}
+
+/** Writes valid translations; rejects items whose placeholders differ from the source. */
+export function applyTranslations(
+  root: string,
+  config: I18nScriptConfig,
+  items: readonly ApplyItem[],
+): ApplyResult {
+  const source = readCatalog(root, config.sourceLocale);
+  const catalogs = new Map<string, Catalog>();
+  const rejected: ApplyRejection[] = [];
+  let appliedCount = 0;
+
+  for (const item of items) {
+    const rejection = rejectApplyItem(item, source, config);
+    if (rejection) {
+      rejected.push(rejection);
+      continue;
+    }
+    const catalog = catalogs.get(item.locale) ?? readCatalog(root, item.locale);
+    catalogs.set(item.locale, { ...catalog, [item.id]: item.translation });
+    appliedCount += 1;
+  }
+
+  for (const [locale, catalog] of catalogs) writeCatalog(root, locale, catalog);
+  return { appliedCount, rejected };
+}
+
+function rejectApplyItem(
+  item: ApplyItem,
+  source: Catalog,
+  config: I18nScriptConfig,
+): ApplyRejection | null {
+  if (!config.locales.includes(item.locale)) {
+    return { id: item.id, locale: item.locale, reason: "locale is not configured" };
+  }
+  const sourceValue = source[item.id];
+  if (sourceValue === undefined) {
+    return { id: item.id, locale: item.locale, reason: "id is not in the source catalog" };
+  }
+  if (item.translation.trim().length === 0) {
+    return { id: item.id, locale: item.locale, reason: "translation is empty" };
+  }
+  const sourceNames = interpolationNames(sourceValue).sort();
+  const translationNames = interpolationNames(item.translation).sort();
+  if (sourceNames.join(",") !== translationNames.join(",")) {
+    const expected = sourceNames.join(", ") || "none";
+    const received = translationNames.join(", ") || "none";
+    return {
+      id: item.id,
+      locale: item.locale,
+      reason: \`placeholders differ: expected \${expected}, got \${received}\`,
+    };
+  }
+  return null;
+}
+
+/** Missing, untranslated and placeholder-invalid entries per configured locale. */
+export function checkCatalogs(
+  root: string,
+  config: I18nScriptConfig,
+  options: { readonly allowMissing: boolean },
+): CheckResult {
+  const source = readCatalog(root, config.sourceLocale);
+  const problems: CheckProblem[] = [];
+  let checked = 0;
+
+  for (const locale of config.locales) {
+    if (locale === config.sourceLocale) continue;
+    const target = readCatalog(root, locale);
+    for (const [id, sourceValue] of Object.entries(source)) {
+      checked += 1;
+      const targetValue = target[id];
+      if (targetValue === undefined) {
+        if (!options.allowMissing) problems.push({ id, locale, reason: "missing" });
+        continue;
+      }
+      if (targetValue === sourceValue) {
+        if (!options.allowMissing) problems.push({ id, locale, reason: "untranslated" });
+        continue;
+      }
+      const sourceNames = interpolationNames(sourceValue).sort().join(",");
+      const targetNames = interpolationNames(targetValue).sort().join(",");
+      if (sourceNames !== targetNames) {
+        problems.push({ id, locale, reason: "placeholders differ from the source" });
+      }
+    }
+  }
+  return { checked, problems };
+}
+`],
+  ["i18n/lib/i18next/scripts/lib/icu.ts", `/**
+ * i18next ⇄ ICU message conversion for the normalized catalog (\`i18n:export\`).
+ *
+ * The supported subset is exactly: \`{{name}}\` interpolation and i18next v4
+ * plural suffixes (\`_one\`, \`_other\`, …). Anything else — nesting via \`$t(...)\`,
+ * a stray brace, or a non-identifier argument — fails with the message id.
+ *
+ * \`importCatalogEntries\` is the inverse of \`exportCatalogEntries\`; the
+ * generator's ICU round-trip test asserts the two are lossless.
+ */
+
+export const PLURAL_CATEGORIES = ["zero", "one", "two", "few", "many", "other"] as const;
+export type PluralCategory = (typeof PLURAL_CATEGORIES)[number];
+
+export interface CatalogEntry {
+  readonly id: string;
+  readonly value: string;
+}
+
+/** One normalized message: the source-text id and its ICU form. */
+export interface IcuMessage {
+  readonly id: string;
+  readonly icu: string;
+}
+
+export class IcuConversionError extends Error {
+  readonly messageId: string;
+
+  constructor(messageId: string, reason: string) {
+    super(\`Cannot convert "\${messageId}" to ICU: \${reason}\`);
+    this.name = "IcuConversionError";
+    this.messageId = messageId;
+  }
+}
+
+const INTERPOLATION_PATTERN = /\\{\\{\\s*([A-Za-z][A-Za-z0-9_$]*)\\s*\\}\\}/g;
+const SHORT_ARGUMENT_PATTERN = /\\{([A-Za-z][A-Za-z0-9_$]*)\\}/g;
+const PLURAL_OPTION_PATTERN =
+  /(zero|one|two|few|many|other) \\{((?:[^{}]|\\{[A-Za-z][A-Za-z0-9_$]*\\})*)\\}/g;
+
+function isPluralCategory(value: string): value is PluralCategory {
+  return (PLURAL_CATEGORIES as readonly string[]).includes(value);
+}
+
+interface PluralId {
+  readonly base: string;
+  readonly category: PluralCategory | null;
+}
+
+export function splitPluralId(id: string): PluralId {
+  const separator = id.lastIndexOf("_");
+  if (separator === -1) return { base: id, category: null };
+  const suffix = id.slice(separator + 1);
+  if (!isPluralCategory(suffix)) return { base: id, category: null };
+  return { base: id.slice(0, separator), category: suffix };
+}
+
+/** Names of the \`{{placeholders}}\` in a message, in first-seen order. */
+export function interpolationNames(message: string): string[] {
+  const names: string[] = [];
+  for (const match of message.matchAll(INTERPOLATION_PATTERN)) {
+    const name = match[1];
+    if (name && !names.includes(name)) names.push(name);
+  }
+  return names;
+}
+
+/** i18next template → ICU. Throws \`IcuConversionError\` outside the subset. */
+export function toIcuMessage(id: string, message: string): string {
+  if (message.includes("$t("))
+    throw new IcuConversionError(id, "nesting via $t() is not supported");
+  const icu = message.replace(INTERPOLATION_PATTERN, "{$1}");
+  const withoutArguments = icu.replace(SHORT_ARGUMENT_PATTERN, "");
+  if (withoutArguments.includes("{") || withoutArguments.includes("}")) {
+    throw new IcuConversionError(id, "contains braces that are not {{placeholders}}");
+  }
+  return icu;
+}
+
+/** ICU → i18next template. Throws \`IcuConversionError\` outside the subset. */
+const FORMATTED_ARGUMENT_PATTERN = /\\{[A-Za-z][A-Za-z0-9_$]*\\s*,/;
+
+export function fromIcuMessage(id: string, icu: string): string {
+  if (FORMATTED_ARGUMENT_PATTERN.test(icu) || icu.includes("#")) {
+    throw new IcuConversionError(id, "ICU arguments other than {name} are not supported");
+  }
+  return icu.replace(SHORT_ARGUMENT_PATTERN, "{{$1}}");
+}
+
+interface PluralMember {
+  readonly id: string;
+  readonly category: PluralCategory | null;
+  readonly value: string;
+}
+
+function comparePluralCategories(first: PluralCategory, second: PluralCategory): number {
+  return PLURAL_CATEGORIES.indexOf(first) - PLURAL_CATEGORIES.indexOf(second);
+}
+
+function exportFamily(base: string, family: readonly PluralMember[]): IcuMessage {
+  if (family.length === 1) {
+    const [only] = family;
+    if (!only) throw new IcuConversionError(base, "empty plural family");
+    if (only.category !== null) {
+      throw new IcuConversionError(base, \`has _\${only.category} but no other plural forms\`);
+    }
+    return { id: base, icu: toIcuMessage(only.id, only.value) };
+  }
+
+  const forms: PluralMember[] = [];
+  for (const member of family) {
+    if (member.category === null) {
+      throw new IcuConversionError(base, "mixes a plural family with a plain key of the same name");
+    }
+    forms.push(member);
+  }
+  if (!forms.some((form) => form.category === "other")) {
+    throw new IcuConversionError(base, "is missing the \`other\` plural category");
+  }
+
+  forms.sort((first, second) =>
+    comparePluralCategories(first.category ?? "other", second.category ?? "other"),
+  );
+  const options = forms
+    .map((form) => \`\${form.category} {\${toIcuMessage(form.id, form.value)}}\`)
+    .join(" ");
+  return { id: base, icu: \`{count, plural, \${options}}\` };
+}
+
+/**
+ * Source-text catalog entries → normalized ICU messages. Plural families
+ * (\`id_one\`, \`id_other\`, …) collapse into one \`{count, plural, …}\` message.
+ */
+export function exportCatalogEntries(entries: readonly CatalogEntry[]): IcuMessage[] {
+  const families = new Map<string, PluralMember[]>();
+  for (const entry of entries) {
+    const { base, category } = splitPluralId(entry.id);
+    const family = families.get(base) ?? [];
+    family.push({ id: entry.id, category, value: entry.value });
+    families.set(base, family);
+  }
+  return [...families.entries()].map(([base, family]) => exportFamily(base, family));
+}
+
+/** Inverse of \`exportCatalogEntries\`, used by the ICU round-trip test. */
+export function importCatalogEntries(messages: readonly IcuMessage[]): CatalogEntry[] {
+  const entries: CatalogEntry[] = [];
+  for (const message of messages) {
+    const pluralMatch = /^\\{count, plural, (.*)\\}$/s.exec(message.icu);
+    if (!pluralMatch?.[1]) {
+      entries.push({ id: message.id, value: fromIcuMessage(message.id, message.icu) });
+      continue;
+    }
+    const forms = [...pluralMatch[1].matchAll(PLURAL_OPTION_PATTERN)];
+    if (forms.length === 0) throw new IcuConversionError(message.id, "plural has no options");
+    for (const form of forms) {
+      const category = form[1];
+      const body = form[2];
+      if (!category || body === undefined) {
+        throw new IcuConversionError(message.id, "plural option is malformed");
+      }
+      entries.push({
+        id: \`\${message.id}_\${category}\`,
+        value: fromIcuMessage(\`\${message.id}_\${category}\`, body),
+      });
+    }
+  }
+  return entries;
+}
+`],
+  ["i18n/lib/i18next/scripts/pending.ts", `/**
+ * \`i18n:pending --locale <locale> | --all [--limit N]\` — machine-readable list
+ * of untranslated messages for the \`i18n-translate\` skill (design D8).
+ */
+
+import { sourceLocale, locales } from "../src/config";
+import { collectPending, packageRoot } from "./lib/catalogs";
+
+const args = process.argv.slice(2);
+
+function flagValue(name: string): string | undefined {
+  const index = args.indexOf(name);
+  return index === -1 ? undefined : args[index + 1];
+}
+
+const limitValue = flagValue("--limit");
+const items = collectPending(
+  packageRoot(),
+  { locales, sourceLocale },
+  {
+    locale: flagValue("--locale"),
+    all: args.includes("--all"),
+    limit: limitValue ? Number.parseInt(limitValue, 10) : undefined,
+  },
+);
+
+console.log(JSON.stringify({ library: "i18next", sourceLocale, items }, null, 2));
+`],
+  ["i18n/lib/i18next/src/runtime.ts.hbs", `/**
+ * i18next runtime for the generated project.
+ *
+ * Natural-language keys with separators disabled: \`t("Hello, {{name}}!")\`
+ * looks up the exact sentence, and plural suffixes resolve from \`count\`
+ * (\`..._one\`, \`..._other\`). Framework glue lives next to each surface and
+ * registers its adapter (\`react-i18next\`, \`i18next-vue\`, the shipped Svelte
+ * store, the shipped Solid primitive) on the instances exported here.
+ */
+
+import i18next from "i18next";
+import type { i18n as I18nInstance, InitOptions } from "i18next";
+{{#if i18nOptions.locales}}
+{{#each i18nOptions.locales}}
+import catalog{{@index}} from "../locales/{{this}}/common.json";
+{{/each}}
+{{else}}
+import catalog0 from "../locales/en/common.json";
+import catalog1 from "../locales/es/common.json";
+import catalog2 from "../locales/fr/common.json";
+{{/if}}
+
+import { isLocale, locales, negotiateLocale, sourceLocale } from "./config";
+import type { Locale } from "./config";
+
+export const resources = {
+{{#if i18nOptions.locales}}
+{{#each i18nOptions.locales}}
+  "{{this}}": { common: catalog{{@index}} },
+{{/each}}
+{{else}}
+  en: { common: catalog0 },
+  es: { common: catalog1 },
+  fr: { common: catalog2 },
+{{/if}}
+};
+
+function instanceOptions(locale: Locale): InitOptions {
+  return {
+    resources,
+    lng: locale,
+    fallbackLng: sourceLocale,
+    supportedLngs: [...locales],
+    defaultNS: "common",
+    keySeparator: false,
+    nsSeparator: false,
+    initAsync: false,
+    interpolation: { escapeValue: false },
+  };
+}
+
+/**
+ * A fresh instance for one request or one server render. Static resources make
+ * initialization synchronous, so the returned instance is immediately usable.
+ */
+export function createI18next(locale: Locale = negotiateLocale()): I18nInstance {
+  const instance = i18next.createInstance();
+  void instance.init(instanceOptions(locale));
+  return instance;
+}
+
+/**
+ * The shared client instance. Framework adapters register on this instance, so
+ * every component in the app sees the same translations and language changes.
+ */
+export function initI18next(locale: Locale = negotiateLocale()): I18nInstance {
+  if (!i18next.isInitialized) {
+    void i18next.init(instanceOptions(locale));
+  }
+  return i18next;
+}
+
+export function setLocale(locale: Locale): Promise<unknown> {
+  initI18next();
+  return i18next.changeLanguage(locale);
+}
+
+export function currentLocale(): Locale {
+  const language = i18next.resolvedLanguage ?? i18next.language;
+  return language && isLocale(language) ? language : sourceLocale;
+}
+
+export { i18next };
+`],
+  ["i18n/lib/lingui/bun-preload.ts", `/**
+ * Bun preload that applies the Lingui macro transform to Bun-run hosts
+ * (server on Bun, the Electrobun Bun main process, OpenTUI apps).
+ *
+ * Register it from the host's \`bunfig.toml\`:
+ *
+ *   preload = ["../../packages/i18n/bun-preload.ts"]
+ *
+ * Vite and Next transform macros through their own plugins; this preload is
+ * the equivalent for hosts that execute TypeScript directly with Bun (no
+ * bundler step). It only touches files that import a Lingui macro entrypoint.
+ *
+ * \`@babel/core\` and \`@lingui/babel-plugin-lingui-macro\` are declared on this
+ * package, so Bun resolves both from here regardless of the host app.
+ */
+import { transformAsync } from "@babel/core";
+import linguiMacro from "@lingui/babel-plugin-lingui-macro";
+
+declare const Bun: {
+  file(filePath: string): { text(): Promise<string> };
+  plugin(plugin: {
+    name: string;
+    setup(build: {
+      onLoad(
+        options: { filter: RegExp },
+        handler: (args: {
+          path: string;
+        }) => Promise<{ contents: string; loader: "ts" | "tsx" | "js" | "jsx" } | undefined>,
+      ): void;
+    }): void;
+  }): void;
+};
+
+const SOURCE_FILE = /\\.[cm]?[jt]sx?$/;
+const LINGUI_MACRO = /@lingui\\/(?:core|react|solid)\\/macro/;
+
+Bun.plugin({
+  name: "lingui-macro-preload",
+  setup(build) {
+    build.onLoad({ filter: SOURCE_FILE }, async ({ path }) => {
+      const code = await Bun.file(path).text();
+      if (!LINGUI_MACRO.test(code)) return undefined;
+
+      const result = await transformAsync(code, {
+        filename: path,
+        babelrc: false,
+        configFile: false,
+        sourceMaps: "inline",
+        parserOpts: { plugins: ["typescript", "jsx"] },
+        plugins: [[linguiMacro, {}]],
+      });
+      if (!result?.code) return undefined;
+
+      const loader = path.endsWith("x") ? "tsx" : "ts";
+      return { contents: result.code, loader };
+    });
+  },
+});
+`],
+  ["i18n/lib/lingui/lingui.config.ts.hbs", `/**
+ * Lingui configuration for \`@{{projectName}}/i18n\`.
+ *
+ * - Catalogs live in \`locales/{locale}/messages.po\` (source of truth).
+ * - \`i18n:compile\` compiles them to \`locales/{locale}/messages.ts\` so every
+ *   bundler (Vite, Next, Metro, Bun) can import them statically.
+ * - \`i18n:extract\` scans every app that can contain messages.
+ */
+import { defineConfig } from "@lingui/cli";
+import { formatter } from "@lingui/format-po";
+{{#if (or (includes frontend "nuxt") (and (includes addons "wxt") (eq addonOptions.wxt.template "vue")))}}
+import babel from "@lingui/cli/api/extractors/babel";
+import { createVueExtractor } from "@lingui/extractor-vue";
+{{/if}}
+
+import { locales, sourceLocale } from "./src/config";
+
+export default defineConfig({
+  locales: [...locales],
+  sourceLocale,
+  catalogs: [
+    {
+      path: "<rootDir>/locales/{locale}/messages",
+      include: [
+        "<rootDir>/../../apps/**/src/**",
+        "<rootDir>/../../apps/**/app/**",
+        "<rootDir>/../../apps/**/server/**",
+        "<rootDir>/../../apps/**/components/**",
+        "<rootDir>/../../apps/**/lib/**",
+        "<rootDir>/../../apps/**/hooks/**",
+        "<rootDir>/../../apps/**/utils/**",
+        "<rootDir>/../*/src/**",
+      ],
+      exclude: [
+        "**/node_modules/**",
+        "**/dist/**",
+        "**/build/**",
+        "**/out/**",
+        "**/.next/**",
+        "**/.nuxt/**",
+        "**/.output/**",
+        "**/.expo/**",
+        "**/.wxt/**",
+        "**/.react-router/**",
+        "**/routeTree.gen.*",
+        "**/*.test.*",
+      ],
+    },
+  ],
+  format: formatter(),
+  compileNamespace: "ts",
+  orderBy: "message",
+{{#if (or (includes frontend "solid") (and (includes addons "wxt") (eq addonOptions.wxt.template "solid")) (and (includes addons "opentui") (eq addonOptions.opentui.template "solid")))}}
+  macro: {
+    corePackage: ["@lingui/core/macro"],
+    jsxPackage: [
+{{#if (or (includes frontend "next") (includes frontend "tanstack-start") (includes frontend "tanstack-router") (includes frontend "react-router") (and (includes addons "wxt") (or (not addonOptions.wxt.template) (eq addonOptions.wxt.template "react"))) (and (includes addons "opentui") (eq addonOptions.opentui.template "react")))}}
+      "@lingui/react/macro",
+{{/if}}
+      "@lingui/solid/macro",
+    ],
+    jsxRuntime: "solid",
+  },
+  runtimeConfigModule: {
+    Trans: ["@lingui/solid", "Trans"],
+    useLingui: ["@lingui/solid", "useLingui"],
+  },
+{{/if}}
+{{#if (or (includes frontend "nuxt") (and (includes addons "wxt") (eq addonOptions.wxt.template "vue")))}}
+  extractors: [babel, createVueExtractor()],
+{{/if}}
+});
+`],
+  ["i18n/lib/lingui/scripts/apply.ts", `/**
+ * \`i18n:apply <file>\` — writes translations produced by the \`i18n-translate\`
+ * skill back into the catalogs.
+ *
+ * Input (\`{ "items": [...] }\`, the same \`id\`/\`locale\` the pending contract
+ * emits):
+ *
+ *   { "items": [{ "id": "vQhkQx", "locale": "fr", "translation": "Bonjour" }] }
+ *
+ * An item is rejected — and its catalog entry stays untouched — when the
+ * translation's ICU argument set differs from the source, when it uses a
+ * construct outside the exported ICU subset, or when the ID/locale does not
+ * exist. Rejections exit non-zero after the accepted items are written.
+ */
+import { readFileSync } from "node:fs";
+
+import { isConfiguredLocale, readCatalog, sourceLocale, writeCatalog } from "./catalogs";
+import { icuSignature, validateIcuSubset } from "./icu";
+import { findEntry, sourceTextOf, type PoCatalog } from "./po";
+
+export interface ApplyItem {
+  id: string;
+  locale: string;
+  translation: string;
+  context?: string | null;
+}
+
+export interface ApplyResult {
+  accepted: number;
+  rejected: { id: string; locale: string; reason: string }[];
+}
+
+export function applyTranslations(items: readonly ApplyItem[]): ApplyResult {
+  const sourceCatalog = readCatalog(sourceLocale);
+  const catalogs = new Map<string, PoCatalog>();
+  const dirty = new Set<string>();
+  const result: ApplyResult = { accepted: 0, rejected: [] };
+
+  const catalogFor = (locale: string): PoCatalog => {
+    let catalog = catalogs.get(locale);
+    if (!catalog) {
+      catalog = readCatalog(locale);
+      catalogs.set(locale, catalog);
+    }
+    return catalog;
+  };
+
+  for (const item of items) {
+    const reject = (reason: string): void => {
+      result.rejected.push({ id: item.id, locale: item.locale, reason });
+    };
+
+    if (!isConfiguredLocale(item.locale)) {
+      reject(\`"\${item.locale}" is not one of the configured locales.\`);
+      continue;
+    }
+    const sourceEntry = findEntry(sourceCatalog, item.id);
+    if (!sourceEntry) {
+      reject("Unknown message ID; run i18n:extract first.");
+      continue;
+    }
+    if (
+      item.context !== undefined &&
+      item.context !== null &&
+      item.context !== (sourceEntry.msgctxt ?? null)
+    ) {
+      reject(\`Context mismatch: expected \${sourceEntry.msgctxt ?? "none"}.\`);
+      continue;
+    }
+
+    const targetCatalog = catalogFor(item.locale);
+    const targetEntry = findEntry(targetCatalog, item.id);
+    if (!targetEntry) {
+      reject("Message missing from the target catalog; run i18n:extract first.");
+      continue;
+    }
+
+    const problems = validateIcuSubset(item.translation);
+    if (problems.length > 0) {
+      reject(\`Invalid ICU: \${problems.join(" ")}\`);
+      continue;
+    }
+
+    const sourceSignature = icuSignature(sourceTextOf(sourceEntry));
+    const translationSignature = icuSignature(item.translation);
+    if (sourceSignature !== translationSignature) {
+      reject(
+        \`Placeholder mismatch: source uses [\${sourceSignature}], translation uses [\${translationSignature}].\`,
+      );
+      continue;
+    }
+
+    targetEntry.msgstr = item.translation;
+    targetEntry.flags = targetEntry.flags.filter((flag) => flag !== "fuzzy");
+    dirty.add(item.locale);
+    result.accepted += 1;
+  }
+
+  for (const locale of dirty) {
+    writeCatalog(locale, catalogFor(locale));
+  }
+  return result;
+}
+
+if (import.meta.main) {
+  const file = process.argv[2];
+  if (!file) {
+    console.error("Usage: i18n:apply <file>");
+    process.exit(2);
+  }
+
+  let parsed: { items?: ApplyItem[] };
+  try {
+    parsed = JSON.parse(readFileSync(file, "utf8")) as { items?: ApplyItem[] };
+  } catch (error) {
+    console.error(
+      \`Could not read \${file}: \${error instanceof Error ? error.message : String(error)}\`,
+    );
+    process.exit(2);
+  }
+
+  if (!Array.isArray(parsed.items)) {
+    console.error('The apply file must contain an "items" array.');
+    process.exit(2);
+  }
+
+  const result = applyTranslations(parsed.items);
+  console.log(\`Applied \${result.accepted} translations.\`);
+  for (const rejection of result.rejected) {
+    console.error(\`Rejected \${rejection.id} (\${rejection.locale}): \${rejection.reason}\`);
+  }
+  if (result.rejected.length > 0) process.exit(1);
+}
+`],
+  ["i18n/lib/lingui/scripts/catalogs.ts", `/**
+ * Catalog file access for the \`i18n:*\` scripts.
+ *
+ * Catalogs live at \`locales/<locale>/messages.po\`; \`i18n:compile\` writes the
+ * compiled \`messages.ts\` next to them. The locale list is the single source of
+ * truth in \`src/config.ts\`.
+ */
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+import { locales, sourceLocale } from "../src/config";
+import { createHeader, parsePoFile, serializePoFile, type PoCatalog } from "./po";
+
+export const packageRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+
+export { locales, sourceLocale };
+
+export function isConfiguredLocale(value: string): boolean {
+  return locales.some((locale) => locale === value);
+}
+
+export function catalogPath(locale: string): string {
+  return path.join(packageRoot, "locales", locale, "messages.po");
+}
+
+export function readCatalog(locale: string): PoCatalog {
+  const file = catalogPath(locale);
+  if (!existsSync(file)) {
+    return { headers: createHeader(locale), entries: [] };
+  }
+  return parsePoFile(readFileSync(file, "utf8"));
+}
+
+export function writeCatalog(locale: string, catalog: PoCatalog): void {
+  const file = catalogPath(locale);
+  mkdirSync(path.dirname(file), { recursive: true });
+  catalog.headers = { ...catalog.headers, Language: locale };
+  writeFileSync(file, serializePoFile(catalog));
+}
+
+/** Target locales that receive translations: every configured locale except the source. */
+export function targetLocales(): string[] {
+  return locales.filter((locale) => locale !== sourceLocale);
+}
+`],
+  ["i18n/lib/lingui/scripts/check.ts", `/**
+ * \`i18n:check\` — fails when a catalog is out of sync with the source or has
+ * missing/invalid translations. \`I18N_CHECK_ALLOW_MISSING=1\` relaxes missing
+ * translations for local development; sync and compile errors still fail.
+ */
+import { runLinguiCli } from "./lingui-cli";
+
+const allowMissing = process.env.I18N_CHECK_ALLOW_MISSING === "1";
+
+const missingStatus = runLinguiCli(["check", "missing"]);
+const syncStatus = runLinguiCli(["check", "sync"]);
+
+if (syncStatus !== 0) {
+  process.exit(syncStatus);
+}
+
+if (missingStatus !== 0) {
+  if (!allowMissing) process.exit(missingStatus);
+  console.warn("I18N_CHECK_ALLOW_MISSING=1: missing translations are allowed for this run.");
+}
+`],
+  ["i18n/lib/lingui/scripts/compile.ts", `/**
+ * \`i18n:compile\` — compiles \`locales/<locale>/messages.po\` into
+ * \`locales/<locale>/messages.ts\` so every bundler can import them statically.
+ */
+import { runLinguiCli } from "./lingui-cli";
+
+process.exitCode = runLinguiCli(["compile"]);
+`],
+  ["i18n/lib/lingui/scripts/contract.ts", `/**
+ * The library-independent translation-script contract (design D8).
+ *
+ * \`i18n:pending\`, \`i18n:apply\` and \`i18n:check\` speak the same JSON shapes for
+ * every i18n library. This module is the single definition of those shapes:
+ * the \`i18n-translate\` skill writes exactly the file \`decodeApplyFile\`
+ * accepts, \`parsePendingReport\` validates what \`i18n:pending\` prints, and
+ * \`i18n:check\` reads the \`I18N_CHECK_ALLOW_MISSING\` environment variable.
+ *
+ * Everything here is library-independent: no compatibility rules, no catalog
+ * formats and no library imports. Each library ships an identical copy so the
+ * generated \`packages/i18n/scripts/contract.ts\` always matches the scripts
+ * next to it.
+ */
+
+/** One untranslated message from \`i18n:pending\`. */
+export interface PendingItem {
+  readonly id: string;
+  readonly locale: string;
+  readonly source: string;
+  readonly context: string | null;
+  readonly comments: readonly string[];
+  readonly references: readonly string[];
+  readonly placeholders: readonly string[];
+  /** Library-specific: \`missing\`, \`empty\`, \`pending\`, \`fuzzy\`, \`obsolete\`, … */
+  readonly status: string;
+}
+
+/** The JSON envelope \`i18n:pending\` prints on stdout. */
+export interface PendingReport {
+  readonly library: string;
+  readonly sourceLocale: string;
+  readonly items: readonly PendingItem[];
+}
+
+/**
+ * One item of the file passed to \`i18n:apply <file>\`.
+ *
+ * \`translation\` is a single form. \`translations\` carries one entry per plural
+ * form (in the locale's CLDR order) for libraries whose catalogs store plural
+ * forms separately, such as wuchale. Exactly one of the two is required.
+ */
+export interface ApplyItem {
+  readonly id: string;
+  readonly locale: string;
+  readonly translation?: string;
+  readonly translations?: readonly string[];
+  readonly context?: string | null;
+}
+
+/** The file \`i18n:apply <file>\` consumes. */
+export interface ApplyFile {
+  readonly items: readonly ApplyItem[];
+}
+
+export interface ApplyFileOptions {
+  /**
+   * Translations are written for target locales only; the source locale is
+   * edited in the catalogs directly. An item for the source locale is a
+   * contract violation.
+   */
+  readonly sourceLocale: string;
+}
+
+/** \`i18n:check\` relaxes missing translations when this is \`"1"\`. */
+export const I18N_CHECK_ALLOW_MISSING = "I18N_CHECK_ALLOW_MISSING";
+
+export function isMissingAllowed(
+  environment: Record<string, string | undefined> = process.env,
+): boolean {
+  return environment[I18N_CHECK_ALLOW_MISSING] === "1";
+}
+
+/** Raised when output or input violates the D8 contract. */
+export class I18nContractError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "I18nContractError";
+  }
+}
+
+function fail(message: string): never {
+  throw new I18nContractError(message);
+}
+
+function requireNonEmptyString(value: string | undefined, path: string): string {
+  if (value === undefined || value.trim().length === 0) {
+    fail(\`\${path} must be a non-empty string\`);
+  }
+  return value;
+}
+
+function requireStringArray(value: readonly string[] | undefined, path: string): readonly string[] {
+  if (!Array.isArray(value)) fail(\`\${path} must be an array of strings\`);
+  return value;
+}
+
+function normalizePendingItem(item: PendingItem, path: string): PendingItem {
+  return {
+    id: requireNonEmptyString(item.id, \`\${path}.id\`),
+    locale: requireNonEmptyString(item.locale, \`\${path}.locale\`),
+    source: requireNonEmptyString(item.source, \`\${path}.source\`),
+    context: item.context ?? null,
+    comments: requireStringArray(item.comments, \`\${path}.comments\`),
+    references: requireStringArray(item.references, \`\${path}.references\`),
+    placeholders: requireStringArray(item.placeholders, \`\${path}.placeholders\`),
+    status: requireNonEmptyString(item.status, \`\${path}.status\`),
+  };
+}
+
+/** Parses and validates the stdout of \`i18n:pending\`. */
+export function parsePendingReport(stdout: string): PendingReport {
+  let parsed: Partial<PendingReport> | null;
+  try {
+    parsed = JSON.parse(stdout) as Partial<PendingReport> | null;
+  } catch (error) {
+    fail(
+      \`i18n:pending output is not JSON: \${error instanceof Error ? error.message : String(error)}\`,
+    );
+  }
+  if (!parsed || Array.isArray(parsed)) fail("i18n:pending output must be an object");
+
+  const items = parsed.items;
+  if (!Array.isArray(items)) fail("i18n:pending output must contain an items array");
+
+  return {
+    library: requireNonEmptyString(parsed.library, "library"),
+    sourceLocale: requireNonEmptyString(parsed.sourceLocale, "sourceLocale"),
+    items: items.map((item, index) => normalizePendingItem(item, \`items[\${index}]\`)),
+  };
+}
+
+interface ApplyItemDraft {
+  id: string;
+  locale: string;
+  translation?: string;
+  translations?: readonly string[];
+  context: string | null;
+}
+
+function normalizeApplyItem(
+  item: ApplyItem,
+  path: string,
+  options: ApplyFileOptions,
+): ApplyItemDraft {
+  const id = requireNonEmptyString(item.id, \`\${path}.id\`);
+  const locale = requireNonEmptyString(item.locale, \`\${path}.locale\`);
+  if (locale === options.sourceLocale) {
+    fail(\`\${path}.locale is the source locale "\${locale}"; edit the source catalog instead\`);
+  }
+
+  const translation = item.translation;
+  const translations = item.translations;
+  if (translation === undefined && translations === undefined) {
+    fail(\`\${path} needs a translation or a translations array\`);
+  }
+
+  const draft: ApplyItemDraft = { id, locale, context: item.context ?? null };
+  if (translation !== undefined) {
+    draft.translation = requireNonEmptyString(translation, \`\${path}.translation\`);
+  }
+  if (translations !== undefined) {
+    if (!Array.isArray(translations) || translations.length === 0) {
+      fail(\`\${path}.translations must contain at least one form\`);
+    }
+    draft.translations = translations;
+  }
+  return draft;
+}
+
+/**
+ * Parses and validates the \`i18n:apply <file>\` payload: an object with a
+ * non-empty \`items\` array, every item targeting a configured non-source
+ * locale, with no duplicate \`(id, locale)\` pair.
+ */
+export function decodeApplyFile(text: string, options: ApplyFileOptions): ApplyFile {
+  let parsed: Partial<ApplyFile> | null;
+  try {
+    parsed = JSON.parse(text) as Partial<ApplyFile> | null;
+  } catch (error) {
+    fail(\`the apply file is not JSON: \${error instanceof Error ? error.message : String(error)}\`);
+  }
+  if (!parsed || Array.isArray(parsed)) {
+    fail('the apply file must be an object with an "items" array');
+  }
+
+  const items = parsed.items;
+  if (!Array.isArray(items)) fail('the apply file must contain an "items" array');
+  if (items.length === 0) {
+    fail("the apply file must contain at least one item; skip i18n:apply when nothing is pending");
+  }
+
+  const seen = new Set<string>();
+  const decoded = items.map((item, index) => {
+    const parsedItem = normalizeApplyItem(item, \`items[\${index}]\`, options);
+    const key = \`\${parsedItem.id}\\u0000\${parsedItem.locale}\`;
+    if (seen.has(key)) {
+      fail(\`items[\${index}] duplicates \${parsedItem.id} (\${parsedItem.locale})\`);
+    }
+    seen.add(key);
+    return parsedItem;
+  });
+
+  return { items: decoded };
+}
+`],
+  ["i18n/lib/lingui/scripts/export.ts", `/**
+ * \`i18n:export\` — normalizes every PO catalog into the shared normalized
+ * catalog that JS tooling consumes (e.g. \`i18n:sync-wxt\`):
+ *
+ *   { sourceLocale, locales, messages: { "<id>": { source, context, translations } } }
+ *
+ * Message IDs are the library's own IDs (\`generateMessageId(source, context)\`
+ * for generated-ID entries, the literal \`msgid\` for explicit-ID ones). Every
+ * translation is validated as an ICU MessageFormat subset; a construct outside
+ * the subset makes the script fail and names the message ID.
+ */
+import { mkdirSync, writeFileSync } from "node:fs";
+import path from "node:path";
+
+import { packageRoot, readCatalog, sourceLocale, targetLocales } from "./catalogs";
+import { validateIcuSubset } from "./icu";
+import { catalogId, sourceTextOf } from "./po";
+
+export interface NormalizedMessage {
+  source: string;
+  context: string | null;
+  translations: Record<string, string>;
+}
+
+export interface NormalizedCatalog {
+  sourceLocale: string;
+  locales: string[];
+  messages: Record<string, NormalizedMessage>;
+}
+
+export interface ExportResult {
+  ok: boolean;
+  messages?: number;
+  errors: string[];
+}
+
+export interface CatalogBuildResult {
+  catalog: NormalizedCatalog;
+  errors: string[];
+}
+
+export function buildCatalog(): CatalogBuildResult {
+  const errors: string[] = [];
+  const source = readCatalog(sourceLocale);
+  const targets = targetLocales().map((locale) => ({ locale, catalog: readCatalog(locale) }));
+
+  const messages: Record<string, NormalizedMessage> = {};
+
+  for (const entry of source.entries) {
+    if (entry.obsolete) continue;
+    const id = catalogId(entry);
+    const sourceText = sourceTextOf(entry);
+    const translations: Record<string, string> = {};
+
+    for (const problem of validateIcuSubset(sourceText)) {
+      errors.push(\`\${id} (\${sourceLocale}): \${problem}\`);
+    }
+    translations[sourceLocale] = sourceText;
+
+    for (const { locale, catalog } of targets) {
+      const translated = catalog.entries.find(
+        (candidate) => !candidate.obsolete && catalogId(candidate) === id,
+      );
+      const value = translated?.msgstr.trim() ? translated.msgstr : sourceText;
+      for (const problem of validateIcuSubset(value)) {
+        errors.push(\`\${id} (\${locale}): \${problem}\`);
+      }
+      translations[locale] = value;
+    }
+
+    messages[id] = {
+      source: sourceText,
+      context: entry.msgctxt ?? null,
+      translations,
+    };
+  }
+
+  return {
+    catalog: { sourceLocale, locales: [sourceLocale, ...targetLocales()], messages },
+    errors,
+  };
+}
+
+export function exportCatalog(
+  outFile = path.join(packageRoot, "dist", "catalog.json"),
+): ExportResult {
+  const { catalog, errors } = buildCatalog();
+  if (errors.length > 0) {
+    return { ok: false, errors };
+  }
+
+  mkdirSync(path.dirname(outFile), { recursive: true });
+  writeFileSync(outFile, \`\${JSON.stringify(catalog, null, 2)}\\n\`);
+  return { ok: true, messages: Object.keys(catalog.messages).length, errors: [] };
+}
+
+if (import.meta.main) {
+  const result = exportCatalog();
+  if (!result.ok) {
+    console.error("i18n:export failed:");
+    for (const error of result.errors) console.error(\`  - \${error}\`);
+    process.exit(1);
+  }
+  console.log(\`Exported \${result.messages} messages to dist/catalog.json\`);
+}
+`],
+  ["i18n/lib/lingui/scripts/extract.ts", `/**
+ * \`i18n:extract\` — scans every app for Lingui macros and refreshes
+ * \`locales/<locale>/messages.po\`, removing obsolete entries.
+ */
+import { runLinguiCli } from "./lingui-cli";
+
+process.exitCode = runLinguiCli(["extract", "--clean"]);
+`],
+  ["i18n/lib/lingui/scripts/icu.ts", `/**
+ * ICU MessageFormat subset analysis shared by the Lingui \`i18n:*\` scripts.
+ *
+ * \`i18n:export\` must fail loudly when a message uses constructs outside the
+ * exported ICU subset, and \`i18n:apply\` must reject translations whose
+ * argument sets differ from the source. Both use the analyzer here.
+ */
+
+const SUPPORTED_TYPES = new Set(["plural", "selectordinal", "select", "number", "date", "time"]);
+
+const IDENTIFIER = /[A-Za-z0-9_$@.-]/;
+const KEY = /[A-Za-z0-9_=+-]/;
+
+export interface IcuArgument {
+  name: string;
+  type: "argument" | "plural" | "selectordinal" | "select" | "format";
+  categories: string[];
+}
+
+export interface IcuAnalysis {
+  arguments: IcuArgument[];
+  issues: string[];
+}
+
+interface ScanState {
+  text: string;
+  index: number;
+  depth: number;
+  pluralDepth: number;
+  issues: string[];
+}
+
+function scanIdentifier(state: ScanState): string {
+  let value = "";
+  while (state.index < state.text.length) {
+    const character = state.text[state.index] ?? "";
+    if (!IDENTIFIER.test(character)) break;
+    value += character;
+    state.index += 1;
+  }
+  return value;
+}
+
+function skipWhitespace(state: ScanState): void {
+  while (state.index < state.text.length && /\\s/.test(state.text[state.index] ?? "")) {
+    state.index += 1;
+  }
+}
+
+function scanKey(state: ScanState): string {
+  let value = "";
+  while (state.index < state.text.length) {
+    const character = state.text[state.index] ?? "";
+    if (!KEY.test(character)) break;
+    value += character;
+    state.index += 1;
+  }
+  return value;
+}
+
+function scanMessage(state: ScanState, untilBrace: boolean, argumentsList: IcuArgument[]): void {
+  while (state.index < state.text.length) {
+    const character = state.text[state.index] ?? "";
+
+    if (character === "}") {
+      if (untilBrace) {
+        state.index += 1;
+        return;
+      }
+      state.issues.push('Unexpected "}".');
+      state.index += 1;
+      continue;
+    }
+
+    if (character === "#") {
+      if (state.pluralDepth === 0) {
+        state.issues.push('"#" is only supported inside plural arguments.');
+      }
+      state.index += 1;
+      continue;
+    }
+
+    if (character !== "{") {
+      state.index += 1;
+      continue;
+    }
+
+    state.index += 1;
+    skipWhitespace(state);
+    const name = scanIdentifier(state);
+    skipWhitespace(state);
+
+    const next = state.text[state.index] ?? "";
+    if (next === "}") {
+      state.index += 1;
+      if (!name) state.issues.push("Empty argument name.");
+      else argumentsList.push({ name, type: "argument", categories: [] });
+      continue;
+    }
+
+    if (next !== ",") {
+      state.issues.push(\`Invalid argument syntax near "\${name || "{"}".\`);
+      state.index += 1;
+      continue;
+    }
+    state.index += 1;
+    skipWhitespace(state);
+    const type = scanIdentifier(state);
+    skipWhitespace(state);
+
+    if (!SUPPORTED_TYPES.has(type)) {
+      state.issues.push(\`Unsupported argument type "\${type}" in "{\${name}, \${type}".\`);
+    }
+
+    if (type === "plural" || type === "selectordinal" || type === "select") {
+      const categories: string[] = [];
+      state.pluralDepth += type === "select" ? 0 : 1;
+      while (state.index < state.text.length) {
+        skipWhitespace(state);
+        const character = state.text[state.index] ?? "";
+        if (character === "}") {
+          state.index += 1;
+          break;
+        }
+        if (character === "{") {
+          state.issues.push('Expected a category key before "{".');
+          state.index += 1;
+          state.depth += 1;
+          scanMessage(state, true, argumentsList);
+          state.depth -= 1;
+          continue;
+        }
+        const category = scanKey(state);
+        if (!category) {
+          state.index += 1;
+          continue;
+        }
+        categories.push(category);
+        skipWhitespace(state);
+        if ((state.text[state.index] ?? "") === "{") {
+          state.index += 1;
+          state.depth += 1;
+          scanMessage(state, true, argumentsList);
+          state.depth -= 1;
+        }
+      }
+      state.pluralDepth -= type === "select" ? 0 : 1;
+      if (!name) state.issues.push("Missing argument name.");
+      else {
+        argumentsList.push({
+          name,
+          type:
+            type === "selectordinal" ? "selectordinal" : type === "select" ? "select" : "plural",
+          categories: [...categories].sort(),
+        });
+      }
+      continue;
+    }
+
+    // Format arguments (\`number\`, \`date\`, \`time\`) keep the style, not a message.
+    let braces = 0;
+    for (; state.index < state.text.length; state.index += 1) {
+      const inner = state.text[state.index] ?? "";
+      if (inner === "{") braces += 1;
+      else if (inner === "}") {
+        braces -= 1;
+        if (braces < 0) {
+          state.index += 1;
+          break;
+        }
+      }
+    }
+    if (name) argumentsList.push({ name, type: "format", categories: [] });
+  }
+
+  if (untilBrace) state.issues.push('Missing closing "}".');
+}
+
+export function analyzeIcu(message: string): IcuAnalysis {
+  const state: ScanState = { text: message, index: 0, depth: 0, pluralDepth: 0, issues: [] };
+  const argumentsList: IcuArgument[] = [];
+  scanMessage(state, false, argumentsList);
+  return { arguments: argumentsList, issues: state.issues };
+}
+
+/** Returns the list of problems that keep a message out of the supported ICU subset. */
+export function validateIcuSubset(message: string): string[] {
+  return analyzeIcu(message).issues;
+}
+
+/**
+ * Canonical, comparable form of a message's argument set. Two messages with
+ * the same signature accept exactly the same values, so \`i18n:apply\` compares
+ * the source signature with the translation signature.
+ */
+export function icuSignature(message: string): string {
+  return analyzeIcu(message)
+    .arguments.map((argument) =>
+      argument.type === "argument" || argument.type === "format"
+        ? argument.name
+        : \`\${argument.name}:\${argument.type}[\${argument.categories.join(",")}]\`,
+    )
+    .sort()
+    .join("|");
+}
+
+/** The names \`i18n:pending\` hands to translators so they can keep placeholders intact. */
+export function icuPlaceholders(message: string): string[] {
+  return [...new Set(analyzeIcu(message).arguments.map((argument) => argument.name))].sort();
+}
+`],
+  ["i18n/lib/lingui/scripts/lingui-cli.ts", `/**
+ * Runs the local \`@lingui/cli\` for the commands it owns (\`extract\`, \`compile\`,
+ * \`check\`). Spawning the CLI keeps its catalog semantics authoritative instead
+ * of re-implementing them; \`pending\`/\`apply\` still run in-process against the
+ * PO files so the JSON contract stays library-independent.
+ *
+ * The CLI spawns its subcommands through \`process.argv[0]\`, which breaks under
+ * \`bun x\` (the child inherits \`bun x\` as \`execArgv\` and exits silently). The
+ * scripts therefore resolve the local bin and run it with the current runtime.
+ */
+import { spawnSync } from "node:child_process";
+import { existsSync, realpathSync } from "node:fs";
+import path from "node:path";
+
+import { packageRoot } from "./catalogs";
+
+function resolveLinguiBin(): string | undefined {
+  let dir = packageRoot;
+  for (;;) {
+    const candidate = path.join(dir, "node_modules", ".bin", "lingui");
+    if (existsSync(candidate)) {
+      try {
+        return realpathSync(candidate);
+      } catch {
+        return candidate;
+      }
+    }
+    const parent = path.dirname(dir);
+    if (parent === dir) return undefined;
+    dir = parent;
+  }
+}
+
+export function runLinguiCli(args: string[]): number {
+  const bin = resolveLinguiBin();
+  const commandArgs = bin ? [bin, ...args] : ["x", "lingui", ...args];
+  const result = spawnSync(process.execPath, commandArgs, {
+    cwd: packageRoot,
+    stdio: "inherit",
+  });
+
+  if (result.error) {
+    throw result.error;
+  }
+  return result.status ?? 1;
+}
+`],
+  ["i18n/lib/lingui/scripts/pending.ts", `import { isConfiguredLocale, readCatalog, sourceLocale, targetLocales } from "./catalogs";
+import { icuPlaceholders } from "./icu";
+/**
+ * \`i18n:pending [--locale <l> | --all] [--limit N]\` — emits the library-independent
+ * JSON contract the \`i18n-translate\` skill consumes:
+ *
+ *   { library, sourceLocale, items: [{ id, locale, source, context, comments,
+ *     references, placeholders, status }] }
+ *
+ * Only messages that still need a translation (missing or fuzzy) are listed.
+ */
+import type { PoEntry } from "./po";
+import { catalogId, sourceTextOf } from "./po";
+
+export type PendingStatus = "missing" | "fuzzy";
+
+export interface PendingItem {
+  id: string;
+  locale: string;
+  source: string;
+  context: string | null;
+  comments: string[];
+  references: string[];
+  placeholders: string[];
+  status: PendingStatus;
+}
+
+export interface PendingContract {
+  library: "lingui";
+  sourceLocale: string;
+  items: PendingItem[];
+}
+
+function statusOf(entry: PoEntry): PendingStatus | undefined {
+  if (entry.flags.includes("fuzzy")) return "fuzzy";
+  if (entry.msgstr.trim() === "") return "missing";
+  return undefined;
+}
+
+export function collectPending(localeList: readonly string[], limit?: number): PendingContract {
+  const sourceCatalog = readCatalog(sourceLocale);
+  const items: PendingItem[] = [];
+
+  for (const entry of sourceCatalog.entries) {
+    if (entry.obsolete) continue;
+    const id = catalogId(entry);
+    const source = sourceTextOf(entry);
+    for (const locale of localeList) {
+      const target = readCatalog(locale).entries.find(
+        (candidate) => !candidate.obsolete && catalogId(candidate) === id,
+      );
+      const status = target ? statusOf(target) : "missing";
+      if (!status) continue;
+      items.push({
+        id,
+        locale,
+        source,
+        context: entry.msgctxt ?? null,
+        comments: entry.comments,
+        references: entry.references,
+        placeholders: icuPlaceholders(source),
+        status,
+      });
+      if (limit !== undefined && items.length >= limit)
+        return { library: "lingui", sourceLocale, items };
+    }
+  }
+
+  return { library: "lingui", sourceLocale, items };
+}
+
+interface PendingOptions {
+  locales: string[];
+  limit?: number;
+  error?: string;
+}
+
+export function parsePendingArgs(argv: readonly string[]): PendingOptions {
+  const locales: string[] = [];
+  let all = false;
+  let limit: number | undefined;
+
+  for (let index = 0; index < argv.length; index += 1) {
+    const argument = argv[index];
+    if (argument === "--all") {
+      all = true;
+      continue;
+    }
+    if (argument === "--locale") {
+      const value = argv[index + 1];
+      index += 1;
+      if (!value) return { locales, error: "--locale requires a value." };
+      locales.push(value);
+      continue;
+    }
+    if (argument === "--limit") {
+      const value = Number(argv[index + 1]);
+      index += 1;
+      if (!Number.isInteger(value) || value <= 0) {
+        return { locales, error: "--limit requires a positive integer." };
+      }
+      limit = value;
+      continue;
+    }
+    return { locales, error: \`Unknown argument: \${argument}\` };
+  }
+
+  if (all) return { locales: targetLocales(), limit };
+  if (locales.length === 0) return { locales, limit, error: "Pass --locale <locale> or --all." };
+
+  for (const locale of locales) {
+    if (!isConfiguredLocale(locale)) {
+      return { locales, limit, error: \`"\${locale}" is not one of the configured locales.\` };
+    }
+  }
+  return { locales: locales.filter((locale) => locale !== sourceLocale), limit };
+}
+
+if (import.meta.main) {
+  const options = parsePendingArgs(process.argv.slice(2));
+  if (options.error) {
+    console.error(options.error);
+    process.exit(2);
+  }
+  console.log(JSON.stringify(collectPending(options.locales, options.limit), null, 2));
+}
+`],
+  ["i18n/lib/lingui/scripts/po.ts", `/**
+ * Minimal gettext PO reader/writer for the shared \`i18n:*\` script contract.
+ *
+ * The generated project owns its catalogs, so the scripts read and write the
+ * exact Lingui PO shape (\`msgid\` = source text, optional \`msgctxt\`, \`js-lingui-*\`
+ * flags, \`#.\` comments, \`#:\` references, \`#~\` obsolete entries) without pulling
+ * in extra parsing dependencies.
+ */
+import { createHash } from "node:crypto";
+
+export interface PoEntry {
+  msgid: string;
+  msgctxt?: string;
+  msgstr: string;
+  comments: string[];
+  references: string[];
+  flags: string[];
+  obsolete: boolean;
+  previous?: string;
+}
+
+export interface PoCatalog {
+  headers: Record<string, string>;
+  entries: PoEntry[];
+}
+
+export const EXPLICIT_ID_FLAG = "js-lingui-explicit-id";
+
+/**
+ * Lingui v6 message ID: first 6 chars of base64url(sha256(message + 0x1F + context)).
+ * Must stay in sync with the macro transform so \`i18n:apply\` can address
+ * generated-ID entries; a round-trip test locks it.
+ */
+export function generateMessageId(message: string, context = ""): string {
+  const digest = createHash("sha256")
+    .update(message)
+    .update("\\u001f")
+    .update(context)
+    .digest("base64url");
+  return digest.slice(0, 6);
+}
+
+/** The runtime ID of a PO entry: explicit IDs stay as-is, generated ones are hashes. */
+export function catalogId(entry: PoEntry): string {
+  if (entry.flags.includes(EXPLICIT_ID_FLAG)) return entry.msgid;
+  return generateMessageId(entry.msgid, entry.msgctxt ?? "");
+}
+
+/**
+ * Source text of a PO entry. Generated-ID entries carry the source in \`msgid\`;
+ * explicit-ID entries use \`msgid\` as the ID and keep the source text in the
+ * source-locale \`msgstr\`.
+ */
+export function sourceTextOf(entry: PoEntry): string {
+  if (!entry.flags.includes(EXPLICIT_ID_FLAG)) return entry.msgid;
+  return entry.msgstr.trim() === "" ? entry.msgid : entry.msgstr;
+}
+
+export function unescapePo(value: string): string {
+  let result = "";
+  for (let index = 0; index < value.length; index += 1) {
+    const character = value[index] ?? "";
+    if (character !== "\\\\") {
+      result += character;
+      continue;
+    }
+    const next = value[index + 1];
+    index += 1;
+    switch (next) {
+      case "n":
+        result += "\\n";
+        break;
+      case "t":
+        result += "\\t";
+        break;
+      case "r":
+        result += "\\r";
+        break;
+      case '"':
+        result += '"';
+        break;
+      case "\\\\":
+        result += "\\\\";
+        break;
+      default:
+        result += next ?? "";
+    }
+  }
+  return result;
+}
+
+export function escapePo(value: string): string {
+  return value
+    .replace(/\\\\/g, "\\\\\\\\")
+    .replace(/"/g, '\\\\"')
+    .replace(/\\n/g, "\\\\n")
+    .replace(/\\t/g, "\\\\t")
+    .replace(/\\r/g, "\\\\r");
+}
+
+function quotedValue(line: string): string | undefined {
+  const match = /^"((?:[^"\\\\]|\\\\.)*)"$/.exec(line);
+  return match ? unescapePo(match[1] ?? "") : undefined;
+}
+
+function emptyEntry(): PoEntry {
+  return {
+    msgid: "",
+    msgstr: "",
+    comments: [],
+    references: [],
+    flags: [],
+    obsolete: false,
+  };
+}
+
+interface ParserState {
+  entry: PoEntry;
+  field?: "msgid" | "msgctxt" | "msgstr";
+}
+
+/** Parses one PO file. Header entries (\`msgid ""\`) feed \`headers\`. */
+export function parsePoFile(content: string): PoCatalog {
+  const headers: Record<string, string> = {};
+  const entries: PoEntry[] = [];
+  let state: ParserState | undefined;
+
+  const pushEntry = (): void => {
+    if (!state) return;
+    const entry = state.entry;
+    if (entry.msgid === "" && entry.msgctxt === undefined && !entry.obsolete) {
+      for (const line of entry.msgstr.split("\\n")) {
+        const separator = line.indexOf(":");
+        if (separator > 0) {
+          headers[line.slice(0, separator).trim()] = line.slice(separator + 1).trim();
+        }
+      }
+    } else if (entry.msgid !== "" || entry.msgctxt !== undefined) {
+      entries.push(entry);
+    }
+    state = undefined;
+  };
+
+  for (const rawLine of content.split(/\\r?\\n/)) {
+    const isObsolete = rawLine.startsWith("#~");
+    const line = isObsolete ? rawLine.replace(/^#~\\s?/, "") : rawLine;
+    const trimmed = line.trim();
+
+    if (trimmed === "") {
+      pushEntry();
+      continue;
+    }
+
+    if (trimmed.startsWith("#.")) {
+      state ??= { entry: emptyEntry() };
+      state.entry.comments.push(trimmed.slice(2).trim());
+      continue;
+    }
+    if (trimmed.startsWith("#:")) {
+      state ??= { entry: emptyEntry() };
+      state.entry.references.push(...trimmed.slice(2).trim().split(/\\s+/));
+      continue;
+    }
+    if (trimmed.startsWith("#,")) {
+      state ??= { entry: emptyEntry() };
+      state.entry.flags.push(
+        ...trimmed
+          .slice(2)
+          .split(",")
+          .map((flag) => flag.trim())
+          .filter(Boolean),
+      );
+      continue;
+    }
+    if (trimmed.startsWith("#|")) {
+      state ??= { entry: emptyEntry() };
+      const value = quotedValue(trimmed.slice(2).trim());
+      if (value !== undefined) state.entry.previous = value;
+      continue;
+    }
+    if (trimmed.startsWith("#")) {
+      state ??= { entry: emptyEntry() };
+      continue;
+    }
+
+    const continuation = quotedValue(trimmed);
+    if (continuation !== undefined) {
+      if (state?.field) {
+        state.entry[state.field] = (state.entry[state.field] ?? "") + continuation;
+      }
+      continue;
+    }
+
+    const keyword = /^(msgid|msgctxt|msgstr)(?:\\s+(.*))?$/.exec(trimmed);
+    if (keyword) {
+      const field = keyword[1] as ParserState["field"];
+      const value = quotedValue(keyword[2] ?? '""') ?? "";
+      state ??= { entry: emptyEntry() };
+      state.field = field;
+      if (field) state.entry[field] = value;
+      if (isObsolete) state.entry.obsolete = true;
+      continue;
+    }
+
+    if (isObsolete) {
+      state ??= { entry: emptyEntry() };
+      state.entry.obsolete = true;
+    }
+  }
+
+  pushEntry();
+  return { headers, entries };
+}
+
+function wrapString(keyword: string, value: string): string {
+  if (!value.includes("\\n")) return \`\${keyword} "\${escapePo(value)}"\`;
+  const lines = value.split("\\n");
+  const parts = [\`\${keyword} "\${escapePo(lines[0] ?? "")}\\\\n"\`];
+  for (let index = 1; index < lines.length; index += 1) {
+    const last = index === lines.length - 1;
+    parts.push(\`"\${escapePo(lines[index] ?? "")}\${last ? "" : "\\\\n"}"\`);
+  }
+  return parts.join("\\n");
+}
+
+/** Serializes a catalog. Active entries keep their order; obsolete ones move last. */
+export function serializePoFile(catalog: PoCatalog): string {
+  const header = \`msgid ""\\nmsgstr ""\\n\${Object.entries(catalog.headers)
+    .map(([key, value]) => \`"\${escapePo(\`\${key}: \${value}\\n\`)}"\`)
+    .join("\\n")}\`;
+
+  const blocks: string[] = [];
+  const obsolete: string[] = [];
+  for (const entry of catalog.entries) {
+    const lines: string[] = [];
+    for (const comment of entry.comments) lines.push(\`#. \${comment}\`);
+    if (entry.references.length > 0) lines.push(\`#: \${entry.references.join(" ")}\`);
+    if (entry.previous !== undefined) lines.push(\`#| msgid "\${escapePo(entry.previous)}"\`);
+    if (entry.flags.length > 0) lines.push(\`#, \${entry.flags.join(", ")}\`);
+    if (entry.msgctxt !== undefined) lines.push(wrapString("msgctxt", entry.msgctxt), "");
+    lines.push(wrapString("msgid", entry.msgid));
+    lines.push(wrapString("msgstr", entry.msgstr));
+    const block = lines.join("\\n");
+    if (entry.obsolete)
+      obsolete.push(
+        block
+          .split("\\n")
+          .map((line) => \`#~ \${line}\`)
+          .join("\\n"),
+      );
+    else blocks.push(block);
+  }
+
+  const sections = [header, ...blocks];
+  if (obsolete.length > 0) sections.push(...obsolete);
+  return \`\${sections.filter((section) => section.trim() !== "").join("\\n\\n")}\\n\`;
+}
+
+export function findEntry(catalog: PoCatalog, id: string): PoEntry | undefined {
+  return catalog.entries.find((entry) => !entry.obsolete && catalogId(entry) === id);
+}
+
+export function createHeader(language: string) {
+  return {
+    "MIME-Version": "1.0",
+    "Content-Type": "text/plain; charset=utf-8",
+    "Content-Transfer-Encoding": "8bit",
+    "X-Generator": "@lingui/cli",
+    Language: language,
+  };
+}
+`],
+  ["i18n/lib/lingui/src/runtime.ts.hbs", `/**
+ * Lingui runtime for \`@{{projectName}}/i18n\`.
+ *
+ * The shared \`i18n\` instance is created by \`@lingui/core\` and activated by the
+ * surface glue in each app. Catalogs are compiled by \`i18n:compile\`
+ * (\`lingui compile\`, \`compileNamespace: "ts"\`) into \`locales/<locale>/messages.ts\`;
+ * the static loader map below keeps bundlers (Vite, Next, Metro, Bun) happy —
+ * no dynamic \`import()\` expressions with variables.
+ *
+ * Formatting is *not* part of this file: every surface formats dates, numbers,
+ * currencies and plurals through \`createFormatters()\` from \`./format\`.
+ */
+import { i18n, setupI18n as createI18n } from "@lingui/core";
+import type { I18n, Messages } from "@lingui/core";
+
+import { negotiateLocale, sourceLocale } from "./config";
+import type { Locale, NegotiateLocaleInput } from "./config";
+
+export { i18n };
+export type { I18n, Messages };
+
+/** One static loader per configured locale: \`locales/<locale>/messages.ts\`. */
+const catalogLoaders: Record<Locale, () => Promise<{ messages: Messages }>> = {
+{{#if i18nOptions.locales}}
+{{#each i18nOptions.locales}}  "{{this}}": () => import(\`../locales/{{this}}/messages\`),
+{{/each}}
+{{else}}
+  "en": () => import("../locales/en/messages"),
+  "es": () => import("../locales/es/messages"),
+  "fr": () => import("../locales/fr/messages"),
+{{/if}}
+};
+
+export function hasCatalogLoader(locale: string): locale is Locale {
+  return Object.prototype.hasOwnProperty.call(catalogLoaders, locale);
+}
+
+export async function loadCatalog(locale: Locale): Promise<Messages> {
+  const { messages } = await catalogLoaders[locale]();
+  return messages;
+}
+
+/** Loads and activates a locale on the shared instance. Idempotent per locale. */
+export async function activateLocale(locale: Locale): Promise<void> {
+  i18n.load(locale, await loadCatalog(locale));
+  i18n.activate(locale);
+}
+
+/**
+ * A fresh, isolated instance. Use it on the server for request-scoped
+ * rendering instead of mutating the shared instance, which is process-global.
+ */
+export async function setupI18n(locale: Locale = sourceLocale): Promise<I18n> {
+  const messages = await loadCatalog(locale);
+  return createI18n({ locale, messages: { [locale]: messages } });
+}
+
+/**
+ * Negotiates through the shared contract (\`src/config.ts\`) and activates the
+ * result. Client surfaces pass \`stored\` (localStorage/storage.local) so the
+ * user's choice wins over browser preferences; server surfaces pass the
+ * request headers. Returns the negotiated locale for persistence.
+ */
+export async function initializeLocale(input: NegotiateLocaleInput = {}): Promise<Locale> {
+  const locale = negotiateLocale(input);
+  await activateLocale(locale);
+  return locale;
+}
+
+/**
+ * Subscribes to locale changes and returns an unsubscribe function. Imports of
+ * framework glue (React \`useLingui\`, the Vue composable, Solid signals) build
+ * on this instead of re-implementing the listener.
+ */
+export function onLocaleChange(listener: (locale: Locale) => void): () => void {
+  const handler = (): void => {
+    if (hasCatalogLoader(i18n.locale)) listener(i18n.locale as Locale);
+  };
+  i18n.on("change", handler);
+  return () => {
+    i18n.removeListener("change", handler);
+  };
+}
+`],
+  ["i18n/lib/paraglide/messages/en.json.hbs", `{
+  "$schema": "https://inlang.com/schema/inlang-message-format",
+  "i18n_demo_heading": "Internationalization demo",
+  "i18n_demo_interpolation": "Hello {name}, your stack is ready.",
+  "i18n_demo_plural": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} message translated",
+        "countPlural=other": "{count} messages translated"
+      }
+    }
+  ],
+  "i18n_demo_currency_label": "Estimated monthly cost",
+  "i18n_demo_date_label": "Generated on"
+}
+`],
+  ["i18n/lib/paraglide/messages/es.json.hbs", `{
+  "$schema": "https://inlang.com/schema/inlang-message-format",
+  "i18n_demo_heading": "Demostración de internacionalización",
+  "i18n_demo_interpolation": "Hola {name}, tu stack está listo.",
+  "i18n_demo_plural": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} mensaje traducido",
+        "countPlural=other": "{count} mensajes traducidos"
+      }
+    }
+  ],
+  "i18n_demo_currency_label": "Coste mensual estimado",
+  "i18n_demo_date_label": "Generado el"
+}
+`],
+  ["i18n/lib/paraglide/messages/fr.json.hbs", `{
+  "$schema": "https://inlang.com/schema/inlang-message-format",
+  "i18n_demo_heading": "Démonstration d'internationalisation",
+  "i18n_demo_interpolation": "Bonjour {name}, votre stack est prêt.",
+  "i18n_demo_plural": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} message traduit",
+        "countPlural=other": "{count} messages traduits"
+      }
+    }
+  ],
+  "i18n_demo_currency_label": "Coût mensuel estimé",
+  "i18n_demo_date_label": "Généré le"
+}
+`],
+  ["i18n/lib/paraglide/project.inlang/paraglide.config.mjs.hbs", `/**
+ * Paraglide compiler options shared by the CLI (\`i18n:compile\`) and every
+ * bundler plugin. App configs only pass \`project\` and a per-app \`outdir\`;
+ * everything else is defined here once.
+ *
+ * The \`strategy\` order mirrors the shared locale negotiation in
+ * \`packages/i18n/src/config.ts\`: the routing source first (when the project
+ * uses prefix or domain routing), then the \`locale\` cookie, then the
+ * browser/device language, then the base locale.
+ */
+export default {
+{{#if (eq i18nOptions.routing.strategy "prefix")}}
+  strategy: ["url", "cookie", "baseLocale"],
+{{else if (eq i18nOptions.routing.strategy "domain")}}
+  strategy: ["url", "cookie", "baseLocale"],
+{{else}}
+  strategy: ["cookie", "preferredLanguage", "baseLocale"],
+{{/if}}
+  // Matches LOCALE_COOKIE in packages/i18n/src/config.ts.
+  cookieName: "locale",
+  localStorageKey: "locale",
+  emitGitIgnore: true,
+  emitTsDeclarations: true,
+{{#if (eq i18nOptions.routing.strategy "prefix")}}
+{{#if i18nOptions.routing.prefixDefaultLocale}}
+  // Every locale, including the base locale, gets a URL prefix.
+  urlPatterns: [
+    {
+      pattern: "/:path(.*)?",
+      localized: [
+{{#each i18nOptions.locales}}
+        ["{{this}}", "/{{this}}/:path(.*)?"],
+{{/each}}
+      ],
+    },
+  ],
+{{/if}}
+{{/if}}
+{{#if (eq i18nOptions.routing.strategy "domain")}}
+  // Locale → host map. Locales without a host keep an unprefixed path.
+  urlPatterns: [
+    {
+      pattern: "/:path(.*)?",
+      localized: [
+{{#each i18nOptions.locales}}
+        ["{{this}}", "{{#if (lookup ../i18nOptions.routing.domains this)}}https://{{lookup ../i18nOptions.routing.domains this}}/:path(.*)?{{else}}/:path(.*)?{{/if}}"],
+{{/each}}
+      ],
+    },
+  ],
+{{/if}}
+};
+`],
+  ["i18n/lib/paraglide/project.inlang/settings.json.hbs", `{
+  "$schema": "https://inlang.com/schema/project-settings",
+  "baseLocale": {{#if i18nOptions.sourceLocale}}"{{i18nOptions.sourceLocale}}"{{else}}"en"{{/if}},
+  "locales": [
+{{#if i18nOptions.locales}}
+{{#each i18nOptions.locales}}
+    "{{this}}"{{#unless @last}},{{/unless}}
+{{/each}}
+{{else}}
+    "en",
+    "es",
+    "fr"
+{{/if}}
+  ],
+  "modules": [
+    "https://cdn.jsdelivr.net/npm/@inlang/plugin-message-format@4.5.0/dist/index.js"
+  ],
+  "plugin.inlang.messageFormat": {
+    "pathPattern": "./messages/{locale}.json"
+  }
+}
+`],
+  ["i18n/lib/paraglide/scripts/apply.ts", `/**
+ * \`i18n:apply <file>\`
+ *
+ * Writes translated messages into the catalogs after validating them against
+ * the source catalog:
+ *
+ *   {
+ *     "items": [
+ *       { "id": "i18n_demo_heading", "locale": "fr", "translation": "..." }
+ *     ]
+ *   }
+ *
+ * Each item must reference an existing source message ID and keep the source's
+ * placeholders and ICU argument sets. Invalid items are rejected individually;
+ * valid items are still written. The process exits non-zero when anything was
+ * rejected.
+ */
+
+import {
+  catalogPath,
+  loadCatalogs,
+  readCatalog,
+  readJsonFile,
+  resolveFromScript,
+  writeCatalog,
+} from "../src/catalogs";
+import {
+  buildComplexMessage,
+  compareCatalogMessages,
+  isComplexMessage,
+  type CatalogMessage,
+} from "../src/complex";
+
+interface ApplyItem {
+  readonly id: string;
+  readonly locale: string;
+  readonly translation?: string;
+  readonly translations?: readonly string[];
+}
+
+interface RejectedItem {
+  readonly id: string;
+  readonly locale: string;
+  readonly reason: string;
+}
+
+export async function runApply(argv: readonly string[] = process.argv.slice(2)): Promise<number> {
+  const file = argv[0];
+  if (!file) {
+    console.error("Usage: i18n:apply <file>");
+    return 1;
+  }
+
+  let payload: { items?: ApplyItem[] };
+  try {
+    payload = (await readJsonFile(file)) as { items?: ApplyItem[] };
+  } catch (error) {
+    console.error(error instanceof Error ? error.message : String(error));
+    return 1;
+  }
+
+  const rawItems = payload.items;
+  if (!Array.isArray(rawItems) || rawItems.length === 0) {
+    console.error("The apply file must contain a non-empty \`items\` array.");
+    return 1;
+  }
+
+  const packageRoot = resolveFromScript(import.meta.url);
+  const { sourceLocale, locales, source } = await loadCatalogs(packageRoot);
+
+  const pending = new Map<string, Map<string, CatalogMessage>>();
+  const rejected: RejectedItem[] = [];
+  let applied = 0;
+
+  for (const item of rawItems) {
+    if (!item || !item.id || !item.locale) {
+      rejected.push({
+        id: item?.id ?? "?",
+        locale: item?.locale ?? "?",
+        reason: "items need a non-empty id and locale",
+      });
+      continue;
+    }
+
+    if (!locales.includes(item.locale)) {
+      rejected.push({
+        id: item.id,
+        locale: item.locale,
+        reason: \`"\${item.locale}" is not one of the configured locales\`,
+      });
+      continue;
+    }
+    if (item.locale === sourceLocale) {
+      rejected.push({
+        id: item.id,
+        locale: item.locale,
+        reason: "the source locale is edited in the catalogs directly",
+      });
+      continue;
+    }
+
+    const sourceMessage = source[item.id];
+    if (sourceMessage === undefined) {
+      rejected.push({
+        id: item.id,
+        locale: item.locale,
+        reason: "the message ID is not in the source catalog",
+      });
+      continue;
+    }
+
+    let target: CatalogMessage;
+    if (isComplexMessage(sourceMessage)) {
+      if (!Array.isArray(item.translations) || item.translations.length === 0) {
+        rejected.push({
+          id: item.id,
+          locale: item.locale,
+          reason: "a plural item needs one \`translations\` entry per plural form",
+        });
+        continue;
+      }
+      target = buildComplexMessage(sourceMessage, item.locale, item.translations);
+    } else {
+      if (item.translation === undefined || item.translation.length === 0) {
+        rejected.push({
+          id: item.id,
+          locale: item.locale,
+          reason: "the item needs a non-empty \`translation\` string",
+        });
+        continue;
+      }
+      target = item.translation;
+    }
+
+    const comparison = compareCatalogMessages(sourceMessage, target);
+    if (!comparison.ok) {
+      rejected.push({ id: item.id, locale: item.locale, reason: comparison.error });
+      continue;
+    }
+
+    let localeUpdates = pending.get(item.locale);
+    if (!localeUpdates) {
+      localeUpdates = new Map();
+      pending.set(item.locale, localeUpdates);
+    }
+    localeUpdates.set(item.id, target);
+    applied += 1;
+  }
+
+  for (const [locale, updates] of pending) {
+    const filePath = catalogPath(packageRoot, locale);
+    const catalog = await readCatalog(filePath);
+    for (const [id, translation] of updates) {
+      catalog[id] = translation;
+    }
+    await writeCatalog(filePath, catalog);
+  }
+
+  console.log(JSON.stringify({ library: "paraglide", applied, rejected }, null, 2));
+  return rejected.length === 0 ? 0 : 1;
+}
+
+if (import.meta.main) {
+  try {
+    process.exitCode = await runApply();
+  } catch (error) {
+    console.error(\`i18n:apply failed: \${error instanceof Error ? error.message : String(error)}\`);
+    process.exitCode = 1;
+  }
+}
+`],
+  ["i18n/lib/paraglide/scripts/check.ts", `/**
+ * \`i18n:check\`
+ *
+ * Fails when a catalog is missing, invalid, or has untranslated messages:
+ *
+ *   - every message must stay inside the ICU subset in \`src/icu.ts\`;
+ *   - every translation must keep the source placeholders and argument sets;
+ *   - every source message needs an entry in each target catalog unless
+ *     \`I18N_CHECK_ALLOW_MISSING=1\` relaxes missing entries for development.
+ *
+ * Prints a JSON report and exits 1 when the check fails.
+ */
+
+import { access } from "node:fs/promises";
+
+import {
+  catalogPath,
+  loadSettings,
+  readCatalog,
+  resolveFromScript,
+  type Catalog,
+} from "../src/catalogs";
+import { compareCatalogMessages, parseCatalogMessage } from "../src/complex";
+
+interface Problem {
+  readonly locale: string;
+  readonly id: string;
+  readonly kind: "catalog" | "missing" | "invalid" | "unknown";
+  readonly reason: string;
+}
+
+async function exists(filePath: string): Promise<boolean> {
+  try {
+    await access(filePath);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export async function runCheck(): Promise<number> {
+  const packageRoot = resolveFromScript(import.meta.url);
+  const allowMissing = process.env.I18N_CHECK_ALLOW_MISSING === "1";
+  const settings = await loadSettings(packageRoot);
+  const problems: Problem[] = [];
+
+  const catalogs = new Map<string, Catalog>();
+  for (const locale of settings.locales) {
+    const filePath = catalogPath(packageRoot, locale);
+    if (!(await exists(filePath))) {
+      problems.push({
+        locale,
+        id: "*",
+        kind: "catalog",
+        reason: \`messages/\${locale}.json is missing; run \\\`i18n:extract\\\`\`,
+      });
+      continue;
+    }
+    try {
+      catalogs.set(locale, await readCatalog(filePath));
+    } catch (error) {
+      problems.push({
+        locale,
+        id: "*",
+        kind: "catalog",
+        reason: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+
+  const source = catalogs.get(settings.baseLocale) ?? {};
+  for (const [id, message] of Object.entries(source)) {
+    const parsed = parseCatalogMessage(message);
+    if (!parsed.ok) {
+      problems.push({ locale: settings.baseLocale, id, kind: "invalid", reason: parsed.error });
+    }
+  }
+
+  for (const locale of settings.locales) {
+    if (locale === settings.baseLocale) continue;
+    const catalog = catalogs.get(locale);
+    if (!catalog) continue;
+
+    for (const [id, sourceMessage] of Object.entries(source)) {
+      const translation = catalog[id];
+      if (translation === undefined || translation === "") {
+        problems.push({
+          locale,
+          id,
+          kind: "missing",
+          reason: translation === undefined ? "no translation yet" : "translation is empty",
+        });
+        continue;
+      }
+
+      const comparison = compareCatalogMessages(sourceMessage, translation);
+      if (!comparison.ok) {
+        problems.push({ locale, id, kind: "invalid", reason: comparison.error });
+      }
+    }
+
+    for (const id of Object.keys(catalog)) {
+      if (source[id] === undefined) {
+        problems.push({
+          locale,
+          id,
+          kind: "unknown",
+          reason: "the message ID is not in the source catalog",
+        });
+      }
+    }
+  }
+
+  const blocking = problems.filter((problem) => problem.kind !== "missing" || !allowMissing);
+
+  console.log(
+    JSON.stringify(
+      {
+        library: "paraglide",
+        ok: blocking.length === 0,
+        allowMissing,
+        problems,
+      },
+      null,
+      2,
+    ),
+  );
+
+  return blocking.length === 0 ? 0 : 1;
+}
+
+if (import.meta.main) {
+  try {
+    process.exitCode = await runCheck();
+  } catch (error) {
+    console.error(\`i18n:check failed: \${error instanceof Error ? error.message : String(error)}\`);
+    process.exitCode = 1;
+  }
+}
+`],
+  ["i18n/lib/paraglide/scripts/compile.ts.hbs", `/**
+ * \`i18n:compile\`
+ *
+ * Compiles \`project.inlang\` with the Paraglide CLI and writes the shared
+ * output to \`src/paraglide\` (see \`project.inlang/paraglide.config.mjs\`).
+ *
+ * Vite apps also compile their own output through \`paraglideVitePlugin\`.
+ * Hosts without a Vite pipeline — server, native, opentui, electrobun — import
+ * the output produced here from \`@{{projectName}}/i18n\`.
+ */
+
+import { spawnSync } from "node:child_process";
+
+import { resolveFromScript } from "../src/catalogs";
+
+const packageRoot = resolveFromScript(import.meta.url);
+
+export function runCompile(): number {
+  const bunx = process.platform === "win32" ? "bunx.cmd" : "bunx";
+  const result = spawnSync(
+    bunx,
+    ["@inlang/paraglide-js", "compile", "--project", "./project.inlang"],
+    { cwd: packageRoot, stdio: "inherit" },
+  );
+
+  if (result.error) {
+    console.error(\`i18n:compile failed to start the Paraglide CLI: \${result.error.message}\`);
+    return 1;
+  }
+
+  return result.status ?? 1;
+}
+
+if (import.meta.main) {
+  process.exitCode = runCompile();
+}
+`],
+  ["i18n/lib/paraglide/scripts/contract.ts", `/**
+ * The library-independent translation-script contract (design D8).
+ *
+ * \`i18n:pending\`, \`i18n:apply\` and \`i18n:check\` speak the same JSON shapes for
+ * every i18n library. This module is the single definition of those shapes:
+ * the \`i18n-translate\` skill writes exactly the file \`decodeApplyFile\`
+ * accepts, \`parsePendingReport\` validates what \`i18n:pending\` prints, and
+ * \`i18n:check\` reads the \`I18N_CHECK_ALLOW_MISSING\` environment variable.
+ *
+ * Everything here is library-independent: no compatibility rules, no catalog
+ * formats and no library imports. Each library ships an identical copy so the
+ * generated \`packages/i18n/scripts/contract.ts\` always matches the scripts
+ * next to it.
+ */
+
+/** One untranslated message from \`i18n:pending\`. */
+export interface PendingItem {
+  readonly id: string;
+  readonly locale: string;
+  readonly source: string;
+  readonly context: string | null;
+  readonly comments: readonly string[];
+  readonly references: readonly string[];
+  readonly placeholders: readonly string[];
+  /** Library-specific: \`missing\`, \`empty\`, \`pending\`, \`fuzzy\`, \`obsolete\`, … */
+  readonly status: string;
+}
+
+/** The JSON envelope \`i18n:pending\` prints on stdout. */
+export interface PendingReport {
+  readonly library: string;
+  readonly sourceLocale: string;
+  readonly items: readonly PendingItem[];
+}
+
+/**
+ * One item of the file passed to \`i18n:apply <file>\`.
+ *
+ * \`translation\` is a single form. \`translations\` carries one entry per plural
+ * form (in the locale's CLDR order) for libraries whose catalogs store plural
+ * forms separately, such as wuchale. Exactly one of the two is required.
+ */
+export interface ApplyItem {
+  readonly id: string;
+  readonly locale: string;
+  readonly translation?: string;
+  readonly translations?: readonly string[];
+  readonly context?: string | null;
+}
+
+/** The file \`i18n:apply <file>\` consumes. */
+export interface ApplyFile {
+  readonly items: readonly ApplyItem[];
+}
+
+export interface ApplyFileOptions {
+  /**
+   * Translations are written for target locales only; the source locale is
+   * edited in the catalogs directly. An item for the source locale is a
+   * contract violation.
+   */
+  readonly sourceLocale: string;
+}
+
+/** \`i18n:check\` relaxes missing translations when this is \`"1"\`. */
+export const I18N_CHECK_ALLOW_MISSING = "I18N_CHECK_ALLOW_MISSING";
+
+export function isMissingAllowed(
+  environment: Record<string, string | undefined> = process.env,
+): boolean {
+  return environment[I18N_CHECK_ALLOW_MISSING] === "1";
+}
+
+/** Raised when output or input violates the D8 contract. */
+export class I18nContractError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "I18nContractError";
+  }
+}
+
+function fail(message: string): never {
+  throw new I18nContractError(message);
+}
+
+function requireNonEmptyString(value: string | undefined, path: string): string {
+  if (value === undefined || value.trim().length === 0) {
+    fail(\`\${path} must be a non-empty string\`);
+  }
+  return value;
+}
+
+function requireStringArray(value: readonly string[] | undefined, path: string): readonly string[] {
+  if (!Array.isArray(value)) fail(\`\${path} must be an array of strings\`);
+  return value;
+}
+
+function normalizePendingItem(item: PendingItem, path: string): PendingItem {
+  return {
+    id: requireNonEmptyString(item.id, \`\${path}.id\`),
+    locale: requireNonEmptyString(item.locale, \`\${path}.locale\`),
+    source: requireNonEmptyString(item.source, \`\${path}.source\`),
+    context: item.context ?? null,
+    comments: requireStringArray(item.comments, \`\${path}.comments\`),
+    references: requireStringArray(item.references, \`\${path}.references\`),
+    placeholders: requireStringArray(item.placeholders, \`\${path}.placeholders\`),
+    status: requireNonEmptyString(item.status, \`\${path}.status\`),
+  };
+}
+
+/** Parses and validates the stdout of \`i18n:pending\`. */
+export function parsePendingReport(stdout: string): PendingReport {
+  let parsed: Partial<PendingReport> | null;
+  try {
+    parsed = JSON.parse(stdout) as Partial<PendingReport> | null;
+  } catch (error) {
+    fail(
+      \`i18n:pending output is not JSON: \${error instanceof Error ? error.message : String(error)}\`,
+    );
+  }
+  if (!parsed || Array.isArray(parsed)) fail("i18n:pending output must be an object");
+
+  const items = parsed.items;
+  if (!Array.isArray(items)) fail("i18n:pending output must contain an items array");
+
+  return {
+    library: requireNonEmptyString(parsed.library, "library"),
+    sourceLocale: requireNonEmptyString(parsed.sourceLocale, "sourceLocale"),
+    items: items.map((item, index) => normalizePendingItem(item, \`items[\${index}]\`)),
+  };
+}
+
+interface ApplyItemDraft {
+  id: string;
+  locale: string;
+  translation?: string;
+  translations?: readonly string[];
+  context: string | null;
+}
+
+function normalizeApplyItem(
+  item: ApplyItem,
+  path: string,
+  options: ApplyFileOptions,
+): ApplyItemDraft {
+  const id = requireNonEmptyString(item.id, \`\${path}.id\`);
+  const locale = requireNonEmptyString(item.locale, \`\${path}.locale\`);
+  if (locale === options.sourceLocale) {
+    fail(\`\${path}.locale is the source locale "\${locale}"; edit the source catalog instead\`);
+  }
+
+  const translation = item.translation;
+  const translations = item.translations;
+  if (translation === undefined && translations === undefined) {
+    fail(\`\${path} needs a translation or a translations array\`);
+  }
+
+  const draft: ApplyItemDraft = { id, locale, context: item.context ?? null };
+  if (translation !== undefined) {
+    draft.translation = requireNonEmptyString(translation, \`\${path}.translation\`);
+  }
+  if (translations !== undefined) {
+    if (!Array.isArray(translations) || translations.length === 0) {
+      fail(\`\${path}.translations must contain at least one form\`);
+    }
+    draft.translations = translations;
+  }
+  return draft;
+}
+
+/**
+ * Parses and validates the \`i18n:apply <file>\` payload: an object with a
+ * non-empty \`items\` array, every item targeting a configured non-source
+ * locale, with no duplicate \`(id, locale)\` pair.
+ */
+export function decodeApplyFile(text: string, options: ApplyFileOptions): ApplyFile {
+  let parsed: Partial<ApplyFile> | null;
+  try {
+    parsed = JSON.parse(text) as Partial<ApplyFile> | null;
+  } catch (error) {
+    fail(\`the apply file is not JSON: \${error instanceof Error ? error.message : String(error)}\`);
+  }
+  if (!parsed || Array.isArray(parsed)) {
+    fail('the apply file must be an object with an "items" array');
+  }
+
+  const items = parsed.items;
+  if (!Array.isArray(items)) fail('the apply file must contain an "items" array');
+  if (items.length === 0) {
+    fail("the apply file must contain at least one item; skip i18n:apply when nothing is pending");
+  }
+
+  const seen = new Set<string>();
+  const decoded = items.map((item, index) => {
+    const parsedItem = normalizeApplyItem(item, \`items[\${index}]\`, options);
+    const key = \`\${parsedItem.id}\\u0000\${parsedItem.locale}\`;
+    if (seen.has(key)) {
+      fail(\`items[\${index}] duplicates \${parsedItem.id} (\${parsedItem.locale})\`);
+    }
+    seen.add(key);
+    return parsedItem;
+  });
+
+  return { items: decoded };
+}
+`],
+  ["i18n/lib/paraglide/scripts/export.ts", `/**
+ * \`i18n:export\`
+ *
+ * Writes the normalized catalog consumed by JS tooling (e.g. \`i18n:sync-wxt\`):
+ *
+ *   packages/i18n/dist/catalog.json
+ *   {
+ *     "sourceLocale": "en",
+ *     "locales": ["en", "fr"],
+ *     "messages": {
+ *       "<id>": {
+ *         "source": "…",
+ *         "context": null,
+ *         "translations": { "en": "<ICU>", "fr": "<ICU>" }
+ *       }
+ *     }
+ *   }
+ *
+ * Message IDs are the Paraglide keys. Every message must stay inside the ICU
+ * subset in \`src/icu.ts\`; anything else fails with the message ID instead of
+ * writing a catalog outside the supported subset. A locale without a
+ * translation fails the export unless \`I18N_EXPORT_ALLOW_MISSING=1\` is set,
+ * which omits that locale from the message instead.
+ */
+
+import { mkdir, writeFile } from "node:fs/promises";
+import path from "node:path";
+
+import { loadCatalogs, resolveFromScript } from "../src/catalogs";
+import { catalogMessageToIcu, compareCatalogMessages, parseCatalogMessage } from "../src/complex";
+
+interface NormalizedMessage {
+  readonly source: string;
+  readonly context: null;
+  readonly translations: Record<string, string>;
+}
+
+interface NormalizedCatalog {
+  readonly sourceLocale: string;
+  readonly locales: readonly string[];
+  readonly messages: Record<string, NormalizedMessage>;
+}
+
+export async function runExport(): Promise<number> {
+  const packageRoot = resolveFromScript(import.meta.url);
+  const allowMissing = process.env.I18N_EXPORT_ALLOW_MISSING === "1";
+
+  try {
+    const { sourceLocale, locales, source, catalogs } = await loadCatalogs(packageRoot);
+    const messages: Record<string, NormalizedMessage> = {};
+    const skipped: string[] = [];
+
+    for (const id of Object.keys(source).sort()) {
+      const sourceMessage = source[id];
+      if (sourceMessage === undefined) continue;
+      const parsedSource = parseCatalogMessage(sourceMessage);
+      if (!parsedSource.ok) {
+        throw new Error(\`cannot export "\${id}": \${parsedSource.error}\`);
+      }
+
+      const translations: Record<string, string> = {};
+      for (const locale of locales) {
+        const translated = catalogs.get(locale)?.[id];
+        if (translated === undefined || translated === "") {
+          if (locale === sourceLocale) {
+            throw new Error(\`cannot export "\${id}": the source catalog has no message\`);
+          }
+          if (!allowMissing) {
+            throw new Error(
+              \`cannot export "\${id}": no \${locale} translation yet (set I18N_EXPORT_ALLOW_MISSING=1 to skip it)\`,
+            );
+          }
+          skipped.push(\`\${id} (\${locale})\`);
+          continue;
+        }
+
+        const comparison = compareCatalogMessages(sourceMessage, translated);
+        if (!comparison.ok) {
+          throw new Error(\`cannot export "\${id}" for \${locale}: \${comparison.error}\`);
+        }
+        translations[locale] = catalogMessageToIcu(translated);
+      }
+
+      messages[id] = {
+        source: catalogMessageToIcu(sourceMessage),
+        context: null,
+        translations,
+      };
+    }
+
+    const catalog: NormalizedCatalog = { sourceLocale, locales, messages };
+    const outputDirectory = path.join(packageRoot, "dist");
+    const outputPath = path.join(outputDirectory, "catalog.json");
+
+    await mkdir(outputDirectory, { recursive: true });
+    await writeFile(outputPath, \`\${JSON.stringify(catalog, null, 2)}\\n\`, "utf8");
+
+    if (skipped.length > 0) {
+      console.warn(\`i18n:export skipped \${skipped.length} untranslated message(s):\`);
+      for (const entry of skipped) console.warn(\`  - \${entry}\`);
+    }
+
+    console.log(
+      JSON.stringify(
+        {
+          library: "paraglide",
+          output: path.relative(packageRoot, outputPath),
+          sourceLocale,
+          locales,
+          messages: Object.keys(messages).length,
+          skipped: skipped.length,
+        },
+        null,
+        2,
+      ),
+    );
+
+    return 0;
+  } catch (error) {
+    console.error(\`i18n:export failed: \${error instanceof Error ? error.message : String(error)}\`);
+    return 1;
+  }
+}
+
+if (import.meta.main) {
+  process.exitCode = await runExport();
+}
+`],
+  ["i18n/lib/paraglide/scripts/extract.ts", `/**
+ * \`i18n:extract\`
+ *
+ * Paraglide message IDs are authored, not extracted: every key in
+ * \`messages/{sourceLocale}.json\` is the message ID. This script therefore
+ * never rewrites the source catalog. It keeps the uniform script contract:
+ *
+ *   1. validates \`project.inlang/settings.json\`;
+ *   2. creates an empty \`messages/{locale}.json\` for every configured locale
+ *      that does not have one yet (add-locales relies on this);
+ *   3. prints a JSON summary.
+ */
+
+import { access, writeFile } from "node:fs/promises";
+
+import { catalogPath, loadSettings, resolveFromScript } from "../src/catalogs";
+
+async function exists(filePath: string): Promise<boolean> {
+  try {
+    await access(filePath);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export async function runExtract(): Promise<number> {
+  const packageRoot = resolveFromScript(import.meta.url);
+  const settings = await loadSettings(packageRoot);
+
+  const created: string[] = [];
+  const existing: string[] = [];
+
+  for (const locale of settings.locales) {
+    const filePath = catalogPath(packageRoot, locale);
+    if (await exists(filePath)) {
+      existing.push(locale);
+      continue;
+    }
+
+    await writeFile(
+      filePath,
+      \`\${JSON.stringify({ $schema: "https://inlang.com/schema/inlang-message-format" }, null, 2)}\\n\`,
+      "utf8",
+    );
+    created.push(locale);
+  }
+
+  console.log(
+    JSON.stringify(
+      {
+        library: "paraglide",
+        extracted: 0,
+        note: "Message IDs are authored in messages/*.json; there is nothing to extract.",
+        created,
+        existing,
+      },
+      null,
+      2,
+    ),
+  );
+
+  return 0;
+}
+
+if (import.meta.main) {
+  try {
+    process.exitCode = await runExtract();
+  } catch (error) {
+    console.error(\`i18n:extract failed: \${error instanceof Error ? error.message : String(error)}\`);
+    process.exitCode = 1;
+  }
+}
+`],
+  ["i18n/lib/paraglide/scripts/pending.ts", `/**
+ * \`i18n:pending --locale <locale> | --all [--limit N]\`
+ *
+ * Emits the uniform pending-items contract for the Paraglide catalogs:
+ *
+ *   {
+ *     "library": "paraglide",
+ *     "sourceLocale": "en",
+ *     "items": [
+ *       { id, locale, source, context, comments, references, placeholders, status }
+ *     ]
+ *   }
+ *
+ * An item is pending when the target catalog has no entry for the message ID
+ * (\`missing\`) or an empty one (\`empty\`). The \`i18n-translate\` skill consumes
+ * exactly this output and writes batches back through \`i18n:apply\`.
+ */
+
+import { loadCatalogs, resolveFromScript } from "../src/catalogs";
+import { extractCatalogArguments, messageForms } from "../src/complex";
+
+interface PendingItem {
+  readonly id: string;
+  readonly locale: string;
+  readonly source: string;
+  readonly context: null;
+  readonly comments: readonly string[];
+  readonly references: readonly string[];
+  readonly placeholders: readonly string[];
+  readonly status: "missing" | "empty";
+}
+
+interface PendingOptions {
+  readonly locale?: string;
+  readonly all: boolean;
+  readonly limit?: number;
+}
+
+function parseArguments(argv: readonly string[]): PendingOptions {
+  let locale: string | undefined;
+  let all = false;
+  let limit: number | undefined;
+
+  for (let index = 0; index < argv.length; index += 1) {
+    const argument = argv[index];
+    if (argument === "--all") {
+      all = true;
+    } else if (argument === "--locale") {
+      locale = argv[index + 1];
+      index += 1;
+    } else if (argument === "--limit") {
+      limit = Number.parseInt(argv[index + 1] ?? "", 10);
+      index += 1;
+    }
+  }
+
+  return { locale, all: all || locale === undefined, limit };
+}
+
+export async function runPending(argv: readonly string[] = process.argv.slice(2)): Promise<number> {
+  const options = parseArguments(argv);
+  if (options.limit !== undefined && (!Number.isFinite(options.limit) || options.limit < 0)) {
+    console.error("\`--limit\` expects a non-negative number.");
+    return 1;
+  }
+
+  const packageRoot = resolveFromScript(import.meta.url);
+  const { sourceLocale, locales, source, catalogs } = await loadCatalogs(packageRoot);
+
+  const targets = options.locale ? [options.locale] : [...locales];
+  for (const target of targets) {
+    if (!locales.includes(target)) {
+      console.error(\`"\${target}" is not one of the configured locales: \${locales.join(", ")}.\`);
+      return 1;
+    }
+  }
+
+  const items: PendingItem[] = [];
+  for (const locale of targets) {
+    if (locale === sourceLocale) continue;
+    const catalog = catalogs.get(locale);
+    if (!catalog) continue;
+
+    for (const [id, sourceMessage] of Object.entries(source)) {
+      const translation = catalog[id];
+      const status = translation === undefined ? "missing" : translation === "" ? "empty" : null;
+      if (!status) continue;
+
+      items.push({
+        id,
+        locale,
+        source: messageForms(sourceMessage).join(" || "),
+        context: null,
+        comments: [],
+        references: [],
+        placeholders: extractCatalogArguments(sourceMessage),
+        status,
+      });
+    }
+  }
+
+  const limited = options.limit === undefined ? items : items.slice(0, options.limit);
+
+  console.log(JSON.stringify({ library: "paraglide", sourceLocale, items: limited }, null, 2));
+
+  return 0;
+}
+
+if (import.meta.main) {
+  try {
+    process.exitCode = await runPending();
+  } catch (error) {
+    console.error(\`i18n:pending failed: \${error instanceof Error ? error.message : String(error)}\`);
+    process.exitCode = 1;
+  }
+}
+`],
+  ["i18n/lib/paraglide/src/catalogs.ts", `/**
+ * Catalog helpers shared by the \`i18n:*\` scripts.
+ *
+ * Catalogs are the inlang message format: \`messages/{locale}.json\`, one flat
+ * object per locale. \`project.inlang/settings.json\` is the source of truth for
+ * the locale list.
+ */
+
+import { readFile, writeFile } from "node:fs/promises";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+import type { CatalogMessage } from "./complex";
+
+export type JsonValue =
+  | string
+  | number
+  | boolean
+  | null
+  | JsonValue[]
+  | { [key: string]: JsonValue };
+
+export interface ProjectSettings {
+  readonly baseLocale: string;
+  readonly locales: readonly string[];
+}
+
+export interface Catalog {
+  [id: string]: CatalogMessage;
+}
+
+export interface LoadedCatalogs {
+  readonly settings: ProjectSettings;
+  readonly sourceLocale: string;
+  readonly locales: readonly string[];
+  /** Source-locale messages, keyed by message ID. */
+  readonly source: Catalog;
+  /** Every locale, including the source locale, keyed by message ID. */
+  readonly catalogs: ReadonlyMap<string, Catalog>;
+}
+
+interface ParsedSettings {
+  baseLocale?: string;
+  locales?: string[];
+}
+
+/** Resolves a path relative to the package root from a \`scripts/*.ts\` URL. */
+export function resolveFromScript(scriptUrl: string, ...segments: string[]): string {
+  const scriptDirectory = path.dirname(fileURLToPath(scriptUrl));
+  return path.join(scriptDirectory, "..", ...segments);
+}
+
+export function settingsPath(packageRoot: string): string {
+  return path.join(packageRoot, "project.inlang", "settings.json");
+}
+
+export function messagesDirectory(packageRoot: string): string {
+  return path.join(packageRoot, "messages");
+}
+
+export function catalogPath(packageRoot: string, locale: string): string {
+  return path.join(messagesDirectory(packageRoot), \`\${locale}.json\`);
+}
+
+export async function readJsonFile(filePath: string): Promise<JsonValue> {
+  let content: string;
+  try {
+    content = await readFile(filePath, "utf8");
+  } catch {
+    throw new Error(\`Missing file: \${filePath}\`);
+  }
+
+  try {
+    return JSON.parse(content) as JsonValue;
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error);
+    throw new Error(\`Invalid JSON in \${filePath}: \${reason}\`);
+  }
+}
+
+export async function loadSettings(packageRoot: string): Promise<ProjectSettings> {
+  const raw = await readJsonFile(settingsPath(packageRoot));
+  const settings = raw as ParsedSettings;
+
+  if (settings.baseLocale === undefined || !Array.isArray(settings.locales)) {
+    throw new Error(\`\${settingsPath(packageRoot)} must define "baseLocale" and "locales"\`);
+  }
+  if (!settings.locales.includes(settings.baseLocale)) {
+    throw new Error(\`"\${settings.baseLocale}" must be one of the configured locales\`);
+  }
+
+  return { baseLocale: settings.baseLocale, locales: settings.locales };
+}
+
+/**
+ * Reads one catalog. Ignores the \`$schema\` hint inlang writes. Values are
+ * either an ICU string or an inlang complex message (array); the shape is
+ * validated later, per message, by \`parseCatalogMessage\`.
+ */
+export async function readCatalog(filePath: string): Promise<Catalog> {
+  let text: string;
+  try {
+    text = await readFile(filePath, "utf8");
+  } catch {
+    throw new Error(\`Missing file: \${filePath}\`);
+  }
+
+  let parsed: Catalog;
+  try {
+    parsed = JSON.parse(text) as Catalog;
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error);
+    throw new Error(\`Invalid JSON in \${filePath}: \${reason}\`);
+  }
+
+  if (Array.isArray(parsed)) {
+    throw new Error(\`\${filePath} must be a JSON object of message ID → message\`);
+  }
+
+  const catalog: Catalog = {};
+  for (const [id, message] of Object.entries(parsed)) {
+    if (id === "$schema") continue;
+    catalog[id] = message;
+  }
+  return catalog;
+}
+
+/** Writes a catalog with sorted, stable IDs and a \`$schema\` hint. */
+export async function writeCatalog(filePath: string, catalog: Catalog): Promise<void> {
+  const sorted: Catalog = {
+    $schema: "https://inlang.com/schema/inlang-message-format",
+  };
+  for (const id of Object.keys(catalog).sort()) {
+    const message = catalog[id];
+    if (message === undefined) continue;
+    sorted[id] = message;
+  }
+  await writeFile(filePath, \`\${JSON.stringify(sorted, null, 2)}\\n\`, "utf8");
+}
+
+export async function loadCatalogs(packageRoot: string): Promise<LoadedCatalogs> {
+  const settings = await loadSettings(packageRoot);
+  const catalogs = new Map<string, Catalog>();
+  const missing: string[] = [];
+
+  for (const locale of settings.locales) {
+    const filePath = catalogPath(packageRoot, locale);
+    try {
+      catalogs.set(locale, await readCatalog(filePath));
+    } catch {
+      missing.push(locale);
+    }
+  }
+
+  if (missing.length > 0) {
+    throw new Error(
+      \`Missing catalog(s) for \${missing.join(", ")}. Run \\\`i18n:extract\\\` to create them.\`,
+    );
+  }
+
+  const source = catalogs.get(settings.baseLocale);
+  if (!source) {
+    throw new Error(\`Missing catalog for the source locale "\${settings.baseLocale}".\`);
+  }
+
+  return {
+    settings,
+    sourceLocale: settings.baseLocale,
+    locales: settings.locales,
+    source,
+    catalogs,
+  };
+}
+`],
+  ["i18n/lib/paraglide/src/complex.ts", `/**
+ * inlang message-format complex messages (design D8, D4).
+ *
+ * \`@inlang/plugin-message-format\` does not understand ICU inline plurals.
+ * A plural is authored as a *complex message*: an array of matches, each with
+ * \`declarations\`, \`selectors\` and a \`match\` map (selector key → pattern). This
+ * module validates that shape, collects placeholder names, compares a
+ * translation against its source, and converts to and from the ICU subset in
+ * \`src/icu.ts\` (used by \`i18n:export\` and the normalized catalog).
+ *
+ * The plain-string path stays ICU: \`parseMessage\` / \`compareMessages\` in
+ * \`src/icu.ts\` validate simple messages exactly as before.
+ */
+
+import { compareMessages, extractArgumentNames, parseMessage } from "./icu";
+
+export type ComplexPattern = string | readonly ComplexMatch[];
+export interface ComplexMatch {
+  readonly declarations?: readonly string[];
+  readonly selectors: readonly string[];
+  readonly match: Readonly<Record<string, ComplexPattern>>;
+}
+export type ComplexMessage = readonly ComplexMatch[];
+
+/** A catalog value: an ICU string, or an inlang complex message. */
+export type CatalogMessage = string | ComplexMessage;
+
+export type CatalogMessageParseResult =
+  | { readonly ok: true; readonly arguments: readonly string[] }
+  | { readonly ok: false; readonly error: string };
+
+export type CatalogMessageComparison =
+  | { readonly ok: true }
+  | { readonly ok: false; readonly error: string };
+
+const PLURAL_CATEGORY_ORDER = ["zero", "one", "two", "few", "many", "other"] as const;
+const DECLARATION_INPUT = /^input\\s+([A-Za-z0-9_]+)$/;
+const DECLARATION_LOCAL_PLURAL = /^local\\s+([A-Za-z0-9_]+)\\s*=\\s*([A-Za-z0-9_]+)\\s*:\\s*plural$/;
+const PLACEHOLDER = /\\{\\s*([A-Za-z0-9_]+)/g;
+
+export function isComplexMessage(value: CatalogMessage): value is ComplexMessage {
+  return Array.isArray(value);
+}
+
+/**
+ * \`Array.isArray\` cannot subtract a \`readonly\` array member from a union, so a
+ * declared type guard is required to narrow \`ComplexPattern\` back to \`string\`
+ * (the generated \`noUncheckedIndexedAccess\`-era TypeScript rejects the inline
+ * check).
+ */
+function isComplexPattern(value: ComplexPattern): value is ComplexMessage {
+  return Array.isArray(value);
+}
+
+function categoryRank(category: string): number {
+  const index = PLURAL_CATEGORY_ORDER.indexOf(category as (typeof PLURAL_CATEGORY_ORDER)[number]);
+  return index === -1 ? PLURAL_CATEGORY_ORDER.length : index;
+}
+
+function compareCategoryKeys(selector: string, firstKey: string, secondKey: string): number {
+  return (
+    categoryRank(firstKey.slice(selector.length + 1)) -
+    categoryRank(secondKey.slice(selector.length + 1))
+  );
+}
+
+/** CLDR plural categories for a locale, in the canonical order. */
+export function pluralCategories(locale: string): string[] {
+  const categories = [...new Intl.PluralRules(locale).resolvedOptions().pluralCategories];
+  return categories.sort((first, second) => categoryRank(first) - categoryRank(second));
+}
+
+function matchPlaceholders(entry: ComplexMatch): string[] {
+  return Object.values(entry.match).flatMap(placeholderNames);
+}
+
+function placeholderNames(pattern: ComplexPattern): string[] {
+  if (isComplexPattern(pattern)) return pattern.flatMap(matchPlaceholders);
+  return [...pattern.matchAll(PLACEHOLDER)].map((match) => match[1] as string);
+}
+
+function collectArguments(message: ComplexMessage): string[] {
+  return [...new Set(message.flatMap(matchPlaceholders))].sort();
+}
+
+function selectorOf(match: ComplexMatch): string {
+  return match.selectors[0] ?? "";
+}
+
+function isPluralMatch(match: ComplexMatch): boolean {
+  return (match.declarations ?? []).some((line) => DECLARATION_LOCAL_PLURAL.test(line));
+}
+
+function pluralInput(match: ComplexMatch): string | undefined {
+  for (const line of match.declarations ?? []) {
+    const parsed = DECLARATION_LOCAL_PLURAL.exec(line);
+    if (parsed) return parsed[2];
+  }
+  return undefined;
+}
+
+function validateMatch(
+  match: ComplexMatch,
+  index: number,
+): { readonly ok: true } | { readonly ok: false; readonly error: string } {
+  const path = \`match[\${index}]\`;
+  if (!Array.isArray(match.selectors) || match.selectors.length === 0) {
+    return { ok: false, error: \`\${path} must declare at least one selector\` };
+  }
+
+  const selector = selectorOf(match);
+  const bodyKeys = Object.keys(match.match).filter((key) => key.startsWith(\`\${selector}=\`));
+  if (bodyKeys.length === 0) {
+    return { ok: false, error: \`\${path} has no patterns for selector "\${selector}"\` };
+  }
+  if (isPluralMatch(match) && !bodyKeys.includes(\`\${selector}=other\`)) {
+    return { ok: false, error: \`\${path} is a plural and must define "\${selector}=other"\` };
+  }
+  return { ok: true };
+}
+
+function validateComplex(
+  message: ComplexMessage,
+): { readonly ok: true } | { readonly ok: false; readonly error: string } {
+  if (message.length === 0) return { ok: false, error: "a complex message has no matches" };
+  for (const [index, match] of message.entries()) {
+    const result = validateMatch(match, index);
+    if (!result.ok) return result;
+  }
+  return { ok: true };
+}
+
+/** Validates one catalog value (string ICU or complex message). */
+export function parseCatalogMessage(message: CatalogMessage): CatalogMessageParseResult {
+  if (isComplexMessage(message)) {
+    const valid = validateComplex(message);
+    return valid.ok
+      ? { ok: true, arguments: collectArguments(message) }
+      : { ok: false, error: valid.error };
+  }
+
+  const parsed = parseMessage(message);
+  return parsed.ok
+    ? { ok: true, arguments: parsed.arguments.map((argument) => argument.name) }
+    : { ok: false, error: parsed.error };
+}
+
+/** Placeholder names, for the pending report and placeholder comparison. */
+export function extractCatalogArguments(message: CatalogMessage): string[] {
+  return isComplexMessage(message) ? collectArguments(message) : extractArgumentNames(message);
+}
+
+function compareComplex(
+  source: ComplexMessage,
+  translation: ComplexMessage,
+): CatalogMessageComparison {
+  if (source.length !== translation.length) {
+    return { ok: false, error: "the translation has a different number of matches" };
+  }
+
+  for (const [index, sourceMatch] of source.entries()) {
+    const translationMatch = translation[index];
+    if (!translationMatch) {
+      return { ok: false, error: \`the translation is missing match[\${index}]\` };
+    }
+
+    const selector = selectorOf(sourceMatch);
+    if (selectorOf(translationMatch) !== selector) {
+      return { ok: false, error: \`match[\${index}] must keep the selector "\${selector}"\` };
+    }
+
+    for (const [key, sourcePattern] of Object.entries(sourceMatch.match)) {
+      if (!key.startsWith(\`\${selector}=\`)) continue;
+      const translationPattern = translationMatch.match[key];
+      if (translationPattern === undefined) {
+        return { ok: false, error: \`the translation is missing "\${key}"\` };
+      }
+      const expected = [...new Set(placeholderNames(sourcePattern))].sort();
+      const actual = [...new Set(placeholderNames(translationPattern))].sort();
+      if (expected.join(",") !== actual.join(",")) {
+        return {
+          ok: false,
+          error: \`"\${key}" placeholder set must stay [\${expected.join(", ") || "none"}], got [\${actual.join(", ") || "none"}]\`,
+        };
+      }
+    }
+  }
+  return { ok: true };
+}
+
+/** Validates that a translation keeps the source's structure and placeholders. */
+export function compareCatalogMessages(
+  source: CatalogMessage,
+  translation: CatalogMessage,
+): CatalogMessageComparison {
+  const parsedSource = parseCatalogMessage(source);
+  if (!parsedSource.ok) {
+    return { ok: false, error: \`source message is invalid: \${parsedSource.error}\` };
+  }
+  const parsedTranslation = parseCatalogMessage(translation);
+  if (!parsedTranslation.ok) {
+    return { ok: false, error: \`translation is invalid: \${parsedTranslation.error}\` };
+  }
+
+  if (isComplexMessage(source)) {
+    if (!isComplexMessage(translation)) {
+      return { ok: false, error: "source and translation must use the same message shape" };
+    }
+    return compareComplex(source, translation);
+  }
+  if (isComplexMessage(translation)) {
+    return { ok: false, error: "source and translation must use the same message shape" };
+  }
+
+  const compared = compareMessages(source, translation);
+  return compared.ok ? { ok: true } : { ok: false, error: compared.error };
+}
+
+/**
+ * The ordered pattern bodies of a message, used as the \` || \`-joined \`source\`
+ * of a pending item (one form per plural category, in canonical order).
+ */
+export function messageForms(message: CatalogMessage): string[] {
+  if (!isComplexMessage(message)) return [message];
+  const [first] = message;
+  if (!first) return [];
+
+  const selector = selectorOf(first);
+  return Object.entries(first.match)
+    .filter(([key]) => key.startsWith(\`\${selector}=\`))
+    .sort(([firstKey], [secondKey]) => compareCategoryKeys(selector, firstKey, secondKey))
+    .map(([, pattern]) => (isComplexPattern(pattern) ? JSON.stringify(pattern) : pattern));
+}
+
+/**
+ * Builds the target-locale complex message from per-category forms. Mirrors the
+ * \`i18n-translate\` contract: one form per CLDR category of the target locale,
+ * in canonical order.
+ */
+export function buildComplexMessage(
+  source: ComplexMessage,
+  locale: string,
+  forms: readonly string[],
+): ComplexMessage {
+  const base = source[0];
+  if (!base) return [];
+
+  const selector = selectorOf(base);
+  const input = pluralInput(base) ?? selector;
+  const declaresInput = (base.declarations ?? []).some((line) => DECLARATION_INPUT.test(line));
+
+  const match: Record<string, string> = {};
+  for (const [index, category] of pluralCategories(locale).entries()) {
+    match[\`\${selector}=\${category}\`] = forms[Math.min(index, forms.length - 1)] ?? "";
+  }
+
+  const declarations = [
+    ...(declaresInput ? [\`input \${input}\`] : []),
+    \`local \${selector} = \${input}: plural\`,
+  ];
+  return [{ declarations, selectors: [selector], match }];
+}
+
+/**
+ * Converts a complex message to the ICU subset in \`src/icu.ts\`. The plural
+ * argument reference becomes \`#\`, exactly as ICU expects inside a plural.
+ */
+export function complexMessageToIcu(message: ComplexMessage): string {
+  const [first] = message;
+  if (!first) return "";
+
+  const selector = selectorOf(first);
+  const input = pluralInput(first) ?? selector;
+
+  const parts = Object.entries(first.match)
+    .filter(([key]) => key.startsWith(\`\${selector}=\`))
+    .sort(([firstKey], [secondKey]) => compareCategoryKeys(selector, firstKey, secondKey))
+    .map(([key, pattern]) => {
+      const category = key.slice(selector.length + 1);
+      const body = isComplexPattern(pattern) ? complexMessageToIcu(pattern) : pattern;
+      return \`\${category} {\${body.replaceAll(\`{\${input}}\`, "#")}}\`;
+    });
+
+  return \`{\${input}, plural, \${parts.join(" ")}}\`;
+}
+
+/** Converts any catalog message to its ICU string form (for normalization). */
+export function catalogMessageToIcu(message: CatalogMessage): string {
+  return isComplexMessage(message) ? complexMessageToIcu(message) : message;
+}
+`],
+  ["i18n/lib/paraglide/src/icu.ts", `/**
+ * ICU MessageFormat subset used by \`i18n:pending\`, \`i18n:apply\`, \`i18n:check\`
+ * and \`i18n:export\`.
+ *
+ * The supported subset is arguments (\`{name}\`), \`plural\` and \`selectordinal\`
+ * with \`#\`, \`select\`, and arbitrarily nested messages. Anything else —
+ * \`number\`, \`date\`, \`time\` and markup — fails validation.
+ */
+
+export type IcuArgumentType = "argument" | "plural" | "selectordinal" | "select";
+
+export interface IcuArgument {
+  readonly name: string;
+  readonly type: IcuArgumentType;
+  /** Selector keys (\`select\`) or plural categories (\`plural\`, \`selectordinal\`). */
+  readonly options: readonly string[];
+}
+
+export type IcuParseResult =
+  | { readonly ok: true; readonly arguments: readonly IcuArgument[] }
+  | { readonly ok: false; readonly error: string };
+
+export type IcuComparison = { readonly ok: true } | { readonly ok: false; readonly error: string };
+
+const ARGUMENT_NAME = /^[A-Za-z0-9_]+$/;
+const PLURAL_CATEGORIES = new Set(["zero", "one", "two", "few", "many", "other"]);
+const EXACT_SELECTOR = /^=[0-9]+$/;
+
+class IcuError extends Error {}
+
+interface ParseState {
+  readonly message: string;
+  index: number;
+  readonly arguments: Map<string, IcuArgument>;
+}
+
+function parseMessageInto(state: ParseState, allowPound: boolean): void {
+  const { message } = state;
+
+  while (state.index < message.length) {
+    const character = message.charAt(state.index);
+
+    if (character === "}") return;
+
+    if (character === "#") {
+      if (!allowPound) throw new IcuError("\`#\` is only valid inside plural or selectordinal");
+      state.index += 1;
+      continue;
+    }
+
+    if (character === "{") {
+      state.index += 1;
+      parseArgument(state);
+      continue;
+    }
+
+    state.index += 1;
+  }
+}
+
+function readUntil(state: ParseState, terminators: readonly string[]): string {
+  const start = state.index;
+
+  while (state.index < state.message.length) {
+    if (terminators.includes(state.message.charAt(state.index))) break;
+    state.index += 1;
+  }
+
+  return state.message.slice(start, state.index);
+}
+
+function record(state: ParseState, argument: IcuArgument): void {
+  const existing = state.arguments.get(argument.name);
+  if (existing && existing.type !== argument.type) {
+    throw new IcuError(
+      \`argument "\${argument.name}" is used as both \${existing.type} and \${argument.type}\`,
+    );
+  }
+  state.arguments.set(argument.name, argument);
+}
+
+function parseSelectors(state: ParseState, argumentName: string, type: IcuArgumentType): string[] {
+  const options: string[] = [];
+
+  while (true) {
+    while (state.index < state.message.length && /\\s/.test(state.message.charAt(state.index))) {
+      state.index += 1;
+    }
+
+    if (state.message.charAt(state.index) === "}") {
+      state.index += 1;
+      break;
+    }
+
+    const key = readUntil(state, ["{", "}"]).trim();
+    if (state.message.charAt(state.index) !== "{" || key.length === 0) {
+      throw new IcuError(\`selector "\${key}" in {\${argumentName}, \${type}} has no message body\`);
+    }
+
+    state.index += 1;
+    parseMessageInto(state, type !== "select");
+    if (state.message.charAt(state.index) !== "}") {
+      throw new IcuError(\`unbalanced braces in {\${argumentName}, \${type}}\`);
+    }
+    state.index += 1;
+    options.push(key);
+  }
+
+  if (options.length === 0) {
+    throw new IcuError(\`{\${argumentName}, \${type}} has no selectors\`);
+  }
+  return options;
+}
+
+function validateSelectors(
+  argumentName: string,
+  type: IcuArgumentType,
+  options: readonly string[],
+): void {
+  if (type === "select") return;
+
+  for (const option of options) {
+    if (!PLURAL_CATEGORIES.has(option) && !EXACT_SELECTOR.test(option)) {
+      throw new IcuError(\`"\${option}" is not a plural category for {\${argumentName}, \${type}}\`);
+    }
+  }
+  if (!options.includes("other")) {
+    throw new IcuError(\`{\${argumentName}, \${type}} is missing the "other" selector\`);
+  }
+}
+
+function assertArgumentName(name: string): void {
+  if (!ARGUMENT_NAME.test(name)) {
+    throw new IcuError(\`"\${name}" is not a valid argument name\`);
+  }
+}
+
+function parseArgument(state: ParseState): void {
+  const name = readUntil(state, [",", "}"]).trim();
+
+  if (state.message.charAt(state.index) === "}") {
+    state.index += 1;
+    assertArgumentName(name);
+    record(state, { name, type: "argument", options: [] });
+    return;
+  }
+
+  state.index += 1;
+  const type = readUntil(state, [",", "}"]).trim();
+  assertArgumentName(name);
+
+  if (type !== "plural" && type !== "selectordinal" && type !== "select") {
+    throw new IcuError(\`{\${name}, \${type}} is outside the supported ICU subset\`);
+  }
+  if (state.message.charAt(state.index) !== ",") {
+    throw new IcuError(\`{\${name}, \${type}} is missing its selectors\`);
+  }
+  state.index += 1;
+
+  const options = parseSelectors(state, name, type);
+  validateSelectors(name, type, options);
+  record(state, { name, type, options });
+}
+
+/** Parses one message and rejects anything outside the supported ICU subset. */
+export function parseMessage(message: string): IcuParseResult {
+  const state: ParseState = { message, index: 0, arguments: new Map() };
+
+  try {
+    parseMessageInto(state, false);
+    if (state.index < message.length) {
+      throw new IcuError("unbalanced \`}\`");
+    }
+  } catch (error) {
+    if (error instanceof IcuError) return { ok: false, error: error.message };
+    throw error;
+  }
+
+  return { ok: true, arguments: [...state.arguments.values()] };
+}
+
+/** Sorted argument names, used as the \`placeholders\` field of pending items. */
+export function extractArgumentNames(message: string): string[] {
+  const parsed = parseMessage(message);
+  if (!parsed.ok) return [];
+  return parsed.arguments.map((argument) => argument.name).sort();
+}
+
+function selectorSetsMatch(source: IcuArgument, translation: IcuArgument): IcuComparison {
+  if (source.type === "select") {
+    const expected = [...source.options].sort();
+    const actual = [...translation.options].sort();
+    if (expected.join(",") !== actual.join(",")) {
+      return {
+        ok: false,
+        error: \`selector set for "\${source.name}" must stay [\${expected.join(", ")}], got [\${actual.join(", ")}]\`,
+      };
+    }
+    return { ok: true };
+  }
+
+  const exactSelectors = source.options.filter((option) => EXACT_SELECTOR.test(option));
+  for (const selector of exactSelectors) {
+    if (!translation.options.includes(selector)) {
+      return { ok: false, error: \`translation for "\${source.name}" is missing \${selector}\` };
+    }
+  }
+  if (!translation.options.includes("other")) {
+    return { ok: false, error: \`translation for "\${source.name}" is missing the "other" selector\` };
+  }
+  return { ok: true };
+}
+
+/**
+ * Validates that a translation keeps the source's placeholder and ICU argument
+ * sets: the same argument names, the same argument types, the same \`select\`
+ * selector sets and the same exact-match plural selectors.
+ */
+export function compareMessages(source: string, translation: string): IcuComparison {
+  const parsedSource = parseMessage(source);
+  if (!parsedSource.ok) {
+    return { ok: false, error: \`source message is invalid: \${parsedSource.error}\` };
+  }
+
+  const parsedTranslation = parseMessage(translation);
+  if (!parsedTranslation.ok) {
+    return { ok: false, error: \`translation is invalid: \${parsedTranslation.error}\` };
+  }
+
+  const translated = new Map(
+    parsedTranslation.arguments.map((argument) => [argument.name, argument]),
+  );
+
+  for (const sourceArgument of parsedSource.arguments) {
+    const translationArgument = translated.get(sourceArgument.name);
+    if (!translationArgument) {
+      return { ok: false, error: \`translation is missing the argument "\${sourceArgument.name}"\` };
+    }
+    if (translationArgument.type !== sourceArgument.type) {
+      return {
+        ok: false,
+        error: \`argument "\${sourceArgument.name}" must stay a \${sourceArgument.type}\`,
+      };
+    }
+    if (sourceArgument.type !== "argument") {
+      const selectors = selectorSetsMatch(sourceArgument, translationArgument);
+      if (!selectors.ok) return selectors;
+    }
+    translated.delete(sourceArgument.name);
+  }
+
+  const extra = [...translated.keys()];
+  if (extra.length > 0) {
+    return { ok: false, error: \`translation adds the unknown argument(s) \${extra.join(", ")}\` };
+  }
+
+  return { ok: true };
+}
+`],
+  ["i18n/lib/paraglide/src/runtime.ts.hbs", `/**
+ * Paraglide runtime for \`@{{projectName}}/i18n\`.
+ *
+ * Vite-based apps compile their own messages through \`paraglideVitePlugin\`
+ * and import the generated modules directly. Hosts without a Vite pipeline
+ * (server, native, desktop, tui) import the compiled output from here;
+ * \`i18n:compile\` writes it into \`./paraglide\` before dev, build and
+ * check-types run.
+ *
+ * Message IDs are authored keys: \`m.i18n_demo_heading()\`.
+ */
+
+export { m } from "./paraglide/messages.js";
+export * from "./paraglide/runtime.js";
+export { paraglideMiddleware } from "./paraglide/server.js";
+`],
+  ["i18n/lib/wuchale/_gitignore", `# wuchale build output (compiled catalogs, proxies, generated loaders)
+locales/.wuchale/
+
+# normalized catalog export (JS tooling)
+dist/
+`],
+  ["i18n/lib/wuchale/scripts/apply.ts.hbs", `/**
+ * \`i18n:apply <file>\` — validate translated items and write them into the
+ * \`.po\` catalogs. Placeholder sets must match the source; rejected items keep
+ * their catalog entry pending.
+ *
+ * Input: the \`i18n:pending\` report with a \`translation\` (or \`translations\` for
+ * plurals) added to each item, e.g.
+ * \`{ "items": [{ "id": "Welcome", "locale": "fr", "translation": "Bienvenue" }] }\`
+ */
+
+import { readFile } from "node:fs/promises";
+
+import {
+  findItem,
+  readCatalogs,
+  resolvePackageRoot,
+  setTranslation,
+  validatePlaceholders,
+  writeCatalogFile,
+  type ApplyOutcome,
+  type CatalogRead,
+} from "./catalog";
+
+interface ApplyEntry {
+  id?: string;
+  locale?: string;
+  context?: string | null;
+  translation?: string;
+  translations?: string[];
+}
+
+interface ApplyInput {
+  items?: ApplyEntry[];
+}
+
+function translationForms(entry: ApplyEntry): string[] | undefined {
+  if (entry.translations !== undefined) return entry.translations;
+  if (entry.translation !== undefined) return [entry.translation];
+  return undefined;
+}
+
+const file = process.argv[2];
+if (!file) {
+  console.error("Usage: bun run i18n:apply <file>");
+  process.exit(1);
+}
+
+const payload = JSON.parse(await readFile(file, "utf8")) as ApplyInput;
+const entries = payload.items ?? [];
+
+const packageRoot = resolvePackageRoot(import.meta.url);
+const catalogs = await readCatalogs(packageRoot);
+const byLocale = new Map<string, CatalogRead[]>();
+for (const read of catalogs) {
+  const group = byLocale.get(read.source.locale) ?? [];
+  group.push(read);
+  byLocale.set(read.source.locale, group);
+}
+
+const outcome: ApplyOutcome = { applied: 0, rejected: [] };
+const touched = new Set<CatalogRead>();
+
+for (const entry of entries) {
+  const forms = translationForms(entry);
+  if (entry.id === undefined || entry.locale === undefined || forms === undefined) {
+    outcome.rejected.push({
+      id: entry.id ?? "<missing id>",
+      locale: entry.locale ?? "<missing locale>",
+      error: "each item needs an id, a locale and a translation (or translations)",
+    });
+    continue;
+  }
+
+  let matched = false;
+  for (const read of byLocale.get(entry.locale) ?? []) {
+    const item = findItem(read.catalog, entry.id, entry.context);
+    if (!item) continue;
+    matched = true;
+
+    // The same message can live in several adapters' catalogs; update them all.
+    const error = validatePlaceholders(item, forms);
+    if (error !== null) {
+      outcome.rejected.push({ id: entry.id, locale: entry.locale, error });
+      continue;
+    }
+
+    setTranslation(item, forms);
+    touched.add(read);
+    outcome.applied += 1;
+  }
+
+  if (!matched) {
+    outcome.rejected.push({
+      id: entry.id,
+      locale: entry.locale,
+      error: "no catalog entry with this id",
+    });
+  }
+}
+
+for (const read of touched) {
+  await writeCatalogFile(read.source.path, read.catalog);
+}
+
+console.log(JSON.stringify(outcome, null, 2));
+process.exit(outcome.rejected.length > 0 ? 1 : 0);
+`],
+  ["i18n/lib/wuchale/scripts/catalog.ts", `/**
+ * Shared helpers for the wuchale uniform scripts
+ * (\`i18n:extract | compile | pending | apply | check | export\`).
+ *
+ * Everything here is pure or filesystem-only: the CLI entrypoints add argv
+ * handling and JSON output. Catalogs are the per-adapter \`.po\` files wuchale
+ * writes into \`packages/i18n/locales\`.
+ */
+
+import { spawnSync } from "node:child_process";
+import { mkdir, readFile, readdir, writeFile } from "node:fs/promises";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+
+import { isUntranslated, parsePo, serializePo, type PoCatalog, type PoItem } from "./po";
+
+export const WUCHALE_LIBRARY = "wuchale";
+
+export interface CatalogSource {
+  readonly adapter: string;
+  readonly locale: string;
+  readonly path: string;
+}
+
+export interface CatalogRead {
+  readonly source: CatalogSource;
+  readonly catalog: PoCatalog;
+}
+
+export interface PendingItem {
+  readonly id: string;
+  readonly locale: string;
+  readonly source: string;
+  readonly context: string | null;
+  readonly comments: string[];
+  readonly references: string[];
+  readonly placeholders: string[];
+  readonly status: "pending" | "obsolete";
+}
+
+export interface PendingReport {
+  readonly library: typeof WUCHALE_LIBRARY;
+  readonly sourceLocale: string;
+  readonly items: PendingItem[];
+}
+
+export interface NormalizedMessage {
+  readonly source: string;
+  readonly context: string | null;
+  readonly translations: Record<string, string>;
+}
+
+export interface NormalizedCatalog {
+  readonly sourceLocale: string;
+  readonly locales: string[];
+  readonly messages: Record<string, NormalizedMessage>;
+}
+
+export type IcuResult =
+  | { readonly isOk: true; readonly message: string }
+  | { readonly isOk: false; readonly error: string };
+
+export type ExportResult =
+  | { readonly isOk: true; readonly catalog: NormalizedCatalog }
+  | { readonly isOk: false; readonly errors: string[] };
+
+/** \`packages/i18n\` root, resolved from a script in \`packages/i18n/scripts\`. */
+export function resolvePackageRoot(importMetaUrl: string): string {
+  return fileURLToPath(new URL("..", importMetaUrl));
+}
+
+export function catalogsDir(packageRoot: string): string {
+  return join(packageRoot, "locales");
+}
+
+export function parseCatalogFileName(fileName: string): { adapter: string; locale: string } | null {
+  const base = fileName.endsWith(".po") ? fileName.slice(0, -3) : null;
+  if (base === null) return null;
+  const separator = base.lastIndexOf(".");
+  if (separator <= 0) return null;
+  const adapter = base.slice(0, separator);
+  const locale = base.slice(separator + 1);
+  return locale.length > 0 ? { adapter, locale } : null;
+}
+
+export async function listCatalogSources(packageRoot: string): Promise<CatalogSource[]> {
+  const dir = catalogsDir(packageRoot);
+  let entries: string[];
+  try {
+    entries = await readdir(dir);
+  } catch {
+    return [];
+  }
+  const sources: CatalogSource[] = [];
+  for (const entry of entries.sort()) {
+    const parsed = parseCatalogFileName(entry);
+    if (!parsed) continue;
+    sources.push({ adapter: parsed.adapter, locale: parsed.locale, path: join(dir, entry) });
+  }
+  return sources;
+}
+
+export async function readCatalogs(packageRoot: string): Promise<CatalogRead[]> {
+  const catalogs: CatalogRead[] = [];
+  for (const source of await listCatalogSources(packageRoot)) {
+    const content = await readFile(source.path, "utf8");
+    catalogs.push({ source, catalog: parsePo(content) });
+  }
+  return catalogs;
+}
+
+export async function writeCatalogFile(path: string, catalog: PoCatalog): Promise<void> {
+  await writeFile(path, serializePo(catalog), "utf8");
+}
+
+export const PLURAL_ORDER: readonly Intl.LDMLPluralRule[] = [
+  "zero",
+  "one",
+  "two",
+  "few",
+  "many",
+  "other",
+];
+
+/** CLDR plural categories for a locale, in wuchale's candidate order. */
+export function pluralCategories(locale: string): Intl.LDMLPluralRule[] {
+  const categories = [...new Intl.PluralRules(locale).resolvedOptions().pluralCategories];
+  categories.sort((first, second) => PLURAL_ORDER.indexOf(first) - PLURAL_ORDER.indexOf(second));
+  return categories;
+}
+
+const PLACEHOLDER = /\\{(\\d+)\\}/g;
+
+export function messagePlaceholders(text: string): string[] {
+  const found = new Set<string>();
+  for (const match of text.matchAll(PLACEHOLDER)) {
+    if (match[1] !== undefined) found.add(match[1]);
+  }
+  return [...found].sort((first, second) => Number(first) - Number(second));
+}
+
+/** The source forms of an item: \`[msgid]\` or \`[msgid, msgid_plural]\`. */
+export function sourceForms(item: PoItem): string[] {
+  return item.pluralId === null ? [item.id] : [item.id, item.pluralId];
+}
+
+/**
+ * Validates that every translated form keeps exactly the source placeholders.
+ * Returns an error message for the first mismatch, or \`null\` when the
+ * translation is well formed.
+ */
+export function validatePlaceholders(item: PoItem, forms: readonly string[]): string | null {
+  const expected = sourceForms(item);
+  if (forms.length === 0) return \`"\${item.id}" has no translation forms\`;
+  for (const [index, form] of forms.entries()) {
+    const source = expected[index % expected.length] ?? expected[0] ?? "";
+    const actualPlaceholders = messagePlaceholders(form);
+    const expectedPlaceholders = messagePlaceholders(source);
+    const missing = expectedPlaceholders.filter((value) => !actualPlaceholders.includes(value));
+    const extra = actualPlaceholders.filter((value) => !expectedPlaceholders.includes(value));
+    if (missing.length > 0 || extra.length > 0) {
+      const details = [
+        missing.length > 0 ? \`missing {\${missing.join("}, {")}}\` : null,
+        extra.length > 0 ? \`unexpected {\${extra.join("}, {")}}\` : null,
+      ]
+        .filter(Boolean)
+        .join(", ");
+      return \`"\${item.id}" form \${index} placeholder mismatch: \${details}\`;
+    }
+  }
+  return null;
+}
+
+/** A stable id for the normalized export: context-qualified source text. */
+export function normalizeMessageId(item: PoItem): string {
+  return item.context === null ? item.id : \`\${item.context}|\${item.id}\`;
+}
+
+function balancedBraces(text: string): string | null {
+  const withoutPlaceholders = text.replace(PLACEHOLDER, "");
+  let depth = 0;
+  for (const char of withoutPlaceholders) {
+    if (char === "{") depth += 1;
+    else if (char === "}") {
+      depth -= 1;
+      if (depth < 0) return "unbalanced brace";
+    }
+  }
+  return depth === 0 ? null : "unbalanced brace";
+}
+
+/**
+ * Converts a wuchale catalog item to the ICU subset used by \`i18n:export\`:
+ * positional arguments, \`plural\` with \`#\`, \`select\` and nesting. Wuchale
+ * already writes positional \`{n}\` placeholders, so the conversion keeps them
+ * as ICU arguments; a plural item becomes one \`{count, plural, ...}\` message
+ * whose categories follow the locale's CLDR order.
+ */
+export function toIcuMessage(item: PoItem, forms: readonly string[], locale: string): IcuResult {
+  if (item.pluralId === null) {
+    const message = forms[0] ?? item.id;
+    const error = balancedBraces(message);
+    return error === null ? { isOk: true, message } : { isOk: false, error };
+  }
+
+  const categories = pluralCategories(locale);
+  const parts: string[] = [];
+  for (const [index, category] of categories.entries()) {
+    const form = forms[index] ?? forms[forms.length - 1] ?? item.id;
+    const error = balancedBraces(form);
+    if (error !== null) return { isOk: false, error };
+    parts.push(\`\${category} {\${form}}\`);
+  }
+
+  return { isOk: true, message: \`{count, plural, \${parts.join(" ")}}\` };
+}
+
+/** Pending items for one locale, or for every non-source locale. */
+export function collectPendingItems(
+  catalogs: readonly CatalogRead[],
+  sourceLocale: string,
+  targetLocale: string | null,
+): PendingItem[] {
+  const items: PendingItem[] = [];
+  for (const read of catalogs) {
+    if (read.source.locale === sourceLocale) continue;
+    if (targetLocale !== null && read.source.locale !== targetLocale) continue;
+    for (const item of read.catalog.items) {
+      if (item.id.length === 0 && item.pluralId === null) continue;
+      if (!isUntranslated(item.translations) && !item.obsolete) continue;
+      items.push({
+        id: normalizeMessageId(item),
+        locale: read.source.locale,
+        source: sourceForms(item).join(" || "),
+        context: item.context,
+        comments: [...item.comments, ...item.extracted],
+        references: [...item.references],
+        placeholders: messagePlaceholders(sourceForms(item).join(" ")),
+        status: item.obsolete ? "obsolete" : "pending",
+      });
+    }
+  }
+  return items;
+}
+
+export interface ApplyPayloadItem {
+  readonly id: string;
+  readonly locale: string;
+  readonly context?: string | null;
+  readonly translation?: string;
+  readonly translations?: string[];
+}
+
+export interface ApplyOutcome {
+  readonly applied: number;
+  readonly rejected: { id: string; locale: string; error: string }[];
+}
+
+export function findItem(
+  catalog: PoCatalog,
+  id: string,
+  context: string | null | undefined,
+): PoItem | undefined {
+  return catalog.items.find(
+    (item) =>
+      normalizeMessageId(item) === id && (context === undefined || item.context === context),
+  );
+}
+
+/**
+ * Applies one validated translation set to a parsed catalog. Validation must
+ * run first; this only mutates the in-memory item.
+ */
+export function setTranslation(item: PoItem, forms: readonly string[]): void {
+  item.translations = [...forms];
+  item.obsolete = false;
+}
+
+export interface NormalizeOptions {
+  readonly locales: readonly string[];
+  readonly sourceLocale: string;
+}
+
+/**
+ * Builds the normalized catalog (\`dist/catalog.json\`) from every parsed
+ * per-adapter catalog.
+ * Fails with the offending message id when a message is outside the ICU
+ * subset.
+ */
+export function buildNormalizedCatalog(
+  catalogs: readonly CatalogRead[],
+  options: NormalizeOptions,
+): ExportResult {
+  const errors: string[] = [];
+  const messages = new Map<
+    string,
+    { source: string; context: string | null; translations: Map<string, string> }
+  >();
+  const sourceByKey = new Map<string, PoItem>();
+
+  for (const read of catalogs) {
+    for (const item of read.catalog.items) {
+      if (item.id.length === 0 && item.pluralId === null) continue;
+      const id = normalizeMessageId(item);
+      const existingSource = sourceByKey.get(id);
+      if (existingSource === undefined) {
+        sourceByKey.set(id, item);
+      } else if (sourceForms(existingSource).join(" ") !== sourceForms(item).join(" ")) {
+        errors.push(\`"\${id}" has conflicting source text across adapters\`);
+        continue;
+      }
+
+      const entry = messages.get(id) ?? {
+        source: sourceForms(item).join(" || "),
+        context: item.context,
+        translations: new Map<string, string>(),
+      };
+      messages.set(id, entry);
+
+      const forms = isUntranslated(item.translations) ? sourceForms(item) : item.translations;
+      const locale = read.source.locale;
+      const converted = toIcuMessage(item, forms, locale);
+      if (!converted.isOk) {
+        errors.push(\`"\${id}" (\${locale}): \${converted.error}\`);
+        continue;
+      }
+      if (!entry.translations.has(locale)) {
+        entry.translations.set(locale, converted.message);
+      }
+    }
+  }
+
+  if (errors.length > 0) return { isOk: false, errors };
+
+  const normalizedMessages: Record<string, NormalizedMessage> = {};
+  for (const [id, entry] of messages) {
+    const translations: Record<string, string> = {};
+    for (const locale of options.locales) {
+      const message =
+        entry.translations.get(locale) ?? entry.translations.get(options.sourceLocale);
+      if (message !== undefined) translations[locale] = message;
+    }
+    normalizedMessages[id] = { source: entry.source, context: entry.context, translations };
+  }
+
+  return {
+    isOk: true,
+    catalog: {
+      sourceLocale: options.sourceLocale,
+      locales: [...options.locales],
+      messages: normalizedMessages,
+    },
+  };
+}
+
+/**
+ * Resolves \`wuchale/dist/cli/index.js\` from this package's dependencies. The
+ * published bin has a Node shebang, and Node cannot import a \`.ts\` config
+ * without a loader — the scripts always run the CLI with the Bun binary that
+ * is already running them.
+ */
+function resolveWuchaleCli(): string | null {
+  try {
+    const entry = fileURLToPath(import.meta.resolve("wuchale"));
+    return join(dirname(entry), "cli", "index.js");
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Runs the wuchale CLI from \`packages/i18n\`. \`import.meta.resolve\` finds the
+ * locally installed \`wuchale\`, so no registry lookup or PATH shim is involved.
+ */
+export function runWuchaleCli(packageRoot: string, args: readonly string[]): number {
+  const cli = resolveWuchaleCli();
+  if (cli === null) {
+    console.error("wuchale is not installed. Run your package manager install first.");
+    return 1;
+  }
+
+  const result = spawnSync(process.execPath, [cli, "--config", "wuchale.config.mjs", ...args], {
+    cwd: packageRoot,
+    stdio: "inherit",
+    env: process.env,
+  });
+  if (result.error) {
+    console.error(\`Failed to run the wuchale CLI: \${result.error.message}\`);
+    return 1;
+  }
+  return result.status ?? 1;
+}
+
+export async function ensureDir(filePath: string): Promise<void> {
+  await mkdir(dirname(filePath), { recursive: true });
+}
+`],
+  ["i18n/lib/wuchale/scripts/check.ts.hbs", `/**
+ * \`i18n:check\` — fail on missing or invalid catalog entries. Set
+ * \`I18N_CHECK_ALLOW_MISSING=1\` to allow untranslated messages during
+ * development; structurally invalid entries always fail.
+ */
+
+import { sourceLocale } from "../src/config";
+import { isUntranslated } from "./po";
+import {
+  pluralCategories,
+  readCatalogs,
+  resolvePackageRoot,
+  validatePlaceholders,
+} from "./catalog";
+
+interface CheckError {
+  id: string;
+  locale: string;
+  kind: "missing" | "invalid";
+  error: string;
+}
+
+const allowMissing = process.env.I18N_CHECK_ALLOW_MISSING === "1";
+const packageRoot = resolvePackageRoot(import.meta.url);
+const catalogs = await readCatalogs(packageRoot);
+const errors: CheckError[] = [];
+
+for (const read of catalogs) {
+  if (read.source.locale === sourceLocale) continue;
+  for (const item of read.catalog.items) {
+    if (item.id.length === 0 && item.pluralId === null) continue;
+    const id = item.id;
+
+    if (isUntranslated(item.translations)) {
+      if (!allowMissing) {
+        errors.push({ id, locale: read.source.locale, kind: "missing", error: "untranslated" });
+      }
+      continue;
+    }
+
+    const placeholderError = validatePlaceholders(item, item.translations);
+    if (placeholderError !== null) {
+      errors.push({ id, locale: read.source.locale, kind: "invalid", error: placeholderError });
+      continue;
+    }
+
+    if (item.pluralId !== null) {
+      const expectedForms = pluralCategories(read.source.locale).length;
+      if (item.translations.length !== expectedForms) {
+        errors.push({
+          id,
+          locale: read.source.locale,
+          kind: "invalid",
+          error: \`expected \${expectedForms} plural forms, found \${item.translations.length}\`,
+        });
+      }
+    }
+  }
+}
+
+console.log(
+  JSON.stringify({ library: "wuchale", ok: errors.length === 0, errors }, null, 2),
+);
+process.exit(errors.length > 0 ? 1 : 0);
+`],
+  ["i18n/lib/wuchale/scripts/compile.ts.hbs", `/**
+ * \`i18n:compile\` — run the wuchale CLI to extract and compile the catalogs
+ * the app runtimes load. Runs before \`dev\` and \`build\` through the root scripts.
+ */
+
+import { resolvePackageRoot, runWuchaleCli } from "./catalog";
+
+const packageRoot = resolvePackageRoot(import.meta.url);
+
+process.exit(runWuchaleCli(packageRoot, []));
+`],
+  ["i18n/lib/wuchale/scripts/contract.ts", `/**
+ * The library-independent translation-script contract (design D8).
+ *
+ * \`i18n:pending\`, \`i18n:apply\` and \`i18n:check\` speak the same JSON shapes for
+ * every i18n library. This module is the single definition of those shapes:
+ * the \`i18n-translate\` skill writes exactly the file \`decodeApplyFile\`
+ * accepts, \`parsePendingReport\` validates what \`i18n:pending\` prints, and
+ * \`i18n:check\` reads the \`I18N_CHECK_ALLOW_MISSING\` environment variable.
+ *
+ * Everything here is library-independent: no compatibility rules, no catalog
+ * formats and no library imports. Each library ships an identical copy so the
+ * generated \`packages/i18n/scripts/contract.ts\` always matches the scripts
+ * next to it.
+ */
+
+/** One untranslated message from \`i18n:pending\`. */
+export interface PendingItem {
+  readonly id: string;
+  readonly locale: string;
+  readonly source: string;
+  readonly context: string | null;
+  readonly comments: readonly string[];
+  readonly references: readonly string[];
+  readonly placeholders: readonly string[];
+  /** Library-specific: \`missing\`, \`empty\`, \`pending\`, \`fuzzy\`, \`obsolete\`, … */
+  readonly status: string;
+}
+
+/** The JSON envelope \`i18n:pending\` prints on stdout. */
+export interface PendingReport {
+  readonly library: string;
+  readonly sourceLocale: string;
+  readonly items: readonly PendingItem[];
+}
+
+/**
+ * One item of the file passed to \`i18n:apply <file>\`.
+ *
+ * \`translation\` is a single form. \`translations\` carries one entry per plural
+ * form (in the locale's CLDR order) for libraries whose catalogs store plural
+ * forms separately, such as wuchale. Exactly one of the two is required.
+ */
+export interface ApplyItem {
+  readonly id: string;
+  readonly locale: string;
+  readonly translation?: string;
+  readonly translations?: readonly string[];
+  readonly context?: string | null;
+}
+
+/** The file \`i18n:apply <file>\` consumes. */
+export interface ApplyFile {
+  readonly items: readonly ApplyItem[];
+}
+
+export interface ApplyFileOptions {
+  /**
+   * Translations are written for target locales only; the source locale is
+   * edited in the catalogs directly. An item for the source locale is a
+   * contract violation.
+   */
+  readonly sourceLocale: string;
+}
+
+/** \`i18n:check\` relaxes missing translations when this is \`"1"\`. */
+export const I18N_CHECK_ALLOW_MISSING = "I18N_CHECK_ALLOW_MISSING";
+
+export function isMissingAllowed(
+  environment: Record<string, string | undefined> = process.env,
+): boolean {
+  return environment[I18N_CHECK_ALLOW_MISSING] === "1";
+}
+
+/** Raised when output or input violates the D8 contract. */
+export class I18nContractError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "I18nContractError";
+  }
+}
+
+function fail(message: string): never {
+  throw new I18nContractError(message);
+}
+
+function requireNonEmptyString(value: string | undefined, path: string): string {
+  if (value === undefined || value.trim().length === 0) {
+    fail(\`\${path} must be a non-empty string\`);
+  }
+  return value;
+}
+
+function requireStringArray(value: readonly string[] | undefined, path: string): readonly string[] {
+  if (!Array.isArray(value)) fail(\`\${path} must be an array of strings\`);
+  return value;
+}
+
+function normalizePendingItem(item: PendingItem, path: string): PendingItem {
+  return {
+    id: requireNonEmptyString(item.id, \`\${path}.id\`),
+    locale: requireNonEmptyString(item.locale, \`\${path}.locale\`),
+    source: requireNonEmptyString(item.source, \`\${path}.source\`),
+    context: item.context ?? null,
+    comments: requireStringArray(item.comments, \`\${path}.comments\`),
+    references: requireStringArray(item.references, \`\${path}.references\`),
+    placeholders: requireStringArray(item.placeholders, \`\${path}.placeholders\`),
+    status: requireNonEmptyString(item.status, \`\${path}.status\`),
+  };
+}
+
+/** Parses and validates the stdout of \`i18n:pending\`. */
+export function parsePendingReport(stdout: string): PendingReport {
+  let parsed: Partial<PendingReport> | null;
+  try {
+    parsed = JSON.parse(stdout) as Partial<PendingReport> | null;
+  } catch (error) {
+    fail(
+      \`i18n:pending output is not JSON: \${error instanceof Error ? error.message : String(error)}\`,
+    );
+  }
+  if (!parsed || Array.isArray(parsed)) fail("i18n:pending output must be an object");
+
+  const items = parsed.items;
+  if (!Array.isArray(items)) fail("i18n:pending output must contain an items array");
+
+  return {
+    library: requireNonEmptyString(parsed.library, "library"),
+    sourceLocale: requireNonEmptyString(parsed.sourceLocale, "sourceLocale"),
+    items: items.map((item, index) => normalizePendingItem(item, \`items[\${index}]\`)),
+  };
+}
+
+interface ApplyItemDraft {
+  id: string;
+  locale: string;
+  translation?: string;
+  translations?: readonly string[];
+  context: string | null;
+}
+
+function normalizeApplyItem(
+  item: ApplyItem,
+  path: string,
+  options: ApplyFileOptions,
+): ApplyItemDraft {
+  const id = requireNonEmptyString(item.id, \`\${path}.id\`);
+  const locale = requireNonEmptyString(item.locale, \`\${path}.locale\`);
+  if (locale === options.sourceLocale) {
+    fail(\`\${path}.locale is the source locale "\${locale}"; edit the source catalog instead\`);
+  }
+
+  const translation = item.translation;
+  const translations = item.translations;
+  if (translation === undefined && translations === undefined) {
+    fail(\`\${path} needs a translation or a translations array\`);
+  }
+
+  const draft: ApplyItemDraft = { id, locale, context: item.context ?? null };
+  if (translation !== undefined) {
+    draft.translation = requireNonEmptyString(translation, \`\${path}.translation\`);
+  }
+  if (translations !== undefined) {
+    if (!Array.isArray(translations) || translations.length === 0) {
+      fail(\`\${path}.translations must contain at least one form\`);
+    }
+    draft.translations = translations;
+  }
+  return draft;
+}
+
+/**
+ * Parses and validates the \`i18n:apply <file>\` payload: an object with a
+ * non-empty \`items\` array, every item targeting a configured non-source
+ * locale, with no duplicate \`(id, locale)\` pair.
+ */
+export function decodeApplyFile(text: string, options: ApplyFileOptions): ApplyFile {
+  let parsed: Partial<ApplyFile> | null;
+  try {
+    parsed = JSON.parse(text) as Partial<ApplyFile> | null;
+  } catch (error) {
+    fail(\`the apply file is not JSON: \${error instanceof Error ? error.message : String(error)}\`);
+  }
+  if (!parsed || Array.isArray(parsed)) {
+    fail('the apply file must be an object with an "items" array');
+  }
+
+  const items = parsed.items;
+  if (!Array.isArray(items)) fail('the apply file must contain an "items" array');
+  if (items.length === 0) {
+    fail("the apply file must contain at least one item; skip i18n:apply when nothing is pending");
+  }
+
+  const seen = new Set<string>();
+  const decoded = items.map((item, index) => {
+    const parsedItem = normalizeApplyItem(item, \`items[\${index}]\`, options);
+    const key = \`\${parsedItem.id}\\u0000\${parsedItem.locale}\`;
+    if (seen.has(key)) {
+      fail(\`items[\${index}] duplicates \${parsedItem.id} (\${parsedItem.locale})\`);
+    }
+    seen.add(key);
+    return parsedItem;
+  });
+
+  return { items: decoded };
+}
+`],
+  ["i18n/lib/wuchale/scripts/export.ts.hbs", `/**
+ * \`i18n:export\` — write the normalized catalog (\`dist/catalog.json\`) consumed
+ * by JS tooling (e.g. \`i18n:sync-wxt\`), converting every message to the ICU
+ * subset (arguments, \`plural\` with \`#\`, \`select\`, nesting).
+ */
+
+import { mkdir, writeFile } from "node:fs/promises";
+import { join } from "node:path";
+
+import { locales, sourceLocale } from "../src/config";
+import { buildNormalizedCatalog, readCatalogs, resolvePackageRoot } from "./catalog";
+
+export async function writeNormalizedCatalog(packageRoot: string): Promise<number> {
+  const catalogs = await readCatalogs(packageRoot);
+  const result = buildNormalizedCatalog(catalogs, { locales, sourceLocale });
+
+  if (!result.isOk) {
+    for (const error of result.errors) console.error(\`i18n:export: \${error}\`);
+    return 1;
+  }
+
+  const outputPath = join(packageRoot, "dist", "catalog.json");
+  await mkdir(join(packageRoot, "dist"), { recursive: true });
+  await writeFile(outputPath, \`\${JSON.stringify(result.catalog, null, 2)}\\n\`, "utf8");
+  console.log(
+    \`i18n:export: wrote \${Object.keys(result.catalog.messages).length} messages to \${outputPath}\`,
+  );
+  return 0;
+}
+
+if (import.meta.main) {
+  process.exit(await writeNormalizedCatalog(resolvePackageRoot(import.meta.url)));
+}
+`],
+  ["i18n/lib/wuchale/scripts/extract.ts.hbs", `/**
+ * \`i18n:extract\` — scan every wuchale adapter for messages and write them to
+ * the per-adapter \`locales/<adapter>.<locale>.po\` catalogs. The wuchale CLI
+ * also refreshes the loader/proxy modules in \`locales/\`. AI translation is
+ * disabled (no \`ai\` config), so this only extracts and merges.
+ */
+
+import { resolvePackageRoot, runWuchaleCli } from "./catalog";
+
+const packageRoot = resolvePackageRoot(import.meta.url);
+process.exit(runWuchaleCli(packageRoot, []));
+`],
+  ["i18n/lib/wuchale/scripts/pending.ts.hbs", `/**
+ * \`i18n:pending --locale <locale> | --all [--limit N]\` — list untranslated
+ * items as the library-independent JSON contract consumed by the
+ * \`i18n-translate\` skill.
+ */
+
+import { locales, sourceLocale } from "../src/config";
+import {
+  collectPendingItems,
+  readCatalogs,
+  resolvePackageRoot,
+  type PendingReport,
+} from "./catalog";
+
+function argumentValue(name: string): string | undefined {
+  const index = process.argv.indexOf(name);
+  return index === -1 ? undefined : process.argv[index + 1];
+}
+
+const packageRoot = resolvePackageRoot(import.meta.url);
+const all = process.argv.includes("--all");
+const requestedLocale = argumentValue("--locale");
+const limitValue = argumentValue("--limit");
+const limit = limitValue === undefined ? undefined : Number.parseInt(limitValue, 10);
+
+if (!all && requestedLocale === undefined) {
+  console.error("Usage: bun run i18n:pending --locale <locale> | --all [--limit N]");
+  process.exit(1);
+}
+
+if (requestedLocale !== undefined && !locales.some((value) => value === requestedLocale)) {
+  console.error(\`Unknown locale "\${requestedLocale}". Configured locales: \${locales.join(", ")}.\`);
+  process.exit(1);
+}
+
+const catalogs = await readCatalogs(packageRoot);
+const items = collectPendingItems(catalogs, sourceLocale, all ? null : (requestedLocale ?? null));
+const limited = limit === undefined || Number.isNaN(limit) ? items : items.slice(0, limit);
+
+const report: PendingReport = { library: "wuchale", sourceLocale, items: limited };
+console.log(JSON.stringify(report, null, 2));
+`],
+  ["i18n/lib/wuchale/scripts/po.ts", `/**
+ * Minimal Gettext \`.po\` reader/writer for the wuchale script contract.
+ *
+ * Handles the subset wuchale writes: header entries, singular and plural
+ * messages, contexts, translator/extracted comments, references, flags and
+ * obsolete entries with \`#~\`. It is intentionally dependency-free so the
+ * generated \`@<project>/i18n\` package does not need \`pofile\` at runtime.
+ */
+
+export interface PoItem {
+  comments: string[];
+  extracted: string[];
+  references: string[];
+  flags: string[];
+  context: string | null;
+  id: string;
+  pluralId: string | null;
+  translations: string[];
+  obsolete: boolean;
+}
+
+export interface PoCatalog {
+  /** Verbatim header lines (comments + the empty \`msgid\`/\`msgstr\` entry). */
+  headers: string[];
+  items: PoItem[];
+}
+
+const COMMENT_PREFIXES = ["#.", "#:", "#,", "#"] as const;
+
+const ESCAPES = new Map<string, string>([
+  ["\\\\", "\\\\"],
+  ['"', '"'],
+  ["n", "\\n"],
+  ["t", "\\t"],
+  ["r", "\\r"],
+]);
+
+function unquote(value: string): string {
+  try {
+    return JSON.parse(value) as string;
+  } catch {
+    const inner = value.startsWith('"') && value.endsWith('"') ? value.slice(1, -1) : value;
+    return inner.replace(
+      /\\\\(["\\\\ntr])/g,
+      (_match: string, char: string) => ESCAPES.get(char) ?? char,
+    );
+  }
+}
+
+export function quotePo(value: string): string {
+  return JSON.stringify(value);
+}
+
+function createItem(): PoItem {
+  return {
+    comments: [],
+    extracted: [],
+    references: [],
+    flags: [],
+    context: null,
+    id: "",
+    pluralId: null,
+    translations: [],
+    obsolete: false,
+  };
+}
+
+interface PendingField {
+  key: "msgctxt" | "msgid" | "msgid_plural" | "msgstr";
+  index: number;
+  value: string;
+}
+
+function flushField(item: PoItem, field: PendingField | null): void {
+  if (!field) return;
+  if (field.key === "msgctxt") item.context = field.value;
+  else if (field.key === "msgid") item.id = field.value;
+  else if (field.key === "msgid_plural") item.pluralId = field.value;
+  else item.translations[field.index] = field.value;
+}
+
+function parseBlock(block: string[]): PoItem {
+  const item = createItem();
+  let field: PendingField | null = null;
+
+  for (const rawLine of block) {
+    const trimmed = rawLine.trim();
+    if (trimmed.length === 0) continue;
+
+    if (trimmed.startsWith('"')) {
+      if (!field) continue;
+      field.value += unquote(trimmed);
+      continue;
+    }
+
+    const obsolete = trimmed.startsWith("#~");
+    const line = obsolete ? trimmed.slice(2).trimStart() : trimmed;
+
+    if (line.startsWith("#")) {
+      flushField(item, field);
+      field = null;
+      item.obsolete = item.obsolete || obsolete;
+      parseComment(item, line);
+      continue;
+    }
+
+    const match = /^(msgctxt|msgid_plural|msgid|msgstr)(?:\\[(\\d+)\\])?\\s+(".*")\\s*$/.exec(line);
+    if (!match) {
+      flushField(item, field);
+      field = null;
+      continue;
+    }
+
+    flushField(item, field);
+    field = {
+      key: match[1] as PendingField["key"],
+      index: match[2] ? Number.parseInt(match[2], 10) : 0,
+      value: match[3] ? unquote(match[3]) : "",
+    };
+  }
+
+  flushField(item, field);
+  return item;
+}
+
+function parseComment(item: PoItem, line: string): void {
+  if (line.startsWith("#.")) {
+    item.extracted.push(line.slice(2).trim());
+    return;
+  }
+  if (line.startsWith("#:")) {
+    item.references.push(...line.slice(2).trim().split(/\\s+/).filter(Boolean));
+    return;
+  }
+  if (line.startsWith("#,")) {
+    item.flags.push(...line.slice(2).trim().split(/\\s+/).filter(Boolean));
+    return;
+  }
+  if (line.startsWith("#~|")) return;
+  item.comments.push(line.startsWith("#") ? line.slice(1).trim() : line);
+}
+
+const FIELD_PATTERN = /^(#~\\s+)?(msgctxt|msgid_plural|msgid|msgstr)(?:\\[\\d+\\])?\\s/;
+
+export function parsePo(content: string): PoCatalog {
+  const catalog: PoCatalog = { headers: [], items: [] };
+  const lines = content.replace(/^\\uFEFF/, "").split(/\\r?\\n/);
+  let block: string[] = [];
+  let blockHasField = false;
+  let headerSeen = false;
+
+  const consume = (): void => {
+    if (block.length === 0) return;
+    const raw = block;
+    const item = parseBlock(raw);
+    block = [];
+    blockHasField = false;
+    if (item.id === "" && item.context === null && item.pluralId === null) {
+      if (!headerSeen) {
+        headerSeen = true;
+        catalog.headers = [...raw];
+      }
+      return;
+    }
+    catalog.items.push(item);
+  };
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (trimmed.length === 0) {
+      consume();
+      continue;
+    }
+    const isComment = COMMENT_PREFIXES.some((prefix) => trimmed.startsWith(prefix));
+    if (isComment && blockHasField) {
+      consume();
+    }
+    block.push(line);
+    if (FIELD_PATTERN.test(trimmed)) blockHasField = true;
+  }
+  consume();
+
+  return catalog;
+}
+
+export function isUntranslated(translations: readonly string[]): boolean {
+  return translations.every((value) => value.length === 0);
+}
+
+export function serializePo(catalog: PoCatalog): string {
+  const lines: string[] = [];
+  if (catalog.headers.length > 0) {
+    lines.push(...catalog.headers, "");
+  }
+
+  for (const item of catalog.items) {
+    const prefix = item.obsolete ? "#~ " : "";
+    for (const comment of item.comments) lines.push(\`# \${comment}\`.trimEnd());
+    for (const comment of item.extracted) lines.push(\`#. \${comment}\`.trimEnd());
+    if (item.references.length > 0) lines.push(\`#: \${item.references.join(" ")}\`);
+    if (item.flags.length > 0) lines.push(\`#, \${item.flags.join(", ")}\`);
+    if (item.context !== null) lines.push(\`\${prefix}msgctxt \${quotePo(item.context)}\`);
+    lines.push(\`\${prefix}msgid \${quotePo(item.id)}\`);
+    if (item.pluralId !== null) {
+      lines.push(\`\${prefix}msgid_plural \${quotePo(item.pluralId)}\`);
+      item.translations.forEach((translation, index) => {
+        lines.push(\`\${prefix}msgstr[\${index}] \${quotePo(translation)}\`);
+      });
+    } else {
+      lines.push(\`\${prefix}msgstr \${quotePo(item.translations[0] ?? "")}\`);
+    }
+    lines.push("");
+  }
+
+  return \`\${lines.join("\\n").trimEnd()}\\n\`;
+}
+`],
+  ["i18n/lib/wuchale/src/runtime.ts", `/**
+ * wuchale runtime re-exports and the \`plural()\` code pattern.
+ *
+ * Surface glue imports \`loadLocale\` from here; wuchale's compiler injects its
+ * own runtime imports into transformed components. The shared \`Intl\`
+ * formatters (\`createFormatters\`) stay library-independent — never format
+ * dates or numbers through wuchale.
+ */
+
+import { sourceLocale } from "./config";
+
+export { commitLocale, loadLocale, loadLocaleSync, registerLoaders } from "wuchale/load-utils";
+export type { CatalogModule, Runtime } from "wuchale/runtime";
+
+const CATEGORY_ORDER: readonly Intl.LDMLPluralRule[] = [
+  "zero",
+  "one",
+  "two",
+  "few",
+  "many",
+  "other",
+];
+
+const categoryIndicesByLocale = new Map<string, ReadonlyMap<Intl.LDMLPluralRule, number>>();
+
+/** CLDR category → candidate index, matching wuchale's generated \`plural.js\`. */
+function categoryIndices(locale: string): ReadonlyMap<Intl.LDMLPluralRule, number> {
+  const cached = categoryIndicesByLocale.get(locale);
+  if (cached !== undefined) return cached;
+
+  const categories = [...new Intl.PluralRules(locale).resolvedOptions().pluralCategories];
+  categories.sort(
+    (first, second) => CATEGORY_ORDER.indexOf(first) - CATEGORY_ORDER.indexOf(second),
+  );
+  const indices = new Map(categories.map((category, index) => [category, index]));
+  categoryIndicesByLocale.set(locale, indices);
+  return indices;
+}
+
+/**
+ * The \`plural(count, ["one item", "# items"])\` code pattern wuchale looks for.
+ * The compiler replaces the candidate array with the compiled catalog for the
+ * active locale and appends \`_w_runtime_.l\` as the locale argument, so this
+ * only selects the candidate and substitutes \`#\`.
+ */
+export function plural(
+  count: number,
+  candidates: readonly string[],
+  locale: string = sourceLocale,
+): string {
+  const category = new Intl.PluralRules(locale).select(count);
+  const index = categoryIndices(locale).get(category) ?? 0;
+  const candidate = candidates[index] ?? candidates[candidates.length - 1] ?? "";
+  return candidate.replace("#", String(count));
+}
+`],
+  ["i18n/lib/wuchale/wuchale.config.mjs.hbs", `// wuchale configuration for @{{projectName}}/i18n (experimental).
+//
+// \`i18n:extract\` / \`i18n:compile\` run the \`wuchale\` CLI against this file.
+// Every adapter scopes its extraction to one app and stores its catalogs as
+// \`locales/<adapter>.<locale>.po\`. The \`locales/.wuchale\` directory and the
+// generated loader/proxy modules are build output.
+//
+// AI translation is intentionally disabled: there is no \`ai\` entry, so the CLI
+// never calls a translation provider. Translation runs through the uniform
+// agent contract: \`i18n:pending\` -> \`i18n:apply\` -> \`i18n:check\`.
+{{#if (or (includes frontend "next") (includes frontend "tanstack-start") (includes frontend "tanstack-router") (includes frontend "react-router") (includes frontend "solid") (eq emailRenderer "react-email") (and (includes addons "opentui") (eq addonOptions.opentui.template "react")) (and (includes addons "opentui") (eq addonOptions.opentui.template "solid")) (and (includes addons "wxt") (not addonOptions.wxt.template)) (and (includes addons "wxt") (eq addonOptions.wxt.template "react")) (and (includes addons "wxt") (eq addonOptions.wxt.template "solid")))}}
+import { adapter as jsx } from "@wuchale/jsx";
+{{/if}}
+{{#if (or (includes frontend "svelte") (and (includes addons "wxt") (eq addonOptions.wxt.template "svelte")))}}
+import { adapter as svelte } from "@wuchale/svelte";
+{{/if}}
+{{#if (includes frontend "astro")}}
+import { adapter as astro } from "@wuchale/astro";
+{{/if}}
+{{#if (or (eq backend "hono") (eq backend "express") (eq backend "fastify") (eq backend "elysia") (eq backend "nitro") (includes addons "electrobun") (and (includes addons "opentui") (not (eq addonOptions.opentui.template "react")) (not (eq addonOptions.opentui.template "solid"))) (and (includes addons "wxt") (eq addonOptions.wxt.template "vanilla")))}}
+import { adapter as vanilla } from "wuchale/adapter-vanilla";
+{{/if}}
+import { defineConfig, pofile } from "wuchale";
+
+export default defineConfig({
+  locales: [
+{{#if i18nOptions.locales}}
+{{#each i18nOptions.locales}}    "{{this}}",
+{{/each}}
+{{else}}
+    "en",
+    "es",
+    "fr",
+{{/if}}
+  ],
+  localesDir: "./locales",
+  adapters: {
+    // One adapter per app; each writes \`locales/<key>.<locale>.po\`.
+{{#if (or (includes frontend "next") (includes frontend "tanstack-start") (includes frontend "tanstack-router") (includes frontend "react-router"))}}
+    web: jsx({
+      loader: "react",
+      files: {
+        include: ["../../apps/web/src/**/*.{js,ts,jsx,tsx}"],
+        ignore: ["**/*.d.ts"],
+      },
+      localesDir: "../../apps/web/src/locales",
+      storage: pofile({ location: "locales/web.{locale}.po" }),
+    }),
+{{else if (includes frontend "svelte")}}
+    web: svelte({
+      loader: "sveltekit",
+      files: {
+        include: ["../../apps/web/src/**/*.svelte", "../../apps/web/src/**/*.svelte.{js,ts}"],
+        ignore: ["**/*.d.ts"],
+      },
+      localesDir: "../../apps/web/src/locales",
+      storage: pofile({ location: "locales/web.{locale}.po" }),
+    }),
+{{else if (includes frontend "solid")}}
+    web: jsx({
+      loader: "solidjs",
+      variant: "solidjs",
+      files: {
+        include: ["../../apps/web/src/**/*.{js,ts,jsx,tsx}"],
+        ignore: ["**/*.d.ts"],
+      },
+      localesDir: "../../apps/web/src/locales",
+      storage: pofile({ location: "locales/web.{locale}.po" }),
+    }),
+{{else if (includes frontend "astro")}}
+    web: astro({
+      files: {
+        include: ["../../apps/web/src/**/*.astro"],
+      },
+      localesDir: "../../apps/web/src/locales",
+      storage: pofile({ location: "locales/web.{locale}.po" }),
+    }),
+{{/if}}
+{{#if (or (eq backend "hono") (eq backend "express") (eq backend "fastify") (eq backend "elysia") (eq backend "nitro"))}}
+    server: vanilla({
+      loader: "server",
+      files: {
+        include: ["../../apps/server/src/**/*.{js,ts}"],
+        ignore: ["**/*.d.ts"],
+      },
+      localesDir: "../../apps/server/src/locales",
+      storage: pofile({ location: "locales/server.{locale}.po" }),
+    }),
+{{/if}}
+{{#if (eq emailRenderer "react-email")}}
+    email: jsx({
+      loader: "react",
+      files: {
+        include: ["../../packages/email/src/**/*.{ts,tsx}"],
+        ignore: ["**/*.d.ts"],
+      },
+      localesDir: "../../packages/email/src/locales",
+      storage: pofile({ location: "locales/email.{locale}.po" }),
+    }),
+{{/if}}
+{{#if (includes addons "electrobun")}}
+    desktop: vanilla({
+      loader: "server",
+      files: {
+        include: ["../../apps/desktop/src/**/*.{js,ts}"],
+        ignore: ["**/*.d.ts"],
+      },
+      localesDir: "../../apps/desktop/src/locales",
+      storage: pofile({ location: "locales/desktop.{locale}.po" }),
+    }),
+{{/if}}
+{{#if (includes addons "opentui")}}
+{{#if (eq addonOptions.opentui.template "react")}}
+    tui: jsx({
+      loader: "react",
+      files: {
+        include: ["../../apps/tui/src/**/*.{js,ts,jsx,tsx}"],
+        ignore: ["**/*.d.ts"],
+      },
+      localesDir: "../../apps/tui/src/locales",
+      storage: pofile({ location: "locales/tui.{locale}.po" }),
+    }),
+{{else if (eq addonOptions.opentui.template "solid")}}
+    tui: jsx({
+      loader: "solidjs",
+      variant: "solidjs",
+      files: {
+        include: ["../../apps/tui/src/**/*.{js,ts,jsx,tsx}"],
+        ignore: ["**/*.d.ts"],
+      },
+      localesDir: "../../apps/tui/src/locales",
+      storage: pofile({ location: "locales/tui.{locale}.po" }),
+    }),
+{{else}}
+    tui: vanilla({
+      loader: "server",
+      files: {
+        include: ["../../apps/tui/src/**/*.{js,ts}"],
+        ignore: ["**/*.d.ts"],
+      },
+      localesDir: "../../apps/tui/src/locales",
+      storage: pofile({ location: "locales/tui.{locale}.po" }),
+    }),
+{{/if}}
+{{/if}}
+{{#if (includes addons "wxt")}}
+{{#if (eq addonOptions.wxt.template "svelte")}}
+    extension: svelte({
+      loader: "svelte",
+      files: {
+        include: [
+          "../../apps/extension/entrypoints/**/*.svelte",
+          "../../apps/extension/components/**/*.svelte",
+          "../../apps/extension/src/**/*.svelte",
+        ],
+        ignore: ["**/*.d.ts"],
+      },
+      localesDir: "../../apps/extension/src/locales",
+      storage: pofile({ location: "locales/extension.{locale}.po" }),
+    }),
+{{else if (eq addonOptions.wxt.template "vanilla")}}
+    extension: vanilla({
+      loader: "vite",
+      files: {
+        include: [
+          "../../apps/extension/entrypoints/**/*.{js,ts}",
+          "../../apps/extension/components/**/*.{js,ts}",
+          "../../apps/extension/src/**/*.{js,ts}",
+        ],
+        ignore: ["**/*.d.ts"],
+      },
+      localesDir: "../../apps/extension/src/locales",
+      storage: pofile({ location: "locales/extension.{locale}.po" }),
+    }),
+{{else}}
+    extension: jsx({
+      loader: "{{#if (eq addonOptions.wxt.template "solid")}}solidjs{{else}}react{{/if}}",
+      variant: "{{#if (eq addonOptions.wxt.template "solid")}}solidjs{{else}}default{{/if}}",
+      files: {
+        include: [
+          "../../apps/extension/entrypoints/**/*.{js,ts,jsx,tsx}",
+          "../../apps/extension/components/**/*.{js,ts,jsx,tsx}",
+          "../../apps/extension/src/**/*.{js,ts,jsx,tsx}",
+        ],
+        ignore: ["**/*.d.ts"],
+      },
+      localesDir: "../../apps/extension/src/locales",
+      storage: pofile({ location: "locales/extension.{locale}.po" }),
+    }),
+{{/if}}
+{{/if}}
+  },
+});
+`],
+  ["i18n/lib/wuchale/WUCHALE.md.hbs", `# wuchale (experimental)
+
+\`@{{projectName}}/i18n\` uses [wuchale](https://wuchale.dev) for messages. Wuchale
+is **compile-time i18n**: you write natural strings and the bundler plugin
+transforms them into runtime lookups. There are no \`t()\` calls and no keys to
+invent.
+
+## How it works here
+
+- Config: \`wuchale.config.mjs\` — one adapter per app, each scoped to that app's
+  sources with \`files\` globs.
+- Catalogs: \`locales/<adapter>.<locale>.po\` (\`web\`, \`server\`, \`desktop\`, \`tui\`,
+  \`extension\`, \`email\`). The source locale stores the source strings; translate
+  the other locales.
+- Build output: each adapter writes its compiled catalogs, proxies and
+  \`<adapter>.loader.*\` modules into the app's own \`src/locales\` directory, so
+  the loader resolves the app's framework dependencies. Those directories are
+  gitignored and rebuilt by \`i18n:extract\` / \`i18n:compile\`.
+- Dates, numbers, currency and lists always go through
+  \`createFormatters(locale)\` from \`@{{projectName}}/i18n\`, never through
+  wuchale.
+
+## Scripts
+
+| Script | What it does |
+| --- | --- |
+| \`i18n:extract\` | Runs the wuchale CLI: extracts strings, refreshes the \`.po\` catalogs and the per-app loaders. |
+| \`i18n:compile\` | Runs the wuchale CLI to extract and compile the catalogs the app runtimes load; runs before \`dev\` and \`build\`. |
+| \`i18n:pending --locale <l> \\| --all [--limit N]\` | Lists untranslated items as JSON. |
+| \`i18n:apply <file>\` | Validates placeholders and writes translations back. |
+| \`i18n:check\` | Fails on missing or invalid entries; \`I18N_CHECK_ALLOW_MISSING=1\` allows missing ones. |
+| \`i18n:export\` | Writes the normalized ICU catalog to \`dist/catalog.json\` for JS tooling (e.g. \`i18n:sync-wxt\`). |
+
+## AI translation is disabled
+
+The config deliberately has **no \`ai\` entry**, so wuchale never calls a
+translation provider. Translate with the \`i18n-translate\` skill through
+\`i18n:pending\` -> \`i18n:apply\` -> \`i18n:check\`.
+
+## Surface notes
+
+- **Vite frontends** (TanStack Start/Router, React Router, Solid, SvelteKit):
+  the \`wuchale/vite\` plugin is **not wired** — it races \`buildStart\` and crashes
+  under Vite 8 (wuchale#484, no released fix). \`i18n:extract\` / \`i18n:compile\`
+  still work; transform sources with \`bunx wuchale --modify web\` on a clean
+  working tree before \`dev\` / \`build\`.
+- **Astro:** the \`@wuchale/astro/integration\` is wired into
+  \`apps/web/astro.config.mjs\`.
+- **Next.js, server, Electrobun, OpenTUI and WXT** have no bundler plugin.
+  Extraction works through \`i18n:extract\`; to transform sources for a build,
+  run \`bunx wuchale --modify <adapter>\` on a clean working tree (the command
+  overwrites source files in place).
+- **Unsupported surfaces:** Nuxt and WXT Vue have no wuchale adapter, and Expo
+  (native) has no wuchale counterpart — the compatibility matrix blocks those
+  combinations with that reason.
+- **Partial surfaces:** \`react-email\` (server render path) and the OpenTUI
+  React/Solid reconcilers ship glue but are unverified; the compatibility matrix
+  reports them as warnings.
+
+## Adding a locale
+
+1. Add the tag to \`locales\` in \`src/config.ts\` (and to \`locales\` in
+   \`wuchale.config.mjs\` when it is not the default list).
+2. Run \`bun run i18n:extract\` — wuchale creates \`locales/<adapter>.<locale>.po\`.
+3. Translate through the scripts above.
+`],
+  ["i18n/routing/server/elysia/locale.ts.hbs", `import type { Elysia } from "elysia";
+
+import { LOCALE_HEADER } from "@{{projectName}}/i18n/config";
+import { negotiateRequestLocale } from "@{{projectName}}/i18n/routing";
+import { runWithLocale } from "@{{projectName}}/i18n/server";
+
+const APPLIED_HEADER = "x-i18n-locale-applied";
+
+/**
+ * Negotiates the request locale (D5) and runs the rest of the request inside
+ * \`runWithLocale\`, so handlers read it back with \`getRequestLocale()\`.
+ *
+ * Elysia lifecycle hooks have no \`next()\` callback to wrap, so the outer
+ * \`onRequest\` re-enters \`app.handle()\` once with the request marked: the inner
+ * pass runs the full pipeline inside the AsyncLocalStorage scope and its
+ * response is returned as the outer response. Called from \`src/index.ts\`.
+ */
+export function withLocale(app: Elysia): Elysia {
+  app.onRequest(({ request }) => {
+    if (request.headers.get(APPLIED_HEADER) === "1") return;
+
+    const locale = negotiateRequestLocale({
+      url: request.url,
+      header: request.headers.get(LOCALE_HEADER),
+      cookieHeader: request.headers.get("cookie"),
+      acceptLanguage: request.headers.get("accept-language"),
+    });
+
+    const inner = request.clone();
+    inner.headers.set(APPLIED_HEADER, "1");
+    return runWithLocale(locale, () => app.handle(inner));
+  });
+
+  return app;
+}
+`],
+  ["i18n/routing/server/express/locale.ts.hbs", `import type { NextFunction, Request, Response } from "express";
+
+import { LOCALE_HEADER } from "@{{projectName}}/i18n/config";
+import { negotiateRequestLocale } from "@{{projectName}}/i18n/routing";
+import { runWithLocale } from "@{{projectName}}/i18n/server";
+
+function headerValue(value: string | string[] | undefined): string | undefined {
+  return Array.isArray(value) ? value[0] : value;
+}
+
+/**
+ * Negotiates the request locale (D5) and runs the rest of the request inside
+ * \`runWithLocale\`, so handlers read it back with \`getRequestLocale()\`.
+ * Registered in \`src/index.ts\`.
+ */
+export function localeMiddleware(req: Request, _res: Response, next: NextFunction): void {
+  const locale = negotiateRequestLocale({
+    url: \`\${req.protocol}://\${req.get("host") ?? "localhost"}\${req.originalUrl}\`,
+    header: headerValue(req.headers[LOCALE_HEADER]),
+    cookieHeader: headerValue(req.headers.cookie),
+    acceptLanguage: headerValue(req.headers["accept-language"]),
+  });
+
+  runWithLocale(locale, () => next());
+}
+`],
+  ["i18n/routing/server/fastify/locale.ts.hbs", `import type { FastifyInstance } from "fastify";
+
+import { LOCALE_HEADER } from "@{{projectName}}/i18n/config";
+import { negotiateRequestLocale } from "@{{projectName}}/i18n/routing";
+import { runWithLocale } from "@{{projectName}}/i18n/server";
+
+function headerValue(value: string | string[] | undefined): string | undefined {
+  return Array.isArray(value) ? value[0] : value;
+}
+
+/**
+ * Negotiates the request locale (D5) and runs the rest of the request inside
+ * \`runWithLocale\`, so handlers read it back with \`getRequestLocale()\`.
+ * Called from \`src/index.ts\`.
+ */
+export function registerLocale(app: FastifyInstance): void {
+  app.addHook("onRequest", (request, _reply, done) => {
+    const locale = negotiateRequestLocale({
+      url: \`\${request.protocol}://\${request.host}\${request.url}\`,
+      header: headerValue(request.headers[LOCALE_HEADER]),
+      cookieHeader: headerValue(request.headers.cookie),
+      acceptLanguage: headerValue(request.headers["accept-language"]),
+    });
+
+    runWithLocale(locale, () => done());
+  });
+}
+`],
+  ["i18n/routing/server/hono/locale.ts.hbs", `import { createMiddleware } from "hono/factory";
+
+import { LOCALE_HEADER } from "@{{projectName}}/i18n/config";
+import { negotiateRequestLocale } from "@{{projectName}}/i18n/routing";
+import { runWithLocale } from "@{{projectName}}/i18n/server";
+
+/**
+ * Negotiates the request locale (D5) and runs the rest of the request inside
+ * \`runWithLocale\`, so handlers read it back with \`getRequestLocale()\`.
+ * Registered in \`src/index.ts\`.
+ */
+export const localeMiddleware = createMiddleware(async (c, next) => {
+  const locale = negotiateRequestLocale({
+    url: c.req.url,
+    header: c.req.header(LOCALE_HEADER),
+    cookieHeader: c.req.header("cookie"),
+    acceptLanguage: c.req.header("accept-language"),
+  });
+
+  await runWithLocale(locale, () => next());
+});
+`],
+  ["i18n/routing/server/nitro/locale.ts.hbs", `import { defineMiddleware } from "nitro";
+
+import { LOCALE_HEADER } from "@{{projectName}}/i18n/config";
+import { negotiateRequestLocale } from "@{{projectName}}/i18n/routing";
+import { runWithLocale } from "@{{projectName}}/i18n/server";
+
+/**
+ * Negotiates the request locale (D5) and runs the route handlers inside
+ * \`runWithLocale\` through h3 v2's middleware \`next()\`, so handlers read it
+ * back with \`getRequestLocale()\`. Auto-registered from \`server/middleware/\`.
+ */
+export default defineMiddleware((event, next) => {
+  const locale = negotiateRequestLocale({
+    url: event.req.url,
+    header: event.req.headers.get(LOCALE_HEADER),
+    cookieHeader: event.req.headers.get("cookie"),
+    acceptLanguage: event.req.headers.get("accept-language"),
+  });
+
+  return runWithLocale(locale, () => next());
+});
+`],
+  ["i18n/routing/shared/src/client.ts.hbs", `/**
+ * Client-side locale helpers. Every generated API client (tRPC/oRPC links,
+ * the Better Auth client, fetch helpers) sends the \`x-app-locale\` header so a
+ * cross-origin \`apps/server\` receives the app's chosen locale instead of
+ * relying on the browser preference alone (D5).
+ *
+ * Import from \`@<project>/i18n/client\`.
+ */
+import { LOCALE_COOKIE, LOCALE_HEADER, negotiateLocale, sourceLocale } from "./config";
+import type { Locale } from "./config";
+
+const STORAGE_KEY = "locale";
+
+interface StorageLike {
+  getItem(key: string): string | null;
+}
+
+function browserStorage(): StorageLike | undefined {
+  return (globalThis as { localStorage?: StorageLike }).localStorage;
+}
+
+function browserCookieHeader(): string | undefined {
+  return (globalThis as { document?: { cookie?: string } }).document?.cookie;
+}
+
+function browserAcceptLanguage(): string | undefined {
+  const navigatorLike = (globalThis as {
+    navigator?: { languages?: readonly string[]; language?: string };
+  }).navigator;
+  if (!navigatorLike) return undefined;
+  return navigatorLike.languages?.join(",") ?? navigatorLike.language;
+}
+
+function readBrowserStorage(key: string): string | undefined {
+  try {
+    const value = browserStorage()?.getItem(key);
+    return value ?? undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/** The current locale on the client: cookie → \`localStorage\` → browser language. */
+export function getClientLocale(): Locale {
+  if (typeof (globalThis as { window?: unknown }).window === "undefined") return sourceLocale;
+
+  const cookieHeader = browserCookieHeader();
+  const cookie = cookieHeader
+    ? cookieHeader
+        .split(";")
+        .map((entry) => entry.trim().split("="))
+        .find(([name]) => name === LOCALE_COOKIE)
+        ?.slice(1)
+        .join("=")
+    : undefined;
+
+  return negotiateLocale({
+    cookie,
+    stored: readBrowserStorage(STORAGE_KEY),
+    acceptLanguage: browserAcceptLanguage(),
+  });
+}
+
+/** \`x-app-locale\` for the current client locale. */
+export function localeHeader(): Record<string, string> {
+  return { [LOCALE_HEADER]: getClientLocale() };
+}
+
+/** A \`RequestInit\` with \`x-app-locale\` merged into its headers. */
+export function localeInit(init?: Parameters<typeof fetch>[1]): Parameters<typeof fetch>[1] {
+  const headers = new Headers(init?.headers);
+  for (const [name, value] of Object.entries(localeHeader())) {
+    headers.set(name, value);
+  }
+  return { ...init, headers };
+}
+
+/** \`fetch\` wrapper that always sends \`x-app-locale\`. */
+export function localeFetch(
+  input: Parameters<typeof fetch>[0],
+  init?: Parameters<typeof fetch>[1],
+): Promise<Response> {
+  return fetch(input, localeInit(init));
+}
+`],
+  ["i18n/routing/shared/src/routing.ts.hbs", `/**
+ * URL localization for the \`prefix\` and \`domain\` routing strategies (D6).
+ *
+ * Every template link goes through \`localizeHref\` so the visible URL always
+ * carries the active locale; \`negotiateRequestLocale\` is the server-side entry
+ * point used by the generated middleware. The negotiation sources themselves
+ * live in \`./config\`.
+ */
+import {
+  LOCALE_COOKIE,
+  isLocale,
+  localeDomains,
+  locales,
+  negotiateLocale,
+  prefixDefaultLocale,
+  routingStrategy,
+  sourceLocale,
+} from "./config";
+import type { Locale } from "./config";
+
+export interface HreflangLink {
+  readonly hreflang: string;
+  readonly href: string;
+}
+
+function isExternalHref(href: string): boolean {
+  return /^[a-z][a-z0-9+.-]*:/i.test(href) || href.startsWith("//");
+}
+
+function splitHref(href: string): { path: string; suffix: string } {
+  const index = href.search(/[?#]/);
+  if (index === -1) return { path: href, suffix: "" };
+  return { path: href.slice(0, index), suffix: href.slice(index) };
+}
+
+function withLeadingSlash(path: string): string {
+  return path.startsWith("/") ? path : \`/\${path}\`;
+}
+
+function isLocalHostname(hostname: string): boolean {
+  return hostname === "localhost" || hostname === "127.0.0.1" || hostname.endsWith(".localhost");
+}
+
+function originForHost(host: string): string {
+  return \`\${isLocalHostname(host) ? "http" : "https"}://\${host}\`;
+}
+
+/** Reads one cookie value out of a raw \`Cookie\` header. */
+export function readCookieValue(
+  cookieHeader: string | null | undefined,
+  name: string,
+): string | undefined {
+  if (!cookieHeader) return undefined;
+  for (const entry of cookieHeader.split(";")) {
+    const separator = entry.indexOf("=");
+    if (separator === -1) continue;
+    if (entry.slice(0, separator).trim() === name) {
+      return decodeURIComponent(entry.slice(separator + 1).trim());
+    }
+  }
+  return undefined;
+}
+
+/** The locale prefix of a pathname, when the first segment is a locale. */
+export function localeFromPathname(pathname: string): Locale | undefined {
+  const [first] = pathname.split("/").filter((segment) => segment.length > 0);
+  if (!first || !isLocale(first)) return undefined;
+  return first;
+}
+
+/** Removes the leading locale segment (\`/fr/about\` → \`/about\`). */
+export function stripLocalePrefix(pathname: string): string {
+  const locale = localeFromPathname(pathname);
+  if (!locale) return pathname;
+  const rest = pathname.slice(locale.length + 1);
+  return rest.length > 0 ? rest : "/";
+}
+
+/**
+ * \`?locale=\` development override for local hosts (\`localhost\`,
+ * \`127.0.0.1\`, \`*.localhost\`). Portless mode serves each locale from
+ * \`<locale>.<app>.localhost\`, so this is the fallback for plain localhost.
+ */
+export function localeOverrideFromUrl(url: string | URL): Locale | undefined {
+  const parsed = typeof url === "string" ? new URL(url, "http://localhost") : url;
+  if (!isLocalHostname(parsed.hostname)) return undefined;
+  const override = parsed.searchParams.get("locale");
+  return override && isLocale(override) ? override : undefined;
+}
+
+/**
+ * Server-side negotiation entry point: extracts the D5 sources from a request
+ * and resolves them through the shared \`negotiateLocale\` contract.
+ */
+export function negotiateRequestLocale(sources: {
+  readonly url: string | URL;
+  readonly header?: string | null;
+  readonly cookieHeader?: string | null;
+  readonly acceptLanguage?: string | null;
+}): Locale {
+  const parsed = typeof sources.url === "string" ? new URL(sources.url, "http://localhost") : sources.url;
+
+  const override = localeOverrideFromUrl(parsed);
+  if (override) return override;
+
+  return negotiateLocale({
+    pathname: parsed.pathname,
+    host: parsed.host,
+    header: sources.header ?? undefined,
+    cookie: readCookieValue(sources.cookieHeader, LOCALE_COOKIE),
+    acceptLanguage: sources.acceptLanguage ?? undefined,
+  });
+}
+
+/**
+ * Locale-aware version of an href.
+ *
+ * - \`cookie\`: unchanged.
+ * - \`prefix\`: \`/about\` → \`/fr/about\`; the source locale keeps its bare path
+ *   unless \`prefixDefaultLocale\` is set.
+ * - \`domain\`: absolute URL on the mapped host when one is configured.
+ *
+ * Query strings, hash fragments and external URLs are preserved, and calling
+ * this twice with the same locale is idempotent.
+ */
+export function localizeHref(href: string, locale: Locale = sourceLocale): string {
+  if (routingStrategy === "cookie" || isExternalHref(href) || href.startsWith("#")) return href;
+
+  const { path, suffix } = splitHref(href);
+  const bare = stripLocalePrefix(withLeadingSlash(path));
+
+  if (routingStrategy === "prefix") {
+    if (locale === sourceLocale && !prefixDefaultLocale) return \`\${bare}\${suffix}\`;
+    const prefixed = bare === "/" ? \`/\${locale}\` : \`/\${locale}\${bare}\`;
+    return \`\${prefixed}\${suffix}\`;
+  }
+
+  // domain
+  const host = localeDomains[locale];
+  if (!host) return \`\${bare}\${suffix}\`;
+  return \`\${originForHost(host)}\${bare === "/" ? "" : bare}\${suffix}\`;
+}
+
+/**
+ * \`hreflang\` link descriptors for a page, one per configured locale plus
+ * \`x-default\`. Domain routing prefers the absolute host from \`localeDomains\`;
+ * \`origin\` (the app's own origin) covers locales without a host and the
+ * \`x-default\` entry. Returns an empty list for cookie routing.
+ */
+export function hreflangLinks(pathname = "/", origin?: string): HreflangLink[] {
+  if (routingStrategy === "cookie") return [];
+
+  const bare = stripLocalePrefix(pathname);
+  const trimmedOrigin = origin?.replace(/\\/$/, "");
+  const links: HreflangLink[] = [];
+
+  for (const locale of locales) {
+    if (routingStrategy === "domain") {
+      const host = localeDomains[locale];
+      if (host) {
+        links.push({
+          hreflang: locale,
+          href: \`\${originForHost(host)}\${bare === "/" ? "" : bare}\`,
+        });
+        continue;
+      }
+    }
+    if (!trimmedOrigin) continue;
+    links.push({ hreflang: locale, href: \`\${trimmedOrigin}\${localizeHref(bare, locale)}\` });
+  }
+
+  if (trimmedOrigin) {
+    links.push({ hreflang: "x-default", href: \`\${trimmedOrigin}\${bare}\` });
+  }
+
+  return links;
+}
+`],
+  ["i18n/routing/surface/astro/HreflangLinks.astro.hbs", `---
+import { hreflangLinks } from "@{{projectName}}/i18n/routing";
+
+const links = hreflangLinks(Astro.url.pathname, Astro.url.origin);
+---
+
+{links.map(({ hreflang, href }) => (
+  <link rel="alternate" hreflang={hreflang} href={href} />
+))}
+`],
+  ["i18n/routing/surface/astro/middleware.ts.hbs", `import { defineMiddleware } from "astro:middleware";
+
+import { paraglideMiddleware } from "./paraglide/server.js";
+
+/**
+ * SSR locale negotiation (D5/D6).
+ *
+ * \`paraglideMiddleware\` resolves the request locale from the configured
+ * strategies (URL, cookie, \`Accept-Language\`, host) and runs the render inside
+ * \`AsyncLocalStorage\`, so \`getLocale()\` and the compiled messages return the
+ * negotiated locale during server rendering instead of the base locale.
+ */
+export const onRequest = defineMiddleware((context, next) =>
+  paraglideMiddleware(context.request, ({ request }) => next(request)),
+);
+`],
+  ["i18n/routing/surface/next/hreflang.tsx.hbs", `import { headers } from "next/headers";
+
+import { hreflangLinks } from "@{{projectName}}/i18n/routing";
+
+/**
+ * \`<link rel="alternate" hreflang>\` tags for the current page (D6 SEO).
+ * React 19 hoists them into the document head. \`x-pathname\` carries the public
+ * pathname set by \`src/middleware.ts\`, so prefixed URLs stay canonical.
+ */
+export async function HreflangLinks() {
+  const requestHeaders = await headers();
+  const host = requestHeaders.get("host");
+  const pathname = requestHeaders.get("x-pathname") ?? "/";
+  const isLocal = host?.startsWith("localhost") || host?.startsWith("127.0.0.1");
+  const protocol = requestHeaders.get("x-forwarded-proto") ?? (isLocal ? "http" : "https");
+  const origin = host ? \`\${protocol}://\${host}\` : undefined;
+
+  return (
+    <>
+      {hreflangLinks(pathname, origin).map(({ hreflang, href }) => (
+        <link key={hreflang} rel="alternate" hrefLang={hreflang} href={href} />
+      ))}
+    </>
+  );
+}
+`],
+  ["i18n/routing/surface/next/middleware.ts.hbs", `import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+
+import {
+  LOCALE_COOKIE,
+  LOCALE_HEADER,
+  routingStrategy,
+} from "@{{projectName}}/i18n/config";
+import {
+  localeFromPathname,
+  negotiateRequestLocale,
+  stripLocalePrefix,
+} from "@{{projectName}}/i18n/routing";
+
+/**
+ * \`prefix\` / \`domain\` routing (D6).
+ *
+ * - prefix: \`/fr/about\` is rewritten to \`/about\` and the negotiated locale
+ *   travels on \`x-app-locale\` and the \`locale\` cookie. With
+ *   \`prefixDefaultLocale\` the canonical links from \`localizeHref\` always carry
+ *   the prefix; unprefixed paths still render.
+ * - domain: the request host selects the locale; \`?locale=\` overrides it on
+ *   localhost so one dev server can preview every locale.
+ *
+ * Cookie routing needs no middleware: clients send \`x-app-locale\`.
+ */
+export function middleware(request: NextRequest): NextResponse {
+  const { pathname } = request.nextUrl;
+
+  const locale = negotiateRequestLocale({
+    url: request.url,
+    header: request.headers.get(LOCALE_HEADER),
+    cookieHeader: request.headers.get("cookie"),
+    acceptLanguage: request.headers.get("accept-language"),
+  });
+
+  const headers = new Headers(request.headers);
+  headers.set(LOCALE_HEADER, locale);
+  // Lets the root layout render hreflang links for the public URL.
+  headers.set("x-pathname", pathname);
+
+  let response: NextResponse;
+  if (routingStrategy === "prefix" && localeFromPathname(pathname)) {
+    const url = request.nextUrl.clone();
+    url.pathname = stripLocalePrefix(pathname);
+    response = NextResponse.rewrite(url, { request: { headers } });
+  } else {
+    response = NextResponse.next({ request: { headers } });
+  }
+
+  response.cookies.set(LOCALE_COOKIE, locale, { path: "/", sameSite: "lax" });
+  return response;
+}
+
+export const config = {
+  // Skip Next internals, API routes (auth, tRPC/oRPC) and asset files.
+  matcher: ["/((?!_next/|api/|.*\\\\.[^/]+$).*)"],
+};
+`],
+  ["i18n/routing/surface/nuxt/hreflang.ts.hbs", `import { hreflangLinks } from "@{{projectName}}/i18n/routing";
+
+/** D6 SEO: \`<link rel="alternate" hreflang>\` for the current page. */
+export default defineNuxtPlugin(() => {
+  const url = useRequestURL();
+
+  useHead({
+    link: hreflangLinks(url.pathname, url.origin).map(({ hreflang, href }) => ({
+      rel: "alternate",
+      hreflang,
+      href,
+    })),
+  });
+});
+`],
+  ["i18n/routing/surface/react-router/i18n-middleware.ts.hbs", `import type { MiddlewareFunction } from "react-router";
+
+import { LOCALE_HEADER } from "@{{projectName}}/i18n/config";
+import { negotiateRequestLocale } from "@{{projectName}}/i18n/routing";
+import { runWithLocale } from "@{{projectName}}/i18n/server";
+{{#if (eq i18n "paraglide")}}
+import { isLocale, sourceLocale } from "@{{projectName}}/i18n/config";
+
+import { paraglideMiddleware } from "./paraglide/server.js";
+{{/if}}
+
+/**
+ * Root middleware (D5/D6): negotiates the request locale and runs loaders and
+ * SSR inside \`runWithLocale\`. Wired into \`src/root.tsx\`; route matching keeps
+ * the optional \`:locale?\` prefix from \`src/routes.ts\`.
+ */
+export const i18nMiddleware: MiddlewareFunction = ({ request }, next) => {
+{{#if (eq i18n "paraglide")}}
+  return paraglideMiddleware(request, ({ locale }) =>
+    runWithLocale(isLocale(locale) ? locale : sourceLocale, () => next()),
+  );
+{{else}}
+  const locale = negotiateRequestLocale({
+    url: request.url,
+    header: request.headers.get(LOCALE_HEADER),
+    cookieHeader: request.headers.get("cookie"),
+    acceptLanguage: request.headers.get("accept-language"),
+  });
+
+  return runWithLocale(locale, () => next());
+{{/if}}
+};
+`],
+  ["i18n/routing/surface/react-router/routes.ts.hbs", `import { flatRoutes } from "@react-router/fs-routes";
+import { prefix } from "@react-router/dev/routes";
+import type { RouteConfig } from "@react-router/dev/routes";
+
+/**
+ * React Router middleware cannot rewrite the request before matching, so every
+ * file route is wrapped in an optional \`:locale?\` segment (D6): both \`/about\`
+ * and \`/fr/about\` match the same route module.
+ */
+export default flatRoutes().then((routes) =>
+  prefix(":locale?", routes),
+) satisfies RouteConfig;
+`],
+  ["i18n/routing/surface/svelte/hooks.client.ts.hbs", `// SvelteKit reroutes localized paths (\`/fr/about\` → \`/about\`) before route
+// matching, so prefix/domain links work with client-side navigation.
+export { reroute } from "./paraglide/runtime.js";
+`],
+  ["i18n/routing/surface/svelte/hooks.server.ts.hbs", `import { isLocale, sourceLocale } from "@{{projectName}}/i18n/config";
+import { runWithLocale } from "@{{projectName}}/i18n/server";
+import type { Handle } from "@sveltejs/kit/hooks";
+
+import { paraglideMiddleware } from "./paraglide/server.js";
+
+// Server-side reroute for localized paths (\`/fr/about\` → \`/about\`).
+export { reroute } from "./paraglide/runtime.js";
+
+/** Resolves the Paraglide locale inside \`runWithLocale\` for SSR. */
+export const handle: Handle = ({ event, resolve }) =>
+  paraglideMiddleware(event.request, ({ request: localizedRequest, locale }) => {
+    event.request = localizedRequest;
+    return runWithLocale(isLocale(locale) ? locale : sourceLocale, () => resolve(event));
+  });
+`],
+  ["i18n/routing/surface/tanstack-start/i18n-middleware.ts.hbs", `import { createMiddleware } from "@tanstack/react-start";
+import { getRequest } from "@tanstack/react-start/server";
+
+import { LOCALE_HEADER } from "@{{projectName}}/i18n/config";
+import { negotiateRequestLocale } from "@{{projectName}}/i18n/routing";
+import { runWithLocale } from "@{{projectName}}/i18n/server";
+
+/**
+ * D5 negotiation for every Start request — server routes, SSR and server
+ * functions run inside \`runWithLocale\`. Registered in \`src/start.ts\`.
+ */
+export const i18nRequestMiddleware = createMiddleware().server(({ next }) => {
+  const request = getRequest();
+
+  const locale = negotiateRequestLocale({
+    url: request.url,
+    header: request.headers.get(LOCALE_HEADER),
+    cookieHeader: request.headers.get("cookie"),
+    acceptLanguage: request.headers.get("accept-language"),
+  });
+
+  return runWithLocale(locale, () => next());
+});
+`],
+  ["i18n/routing/surface/tanstack-start/start.ts.hbs", `import { createStart } from "@tanstack/react-start";
+
+import { i18nRequestMiddleware } from "./i18n-middleware";
+
+export const startInstance = createStart(() => ({
+  requestMiddleware: [i18nRequestMiddleware],
+}));
+`],
+  ["i18n/routing/surface/tanstack/i18n-routing.ts.hbs", `{{#if (eq i18n "paraglide")}}
+import { deLocalizeUrl, localizeUrl } from "./paraglide/runtime.js";
+{{else}}
+import { sourceLocale } from "@{{projectName}}/i18n/config";
+import { localeFromPathname, localizeHref, stripLocalePrefix } from "@{{projectName}}/i18n/routing";
+{{/if}}
+
+/**
+ * TanStack Router URL rewriting (D6): the router owns URL localization, so
+ * matching sees the internal path (\`/about\`) while the address bar keeps the
+ * localized one (\`/fr/about\`). Wired into the router in \`router.tsx\`.
+ */
+export const i18nRewrite = {
+{{#if (eq i18n "paraglide")}}
+  input: ({ url }: { url: URL }): URL => deLocalizeUrl(url),
+  output: ({ url }: { url: URL }): URL => localizeUrl(url),
+{{else}}
+  input: ({ url }: { url: URL }): URL => {
+    const next = new URL(url);
+    next.pathname = stripLocalePrefix(url.pathname);
+    return next;
+  },
+  output: ({ url }: { url: URL }): URL => {
+    const current =
+      typeof window === "undefined" ? undefined : localeFromPathname(window.location.pathname);
+    const next = new URL(url);
+    next.pathname = localizeHref(url.pathname, current ?? sourceLocale);
+    return next;
+  },
+{{/if}}
+};
+`],
+  ["i18n/routing/surface/web/i18n-link.ts.hbs", `/**
+ * Locale-aware href for template links (D6). Import \`localeHref\` in headers,
+ * navs and layouts so every link carries the active locale prefix.
+ */
+import { isLocale, sourceLocale } from "@{{projectName}}/i18n/config";
+import { localizeHref } from "@{{projectName}}/i18n/routing";
+
+export function localeHref(href: string): string {
+  if (typeof window === "undefined") return localizeHref(href, sourceLocale);
+
+  const [first] = window.location.pathname.split("/").filter((segment) => segment.length > 0);
+  return localizeHref(href, first && isLocale(first) ? first : sourceLocale);
+}
+`],
+  ["i18n/shared/GLOSSARY.md.hbs", `# Translation Glossary
+
+The \`i18n-translate\` skill reads this file before translating anything. Keep it
+short and concrete: the rules below apply to every message in every locale.
+
+## Voice and tone
+
+- Second person, direct, no exclamation marks unless the source string has them.
+- Sentence case for UI strings and buttons.
+- Do not translate product names, brand names, code identifiers, or URLs.
+
+## Terms
+
+Add one row per product term so translations stay consistent.
+
+| Term | Rule                    | Notes |
+| ---- | ----------------------- | ----- |
+| —    | translate / keep as-is  | —     |
+
+## Locales
+
+Source locale: {{#if i18nOptions.sourceLocale}}\`{{i18nOptions.sourceLocale}}\`{{else}}\`en\`{{/if}}
+
+{{#if i18nOptions.locales}}
+{{#each i18nOptions.locales}}- \`{{this}}\`
+{{/each}}
+{{else}}
+- \`en\`
+- \`es\`
+- \`fr\`
+{{/if}}
+
+## Rules for translators
+
+- Preserve every placeholder, ICU argument, plural category (\`one\`, \`other\`, …)
+  and markup tag exactly as it appears in the source message.
+- Reorder placeholders only when the target language's grammar requires it.
+- When a term is missing here, choose the most common translation for the
+  product's domain and add it to the table above.
+`],
+  ["i18n/shared/package.json.hbs", `{
+  "name": "@{{projectName}}/i18n",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./*": "./src/*.ts"
+  },
+  "scripts": {
+    "check-types": "tsc --noEmit",
+    "test": "bun test",
+    "i18n:extract": "bun run scripts/extract.ts",
+    "i18n:compile": "bun run scripts/compile.ts",
+    "i18n:pending": "bun run scripts/pending.ts",
+    "i18n:apply": "bun run scripts/apply.ts",
+    "i18n:check": "bun run scripts/check.ts",
+    "i18n:export": "bun run scripts/export.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^26.4.1"
+  }
+}
+`],
+  ["i18n/shared/src/config.ts.hbs", `/**
+ * Locale configuration shared by every surface and every i18n library.
+ * Edit \`locales\` (or the \`i18nOptions\` in \`bts.jsonc\`) to change the supported
+ * locales, then restart the dev server.
+ */
+
+export const locales = [
+{{#if i18nOptions.locales}}
+{{#each i18nOptions.locales}}  "{{this}}",
+{{/each}}
+{{else}}
+  "en",
+  "es",
+  "fr",
+{{/if}}
+] as const;
+
+export const sourceLocale = {{#if i18nOptions.sourceLocale}}"{{i18nOptions.sourceLocale}}"{{else}}"en"{{/if}};
+
+export type RoutingStrategy = "cookie" | "prefix" | "domain";
+
+export const routingStrategy: RoutingStrategy = {{#if i18nOptions.routing.strategy}}"{{i18nOptions.routing.strategy}}"{{else}}"cookie"{{/if}};
+
+export const prefixDefaultLocale = {{#if i18nOptions.routing.prefixDefaultLocale}}true{{else}}false{{/if}};
+
+/** Locale → host map. Only populated for the \`domain\` routing strategy. */
+export const localeDomains: Readonly<Record<string, string>> = {
+{{#if i18nOptions.routing.domains}}
+{{#each i18nOptions.routing.domains}}  "{{@key}}": "{{this}}",
+{{/each}}
+{{/if}}
+};
+
+export const LOCALE_COOKIE = "locale";
+export const LOCALE_HEADER = "x-app-locale";
+
+export type Locale = (typeof locales)[number];
+
+export type TextDirection = "ltr" | "rtl";
+
+const RTL_LANGUAGE_CODES: ReadonlySet<string> = new Set([
+  "ar",
+  "arc",
+  "ckb",
+  "dv",
+  "fa",
+  "he",
+  "khw",
+  "ks",
+  "ku",
+  "mzn",
+  "nqo",
+  "ps",
+  "sd",
+  "ug",
+  "ur",
+  "yi",
+]);
+
+export function isLocale(value: string): value is Locale {
+  return locales.some((locale) => locale === value);
+}
+
+function languageSubtag(tag: string): string {
+  const [language = ""] = tag.toLowerCase().split("-");
+  return language;
+}
+
+/** \`Intl.Locale#getTextInfo\` is newer than some generated \`lib\` targets; read it structurally. */
+interface LocaleWithTextInfo {
+  getTextInfo?(): { readonly direction?: string };
+}
+
+function readTextDirection(locale: string): TextDirection | undefined {
+  try {
+    const direction = (new Intl.Locale(locale) as LocaleWithTextInfo).getTextInfo?.().direction;
+    return direction === "rtl" || direction === "ltr" ? direction : undefined;
+  } catch {
+    // Invalid tag or a runtime without getTextInfo: use the fallback table.
+    return undefined;
+  }
+}
+
+/**
+ * Text direction for a locale. Uses \`Intl.Locale#getTextInfo\` when the runtime
+ * provides it and falls back to the RTL language table otherwise (Hermes).
+ */
+export function getTextDirection(locale: string): TextDirection {
+  const direction = readTextDirection(locale);
+  if (direction) return direction;
+  return RTL_LANGUAGE_CODES.has(languageSubtag(locale)) ? "rtl" : "ltr";
+}
+
+export interface NegotiateLocaleInput {
+  /** Request path, used by \`prefix\` routing. */
+  readonly pathname?: string;
+  /** Request host, used by \`domain\` routing. */
+  readonly host?: string;
+  /** \`x-app-locale\` header value. */
+  readonly header?: string;
+  /** \`locale\` cookie value. */
+  readonly cookie?: string;
+  /** Raw \`Accept-Language\` header value. */
+  readonly acceptLanguage?: string;
+  /** Locale persisted by the current client (localStorage, storage.local …). */
+  readonly stored?: string;
+  /** Locale reported by the system or device (LANG/LC_ALL, expo-localization …). */
+  readonly system?: string;
+}
+
+/** BCP-47 lookup with truncation: \`fr-CA\` matches \`fr\`. */
+function matchLocale(tag: string | undefined): Locale | undefined {
+  if (!tag) return undefined;
+  const segments = tag.toLowerCase().split("-");
+  while (segments.length > 0) {
+    const candidate = segments.join("-");
+    const match = locales.find((locale) => locale.toLowerCase() === candidate);
+    if (match) return match;
+    segments.pop();
+  }
+  return undefined;
+}
+
+function parseAcceptLanguage(header: string | undefined): string[] {
+  if (!header) return [];
+  return header
+    .split(",")
+    .map((entry) => {
+      const [tag = "", ...parameters] = entry.trim().split(";");
+      const qualityParameter = parameters.find((parameter) => parameter.trim().startsWith("q="));
+      const quality = qualityParameter ? Number.parseFloat(qualityParameter.trim().slice(2)) : 1;
+      return { tag: tag.trim(), quality };
+    })
+    .filter((entry) => entry.tag.length > 0 && entry.tag !== "*" && entry.quality > 0)
+    .sort((first, second) => second.quality - first.quality)
+    .map((entry) => entry.tag);
+}
+
+function routingSourceLocale(input: NegotiateLocaleInput): string | undefined {
+  if (routingStrategy === "prefix" && input.pathname) {
+    const [firstSegment] = input.pathname.split("/").filter((segment) => segment.length > 0);
+    return firstSegment;
+  }
+  if (routingStrategy === "domain" && input.host) {
+    const host = input.host.toLowerCase();
+    for (const [locale, domain] of Object.entries(localeDomains)) {
+      if (domain.toLowerCase() === host) return locale;
+    }
+  }
+  return undefined;
+}
+
+/**
+ * One negotiation contract for every surface. Sources are checked in order:
+ * routing (prefix segment or host) → \`x-app-locale\` → cookie →
+ * \`Accept-Language\` → stored/system → the source locale.
+ */
+export function negotiateLocale(input: NegotiateLocaleInput = {}): Locale {
+  const candidates: (string | undefined)[] = [
+    routingSourceLocale(input),
+    input.header,
+    input.cookie,
+    ...parseAcceptLanguage(input.acceptLanguage),
+    input.stored,
+    input.system,
+  ];
+  for (const candidate of candidates) {
+    const match = matchLocale(candidate);
+    if (match) return match;
+  }
+  return sourceLocale;
+}
+`],
+  ["i18n/shared/src/format.ts.hbs", `/**
+ * Library-agnostic formatters shared by every surface.
+ *
+ * Templates never use the i18n library for dates, numbers or lists: they call
+ * \`createFormatters(locale)\` so every library produces identical \`Intl\`
+ * output. On the server use \`createFormatters(getRequestLocale())\`.
+ */
+
+import { sourceLocale } from "./config";
+import type { Locale } from "./config";
+
+export type DateTimeValue = Date | number;
+
+export interface Formatters {
+  readonly locale: Locale;
+  date(value: DateTimeValue, options?: Intl.DateTimeFormatOptions): string;
+  time(value: DateTimeValue, options?: Intl.DateTimeFormatOptions): string;
+  dateTime(value: DateTimeValue, options?: Intl.DateTimeFormatOptions): string;
+  dateRange(
+    start: DateTimeValue,
+    end: DateTimeValue,
+    options?: Intl.DateTimeFormatOptions,
+  ): string;
+  relative(
+    value: number,
+    unit: Intl.RelativeTimeFormatUnit,
+    options?: Intl.RelativeTimeFormatOptions,
+  ): string;
+  /** Formats a date relative to now (or \`base\`) in the best-fitting unit. */
+  relativeFrom(value: DateTimeValue, base?: DateTimeValue): string;
+  number(value: number, options?: Intl.NumberFormatOptions): string;
+  currency(
+    value: number,
+    currencyCode: string,
+    options?: Intl.NumberFormatOptions,
+  ): string;
+  percent(value: number, options?: Intl.NumberFormatOptions): string;
+  unit(value: number, unitCode: string, options?: Intl.NumberFormatOptions): string;
+  compact(value: number, options?: Intl.NumberFormatOptions): string;
+  list(items: readonly string[], options?: Intl.ListFormatOptions): string;
+  plural(value: number, options?: Intl.PluralRulesOptions): Intl.LDMLPluralRule;
+  displayName(code: string, type?: Intl.DisplayNamesType): string | undefined;
+}
+
+const DATE_STYLE: Intl.DateTimeFormatOptions = { dateStyle: "medium" };
+const TIME_STYLE: Intl.DateTimeFormatOptions = { timeStyle: "medium" };
+const DATE_TIME_STYLE: Intl.DateTimeFormatOptions = {
+  dateStyle: "medium",
+  timeStyle: "medium",
+};
+const PERCENT_STYLE: Intl.NumberFormatOptions = { style: "percent" };
+
+const RELATIVE_UNITS = [
+  { unit: "year", milliseconds: 31_536_000_000 },
+  { unit: "month", milliseconds: 2_592_000_000 },
+  { unit: "week", milliseconds: 604_800_000 },
+  { unit: "day", milliseconds: 86_400_000 },
+  { unit: "hour", milliseconds: 3_600_000 },
+  { unit: "minute", milliseconds: 60_000 },
+] as const satisfies ReadonlyArray<{
+  unit: Intl.RelativeTimeFormatUnit;
+  milliseconds: number;
+}>;
+
+const formatterCache = new Map<string, Formatters>();
+
+function toMilliseconds(value: DateTimeValue): number {
+  return value instanceof Date ? value.getTime() : value;
+}
+
+/** Memoized per locale: repeated calls return the same bundle. */
+export function createFormatters(locale: Locale = sourceLocale): Formatters {
+  const cached = formatterCache.get(locale);
+  if (cached) return cached;
+
+  const dateFormat = new Intl.DateTimeFormat(locale, DATE_STYLE);
+  const timeFormat = new Intl.DateTimeFormat(locale, TIME_STYLE);
+  const dateTimeFormat = new Intl.DateTimeFormat(locale, DATE_TIME_STYLE);
+  const numberFormat = new Intl.NumberFormat(locale);
+  const percentFormat = new Intl.NumberFormat(locale, PERCENT_STYLE);
+  const relativeFormat = new Intl.RelativeTimeFormat(locale);
+  const listFormat = new Intl.ListFormat(locale);
+  const pluralRules = new Intl.PluralRules(locale);
+  const currencyFormats = new Map<string, Intl.NumberFormat>();
+  const displayNamesByType = new Map<Intl.DisplayNamesType, Intl.DisplayNames>();
+
+  const formatters: Formatters = {
+    locale,
+    date: (value, options) =>
+      options ? new Intl.DateTimeFormat(locale, options).format(value) : dateFormat.format(value),
+    time: (value, options) =>
+      options ? new Intl.DateTimeFormat(locale, options).format(value) : timeFormat.format(value),
+    dateTime: (value, options) =>
+      options
+        ? new Intl.DateTimeFormat(locale, options).format(value)
+        : dateTimeFormat.format(value),
+    dateRange: (start, end, options) =>
+      options
+        ? new Intl.DateTimeFormat(locale, options).formatRange(start, end)
+        : dateFormat.formatRange(start, end),
+    relative: (value, unit, options) =>
+      options
+        ? new Intl.RelativeTimeFormat(locale, options).format(value, unit)
+        : relativeFormat.format(value, unit),
+    relativeFrom: (value, base = Date.now()) => {
+      const delta = toMilliseconds(value) - toMilliseconds(base);
+      const magnitude = Math.abs(delta);
+      for (const { unit, milliseconds } of RELATIVE_UNITS) {
+        if (magnitude >= milliseconds) {
+          return relativeFormat.format(Math.round(delta / milliseconds), unit);
+        }
+      }
+      return relativeFormat.format(Math.round(delta / 1_000), "second");
+    },
+    number: (value, options) =>
+      options ? new Intl.NumberFormat(locale, options).format(value) : numberFormat.format(value),
+    currency: (value, currencyCode, options) => {
+      if (options) {
+        return new Intl.NumberFormat(locale, {
+          ...options,
+          style: "currency",
+          currency: currencyCode,
+        }).format(value);
+      }
+      let format = currencyFormats.get(currencyCode);
+      if (!format) {
+        format = new Intl.NumberFormat(locale, {
+          style: "currency",
+          currency: currencyCode,
+        });
+        currencyFormats.set(currencyCode, format);
+      }
+      return format.format(value);
+    },
+    percent: (value, options) =>
+      options ? new Intl.NumberFormat(locale, options).format(value) : percentFormat.format(value),
+    unit: (value, unitCode, options) =>
+      new Intl.NumberFormat(locale, { ...options, style: "unit", unit: unitCode }).format(value),
+    compact: (value, options) =>
+      new Intl.NumberFormat(locale, { ...options, notation: "compact" }).format(value),
+    list: (items, options) =>
+      options
+        ? new Intl.ListFormat(locale, options).format(items)
+        : listFormat.format(items),
+    plural: (value, options) =>
+      options ? new Intl.PluralRules(locale, options).select(value) : pluralRules.select(value),
+    displayName: (code, type = "language") => {
+      let displayNames = displayNamesByType.get(type);
+      if (!displayNames) {
+        displayNames = new Intl.DisplayNames(locale, { type });
+        displayNamesByType.set(type, displayNames);
+      }
+      return displayNames.of(code);
+    },
+  };
+
+  formatterCache.set(locale, formatters);
+  return formatters;
+}
+`],
+  ["i18n/shared/src/index.ts.hbs", `// Locale configuration, negotiation and formatting shared by every surface.
+// The library-specific runtime lives in \`@{{projectName}}/i18n/runtime\`.
+
+export * from "./config";
+export * from "./format";
+`],
+  ["i18n/shared/src/integrations/better-auth.ts.hbs", `/**
+ * Editable Better Auth translation overrides for \`@better-auth/i18n\`.
+ *
+ * The auth server spreads these on top of the built-in \`@better-auth/i18n\`
+ * translations, keyed by the configured locale. Keys are \`@better-auth/i18n\`
+ * translation keys (error codes such as \`INVALID_EMAIL_OR_PASSWORD\`); values
+ * are the override string for that locale. Locales without a built-in Better
+ * Auth translation fall back to English.
+ *
+ * Example:
+ * \`\`\`ts
+ * export const betterAuthTranslations: BetterAuthTranslations = {
+ *   fr: { INVALID_EMAIL_OR_PASSWORD: "E-mail ou mot de passe invalide" },
+ * };
+ * \`\`\`
+ */
+
+export type BetterAuthTranslations = Readonly<Record<string, Readonly<Record<string, string>>>>;
+
+export const betterAuthTranslations: BetterAuthTranslations = {};
+`],
+  ["i18n/shared/src/integrations/clerk.ts.hbs", `/**
+ * Clerk localization metadata.
+ *
+ * \`@clerk/localizations\` ships one translation object per locale. Clerk marks
+ * localization experimental and does not localize the hosted Account Portal,
+ * which stays in English. Configuring a locale without a built-in Clerk
+ * translation falls back to English and produces a generator warning.
+ *
+ * The lazy per-locale loader lives in \`./clerk-client\`, which is emitted only
+ * for projects using Clerk.
+ */
+
+/** \`@clerk/localizations\` export names, keyed by canonical BCP-47 tag. */
+export const clerkLocalizationExportNames: Readonly<Record<string, string>> = {
+  "ar-SA": "arSA",
+  "be-BY": "beBY",
+  "bg-BG": "bgBG",
+  "bn-IN": "bnIN",
+  "ca-ES": "caES",
+  "cs-CZ": "csCZ",
+  "da-DK": "daDK",
+  "de-DE": "deDE",
+  "el-GR": "elGR",
+  "en-GB": "enGB",
+  "en-US": "enUS",
+  "en-XA": "enXA",
+  "es-CR": "esCR",
+  "es-ES": "esES",
+  "es-MX": "esMX",
+  "es-UY": "esUY",
+  "fa-IR": "faIR",
+  "fi-FI": "fiFI",
+  "fr-FR": "frFR",
+  "he-IL": "heIL",
+  "hi-IN": "hiIN",
+  "hr-HR": "hrHR",
+  "hu-HU": "huHU",
+  "id-ID": "idID",
+  "is-IS": "isIS",
+  "it-IT": "itIT",
+  "ja-JP": "jaJP",
+  "kk-KZ": "kkKZ",
+  "ko-KR": "koKR",
+  "mn-MN": "mnMN",
+  "ms-MY": "msMY",
+  "nb-NO": "nbNO",
+  "nl-BE": "nlBE",
+  "nl-NL": "nlNL",
+  "pl-PL": "plPL",
+  "pt-BR": "ptBR",
+  "pt-PT": "ptPT",
+  "ro-RO": "roRO",
+  "ru-RU": "ruRU",
+  "sk-SK": "skSK",
+  "sr-RS": "srRS",
+  "sv-SE": "svSE",
+  "ta-IN": "taIN",
+  "te-IN": "teIN",
+  "th-TH": "thTH",
+  "tr-TR": "trTR",
+  "uk-UA": "ukUA",
+  "vi-VN": "viVN",
+  "zh-CN": "zhCN",
+  "zh-TW": "zhTW",
+};
+
+/**
+ * Export name for a BCP-47 tag. Clerk only ships region-qualified locale
+ * bundles, so bare language tags expand to their primary region
+ * (\`fr\` → \`frFR\`, \`es\` → \`esES\`, \`en\` → \`enUS\`).
+ */
+export function clerkLocalizationExportName(tag: string): string | undefined {
+  const canonical = tag.trim();
+  const exact = clerkLocalizationExportNames[canonical];
+  if (exact !== undefined) return exact;
+  const [language = ""] = canonical.split("-");
+  const primary = PRIMARY_REGION_LOCALES[language.toLowerCase()];
+  return primary === undefined ? undefined : clerkLocalizationExportNames[primary];
+}
+
+const PRIMARY_REGION_LOCALES: Readonly<Record<string, string>> = {
+  ar: "ar-SA",
+  be: "be-BY",
+  bg: "bg-BG",
+  bn: "bn-IN",
+  ca: "ca-ES",
+  cs: "cs-CZ",
+  da: "da-DK",
+  de: "de-DE",
+  el: "el-GR",
+  en: "en-US",
+  es: "es-ES",
+  fa: "fa-IR",
+  fi: "fi-FI",
+  fr: "fr-FR",
+  he: "he-IL",
+  hi: "hi-IN",
+  hr: "hr-HR",
+  hu: "hu-HU",
+  id: "id-ID",
+  is: "is-IS",
+  it: "it-IT",
+  ja: "ja-JP",
+  kk: "kk-KZ",
+  ko: "ko-KR",
+  mn: "mn-MN",
+  ms: "ms-MY",
+  nb: "nb-NO",
+  nl: "nl-NL",
+  no: "nb-NO",
+  pl: "pl-PL",
+  pt: "pt-PT",
+  ro: "ro-RO",
+  ru: "ru-RU",
+  sk: "sk-SK",
+  sr: "sr-RS",
+  sv: "sv-SE",
+  ta: "ta-IN",
+  te: "te-IN",
+  th: "th-TH",
+  tr: "tr-TR",
+  uk: "uk-UA",
+  ua: "uk-UA",
+  vi: "vi-VN",
+  zh: "zh-CN",
+};
+
+export const CLERK_LOCALIZATION_NOTE =
+  "Clerk localization is experimental and the hosted Account Portal stays in English.";
+`],
+  ["i18n/shared/src/integrations/zod.ts.hbs", `/**
+ * Maps BCP-47 tags to the export names used by Zod's locale modules
+ * (\`zod/locales\`). Examples: \`zh-CN\` → \`zhCN\`, \`pt-BR\` → \`ptBR\`,
+ * \`fr-CA\` → \`frCA\`; tags without a dedicated Zod locale resolve to their
+ * language (\`en-US\` → \`en\`).
+ *
+ * The client wires \`z.config(locales[x]())\` on locale change through
+ * \`./zod-client\` (lazy-loaded). The server never calls \`z.config\`: it is
+ * global, so requests would leak messages across users. On the server,
+ * translate issues at the API boundary with \`translateZodIssue(s)\` instead.
+ */
+
+/** Zod locale export names, keyed by canonical BCP-47 tag. */
+export const zodLocaleExportNames: Readonly<Record<string, string>> = {
+  "ar": "ar",
+  "az": "az",
+  "be": "be",
+  "bg": "bg",
+  "bn": "bn",
+  "ca": "ca",
+  "ckb": "ckb",
+  "cs": "cs",
+  "da": "da",
+  "de": "de",
+  "el": "el",
+  "en": "en",
+  "eo": "eo",
+  "es": "es",
+  "fa": "fa",
+  "fi": "fi",
+  "fr": "fr",
+  "fr-CA": "frCA",
+  "gu": "gu",
+  "he": "he",
+  "hi": "hi",
+  "hr": "hr",
+  "hu": "hu",
+  "hy": "hy",
+  "id": "id",
+  "is": "is",
+  "it": "it",
+  "ja": "ja",
+  "ka": "ka",
+  "kh": "kh",
+  "km": "km",
+  "kn": "kn",
+  "ko": "ko",
+  "lt": "lt",
+  "mk": "mk",
+  "ms": "ms",
+  "ne": "ne",
+  "nl": "nl",
+  "nn": "nn",
+  "no": "no",
+  "ota": "ota",
+  "ps": "ps",
+  "pl": "pl",
+  "pt": "pt",
+  "pt-BR": "ptBR",
+  "ro": "ro",
+  "ru": "ru",
+  "sk": "sk",
+  "sl": "sl",
+  "sv": "sv",
+  "ta": "ta",
+  "th": "th",
+  "tk": "tk",
+  "tr": "tr",
+  "ua": "ua",
+  "uk": "uk",
+  "ur": "ur",
+  "uz": "uz",
+  "vi": "vi",
+  "zh-CN": "zhCN",
+  "zh-TW": "zhTW",
+  "yo": "yo",
+};
+
+/** A Zod issue, structurally typed so the shared package needs no Zod dependency. */
+export interface ZodIssueLike {
+  readonly code?: string;
+  readonly message?: string;
+  readonly path?: readonly (string | number | symbol)[];
+}
+
+/**
+ * Export name for a BCP-47 tag, using exact (region-aware) and truncated
+ * (language-only) lookup. Returns \`undefined\` when Zod ships no locale for it.
+ */
+export function zodLocaleExportName(tag: string): string | undefined {
+  const canonical = tag.trim();
+  const exact = zodLocaleExportNames[canonical];
+  if (exact !== undefined) return exact;
+  const [language = ""] = canonical.split("-");
+  return zodLocaleExportNames[language.toLowerCase()];
+}
+
+/**
+ * Server boundary helper: resolves one issue to a translated message without
+ * touching global Zod state. \`dictionary\` maps issue codes (or \`path\` names)
+ * to messages; unmatched issues keep their default message.
+ */
+export function translateZodIssue(
+  issue: ZodIssueLike,
+  dictionary: Readonly<Record<string, string>>,
+): string {
+  const candidates = [issue.code, issue.path?.at(-1)?.toString()];
+  for (const candidate of candidates) {
+    if (candidate !== undefined && dictionary[candidate] !== undefined) {
+      return dictionary[candidate];
+    }
+  }
+  return issue.message ?? "";
+}
+
+/** Server boundary helper for whole parse results (\`safeParse().error.issues\`). */
+export function translateZodIssues(
+  issues: readonly ZodIssueLike[],
+  dictionary: Readonly<Record<string, string>>,
+): string[] {
+  return issues.map((issue) => translateZodIssue(issue, dictionary));
+}
+`],
+  ["i18n/shared/src/server.ts.hbs", `/**
+ * Request-scoped locale for server runtimes (Bun, Node, and workers with
+ * \`nodejs_compat\`). Server middleware negotiates the locale, then wraps the
+ * request in \`runWithLocale\`; render code reads it back synchronously.
+ */
+
+import { AsyncLocalStorage } from "node:async_hooks";
+
+import { sourceLocale } from "./config";
+import type { Locale } from "./config";
+
+const localeStorage = new AsyncLocalStorage<Locale>();
+
+export function runWithLocale<T>(locale: Locale, callback: () => T): T {
+  return localeStorage.run(locale, callback);
+}
+
+export function getRequestLocale(): Locale {
+  return localeStorage.getStore() ?? sourceLocale;
+}
+`],
+  ["i18n/shared/test/format.test.ts.hbs", `import { describe, expect, test } from "bun:test";
+
+import { sourceLocale } from "../src/config";
+import { createFormatters } from "../src/format";
+
+const referenceDate = new Date(Date.UTC(2026, 0, 15, 12, 30, 0));
+const referenceMs = referenceDate.getTime();
+
+describe("createFormatters", () => {
+  test("memoizes one bundle per locale", () => {
+    expect(createFormatters(sourceLocale)).toBe(createFormatters(sourceLocale));
+  });
+
+  test("formats dates and times exactly like native Intl", () => {
+    const formatters = createFormatters(sourceLocale);
+
+    expect(formatters.date(referenceDate)).toBe(
+      new Intl.DateTimeFormat(sourceLocale, { dateStyle: "medium" }).format(referenceDate),
+    );
+    expect(formatters.time(referenceDate)).toBe(
+      new Intl.DateTimeFormat(sourceLocale, { timeStyle: "medium" }).format(referenceDate),
+    );
+    expect(formatters.dateTime(referenceDate)).toBe(
+      new Intl.DateTimeFormat(sourceLocale, {
+        dateStyle: "medium",
+        timeStyle: "medium",
+      }).format(referenceDate),
+    );
+  });
+
+  test("formats numbers, currency, percent and compact notation like native Intl", () => {
+    const formatters = createFormatters(sourceLocale);
+
+    expect(formatters.number(1234567.89)).toBe(new Intl.NumberFormat(sourceLocale).format(1234567.89));
+    expect(formatters.currency(42.5, "EUR")).toBe(
+      new Intl.NumberFormat(sourceLocale, { style: "currency", currency: "EUR" }).format(42.5),
+    );
+    expect(formatters.percent(0.25)).toBe(
+      new Intl.NumberFormat(sourceLocale, { style: "percent" }).format(0.25),
+    );
+    expect(formatters.compact(123456)).toBe(
+      new Intl.NumberFormat(sourceLocale, { notation: "compact" }).format(123456),
+    );
+    expect(formatters.plural(1)).toBe(
+      new Intl.PluralRules(sourceLocale).select(1),
+    );
+  });
+
+  test("formats relative time and relative dates like native Intl", () => {
+    const formatters = createFormatters(sourceLocale);
+
+    expect(formatters.relative(-2, "day")).toBe(
+      new Intl.RelativeTimeFormat(sourceLocale).format(-2, "day"),
+    );
+    expect(formatters.relativeFrom(referenceMs + 2 * 86_400_000, referenceMs)).toBe(
+      new Intl.RelativeTimeFormat(sourceLocale).format(2, "day"),
+    );
+  });
+
+  test("formats lists like native Intl", () => {
+    const formatters = createFormatters(sourceLocale);
+    const items = ["Ada", "Grace", "Linus"];
+
+    expect(formatters.list(items)).toBe(new Intl.ListFormat(sourceLocale).format(items));
+  });
+});
+`],
+  ["i18n/shared/tsconfig.json.hbs", `{
+  "extends": "@{{projectName}}/config/tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true
+  },
+  "include": ["src"]
+}
+`],
+  ["i18n/skill/i18n-adopt/SKILL.md.hbs", `---
+name: i18n-adopt
+description: Wrap the existing hard-coded strings of this project with its i18n library, incrementally and surface by surface. Use after i18n was added to an existing project, or when asked to adopt/migrate strings to i18n.
+---
+
+# i18n-adopt
+
+This project uses **{{i18n}}**. Wrapping existing hard-coded strings is an incremental migration, not a rewrite: one surface per change, extract after each surface, keep every commit green.
+
+## Loop per surface
+
+1. **Pick one surface** — a single route, component or file at a time. List the strings a user can see: headings, labels, button text, empty states, error messages, \`aria-label\`s, placeholders, toast copy, page titles and (where configured) manifest names and descriptions.
+2. **Wrap** them with the library's mechanism (see the library notes). Leave code identifiers, CSS classes, test ids, log messages, config keys, URLs and analytics event names alone.
+3. **Extract and translate**:
+   - \`{{packageManager}} run i18n:extract\` — the new strings appear in the source catalog;
+   - \`{{packageManager}} run i18n:pending --locale <locale> --limit 50\` and translate through the \`i18n-translate\` skill or the same \`i18n:apply\` file shape;
+   - \`{{packageManager}} run i18n:compile\` and \`I18N_CHECK_ALLOW_MISSING=1 {{packageManager}} run i18n:check\`.
+4. **Verify** — run the app (or the surface's tests) in the source locale and in one target locale; the text must render, and placeholders must interpolate.
+5. **Commit** the wrapped surface with its catalog changes. Repeat for the next surface.
+
+Do not batch every surface into one change: a broken placeholder is much easier to find in a small diff, and \`i18n:check\` stays meaningful along the way.
+
+## Library notes
+
+{{#if (eq i18n "lingui")}}
+- React/JSX: wrap text in \`<Trans>Hello {name}</Trans>\` from \`@lingui/react/macro\`. Keep markup and child components inside \`Trans\` so the message stays one unit.
+- Non-JSX: use the \`t\` macro from \`@lingui/core/macro\` (\`const message = t\`Hello\`\`) or a \`msg\` descriptor for values built outside render. Plurals go through the \`plural\` macro.
+- Lingui generates ids from the source text and context; you never author ids. Re-wording swaps the id and re-extracts cleanly.
+- If the same sentence needs two different translations, give each a \`context\` via \`msg({ context: "…" })\` / \`Trans context="…"\` — context is stored as \`msgctxt\`.
+- Vue/Svelte/Solid/Astro have their own macro packages; use the one already imported by the surface (see the i18n glue in that app).
+{{else if (eq i18n "paraglide")}}
+- Import the generated messages module for the app (\`import * as m from "…/paraglide/messages"\`) and replace the literal with \`m.<id>({ …params })\`.
+- Ids are authored, snake_case, and stable: add the id to \`packages/i18n/messages/<source>.json\` first, then use it in code. Never reword an existing id's message without checking references.
+- Keep parameters as placeholders in the message (\`{name}\`); the compiler generates the typed function from the message.
+- Plural and select messages use the ICU subset (\`plural\`, \`selectordinal\`, \`select\`).
+{{else if (eq i18n "i18next")}}
+- In components use \`const { t } = useTranslation()\` (or the surface's equivalent) and replace the literal with \`t("Hello \\{{name}}", { name })\` — **the source text is the key**, so keep it byte-identical to what you want in the catalog.
+- Plurals: author \`key_one\` / \`key_other\` keys and call \`t("…", { count })\`.
+- Re-wording a key later means a new key; prefer stable, complete sentences over fragments.
+{{else if (eq i18n "wuchale")}}
+- **Do not wrap strings.** Wuchale extracts the source text implicitly, so wrapping would change message ids.
+- Instead, scope the include globs in \`wuchale.config.mjs\`: add the app's source directories so its files are scanned, and exclude generated or vendor paths that must not be extracted.
+- After scoping the globs, run \`{{packageManager}} run i18n:extract\`; wuchale writes the per-adapter \`.po\` catalogs, and the strings become pending for translation through \`i18n:pending\` / \`i18n:apply\`.
+- If a string must stay out of the catalogs (logs, test ids, dynamic keys), keep it in an excluded path rather than fighting the extractor.
+{{/if}}
+- All libraries: keep placeholders intact when moving text, prefer one message per user-visible sentence, follow \`packages/i18n/GLOSSARY.md\`, and leave the source locale text as the source of truth.
+
+## After the Add Path
+
+\`bts add --i18n …\` wires configs, surfaces, scripts and integrations, but deliberately leaves existing strings untouched. Start from the surface that matters most, then continue this loop. Re-run \`i18n:check\` without \`I18N_CHECK_ALLOW_MISSING\` once the migration is complete.
+
+## Report
+
+Summarize: surfaces wrapped, strings wrapped per surface, strings intentionally skipped (with the reason), locales translated, and the remaining hard-coded strings you found.
+`],
+  ["i18n/skill/i18n-translate/SKILL.md.hbs", `---
+name: i18n-translate
+description: Translate the pending i18n messages of this project through the generated \`i18n:*\` script contract. Use when asked to translate the app or fill missing locales, and when \`i18n:check\` fails with missing translations.
+---
+
+# i18n-translate
+
+Translate **only** through the generated scripts. Never edit catalog files by hand: \`i18n:extract\` owns extraction, \`i18n:apply\` validates every translation against the source, and \`i18n:compile\` produces what the app runtimes import. A batch that drops or renames a placeholder is rejected item by item and stays pending, so the catalogs can never be corrupted by a bad translation.
+
+## Loop
+
+1. **Extract** — refresh the source catalogs from the code:
+   \`{{packageManager}} run i18n:extract\`
+2. **Pending** — ask for at most 50 items per batch:
+   - every target locale: \`{{packageManager}} run i18n:pending --all --limit 50\`
+   - one locale: \`{{packageManager}} run i18n:pending --locale <locale> --limit 50\`
+
+   The output is the uniform contract:
+
+   \`\`\`json
+   {
+     "library": "{{i18n}}",
+     "sourceLocale": "en",
+     "items": [
+       {
+         "id": "…",
+         "locale": "fr",
+         "source": "…",
+         "context": null,
+         "comments": [],
+         "references": [],
+         "placeholders": [],
+         "status": "missing"
+       }
+     ]
+   }
+   \`\`\`
+
+3. **Translate** the batch. Read \`packages/i18n/GLOSSARY.md\` before the first batch, and use each item's \`source\`, \`context\`, \`comments\` and \`references\` — never translate an item you cannot see in context; leave it pending and report it instead.
+4. **Apply** — write the batch to a temporary JSON file and run \`i18n:apply\`:
+
+   \`\`\`json
+   {
+     "items": [
+       { "id": "<item id>", "locale": "<item locale>", "translation": "…" }
+     ]
+   }
+   \`\`\`
+
+   \`{{packageManager}} run i18n:apply <file>\`
+
+   An item whose placeholders or ICU arguments differ from the source is rejected with a reason; its catalog entry stays pending. Fix that item and apply again. The file must target target locales only — the source locale is edited in the source catalog, not through \`i18n:apply\`.
+5. **Compile and check** — \`{{packageManager}} run i18n:compile\`, then \`{{packageManager}} run i18n:check\`. During development \`I18N_CHECK_ALLOW_MISSING=1\` allows missing entries, but placeholder or ICU mismatches always fail.
+6. **Report** — list the locales touched, the number of applied translations, the rejected items with their exact reasons, and the items left untouched with the reason (ambiguous, needs a product decision, and so on).
+
+{{#if (eq packageManager "bun")}}
+Bun passes script flags through directly. With npm or pnpm, add \`--\` before the flags, e.g. \`npm run i18n:pending -- --all --limit 50\`.
+{{else}}
+With npm and pnpm, add \`--\` before the script flags, e.g. \`{{packageManager}} run i18n:pending -- --all --limit 50\`.
+{{/if}}
+
+## Translation rules
+
+- **Preserve every placeholder exactly.** A translation with a different argument set is rejected.
+  {{#if (eq i18n "i18next")}}
+  i18next placeholders are double-braced: \`\\{{name}}\`, \`\\{{count}}\`. Plural families use \`_one\` / \`_other\` id suffixes; translate each pending item as its own key.
+  {{else if (eq i18n "wuchale")}}
+  wuchale placeholders are positional: \`{0}\`, \`{1}\`. A plural item lists its forms in the pending \`source\`, separated by \` || \`; provide one \`translations\` entry per form, in the order the item lists them (CLDR category order for the locale).
+  {{else}}
+  Placeholders are ICU arguments: \`{name}\`, \`{count, plural, one {# …} other {# …}}\`, \`{gender, select, …}\`. Keep \`#\`, the plural/select categories and the nesting exactly as in the source.
+  {{/if}}
+- **Keep markup.** HTML/JSX tags, \`<Trans>\` contents and template expressions around a message stay where they are; translate only the text.
+- Never translate message ids, keys, code identifiers, URLs, environment variable names or brand names.
+- Keep numbers, dates and currency as placeholders — formatting goes through \`createFormatters\` in \`@<project>/i18n\`, never through the library.
+- Prefer the glossary term when one exists. Keep the tone and length close to the source unless the locale demands otherwise.
+- Do not delete, merge or recreate catalog entries; \`i18n:extract\` prunes obsolete ones.
+
+## Library notes
+
+{{#if (eq i18n "lingui")}}
+- Lingui: catalogs are \`packages/i18n/locales/<locale>/messages.po\`. Message ids are hashes generated from the source text and the context — apply by the \`id\` from \`i18n:pending\`, never touch the \`msgid\`. \`msgctxt\` carries the context.
+{{else if (eq i18n "paraglide")}}
+- Paraglide: catalogs are \`packages/i18n/messages/<locale>.json\`; ids are authored snake_case names (\`i18n_demo_heading\`). Messages use the ICU subset (arguments, \`plural\`, \`selectordinal\` with \`#\`, \`select\`).
+{{else if (eq i18n "i18next")}}
+- i18next: catalogs are \`packages/i18n/locales/<locale>/<namespace>.json\`; ids are the natural-language source strings, with \`_one\` / \`_other\` suffixes for plurals. The source text is the key, so do not reword it while translating.
+{{else if (eq i18n "wuchale")}}
+- Wuchale: catalogs are per-adapter \`.po\` files in \`packages/i18n/locales\` (\`<adapter>.<locale>.po\`). Ids are the source text; placeholders are positional (\`{0}\`). Wuchale's built-in AI translation is disabled — translate here, through \`i18n:apply\`.
+{{/if}}
+
+## Command reference
+
+| Command | Purpose |
+| --- | --- |
+| \`i18n:extract\` | Extract messages into the source catalogs |
+| \`i18n:pending --locale <l> \\| --all [--limit N]\` | Print pending items as JSON |
+| \`i18n:apply <file>\` | Validate and write a translation batch |
+| \`i18n:compile\` | Compile catalogs for the app runtimes |
+| \`i18n:check\` | Fail on missing or invalid entries (\`I18N_CHECK_ALLOW_MISSING=1\` allows missing) |
+| \`i18n:export\` | Write the normalized catalog (\`dist/catalog.json\`) for JS tooling |
+
+The JSON shapes above are defined in \`packages/i18n/scripts/contract.ts\` — read it if a shape is unclear.
+`],
+  ["i18n/surface/i18next/astro/src/lib/i18n.ts.hbs", `// Astro glue for i18next: a request-scoped translator. The locale middleware
+// (routing lane) wraps requests in \`runWithLocale\`; without it the negotiation
+// falls back to the source locale.
+import { createFormatters } from "@{{projectName}}/i18n";
+import { getRequestLocale } from "@{{projectName}}/i18n/server";
+import { initI18next } from "@{{projectName}}/i18n/runtime";
+import type { Locale } from "@{{projectName}}/i18n";
+
+export function getT(locale: Locale = getRequestLocale()) {
+  return initI18next(locale).getFixedT(locale);
+}
+
+/** Date, number, currency and list formatters for a request locale. */
+export function getFormat(locale: Locale = getRequestLocale()) {
+  return createFormatters(locale);
+}
+`],
+  ["i18n/surface/i18next/astro/src/pages/i18n-demo.astro.hbs", `---
+import { getTextDirection, isLocale, locales, sourceLocale } from "@{{projectName}}/i18n";
+import { getFormat, getT } from "../lib/i18n";
+import Layout from "../layouts/Layout.astro";
+import { getRequestLocale } from "@{{projectName}}/i18n/server";
+
+const requestLocale = getRequestLocale();
+const locale = isLocale(requestLocale) ? requestLocale : sourceLocale;
+const t = getT(locale);
+const formatters = getFormat(locale);
+const count = 2;
+---
+
+<Layout title="i18n demo">
+  <main dir={getTextDirection(locale)} class="container mx-auto max-w-2xl space-y-4 px-4 py-10">
+    <h1 class="text-2xl font-semibold">{t("i18n demo")}</h1>
+    <p>{t("Hello, \\{{name}}!", { name: "Ada" })}</p>
+    <p>{t("You have \\{{count}} new message", { count })}</p>
+    <dl class="grid grid-cols-2 gap-2 text-sm">
+      <dt class="text-muted-foreground">{t("Language")}</dt>
+      <dd>{formatters.displayName(locale) ?? locale}</dd>
+      <dt class="text-muted-foreground">{t("Current locale: \\{{locale}}", { locale })}</dt>
+      <dd>
+        {formatters.date(new Date("2026-10-14T12:00:00Z"))} · {formatters.currency(42.5, "EUR")}
+      </dd>
+    </dl>
+    <div class="flex flex-wrap gap-2">
+      {locales.map((option) => (
+        <button type="button" data-locale={option} class="rounded-md border px-3 py-1 text-sm">
+          {option}
+        </button>
+      ))}
+    </div>
+  </main>
+  <script>
+    for (const button of document.querySelectorAll("button[data-locale]")) {
+      button.addEventListener("click", () => {
+        document.cookie = \`locale=\${button.getAttribute("data-locale")};path=/\`;
+        location.reload();
+      });
+    }
+  </script>
+</Layout>
+`],
+  ["i18n/surface/i18next/electrobun-host/src/bun/i18n-demo.ts.hbs", `import { hostI18n } from "./i18n";
+
+/** Demo payload rendered by the host process (logs, native menus, tray). */
+export function renderI18nDemo() {
+  const { locale, t, format } = hostI18n();
+  return {
+    locale,
+    heading: t("i18n demo"),
+    greeting: t("Hello, \\{{name}}!", { name: "Ada" }),
+    plural: t("You have \\{{count}} new message", { count: 2 }),
+    language: format.displayName(locale) ?? locale,
+    date: format.date(new Date("2026-10-14T12:00:00Z")),
+    currency: format.currency(42.5, "EUR"),
+  };
+}
+`],
+  ["i18n/surface/i18next/electrobun-host/src/bun/i18n.ts.hbs", `// Bun main-process glue for i18next. The webview uses the same catalogs
+// through \`@{{projectName}}/i18n/runtime\`; the host negotiates from the system.
+import { createFormatters, negotiateLocale } from "@{{projectName}}/i18n";
+import { createI18next } from "@{{projectName}}/i18n/runtime";
+import type { Locale } from "@{{projectName}}/i18n";
+
+export function hostI18n(locale: Locale = negotiateLocale({ system: process.env.LANG })) {
+  const instance = createI18next(locale);
+  return {
+    locale,
+    t: instance.getFixedT(locale),
+    format: createFormatters(locale),
+  };
+}
+`],
+  ["i18n/surface/i18next/native/app/i18n-demo.tsx.hbs", `import { isLocale, locales, sourceLocale } from "@{{projectName}}/i18n";
+import { useTranslation } from "react-i18next";
+import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+
+import { setLocale, useFormat } from "@/lib/i18n";
+
+export default function I18nDemoScreen() {
+  const { t, i18n } = useTranslation();
+  const resolved = i18n.resolvedLanguage ?? "";
+  const locale = isLocale(resolved) ? resolved : sourceLocale;
+  const formatters = useFormat();
+  const count = 2;
+
+  return (
+    <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
+      <Text style={styles.heading}>{t("i18n demo")}</Text>
+      <Text style={styles.body}>{t("Hello, \\{{name}}!", { name: "Ada" })}</Text>
+      <Text style={styles.body}>{t("You have \\{{count}} new message", { count })}</Text>
+      <View style={styles.row}>
+        <Text style={styles.label}>{t("Language")}</Text>
+        <Text style={styles.body}>{formatters.displayName(locale) ?? locale}</Text>
+      </View>
+      <View style={styles.row}>
+        <Text style={styles.label}>{t("Current locale: \\{{locale}}", { locale })}</Text>
+        <Text style={styles.body}>
+          {formatters.date(new Date("2026-10-14T12:00:00Z"))} · {formatters.currency(42.5, "EUR")}
+        </Text>
+      </View>
+      <View style={styles.switcher}>
+        {locales.map((option) => (
+          <Pressable key={option} style={styles.button} onPress={() => void setLocale(option)}>
+            <Text style={styles.buttonLabel}>{option}</Text>
+          </Pressable>
+        ))}
+      </View>
+    </ScrollView>
+  );
+}
+
+const styles = StyleSheet.create({
+  screen: { flex: 1 },
+  content: { gap: 12, padding: 16 },
+  heading: { fontSize: 20, fontWeight: "600" },
+  body: { fontSize: 14 },
+  label: { fontSize: 14, opacity: 0.6 },
+  row: { flexDirection: "row", justifyContent: "space-between", gap: 12 },
+  switcher: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  button: { borderWidth: 1, borderColor: "#888", borderRadius: 6, paddingHorizontal: 12, paddingVertical: 6 },
+  buttonLabel: { fontSize: 14 },
+});
+`],
+  ["i18n/surface/i18next/native/lib/i18n.ts.hbs", `// Registers the shared i18next runtime with react-i18next for React Native.
+import { createFormatters, isLocale, sourceLocale } from "@{{projectName}}/i18n";
+import { i18next, initI18next } from "@{{projectName}}/i18n/runtime";
+import { useMemo } from "react";
+import { initReactI18next, useTranslation } from "react-i18next";
+
+i18next.use(initReactI18next);
+initI18next();
+
+export { currentLocale, i18next, setLocale } from "@{{projectName}}/i18n/runtime";
+
+/** Date, number and currency formatters for the active locale. */
+export function useFormat() {
+  const { i18n } = useTranslation();
+  const resolved = i18n.resolvedLanguage ?? "";
+  const locale = isLocale(resolved) ? resolved : sourceLocale;
+  return useMemo(() => createFormatters(locale), [locale]);
+}
+`],
+  ["i18n/surface/i18next/next/src/app/i18n-demo/page.tsx.hbs", `"use client";
+
+import { isLocale, locales, sourceLocale } from "@{{projectName}}/i18n";
+import { useTranslation } from "react-i18next";
+
+import { setLocale, useFormat } from "@/i18n";
+
+export default function I18nDemoPage() {
+  const { t, i18n } = useTranslation();
+  const resolved = i18n.resolvedLanguage ?? "";
+  const locale = isLocale(resolved) ? resolved : sourceLocale;
+  const formatters = useFormat();
+  const count = 2;
+
+  return (
+    <main className="container mx-auto max-w-2xl space-y-4 px-4 py-10">
+      <h1 className="text-2xl font-semibold">{t("i18n demo")}</h1>
+      <p>{t("Hello, \\{{name}}!", { name: "Ada" })}</p>
+      <p>{t("You have \\{{count}} new message", { count })}</p>
+      <dl className="grid grid-cols-2 gap-2 text-sm">
+        <dt className="text-muted-foreground">{t("Language")}</dt>
+        <dd>{formatters.displayName(locale) ?? locale}</dd>
+        <dt className="text-muted-foreground">
+          {t("Current locale: \\{{locale}}", { locale })}
+        </dt>
+        <dd>
+          {formatters.date(new Date("2026-10-14T12:00:00Z"))} ·{" "}
+          {formatters.currency(42.5, "EUR")}
+        </dd>
+      </dl>
+      <div className="flex flex-wrap gap-2">
+        {locales.map((option) => (
+          <button
+            key={option}
+            type="button"
+            className="rounded-md border px-3 py-1 text-sm"
+            onClick={() => void setLocale(option)}
+          >
+            {option}
+          </button>
+        ))}
+      </div>
+    </main>
+  );
+}
+`],
+  ["i18n/surface/i18next/next/src/i18n.ts.hbs", `"use client";
+
+// Registers the i18next runtime (packages/i18n) with react-i18next. Import
+// this module from any component that uses \`useTranslation\`.
+import { createFormatters, isLocale, sourceLocale } from "@{{projectName}}/i18n";
+import { i18next, initI18next } from "@{{projectName}}/i18n/runtime";
+import { useMemo } from "react";
+import { initReactI18next, useTranslation } from "react-i18next";
+
+i18next.use(initReactI18next);
+initI18next();
+
+export { currentLocale, i18next, setLocale } from "@{{projectName}}/i18n/runtime";
+
+/** Date, number, currency and list formatters for the active locale. */
+export function useFormat() {
+  const { i18n } = useTranslation();
+  const resolved = i18n.resolvedLanguage ?? "";
+  const locale = isLocale(resolved) ? resolved : sourceLocale;
+  return useMemo(() => createFormatters(locale), [locale]);
+}
+`],
+  ["i18n/surface/i18next/nuxt/app/composables/use-format.ts.hbs", `// Vue composable glue (D4): reactive \`Intl\` formatters for the active locale.
+import { createFormatters } from "@{{projectName}}/i18n";
+import { currentLocale, i18next } from "@{{projectName}}/i18n/runtime";
+import type { Locale } from "@{{projectName}}/i18n";
+import { computed, onScopeDispose, ref } from "vue";
+
+export function useFormat() {
+  const locale = ref<Locale>(currentLocale());
+  const sync = () => {
+    locale.value = currentLocale();
+  };
+  i18next.on("languageChanged", sync);
+  onScopeDispose(() => {
+    i18next.off("languageChanged", sync);
+  });
+  return computed(() => createFormatters(locale.value));
+}
+`],
+  ["i18n/surface/i18next/nuxt/app/pages/i18n-demo.vue.hbs", `<script setup lang="ts">
+import { isLocale, locales } from "@{{projectName}}/i18n";
+import { currentLocale, setLocale } from "@{{projectName}}/i18n/runtime";
+import { useTranslation } from "i18next-vue";
+import { computed, onUnmounted, ref } from "vue";
+import { useFormat } from "~/composables/use-format";
+
+const { t, i18next } = useTranslation();
+const locale = ref(currentLocale());
+const syncLocale = () => {
+  locale.value = currentLocale();
+};
+i18next.on("languageChanged", syncLocale);
+onUnmounted(() => {
+  i18next.off("languageChanged", syncLocale);
+});
+
+const formatters = useFormat();
+const languageName = computed(() => formatters.value.displayName(locale.value) ?? locale.value);
+const count = 2;
+
+// Message keys carry i18next \`\\{{placeholders}}\`; computing them here keeps the
+// literal out of Vue's \`\\{{ }}\` interpolation, which would close on the inner \`}}\`.
+const heading = computed(() => t("i18n demo"));
+const greeting = computed(() => t("Hello, \\{{name}}!", { name: "Ada" }));
+const messages = computed(() => t("You have \\{{count}} new message", { count }));
+const currentLocaleLabel = computed(() =>
+  t("Current locale: \\{{locale}}", { locale: locale.value }),
+);
+
+function changeLocale(option: string) {
+  if (isLocale(option)) void setLocale(option);
+}
+</script>
+
+<template>
+  <main class="container mx-auto max-w-2xl space-y-4 px-4 py-10">
+    <h1 class="text-2xl font-semibold">\\{{ heading }}</h1>
+    <p>\\{{ greeting }}</p>
+    <p>\\{{ messages }}</p>
+    <dl class="grid grid-cols-2 gap-2 text-sm">
+      <dt class="text-muted-foreground">\\{{ t("Language") }}</dt>
+      <dd>\\{{ languageName }}</dd>
+      <dt class="text-muted-foreground">\\{{ currentLocaleLabel }}</dt>
+      <dd>
+        \\{{ formatters.date(new Date("2026-10-14T12:00:00Z")) }} ·
+        \\{{ formatters.currency(42.5, "EUR") }}
+      </dd>
+    </dl>
+    <div class="flex flex-wrap gap-2">
+      <button
+        v-for="option in locales"
+        :key="option"
+        type="button"
+        class="rounded-md border px-3 py-1 text-sm"
+        @click="changeLocale(option)"
+      >
+        \\{{ option }}
+      </button>
+    </div>
+  </main>
+</template>
+`],
+  ["i18n/surface/i18next/nuxt/app/plugins/i18n.ts.hbs", `// Registers the shared i18next instance with the i18next-vue plugin. Templates
+// get \`$t\`; components can use \`useTranslation()\` from \`i18next-vue\`.
+//
+// \`@nuxtjs/i18n\` owns locale detection (domain / prefix / cookie) and routing;
+// i18next owns the messages. Seed the instance with the module's active locale
+// and follow its switches, so SSR and navigation render the negotiated locale
+// instead of the base locale.
+import { isLocale } from "@{{projectName}}/i18n";
+import { initI18next } from "@{{projectName}}/i18n/runtime";
+import I18NextVue from "i18next-vue";
+
+export default defineNuxtPlugin((nuxtApp) => {
+  const activeLocale = nuxtApp.$i18n.locale.value;
+  const instance = initI18next(isLocale(activeLocale) ? activeLocale : undefined);
+
+  nuxtApp.vueApp.use(I18NextVue, { i18next: instance });
+
+  nuxtApp.hook("i18n:localeSwitched", ({ newLocale }) => {
+    if (isLocale(newLocale)) void instance.changeLanguage(newLocale);
+  });
+});
+`],
+  ["i18n/surface/i18next/opentui-core/src/i18n-demo.ts.hbs", `import { createFormatters, negotiateLocale } from "@{{projectName}}/i18n";
+import { createI18next } from "@{{projectName}}/i18n/runtime";
+import type { Locale } from "@{{projectName}}/i18n";
+
+/** Demo payload for the TUI host: the shared messages and formatters. */
+export function renderI18nDemo(locale: Locale = negotiateLocale({ system: process.env.LANG })) {
+  const t = createI18next(locale).getFixedT(locale);
+  const format = createFormatters(locale);
+  return {
+    locale,
+    heading: t("i18n demo"),
+    greeting: t("Hello, \\{{name}}!", { name: "Ada" }),
+    plural: t("You have \\{{count}} new message", { count: 2 }),
+    language: format.displayName(locale) ?? locale,
+    date: format.date(new Date("2026-10-14T12:00:00Z")),
+    currency: format.currency(42.5, "EUR"),
+  };
+}
+`],
+  ["i18n/surface/i18next/opentui-core/src/i18n.ts.hbs", `// OpenTUI (core) glue for i18next: the shared instance plus a
+// \`translate\` helper for the terminal UI.
+import { initI18next } from "@{{projectName}}/i18n/runtime";
+import type { TOptions } from "i18next";
+
+const i18next = initI18next();
+
+export const translate = (id: string, options?: TOptions): string =>
+  i18next.t(id, options);
+
+export { i18next, setLocale } from "@{{projectName}}/i18n/runtime";
+`],
+  ["i18n/surface/i18next/opentui-react/src/i18n-demo.ts.hbs", `import { createFormatters, negotiateLocale } from "@{{projectName}}/i18n";
+import { createI18next } from "@{{projectName}}/i18n/runtime";
+import type { Locale } from "@{{projectName}}/i18n";
+
+/** Demo payload for the TUI host: the shared messages and formatters. */
+export function renderI18nDemo(locale: Locale = negotiateLocale({ system: process.env.LANG })) {
+  const t = createI18next(locale).getFixedT(locale);
+  const format = createFormatters(locale);
+  return {
+    locale,
+    heading: t("i18n demo"),
+    greeting: t("Hello, \\{{name}}!", { name: "Ada" }),
+    plural: t("You have \\{{count}} new message", { count: 2 }),
+    language: format.displayName(locale) ?? locale,
+    date: format.date(new Date("2026-10-14T12:00:00Z")),
+    currency: format.currency(42.5, "EUR"),
+  };
+}
+`],
+  ["i18n/surface/i18next/opentui-react/src/i18n.ts.hbs", `// OpenTUI (React) glue for i18next: registers the shared instance with
+// react-i18next. Import from any entrypoint that renders React.
+import { createFormatters, isLocale, sourceLocale } from "@{{projectName}}/i18n";
+import { i18next, initI18next } from "@{{projectName}}/i18n/runtime";
+import { useMemo } from "react";
+import { initReactI18next, useTranslation } from "react-i18next";
+
+i18next.use(initReactI18next);
+initI18next();
+
+export { i18next, setLocale } from "@{{projectName}}/i18n/runtime";
+
+/** Date, number and currency formatters for the active locale. */
+export function useFormat() {
+  const { i18n } = useTranslation();
+  const resolved = i18n.resolvedLanguage ?? "";
+  const locale = isLocale(resolved) ? resolved : sourceLocale;
+  return useMemo(() => createFormatters(locale), [locale]);
+}
+`],
+  ["i18n/surface/i18next/opentui-solid/src/i18n-demo.ts.hbs", `import { createFormatters, negotiateLocale } from "@{{projectName}}/i18n";
+import { createI18next } from "@{{projectName}}/i18n/runtime";
+import type { Locale } from "@{{projectName}}/i18n";
+
+/** Demo payload for the TUI host: the shared messages and formatters. */
+export function renderI18nDemo(locale: Locale = negotiateLocale({ system: process.env.LANG })) {
+  const t = createI18next(locale).getFixedT(locale);
+  const format = createFormatters(locale);
+  return {
+    locale,
+    heading: t("i18n demo"),
+    greeting: t("Hello, \\{{name}}!", { name: "Ada" }),
+    plural: t("You have \\{{count}} new message", { count: 2 }),
+    language: format.displayName(locale) ?? locale,
+    date: format.date(new Date("2026-10-14T12:00:00Z")),
+    currency: format.currency(42.5, "EUR"),
+  };
+}
+`],
+  ["i18n/surface/i18next/opentui-solid/src/lib/i18n.tsx.hbs", `// OpenTUI (Solid) glue for i18next: the shipped Solid primitive (locale
+// signal, reactive translator, locale switcher).
+import { isLocale, sourceLocale } from "@{{projectName}}/i18n";
+import { initI18next, setLocale as applyLocale } from "@{{projectName}}/i18n/runtime";
+import type { Locale } from "@{{projectName}}/i18n";
+import type { TOptions } from "i18next";
+import { createSignal } from "solid-js";
+
+const i18next = initI18next();
+
+function resolvedLocale(): Locale {
+  const resolved = i18next.resolvedLanguage ?? "";
+  return isLocale(resolved) ? resolved : sourceLocale;
+}
+
+const [locale, setLocaleSignal] = createSignal<Locale>(resolvedLocale());
+
+i18next.on("languageChanged", () => {
+  setLocaleSignal(resolvedLocale());
+});
+
+export function createI18n() {
+  return {
+    locale,
+    translate: (id: string, options?: TOptions) => i18next.getFixedT(locale())(id, options),
+    changeLocale: (next: Locale) => applyLocale(next),
+  };
+}
+`],
+  ["i18n/surface/i18next/react-router/src/i18n.ts.hbs", `"use client";
+
+// Registers the i18next runtime (packages/i18n) with react-i18next. Import
+// this module from any component that uses \`useTranslation\`.
+import { createFormatters, isLocale, sourceLocale } from "@{{projectName}}/i18n";
+import { i18next, initI18next } from "@{{projectName}}/i18n/runtime";
+import { useMemo } from "react";
+import { initReactI18next, useTranslation } from "react-i18next";
+
+i18next.use(initReactI18next);
+initI18next();
+
+export { currentLocale, i18next, setLocale } from "@{{projectName}}/i18n/runtime";
+
+/** Date, number, currency and list formatters for the active locale. */
+export function useFormat() {
+  const { i18n } = useTranslation();
+  const resolved = i18n.resolvedLanguage ?? "";
+  const locale = isLocale(resolved) ? resolved : sourceLocale;
+  return useMemo(() => createFormatters(locale), [locale]);
+}
+`],
+  ["i18n/surface/i18next/react-router/src/routes/i18n-demo.tsx.hbs", `import { isLocale, locales, sourceLocale } from "@{{projectName}}/i18n";
+import { useTranslation } from "react-i18next";
+
+import { setLocale, useFormat } from "@/i18n";
+
+export function meta() {
+  return [{ title: "i18n demo" }];
+}
+
+export default function I18nDemo() {
+  const { t, i18n } = useTranslation();
+  const resolved = i18n.resolvedLanguage ?? "";
+  const locale = isLocale(resolved) ? resolved : sourceLocale;
+  const formatters = useFormat();
+  const count = 2;
+
+  return (
+    <main className="container mx-auto max-w-2xl space-y-4 px-4 py-10">
+      <h1 className="text-2xl font-semibold">{t("i18n demo")}</h1>
+      <p>{t("Hello, \\{{name}}!", { name: "Ada" })}</p>
+      <p>{t("You have \\{{count}} new message", { count })}</p>
+      <dl className="grid grid-cols-2 gap-2 text-sm">
+        <dt className="text-muted-foreground">{t("Language")}</dt>
+        <dd>{formatters.displayName(locale) ?? locale}</dd>
+        <dt className="text-muted-foreground">
+          {t("Current locale: \\{{locale}}", { locale })}
+        </dt>
+        <dd>
+          {formatters.date(new Date("2026-10-14T12:00:00Z"))} ·{" "}
+          {formatters.currency(42.5, "EUR")}
+        </dd>
+      </dl>
+      <div className="flex flex-wrap gap-2">
+        {locales.map((option) => (
+          <button
+            key={option}
+            type="button"
+            className="rounded-md border px-3 py-1 text-sm"
+            onClick={() => void setLocale(option)}
+          >
+            {option}
+          </button>
+        ))}
+      </div>
+    </main>
+  );
+}
+`],
+  ["i18n/surface/i18next/server/src/i18n-demo.ts.hbs", `import type { Locale } from "@{{projectName}}/i18n";
+
+import { createRequestI18n } from "./i18n";
+
+/** Demo payload for the shared formatters and messages; the routing lane can
+ * serve it from a \`/i18n-demo\` route. */
+export function renderI18nDemo(locale?: Locale) {
+  const { locale: active, t, format } = createRequestI18n(locale);
+  return {
+    locale: active,
+    heading: t("i18n demo"),
+    greeting: t("Hello, \\{{name}}!", { name: "Ada" }),
+    plural: t("You have \\{{count}} new message", { count: 2 }),
+    language: format.displayName(active) ?? active,
+    date: format.date(new Date("2026-10-14T12:00:00Z")),
+    currency: format.currency(42.5, "EUR"),
+  };
+}
+`],
+  ["i18n/surface/i18next/server/src/i18n.ts.hbs", `// Server glue for i18next: a request-scoped translator. The locale middleware
+// (routing lane) wraps requests in \`runWithLocale\`; \`getRequestLocale()\` reads
+// the negotiated locale back synchronously.
+import { createFormatters } from "@{{projectName}}/i18n";
+import { createI18next } from "@{{projectName}}/i18n/runtime";
+import { getRequestLocale } from "@{{projectName}}/i18n/server";
+import type { Locale } from "@{{projectName}}/i18n";
+
+export function createRequestI18n(locale: Locale = getRequestLocale()) {
+  const instance = createI18next(locale);
+  return {
+    locale,
+    t: instance.getFixedT(locale),
+    format: createFormatters(locale),
+  };
+}
+`],
+  ["i18n/surface/i18next/solid/src/lib/i18n.tsx.hbs", `// Solid primitive glue for i18next (shipped with the adapter): a factory that
+// returns a locale signal, a reactive translator and a locale switcher.
+import { createFormatters, isLocale, sourceLocale } from "@{{projectName}}/i18n";
+import { initI18next, setLocale as applyLocale } from "@{{projectName}}/i18n/runtime";
+import type { Locale } from "@{{projectName}}/i18n";
+import type { TOptions } from "i18next";
+import { createMemo, createSignal } from "solid-js";
+
+const i18next = initI18next();
+
+function resolvedLocale(): Locale {
+  const resolved = i18next.resolvedLanguage ?? "";
+  return isLocale(resolved) ? resolved : sourceLocale;
+}
+
+const [locale, setLocaleSignal] = createSignal<Locale>(resolvedLocale());
+
+i18next.on("languageChanged", () => {
+  setLocaleSignal(resolvedLocale());
+});
+
+export function createI18n() {
+  return {
+    locale,
+    translate: (id: string, options?: TOptions) => i18next.getFixedT(locale())(id, options),
+    /** Date, number, currency and list formatters for the active locale. */
+    format: createMemo(() => createFormatters(locale())),
+    changeLocale: (next: Locale) => applyLocale(next),
+  };
+}
+`],
+  ["i18n/surface/i18next/solid/src/routes/i18n-demo.tsx.hbs", `import { locales } from "@{{projectName}}/i18n";
+import { For } from "solid-js";
+
+import { createI18n } from "~/lib/i18n";
+
+export default function I18nDemo() {
+  const { locale, translate, format, changeLocale } = createI18n();
+  const count = 2;
+
+  return (
+    <main class="container mx-auto max-w-2xl space-y-4 px-4 py-10">
+      <h1 class="text-2xl font-semibold">{translate("i18n demo")}</h1>
+      <p>{translate("Hello, \\{{name}}!", { name: "Ada" })}</p>
+      <p>{translate("You have \\{{count}} new message", { count })}</p>
+      <dl class="grid grid-cols-2 gap-2 text-sm">
+        <dt class="text-muted-foreground">{translate("Language")}</dt>
+        <dd>{format().displayName(locale()) ?? locale()}</dd>
+        <dt class="text-muted-foreground">
+          {translate("Current locale: \\{{locale}}", { locale: locale() })}
+        </dt>
+        <dd>
+          {format().date(new Date("2026-10-14T12:00:00Z"))} ·{" "}
+          {format().currency(42.5, "EUR")}
+        </dd>
+      </dl>
+      <div class="flex flex-wrap gap-2">
+        <For each={[...locales]}>
+          {(option) => (
+            <button
+              type="button"
+              class="rounded-md border px-3 py-1 text-sm"
+              onClick={() => void changeLocale(option)}
+            >
+              {option}
+            </button>
+          )}
+        </For>
+      </div>
+    </main>
+  );
+}
+`],
+  ["i18n/surface/i18next/svelte/src/lib/i18n.ts.hbs", `// Svelte store glue for i18next (shipped with the adapter): the shared
+// instance plus a \`locale\` store that components subscribe to with \`$locale\`.
+import { createFormatters, isLocale, sourceLocale } from "@{{projectName}}/i18n";
+import { initI18next, setLocale } from "@{{projectName}}/i18n/runtime";
+import type { Locale } from "@{{projectName}}/i18n";
+import { derived, writable } from "svelte/store";
+
+const i18next = initI18next();
+
+function resolvedLocale(): Locale {
+  const resolved = i18next.resolvedLanguage ?? "";
+  return isLocale(resolved) ? resolved : sourceLocale;
+}
+
+export const locale = writable<Locale>(resolvedLocale());
+
+i18next.on("languageChanged", () => {
+  locale.set(resolvedLocale());
+});
+
+/** Date, number, currency and list formatters (\`$format\` in components). */
+export const format = derived(locale, ($locale) => createFormatters($locale));
+
+export function changeLocale(next: Locale) {
+  return setLocale(next);
+}
+
+export { i18next };
+`],
+  ["i18n/surface/i18next/svelte/src/routes/i18n-demo/+page.svelte.hbs", `<script lang="ts">
+  import { locales } from "@{{projectName}}/i18n";
+  import { changeLocale, format, i18next, locale } from "#lib/i18n.ts";
+
+  const t = $derived(i18next.getFixedT($locale));
+  const formatters = $format;
+  const count = 2;
+</script>
+
+<main class="container mx-auto max-w-2xl space-y-4 px-4 py-10">
+  <h1 class="text-2xl font-semibold">{t("i18n demo")}</h1>
+  <p>{t("Hello, \\{{name}}!", { name: "Ada" })}</p>
+  <p>{t("You have \\{{count}} new message", { count })}</p>
+  <dl class="grid grid-cols-2 gap-2 text-sm">
+    <dt class="text-muted-foreground">{t("Language")}</dt>
+    <dd>{formatters.displayName($locale) ?? $locale}</dd>
+    <dt class="text-muted-foreground">{t("Current locale: \\{{locale}}", { locale: $locale })}</dt>
+    <dd>
+      {formatters.date(new Date("2026-10-14T12:00:00Z"))} · {formatters.currency(42.5, "EUR")}
+    </dd>
+  </dl>
+  <div class="flex flex-wrap gap-2">
+    {#each locales as option (option)}
+      <button
+        type="button"
+        class="rounded-md border px-3 py-1 text-sm"
+        onclick={() => void changeLocale(option)}
+      >
+        {option}
+      </button>
+    {/each}
+  </div>
+</main>
+`],
+  ["i18n/surface/i18next/tanstack-router/src/i18n.ts.hbs", `"use client";
+
+// Registers the i18next runtime (packages/i18n) with react-i18next. Import
+// this module from any component that uses \`useTranslation\`.
+import { createFormatters, isLocale, sourceLocale } from "@{{projectName}}/i18n";
+import { i18next, initI18next } from "@{{projectName}}/i18n/runtime";
+import { useMemo } from "react";
+import { initReactI18next, useTranslation } from "react-i18next";
+
+i18next.use(initReactI18next);
+initI18next();
+
+export { currentLocale, i18next, setLocale } from "@{{projectName}}/i18n/runtime";
+
+/** Date, number, currency and list formatters for the active locale. */
+export function useFormat() {
+  const { i18n } = useTranslation();
+  const resolved = i18n.resolvedLanguage ?? "";
+  const locale = isLocale(resolved) ? resolved : sourceLocale;
+  return useMemo(() => createFormatters(locale), [locale]);
+}
+`],
+  ["i18n/surface/i18next/tanstack-router/src/routes/i18n-demo.tsx.hbs", `import { createFileRoute } from "@tanstack/react-router";
+import { isLocale, locales, sourceLocale } from "@{{projectName}}/i18n";
+import { useTranslation } from "react-i18next";
+
+import { setLocale, useFormat } from "@/i18n";
+
+export const Route = createFileRoute("/i18n-demo")({
+  component: I18nDemo,
+});
+
+function I18nDemo() {
+  const { t, i18n } = useTranslation();
+  const resolved = i18n.resolvedLanguage ?? "";
+  const locale = isLocale(resolved) ? resolved : sourceLocale;
+  const formatters = useFormat();
+  const count = 2;
+
+  return (
+    <main className="container mx-auto max-w-2xl space-y-4 px-4 py-10">
+      <h1 className="text-2xl font-semibold">{t("i18n demo")}</h1>
+      <p>{t("Hello, \\{{name}}!", { name: "Ada" })}</p>
+      <p>{t("You have \\{{count}} new message", { count })}</p>
+      <dl className="grid grid-cols-2 gap-2 text-sm">
+        <dt className="text-muted-foreground">{t("Language")}</dt>
+        <dd>{formatters.displayName(locale) ?? locale}</dd>
+        <dt className="text-muted-foreground">
+          {t("Current locale: \\{{locale}}", { locale })}
+        </dt>
+        <dd>
+          {formatters.date(new Date("2026-10-14T12:00:00Z"))} ·{" "}
+          {formatters.currency(42.5, "EUR")}
+        </dd>
+      </dl>
+      <div className="flex flex-wrap gap-2">
+        {locales.map((option) => (
+          <button
+            key={option}
+            type="button"
+            className="rounded-md border px-3 py-1 text-sm"
+            onClick={() => void setLocale(option)}
+          >
+            {option}
+          </button>
+        ))}
+      </div>
+    </main>
+  );
+}
+`],
+  ["i18n/surface/i18next/tanstack-start/src/i18n.ts.hbs", `"use client";
+
+// Registers the i18next runtime (packages/i18n) with react-i18next. Import
+// this module from any component that uses \`useTranslation\`.
+import { createFormatters, isLocale, sourceLocale } from "@{{projectName}}/i18n";
+import { i18next, initI18next } from "@{{projectName}}/i18n/runtime";
+import { useMemo } from "react";
+import { initReactI18next, useTranslation } from "react-i18next";
+
+i18next.use(initReactI18next);
+initI18next();
+
+export { currentLocale, i18next, setLocale } from "@{{projectName}}/i18n/runtime";
+
+/** Date, number, currency and list formatters for the active locale. */
+export function useFormat() {
+  const { i18n } = useTranslation();
+  const resolved = i18n.resolvedLanguage ?? "";
+  const locale = isLocale(resolved) ? resolved : sourceLocale;
+  return useMemo(() => createFormatters(locale), [locale]);
+}
+`],
+  ["i18n/surface/i18next/tanstack-start/src/routes/i18n-demo.tsx.hbs", `import { createFileRoute } from "@tanstack/react-router";
+import { isLocale, locales, sourceLocale } from "@{{projectName}}/i18n";
+import { useTranslation } from "react-i18next";
+
+import { setLocale, useFormat } from "@/i18n";
+
+export const Route = createFileRoute("/i18n-demo")({
+  component: I18nDemo,
+});
+
+function I18nDemo() {
+  const { t, i18n } = useTranslation();
+  const resolved = i18n.resolvedLanguage ?? "";
+  const locale = isLocale(resolved) ? resolved : sourceLocale;
+  const formatters = useFormat();
+  const count = 2;
+
+  return (
+    <main className="container mx-auto max-w-2xl space-y-4 px-4 py-10">
+      <h1 className="text-2xl font-semibold">{t("i18n demo")}</h1>
+      <p>{t("Hello, \\{{name}}!", { name: "Ada" })}</p>
+      <p>{t("You have \\{{count}} new message", { count })}</p>
+      <dl className="grid grid-cols-2 gap-2 text-sm">
+        <dt className="text-muted-foreground">{t("Language")}</dt>
+        <dd>{formatters.displayName(locale) ?? locale}</dd>
+        <dt className="text-muted-foreground">
+          {t("Current locale: \\{{locale}}", { locale })}
+        </dt>
+        <dd>
+          {formatters.date(new Date("2026-10-14T12:00:00Z"))} ·{" "}
+          {formatters.currency(42.5, "EUR")}
+        </dd>
+      </dl>
+      <div className="flex flex-wrap gap-2">
+        {locales.map((option) => (
+          <button
+            key={option}
+            type="button"
+            className="rounded-md border px-3 py-1 text-sm"
+            onClick={() => void setLocale(option)}
+          >
+            {option}
+          </button>
+        ))}
+      </div>
+    </main>
+  );
+}
+`],
+  ["i18n/surface/i18next/wxt-react/lib/i18n-demo.ts.hbs", `import { createFormatters, negotiateLocale } from "@{{projectName}}/i18n";
+import { createI18next } from "@{{projectName}}/i18n/runtime";
+import type { Locale } from "@{{projectName}}/i18n";
+
+/** Demo payload for extension entrypoints: the shared messages and formatters. */
+export function renderI18nDemo(locale: Locale = negotiateLocale()) {
+  const t = createI18next(locale).getFixedT(locale);
+  const format = createFormatters(locale);
+  return {
+    locale,
+    heading: t("i18n demo"),
+    greeting: t("Hello, \\{{name}}!", { name: "Ada" }),
+    plural: t("You have \\{{count}} new message", { count: 2 }),
+    language: format.displayName(locale) ?? locale,
+    date: format.date(new Date("2026-10-14T12:00:00Z")),
+    currency: format.currency(42.5, "EUR"),
+  };
+}
+`],
+  ["i18n/surface/i18next/wxt-react/lib/i18n.ts.hbs", `// WXT (React) glue for i18next: registers the shared instance with
+// react-i18next. Import from any entrypoint that renders React.
+import { createFormatters, isLocale, sourceLocale } from "@{{projectName}}/i18n";
+import { i18next, initI18next } from "@{{projectName}}/i18n/runtime";
+import { useMemo } from "react";
+import { initReactI18next, useTranslation } from "react-i18next";
+
+i18next.use(initReactI18next);
+initI18next();
+
+export { i18next, setLocale } from "@{{projectName}}/i18n/runtime";
+
+/** Date, number and currency formatters for the active locale. */
+export function useFormat() {
+  const { i18n } = useTranslation();
+  const resolved = i18n.resolvedLanguage ?? "";
+  const locale = isLocale(resolved) ? resolved : sourceLocale;
+  return useMemo(() => createFormatters(locale), [locale]);
+}
+`],
+  ["i18n/surface/i18next/wxt-solid/lib/i18n-demo.ts.hbs", `import { createFormatters, negotiateLocale } from "@{{projectName}}/i18n";
+import { createI18next } from "@{{projectName}}/i18n/runtime";
+import type { Locale } from "@{{projectName}}/i18n";
+
+/** Demo payload for extension entrypoints: the shared messages and formatters. */
+export function renderI18nDemo(locale: Locale = negotiateLocale()) {
+  const t = createI18next(locale).getFixedT(locale);
+  const format = createFormatters(locale);
+  return {
+    locale,
+    heading: t("i18n demo"),
+    greeting: t("Hello, \\{{name}}!", { name: "Ada" }),
+    plural: t("You have \\{{count}} new message", { count: 2 }),
+    language: format.displayName(locale) ?? locale,
+    date: format.date(new Date("2026-10-14T12:00:00Z")),
+    currency: format.currency(42.5, "EUR"),
+  };
+}
+`],
+  ["i18n/surface/i18next/wxt-solid/lib/i18n.tsx.hbs", `// Solid primitive glue for i18next (shipped with the adapter): a factory that
+// returns a locale signal, a reactive translator and a locale switcher.
+import { createFormatters, isLocale, sourceLocale } from "@{{projectName}}/i18n";
+import { initI18next, setLocale as applyLocale } from "@{{projectName}}/i18n/runtime";
+import type { Locale } from "@{{projectName}}/i18n";
+import type { TOptions } from "i18next";
+import { createMemo, createSignal } from "solid-js";
+
+const i18next = initI18next();
+
+function resolvedLocale(): Locale {
+  const resolved = i18next.resolvedLanguage ?? "";
+  return isLocale(resolved) ? resolved : sourceLocale;
+}
+
+const [locale, setLocaleSignal] = createSignal<Locale>(resolvedLocale());
+
+i18next.on("languageChanged", () => {
+  setLocaleSignal(resolvedLocale());
+});
+
+export function createI18n() {
+  return {
+    locale,
+    translate: (id: string, options?: TOptions) => i18next.getFixedT(locale())(id, options),
+    /** Date, number, currency and list formatters for the active locale. */
+    format: createMemo(() => createFormatters(locale())),
+    changeLocale: (next: Locale) => applyLocale(next),
+  };
+}
+`],
+  ["i18n/surface/i18next/wxt-svelte/lib/i18n-demo.ts.hbs", `import { createFormatters, negotiateLocale } from "@{{projectName}}/i18n";
+import { createI18next } from "@{{projectName}}/i18n/runtime";
+import type { Locale } from "@{{projectName}}/i18n";
+
+/** Demo payload for extension entrypoints: the shared messages and formatters. */
+export function renderI18nDemo(locale: Locale = negotiateLocale()) {
+  const t = createI18next(locale).getFixedT(locale);
+  const format = createFormatters(locale);
+  return {
+    locale,
+    heading: t("i18n demo"),
+    greeting: t("Hello, \\{{name}}!", { name: "Ada" }),
+    plural: t("You have \\{{count}} new message", { count: 2 }),
+    language: format.displayName(locale) ?? locale,
+    date: format.date(new Date("2026-10-14T12:00:00Z")),
+    currency: format.currency(42.5, "EUR"),
+  };
+}
+`],
+  ["i18n/surface/i18next/wxt-svelte/lib/i18n.ts.hbs", `// WXT (Svelte) glue for i18next: the shipped store (locale + translator).
+import { isLocale, sourceLocale } from "@{{projectName}}/i18n";
+import { initI18next, setLocale } from "@{{projectName}}/i18n/runtime";
+import type { Locale } from "@{{projectName}}/i18n";
+import { writable } from "svelte/store";
+
+const i18next = initI18next();
+
+function resolvedLocale(): Locale {
+  const resolved = i18next.resolvedLanguage ?? "";
+  return isLocale(resolved) ? resolved : sourceLocale;
+}
+
+export const locale = writable<Locale>(resolvedLocale());
+
+i18next.on("languageChanged", () => {
+  locale.set(resolvedLocale());
+});
+
+export function changeLocale(next: Locale) {
+  return setLocale(next);
+}
+
+export { i18next };
+`],
+  ["i18n/surface/i18next/wxt-vanilla/lib/i18n-demo.ts.hbs", `import { createFormatters, negotiateLocale } from "@{{projectName}}/i18n";
+import { createI18next } from "@{{projectName}}/i18n/runtime";
+import type { Locale } from "@{{projectName}}/i18n";
+
+/** Demo payload for extension entrypoints: the shared messages and formatters. */
+export function renderI18nDemo(locale: Locale = negotiateLocale()) {
+  const t = createI18next(locale).getFixedT(locale);
+  const format = createFormatters(locale);
+  return {
+    locale,
+    heading: t("i18n demo"),
+    greeting: t("Hello, \\{{name}}!", { name: "Ada" }),
+    plural: t("You have \\{{count}} new message", { count: 2 }),
+    language: format.displayName(locale) ?? locale,
+    date: format.date(new Date("2026-10-14T12:00:00Z")),
+    currency: format.currency(42.5, "EUR"),
+  };
+}
+`],
+  ["i18n/surface/i18next/wxt-vanilla/lib/i18n.ts.hbs", `// WXT (vanilla) glue for i18next: the shared instance plus a
+// \`translate\` helper for extension pages and content scripts.
+import { initI18next } from "@{{projectName}}/i18n/runtime";
+import type { TOptions } from "i18next";
+
+const i18next = initI18next();
+
+export const translate = (id: string, options?: TOptions): string =>
+  i18next.t(id, options);
+
+export { i18next, setLocale } from "@{{projectName}}/i18n/runtime";
+`],
+  ["i18n/surface/i18next/wxt-vue/lib/i18n-demo.ts.hbs", `import { createFormatters, negotiateLocale } from "@{{projectName}}/i18n";
+import { createI18next } from "@{{projectName}}/i18n/runtime";
+import type { Locale } from "@{{projectName}}/i18n";
+
+/** Demo payload for extension entrypoints: the shared messages and formatters. */
+export function renderI18nDemo(locale: Locale = negotiateLocale()) {
+  const t = createI18next(locale).getFixedT(locale);
+  const format = createFormatters(locale);
+  return {
+    locale,
+    heading: t("i18n demo"),
+    greeting: t("Hello, \\{{name}}!", { name: "Ada" }),
+    plural: t("You have \\{{count}} new message", { count: 2 }),
+    language: format.displayName(locale) ?? locale,
+    date: format.date(new Date("2026-10-14T12:00:00Z")),
+    currency: format.currency(42.5, "EUR"),
+  };
+}
+`],
+  ["i18n/surface/i18next/wxt-vue/lib/i18n.ts.hbs", `// WXT (Vue) glue for i18next: installs the i18next-vue plugin on the
+// extension's Vue app.
+import { initI18next } from "@{{projectName}}/i18n/runtime";
+import I18NextVue from "i18next-vue";
+import type { App } from "vue";
+
+export function installI18n(app: App) {
+  app.use(I18NextVue, { i18next: initI18next() });
+}
+`],
+  ["i18n/surface/lingui/astro/src/components/I18nDemo.astro.hbs", `---
+import { msg } from "@lingui/core/macro";
+import { LOCALE_COOKIE, locales, negotiateLocale } from "@{{projectName}}/i18n/config";
+import { createFormatters } from "@{{projectName}}/i18n/format";
+import { setupI18n } from "@{{projectName}}/i18n/runtime";
+
+/**
+ * i18n demo: translated heading, interpolation, plural, currency, date and a
+ * locale switcher. Dates and numbers come from the shared \`createFormatters\`,
+ * never from Lingui (D4).
+ *
+ * Astro partial support: macros run in the frontmatter (and in island
+ * components), not in \`.astro\` markup expressions.
+ */
+const name = "Ada";
+const count = 3;
+
+// One instance per render: SSR requests with different locales must not share
+// the process-global \`i18n\` instance (D4).
+const locale = negotiateLocale({
+  cookie: Astro.cookies.get(LOCALE_COOKIE)?.value,
+  header: Astro.request.headers.get("x-app-locale") ?? undefined,
+  acceptLanguage: Astro.request.headers.get("accept-language") ?? undefined,
+});
+const i18n = await setupI18n(locale);
+const formatters = createFormatters(locale);
+
+const heading = i18n._(msg\`Internationalization\`);
+const greeting = i18n._(msg\`Hello \${name}, welcome back!\`);
+const unread = i18n._(msg\`{count, plural, one {# unread message} other {# unread messages}}\`);
+const currency = formatters.currency(42.5, "EUR");
+const date = formatters.date(new Date());
+---
+
+<section class="rounded-lg border border-neutral-700 p-4">
+  <h2 class="mb-2 font-medium text-white">{heading}</h2>
+  <p class="text-neutral-300">{greeting}</p>
+  <p class="text-neutral-300">{unread}</p>
+  <p class="text-neutral-300">{currency}</p>
+  <p class="text-neutral-300">{date}</p>
+  <label class="mt-3 flex items-center gap-2 text-sm text-neutral-300">
+    <select id="i18n-locale" class="rounded border border-neutral-700 bg-transparent px-1 py-0.5">
+      {
+        locales.map((value) => (
+          <option value={value} selected={value === locale}>
+            {value}
+          </option>
+        ))
+      }
+    </select>
+  </label>
+</section>
+
+<script>
+  import { isLocale, LOCALE_COOKIE } from "@{{projectName}}/i18n/config";
+  import { activateLocale } from "@{{projectName}}/i18n/runtime";
+
+  const select = document.getElementById("i18n-locale") as HTMLSelectElement | null;
+  select?.addEventListener("change", () => {
+    const next = select.value;
+    if (!isLocale(next)) return;
+    window.localStorage.setItem(LOCALE_COOKIE, next);
+    document.cookie = \`\${LOCALE_COOKIE}=\${next};path=/;max-age=31536000;samesite=lax\`;
+    void activateLocale(next).then(() => window.location.reload());
+  });
+</script>
+`],
+  ["i18n/surface/lingui/electrobun-host/src/bun/i18n-demo.ts.hbs", `/**
+ * Bun main-process i18n demo for the Electrobun host.
+ *
+ * The Bun preload (\`packages/i18n/bun-preload.ts\`, registered in
+ * \`apps/desktop/bunfig.toml\`) transforms macros in host code; this demo uses
+ * explicit IDs instead so it also runs from a plain \`bun run\` without reload.
+ * Formatting comes from the shared \`createFormatters\`, never from Lingui (D4).
+ */
+import { isLocale, sourceLocale } from "@{{projectName}}/i18n/config";
+import { createFormatters } from "@{{projectName}}/i18n/format";
+import { setupI18n } from "@{{projectName}}/i18n/runtime";
+
+export async function printI18nDemo(locale?: string): Promise<void> {
+  const resolved = locale !== undefined && isLocale(locale) ? locale : sourceLocale;
+  const i18n = await setupI18n(resolved);
+  const format = createFormatters(resolved);
+
+  console.log(i18n._(/** i18n */ { id: "desktop.heading", message: "Desktop internationalization" }));
+  console.log(
+    i18n._(/** i18n */ { id: "desktop.unread", message: "{count, plural, one {# unread message} other {# unread messages}}", values: { count: 3 } }),
+  );
+  console.log(format.currency(42.5, "EUR"));
+  console.log(format.date(new Date()));
+}
+`],
+  ["i18n/surface/lingui/native/components/i18n-demo.tsx.hbs", `import { useMemo, useState } from "react";
+import { Pressable, StyleSheet, Text, View } from "react-native";
+import { useLingui } from "@lingui/react/macro";
+
+import { locales, type Locale } from "@{{projectName}}/i18n/config";
+import { createFormatters } from "@{{projectName}}/i18n/format";
+import { activateLocale } from "@{{projectName}}/i18n/runtime";
+
+import { I18nProvider } from "@/components/i18n-provider";
+
+/**
+ * i18n demo: translated heading, interpolation, plural, currency, date and a
+ * locale switcher. Dates and numbers come from the shared \`createFormatters\`,
+ * never from Lingui (D4).
+ */
+export function I18nDemo() {
+  return (
+    <I18nProvider>
+      <I18nDemoContent />
+    </I18nProvider>
+  );
+}
+
+function I18nDemoContent() {
+  const { t, i18n } = useLingui();
+  const locale = i18n.locale as Locale;
+  const formatters = useMemo(() => createFormatters(locale), [locale]);
+  const [count, setCount] = useState(3);
+  const name = "Ada";
+
+  return (
+    <View style={styles.card}>
+      <Text style={styles.title}>{t\`Internationalization\`}</Text>
+      <Text style={styles.body}>{t\`Hello \${name}, welcome back!\`}</Text>
+      <Text style={styles.body}>
+        {t\`{count, plural, one {# unread message} other {# unread messages}}\`}
+      </Text>
+      <Text style={styles.body}>{formatters.currency(42.5, "EUR")}</Text>
+      <Text style={styles.body}>{formatters.date(new Date())}</Text>
+      <View style={styles.row}>
+        <Pressable style={styles.button} onPress={() => setCount((value) => value + 1)}>
+          <Text style={styles.buttonText}>{t\`Add a message\`}</Text>
+        </Pressable>
+        {locales.map((value) => (
+          <Pressable
+            key={value}
+            style={value === locale ? styles.buttonActive : styles.button}
+            onPress={() => void activateLocale(value)}
+          >
+            <Text style={styles.buttonText}>{value}</Text>
+          </Pressable>
+        ))}
+      </View>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  card: {
+    borderRadius: 12,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: "#94a3b8",
+    padding: 16,
+    gap: 6,
+  },
+  title: { fontSize: 18, fontWeight: "600" },
+  body: { fontSize: 15 },
+  row: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 8 },
+  button: {
+    borderRadius: 8,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: "#94a3b8",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  buttonActive: {
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#2563eb",
+    backgroundColor: "#dbeafe",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  buttonText: { fontSize: 14 },
+});
+`],
+  ["i18n/surface/lingui/native/components/i18n-provider.tsx.hbs", `import { useEffect, type ReactNode } from "react";
+import { I18nProvider as LinguiI18nProvider } from "@lingui/react";
+
+import { i18n, initializeLocale } from "@{{projectName}}/i18n/runtime";
+
+/**
+ * Surface glue: activates the negotiated locale and provides the shared \`i18n\`
+ * instance to the \`@lingui/react\` macros. Wrap the app root with it once.
+ *
+ * The system locale comes from the runtime \`Intl\` implementation; L7's
+ * \`expo-localization\` integration plugs the device locale into the same
+ * negotiation contract.
+ */
+export function I18nProvider({ children }: { children: ReactNode }) {
+  useEffect(() => {
+    void initializeLocale({
+      system: Intl.DateTimeFormat().resolvedOptions().locale,
+    });
+  }, []);
+
+  return <LinguiI18nProvider i18n={i18n}>{children}</LinguiI18nProvider>;
+}
+`],
+  ["i18n/surface/lingui/next/src/components/i18n-demo.tsx.hbs", `"use client";
+
+import { useMemo, useState } from "react";
+import { Trans, useLingui } from "@lingui/react/macro";
+
+import { LOCALE_COOKIE, locales, type Locale } from "@{{projectName}}/i18n/config";
+import { createFormatters } from "@{{projectName}}/i18n/format";
+import { loadCatalog } from "@{{projectName}}/i18n/runtime";
+
+/**
+ * i18n demo: translated heading, interpolation, plural, currency, date and a
+ * locale switcher. Dates and numbers come from the shared \`createFormatters\`,
+ * never from Lingui (D4).
+ */
+export function I18nDemo() {
+  const { t, i18n } = useLingui();
+  const locale = i18n.locale as Locale;
+  const formatters = useMemo(() => createFormatters(locale), [locale]);
+  const [count, setCount] = useState(3);
+  const name = "Ada";
+  const referenceDate = new Date();
+
+  return (
+    <section className="rounded-lg border p-4">
+      <h2 className="mb-2 font-medium">{t\`Internationalization\`}</h2>
+      <p>{t\`Hello \${name}, welcome back!\`}</p>
+      <p>{t\`{count, plural, one {# unread message} other {# unread messages}}\`}</p>
+      <p>{formatters.currency(42.5, "EUR")}</p>
+      <p>{formatters.date(referenceDate)}</p>
+      <div className="mt-3 flex flex-wrap items-center gap-3">
+        <button
+          type="button"
+          className="rounded border px-2 py-1 text-sm"
+          onClick={() => setCount((value) => value + 1)}
+        >
+          <Trans>Add a message</Trans>
+        </button>
+        <label className="flex items-center gap-2 text-sm">
+          <Trans>Language</Trans>
+          <select
+            className="rounded border bg-transparent px-1 py-0.5"
+            value={locale}
+            onChange={(event) => {
+              const next = event.target.value as Locale;
+              window.localStorage.setItem(LOCALE_COOKIE, next);
+              document.cookie = \`\${LOCALE_COOKIE}=\${next};path=/;max-age=31536000;samesite=lax\`;
+              void loadCatalog(next).then((messages) => {
+                i18n.load(next, messages);
+                i18n.activate(next);
+                document.documentElement.lang = next;
+              });
+            }}
+          >
+            {locales.map((value) => (
+              <option key={value} value={value}>
+                {value}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
+    </section>
+  );
+}
+`],
+  ["i18n/surface/lingui/next/src/components/i18n-provider.tsx.hbs", `"use client";
+
+import { I18nProvider as LinguiI18nProvider } from "@lingui/react";
+import { setupI18n, type Messages } from "@lingui/core";
+import { useState, type ReactNode } from "react";
+
+import type { Locale } from "@{{projectName}}/i18n/config";
+
+/**
+ * Surface glue: provides one \`@lingui/react\` instance to the client tree,
+ * seeded with the catalog the server already negotiated (see
+ * \`i18n-server-provider.tsx\`). The store is created during the initial render
+ * on both the server and the client, so the SSR HTML and hydration share the
+ * same locale and messages. \`<Trans>\` and the \`t\` macro read this provider.
+ */
+export function I18nProvider({
+  children,
+  initialLocale,
+  initialMessages,
+}: {
+  children: ReactNode;
+  initialLocale: Locale;
+  initialMessages: Messages;
+}) {
+  const [i18n] = useState(() =>
+    setupI18n({ locale: initialLocale, messages: { [initialLocale]: initialMessages } }),
+  );
+
+  return <LinguiI18nProvider i18n={i18n}>{children}</LinguiI18nProvider>;
+}
+`],
+  ["i18n/surface/lingui/next/src/components/i18n-server-provider.tsx.hbs", `import { setI18n } from "@lingui/react/server";
+import { setupI18n as createI18n } from "@lingui/core";
+import { cookies, headers } from "next/headers";
+import type { ReactNode } from "react";
+
+import { LOCALE_COOKIE, LOCALE_HEADER, negotiateLocale } from "@{{projectName}}/i18n/config";
+import { loadCatalog } from "@{{projectName}}/i18n/runtime";
+
+import { I18nProvider } from "./i18n-provider";
+
+/**
+ * Server component placed at the app root. It negotiates the locale from the
+ * request (\`x-app-locale\` → \`locale\` cookie → \`Accept-Language\` → the source
+ * locale), loads that catalog, then hands the same messages to React Server
+ * Components (\`setI18n\`) and to the client provider. Rendering on the server in
+ * the negotiated locale keeps SSR HTML and hydration consistent; the
+ * \`useEffect\`-only path used to leave server output in the source locale (D4).
+ */
+export async function I18nServerProvider({ children }: { children: ReactNode }) {
+  const [cookieStore, headerStore] = await Promise.all([cookies(), headers()]);
+
+  const locale = negotiateLocale({
+    header: headerStore.get(LOCALE_HEADER) ?? undefined,
+    cookie: cookieStore.get(LOCALE_COOKIE)?.value,
+    acceptLanguage: headerStore.get("accept-language") ?? undefined,
+  });
+
+  const messages = await loadCatalog(locale);
+  setI18n(createI18n({ locale, messages: { [locale]: messages } }));
+
+  return (
+    <I18nProvider initialLocale={locale} initialMessages={messages}>
+      {children}
+    </I18nProvider>
+  );
+}
+`],
+  ["i18n/surface/lingui/nuxt/app/components/I18nDemo.vue.hbs", `<script setup lang="ts">
+import { computed, ref } from "vue";
+import { LOCALE_COOKIE, locales, type Locale } from "@{{projectName}}/i18n/config";
+import { activateLocale } from "@{{projectName}}/i18n/runtime";
+import { demoMessages } from "~/i18n/messages";
+import { useAppI18n } from "~/composables/useAppI18n";
+
+/**
+ * i18n demo: translated heading, interpolation, plural, currency, date and a
+ * locale switcher. Dates and numbers come from the shared \`createFormatters\`,
+ * never from Lingui (D4).
+ */
+const { i18n, locale, formatters } = useAppI18n();
+const count = ref(3);
+const unread = computed(() =>
+  i18n._({ ...demoMessages.unread, values: { count: count.value } }),
+);
+
+function switchLocale(event: Event) {
+  const next = (event.target as HTMLSelectElement).value as Locale;
+  if (typeof window !== "undefined") window.localStorage.setItem(LOCALE_COOKIE, next);
+  void activateLocale(next);
+}
+</script>
+
+<template>
+  <UCard>
+    <template #header>
+      <div class="font-medium">\\{{ i18n._(demoMessages.heading) }}</div>
+    </template>
+    <p>\\{{ i18n._(demoMessages.greeting) }}</p>
+    <p>\\{{ unread }}</p>
+    <p>\\{{ formatters.currency(42.5, "EUR") }}</p>
+    <p>\\{{ formatters.date(new Date()) }}</p>
+    <div class="mt-3 flex flex-wrap items-center gap-3">
+      <UButton size="sm" variant="outline" @click="count += 1">
+        \\{{ i18n._(demoMessages.addMessage) }}
+      </UButton>
+      <label class="flex items-center gap-2 text-sm">
+        <span>\\{{ i18n._(demoMessages.language) }}</span>
+        <select
+          class="rounded border bg-transparent px-1 py-0.5"
+          :value="locale"
+          @change="switchLocale"
+        >
+          <option v-for="value in locales" :key="value" :value="value">\\{{ value }}</option>
+        </select>
+      </label>
+    </div>
+  </UCard>
+</template>
+`],
+  ["i18n/surface/lingui/nuxt/app/composables/useAppI18n.ts.hbs", `import { computed, getCurrentScope, onScopeDispose, ref } from "vue";
+import { createFormatters } from "@{{projectName}}/i18n/format";
+import { i18n as sharedI18n, onLocaleChange, type I18n } from "@{{projectName}}/i18n/runtime";
+import type { Locale } from "@{{projectName}}/i18n/config";
+
+/**
+ * Vue composable over the runtime instance for the current request. Lingui has
+ * no Vue binding, so the message descriptors live in \`.ts\` files (transformed
+ * by \`@lingui/vite-plugin\`) and components call \`i18n.t(...)\` / \`i18n._(...)\`
+ * with them.
+ *
+ * The Nuxt plugin provides a request-scoped instance on SSR and the shared one
+ * on the client. \`locale\` and \`formatters\` are reactive: switching the locale
+ * re-renders any template that reads them.
+ */
+export function useAppI18n() {
+  const nuxtApp = useNuxtApp();
+  const i18n = (nuxtApp as unknown as { $i18n?: I18n }).$i18n ?? sharedI18n;
+  const locale = ref(i18n.locale) as { value: Locale };
+
+  const unsubscribe = onLocaleChange((next) => {
+    locale.value = next;
+  });
+  if (getCurrentScope()) onScopeDispose(unsubscribe);
+
+  return {
+    i18n,
+    locale,
+    formatters: computed(() => createFormatters(locale.value)),
+  };
+}
+`],
+  ["i18n/surface/lingui/nuxt/app/i18n/messages.ts.hbs", `import { msg } from "@lingui/core/macro";
+
+/**
+ * Message descriptors for the Vue surface. Lingui has no Vue binding, so the
+ * macros live in \`.ts\` files (transformed by \`@lingui/vite-plugin\`) and
+ * components pass the descriptors to the shared \`i18n\` instance.
+ */
+const name = "Ada";
+/** Overridden by callers through \`values\`; \`count\` only satisfies the macro. */
+const count = 0;
+
+export const demoMessages = {
+  heading: msg\`Internationalization\`,
+  greeting: msg\`Hello \${name}, welcome back!\`,
+  unread: msg\`{count, plural, one {# unread message} other {# unread messages}}\`,
+  addMessage: msg\`Add a message\`,
+  language: msg\`Language\`,
+};
+
+export { count as demoCount };
+`],
+  ["i18n/surface/lingui/nuxt/app/plugins/i18n.ts.hbs", `import { LOCALE_COOKIE, LOCALE_HEADER, negotiateLocale } from "@{{projectName}}/i18n/config";
+import {
+  activateLocale,
+  i18n as sharedI18n,
+  setupI18n,
+} from "@{{projectName}}/i18n/runtime";
+
+/**
+ * Nuxt plugin: negotiates the locale through the shared contract and exposes an
+ * instance to the app. Server rendering gets a request-scoped instance so
+ * concurrent requests cannot clobber each other; the client activates the
+ * shared instance.
+ */
+export default defineNuxtPlugin(async (nuxtApp) => {
+  const event = nuxtApp.ssrContext?.event;
+  const headers = event?.node.req.headers;
+  const cookieHeader = headers?.cookie ?? "";
+  const cookie = cookieHeader
+    .split(";")
+    .map((entry) => entry.trim().split("="))
+    .find(([name]) => name === LOCALE_COOKIE)?.[1];
+
+  const locale = negotiateLocale({
+    header: typeof headers?.[LOCALE_HEADER] === "string" ? headers[LOCALE_HEADER] : undefined,
+    cookie: cookie === undefined ? undefined : decodeURIComponent(cookie),
+    acceptLanguage: typeof headers?.["accept-language"] === "string" ? headers["accept-language"] : undefined,
+    stored:
+      typeof window === "undefined" ? undefined : (window.localStorage.getItem(LOCALE_COOKIE) ?? undefined),
+    system: typeof navigator === "undefined" ? undefined : navigator.language,
+  });
+
+  if (event) {
+    nuxtApp.provide("i18n", await setupI18n(locale));
+    return;
+  }
+
+  await activateLocale(locale);
+  nuxtApp.provide("i18n", sharedI18n);
+});
+`],
+  ["i18n/surface/lingui/opentui-core/src/i18n-demo.ts.hbs", `/**
+ * OpenTUI i18n demo.
+ *
+ * The TUI app is scaffolded by \`create-tui\` at setup time and wired by the
+ * i18n post-step. The Bun preload (\`packages/i18n/bun-preload.ts\`) transforms
+ * macros in host code; this module uses explicit IDs instead so it also runs
+ * from a plain \`bun run\` without a reload. \`createFormatters\` owns dates and
+ * numbers (D4).
+ */
+import { isLocale, sourceLocale } from "@{{projectName}}/i18n/config";
+import { createFormatters } from "@{{projectName}}/i18n/format";
+import { setupI18n } from "@{{projectName}}/i18n/runtime";
+
+export interface TuiI18nDemo {
+  locale: string;
+  heading: string;
+  unread: string;
+  currency: string;
+  date: string;
+}
+
+export async function renderI18nDemo(locale?: string): Promise<TuiI18nDemo> {
+  const resolved = locale !== undefined && isLocale(locale) ? locale : sourceLocale;
+  const i18n = await setupI18n(resolved);
+  const format = createFormatters(resolved);
+
+  return {
+    locale: resolved,
+    heading: i18n._(/** i18n */ { id: "tui.heading", message: "OpenTUI internationalization" }),
+    unread: i18n._(
+      /** i18n */ {
+        id: "tui.unread",
+        message: "{count, plural, one {# unread message} other {# unread messages}}",
+        values: { count: 3 },
+      },
+    ),
+    currency: format.currency(42.5, "EUR"),
+    date: format.date(new Date()),
+  };
+}
+`],
+  ["i18n/surface/lingui/opentui-react/src/i18n-demo.ts.hbs", `/**
+ * OpenTUI i18n demo.
+ *
+ * The TUI app is scaffolded by \`create-tui\` at setup time and wired by the
+ * i18n post-step. The Bun preload (\`packages/i18n/bun-preload.ts\`) transforms
+ * macros in host code; this module uses explicit IDs instead so it also runs
+ * from a plain \`bun run\` without a reload. \`createFormatters\` owns dates and
+ * numbers (D4).
+ */
+import { isLocale, sourceLocale } from "@{{projectName}}/i18n/config";
+import { createFormatters } from "@{{projectName}}/i18n/format";
+import { setupI18n } from "@{{projectName}}/i18n/runtime";
+
+export interface TuiI18nDemo {
+  locale: string;
+  heading: string;
+  unread: string;
+  currency: string;
+  date: string;
+}
+
+export async function renderI18nDemo(locale?: string): Promise<TuiI18nDemo> {
+  const resolved = locale !== undefined && isLocale(locale) ? locale : sourceLocale;
+  const i18n = await setupI18n(resolved);
+  const format = createFormatters(resolved);
+
+  return {
+    locale: resolved,
+    heading: i18n._(/** i18n */ { id: "tui.heading", message: "OpenTUI internationalization" }),
+    unread: i18n._(
+      /** i18n */ {
+        id: "tui.unread",
+        message: "{count, plural, one {# unread message} other {# unread messages}}",
+        values: { count: 3 },
+      },
+    ),
+    currency: format.currency(42.5, "EUR"),
+    date: format.date(new Date()),
+  };
+}
+`],
+  ["i18n/surface/lingui/opentui-solid/src/i18n-demo.ts.hbs", `/**
+ * OpenTUI i18n demo.
+ *
+ * The TUI app is scaffolded by \`create-tui\` at setup time and wired by the
+ * i18n post-step. The Bun preload (\`packages/i18n/bun-preload.ts\`) transforms
+ * macros in host code; this module uses explicit IDs instead so it also runs
+ * from a plain \`bun run\` without a reload. \`createFormatters\` owns dates and
+ * numbers (D4).
+ */
+import { isLocale, sourceLocale } from "@{{projectName}}/i18n/config";
+import { createFormatters } from "@{{projectName}}/i18n/format";
+import { setupI18n } from "@{{projectName}}/i18n/runtime";
+
+export interface TuiI18nDemo {
+  locale: string;
+  heading: string;
+  unread: string;
+  currency: string;
+  date: string;
+}
+
+export async function renderI18nDemo(locale?: string): Promise<TuiI18nDemo> {
+  const resolved = locale !== undefined && isLocale(locale) ? locale : sourceLocale;
+  const i18n = await setupI18n(resolved);
+  const format = createFormatters(resolved);
+
+  return {
+    locale: resolved,
+    heading: i18n._(/** i18n */ { id: "tui.heading", message: "OpenTUI internationalization" }),
+    unread: i18n._(
+      /** i18n */ {
+        id: "tui.unread",
+        message: "{count, plural, one {# unread message} other {# unread messages}}",
+        values: { count: 3 },
+      },
+    ),
+    currency: format.currency(42.5, "EUR"),
+    date: format.date(new Date()),
+  };
+}
+`],
+  ["i18n/surface/lingui/react-router/src/components/i18n-demo.tsx.hbs", `"use client";
+
+import { useMemo, useState } from "react";
+import { Trans, useLingui } from "@lingui/react/macro";
+
+import { LOCALE_COOKIE, locales, type Locale } from "@{{projectName}}/i18n/config";
+import { createFormatters } from "@{{projectName}}/i18n/format";
+import { activateLocale } from "@{{projectName}}/i18n/runtime";
+
+/**
+ * i18n demo: translated heading, interpolation, plural, currency, date and a
+ * locale switcher. Dates and numbers come from the shared \`createFormatters\`,
+ * never from Lingui (D4).
+ */
+export function I18nDemo() {
+  const { t, i18n } = useLingui();
+  const locale = i18n.locale as Locale;
+  const formatters = useMemo(() => createFormatters(locale), [locale]);
+  const [count, setCount] = useState(3);
+  const name = "Ada";
+  const referenceDate = new Date();
+
+  return (
+    <section className="rounded-lg border p-4">
+      <h2 className="mb-2 font-medium">{t\`Internationalization\`}</h2>
+      <p>{t\`Hello \${name}, welcome back!\`}</p>
+      <p>{t\`{count, plural, one {# unread message} other {# unread messages}}\`}</p>
+      <p>{formatters.currency(42.5, "EUR")}</p>
+      <p>{formatters.date(referenceDate)}</p>
+      <div className="mt-3 flex flex-wrap items-center gap-3">
+        <button
+          type="button"
+          className="rounded border px-2 py-1 text-sm"
+          onClick={() => setCount((value) => value + 1)}
+        >
+          <Trans>Add a message</Trans>
+        </button>
+        <label className="flex items-center gap-2 text-sm">
+          <Trans>Language</Trans>
+          <select
+            className="rounded border bg-transparent px-1 py-0.5"
+            value={locale}
+            onChange={(event) => {
+              const next = event.target.value as Locale;
+              window.localStorage.setItem(LOCALE_COOKIE, next);
+              void activateLocale(next);
+            }}
+          >
+            {locales.map((value) => (
+              <option key={value} value={value}>
+                {value}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
+    </section>
+  );
+}
+`],
+  ["i18n/surface/lingui/react-router/src/components/i18n-provider.tsx.hbs", `"use client";
+
+import { useEffect, type ReactNode } from "react";
+import { I18nProvider as LinguiI18nProvider } from "@lingui/react";
+
+import { LOCALE_COOKIE } from "@{{projectName}}/i18n/config";
+import { i18n, initializeLocale } from "@{{projectName}}/i18n/runtime";
+
+/**
+ * Surface glue: activates the negotiated locale (stored choice → browser
+ * preference → source locale) and provides the shared \`i18n\` instance to the
+ * \`@lingui/react\` macros. Wrap the app root with it once; \`<Trans>\` and the
+ * \`t\` macro read this provider.
+ */
+export function I18nProvider({ children }: { children: ReactNode }) {
+  useEffect(() => {
+    const stored = window.localStorage.getItem(LOCALE_COOKIE);
+    void initializeLocale({
+      stored: stored ?? undefined,
+      acceptLanguage: typeof navigator === "undefined" ? undefined : navigator.languages.join(","),
+    }).then((locale) => {
+      document.documentElement.lang = locale;
+    });
+  }, []);
+
+  return <LinguiI18nProvider i18n={i18n}>{children}</LinguiI18nProvider>;
+}
+`],
+  ["i18n/surface/lingui/server/src/i18n-demo.ts.hbs", `/**
+ * Server-side i18n demo.
+ *
+ * The generated server code uses explicit message IDs (the i18n annotation
+ * comment) instead of macros: tsdown bundles this file without running the
+ * Lingui macro transform, and the \`@lingui/cli\` extractor still picks
+ * annotated descriptors up. Request-scoped rendering uses a fresh instance
+ * (\`setupI18n\`) so parallel requests never fight over the process-global one.
+ *
+ * Formatting comes from the shared \`createFormatters\`, never from Lingui (D4).
+ */
+import { isLocale, sourceLocale } from "@{{projectName}}/i18n/config";
+import { createFormatters } from "@{{projectName}}/i18n/format";
+import { setupI18n } from "@{{projectName}}/i18n/runtime";
+
+export interface I18nDemoPayload {
+  locale: string;
+  heading: string;
+  greeting: string;
+  unread: string;
+  currency: string;
+  date: string;
+}
+
+export async function renderI18nDemo(locale?: string): Promise<I18nDemoPayload> {
+  const resolved = locale !== undefined && isLocale(locale) ? locale : sourceLocale;
+  const i18n = await setupI18n(resolved);
+  const format = createFormatters(resolved);
+
+  return {
+    locale: resolved,
+    heading: i18n._(/** i18n */ { id: "server.heading", message: "Internationalization" }),
+    greeting: i18n._(
+      /** i18n */ { id: "server.greeting", message: "Hello {name}, welcome back!", values: { name: "Ada" } },
+    ),
+    unread: i18n._(
+      /** i18n */ {
+        id: "server.unread",
+        message: "{count, plural, one {# unread message} other {# unread messages}}",
+        values: { count: 3 },
+      },
+    ),
+    currency: format.currency(42.5, "EUR"),
+    date: format.date(new Date("2026-01-15T12:30:00Z")),
+  };
+}
+`],
+  ["i18n/surface/lingui/solid/src/components/i18n-demo.tsx.hbs", `import { createMemo, createSignal } from "solid-js";
+import { msg } from "@lingui/core/macro";
+import { useLingui } from "@lingui/solid";
+import { Trans } from "@lingui/solid/macro";
+
+import { LOCALE_COOKIE, locales, type Locale } from "@{{projectName}}/i18n/config";
+import { createFormatters } from "@{{projectName}}/i18n/format";
+import { activateLocale } from "@{{projectName}}/i18n/runtime";
+
+/**
+ * i18n demo: translated heading, interpolation, plural, currency, date and a
+ * locale switcher. Dates and numbers come from the shared \`createFormatters\`,
+ * never from Lingui (D4).
+ */
+export function I18nDemo() {
+  const { _, i18n } = useLingui();
+  const locale = () => i18n().locale as Locale;
+  const formatters = createMemo(() => createFormatters(locale()));
+  const [count, setCount] = createSignal(3);
+  const name = "Ada";
+  const unread = msg\`{count, plural, one {# unread message} other {# unread messages}}\`;
+
+  return (
+    <section class="rounded-lg border p-4">
+      <h2 class="mb-2 font-medium">
+        <Trans>Internationalization</Trans>
+      </h2>
+      <p>
+        <Trans>Hello {name}, welcome back!</Trans>
+      </p>
+      <p>{_({ ...unread, values: { count: count() } })}</p>
+      <p>{formatters().currency(42.5, "EUR")}</p>
+      <p>{formatters().date(new Date())}</p>
+      <div class="mt-3 flex flex-wrap items-center gap-3">
+        <button
+          type="button"
+          class="rounded border px-2 py-1 text-sm"
+          onClick={() => setCount((value) => value + 1)}
+        >
+          <Trans>Add a message</Trans>
+        </button>
+        <label class="flex items-center gap-2 text-sm">
+          <Trans>Language</Trans>
+          <select
+            class="rounded border bg-transparent px-1 py-0.5"
+            value={locale()}
+            onChange={(event) => {
+              const next = event.currentTarget.value as Locale;
+              window.localStorage.setItem(LOCALE_COOKIE, next);
+              void activateLocale(next);
+            }}
+          >
+            {locales.map((value) => (
+              <option value={value}>{value}</option>
+            ))}
+          </select>
+        </label>
+      </div>
+    </section>
+  );
+}
+`],
+  ["i18n/surface/lingui/solid/src/components/i18n-provider.tsx.hbs", `import { createEffect, type JSX } from "solid-js";
+import { I18nProvider as LinguiI18nProvider } from "@lingui/solid";
+
+import { LOCALE_COOKIE } from "@{{projectName}}/i18n/config";
+import { i18n, initializeLocale } from "@{{projectName}}/i18n/runtime";
+
+/**
+ * Surface glue: activates the negotiated locale (stored choice → browser
+ * preference → source locale) and provides the shared \`i18n\` instance to the
+ * \`@lingui/solid\` macros. Wrap the app root with it once.
+ */
+export function I18nProvider(props: { children: JSX.Element }) {
+  createEffect(() => {
+    const stored =
+      typeof window === "undefined" ? undefined : window.localStorage.getItem(LOCALE_COOKIE);
+    void initializeLocale({
+      stored: stored ?? undefined,
+      acceptLanguage: typeof navigator === "undefined" ? undefined : navigator.languages.join(","),
+    }).then((locale) => {
+      if (typeof document !== "undefined") document.documentElement.lang = locale;
+    });
+  });
+
+  return <LinguiI18nProvider i18n={i18n}>{props.children}</LinguiI18nProvider>;
+}
+`],
+  ["i18n/surface/lingui/tanstack-router/src/components/i18n-demo.tsx.hbs", `"use client";
+
+import { useMemo, useState } from "react";
+import { Trans, useLingui } from "@lingui/react/macro";
+
+import { LOCALE_COOKIE, locales, type Locale } from "@{{projectName}}/i18n/config";
+import { createFormatters } from "@{{projectName}}/i18n/format";
+import { activateLocale } from "@{{projectName}}/i18n/runtime";
+
+/**
+ * i18n demo: translated heading, interpolation, plural, currency, date and a
+ * locale switcher. Dates and numbers come from the shared \`createFormatters\`,
+ * never from Lingui (D4).
+ */
+export function I18nDemo() {
+  const { t, i18n } = useLingui();
+  const locale = i18n.locale as Locale;
+  const formatters = useMemo(() => createFormatters(locale), [locale]);
+  const [count, setCount] = useState(3);
+  const name = "Ada";
+  const referenceDate = new Date();
+
+  return (
+    <section className="rounded-lg border p-4">
+      <h2 className="mb-2 font-medium">{t\`Internationalization\`}</h2>
+      <p>{t\`Hello \${name}, welcome back!\`}</p>
+      <p>{t\`{count, plural, one {# unread message} other {# unread messages}}\`}</p>
+      <p>{formatters.currency(42.5, "EUR")}</p>
+      <p>{formatters.date(referenceDate)}</p>
+      <div className="mt-3 flex flex-wrap items-center gap-3">
+        <button
+          type="button"
+          className="rounded border px-2 py-1 text-sm"
+          onClick={() => setCount((value) => value + 1)}
+        >
+          <Trans>Add a message</Trans>
+        </button>
+        <label className="flex items-center gap-2 text-sm">
+          <Trans>Language</Trans>
+          <select
+            className="rounded border bg-transparent px-1 py-0.5"
+            value={locale}
+            onChange={(event) => {
+              const next = event.target.value as Locale;
+              window.localStorage.setItem(LOCALE_COOKIE, next);
+              void activateLocale(next);
+            }}
+          >
+            {locales.map((value) => (
+              <option key={value} value={value}>
+                {value}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
+    </section>
+  );
+}
+`],
+  ["i18n/surface/lingui/tanstack-router/src/components/i18n-provider.tsx.hbs", `"use client";
+
+import { useEffect, type ReactNode } from "react";
+import { I18nProvider as LinguiI18nProvider } from "@lingui/react";
+
+import { LOCALE_COOKIE } from "@{{projectName}}/i18n/config";
+import { i18n, initializeLocale } from "@{{projectName}}/i18n/runtime";
+
+/**
+ * Surface glue: activates the negotiated locale (stored choice → browser
+ * preference → source locale) and provides the shared \`i18n\` instance to the
+ * \`@lingui/react\` macros. Wrap the app root with it once; \`<Trans>\` and the
+ * \`t\` macro read this provider.
+ */
+export function I18nProvider({ children }: { children: ReactNode }) {
+  useEffect(() => {
+    const stored = window.localStorage.getItem(LOCALE_COOKIE);
+    void initializeLocale({
+      stored: stored ?? undefined,
+      acceptLanguage: typeof navigator === "undefined" ? undefined : navigator.languages.join(","),
+    }).then((locale) => {
+      document.documentElement.lang = locale;
+    });
+  }, []);
+
+  return <LinguiI18nProvider i18n={i18n}>{children}</LinguiI18nProvider>;
+}
+`],
+  ["i18n/surface/lingui/tanstack-start/src/components/i18n-demo.tsx.hbs", `"use client";
+
+import { useMemo, useState } from "react";
+import { Trans, useLingui } from "@lingui/react/macro";
+
+import { LOCALE_COOKIE, locales, type Locale } from "@{{projectName}}/i18n/config";
+import { createFormatters } from "@{{projectName}}/i18n/format";
+import { activateLocale } from "@{{projectName}}/i18n/runtime";
+
+/**
+ * i18n demo: translated heading, interpolation, plural, currency, date and a
+ * locale switcher. Dates and numbers come from the shared \`createFormatters\`,
+ * never from Lingui (D4).
+ */
+export function I18nDemo() {
+  const { t, i18n } = useLingui();
+  const locale = i18n.locale as Locale;
+  const formatters = useMemo(() => createFormatters(locale), [locale]);
+  const [count, setCount] = useState(3);
+  const name = "Ada";
+  const referenceDate = new Date();
+
+  return (
+    <section className="rounded-lg border p-4">
+      <h2 className="mb-2 font-medium">{t\`Internationalization\`}</h2>
+      <p>{t\`Hello \${name}, welcome back!\`}</p>
+      <p>{t\`{count, plural, one {# unread message} other {# unread messages}}\`}</p>
+      <p>{formatters.currency(42.5, "EUR")}</p>
+      <p>{formatters.date(referenceDate)}</p>
+      <div className="mt-3 flex flex-wrap items-center gap-3">
+        <button
+          type="button"
+          className="rounded border px-2 py-1 text-sm"
+          onClick={() => setCount((value) => value + 1)}
+        >
+          <Trans>Add a message</Trans>
+        </button>
+        <label className="flex items-center gap-2 text-sm">
+          <Trans>Language</Trans>
+          <select
+            className="rounded border bg-transparent px-1 py-0.5"
+            value={locale}
+            onChange={(event) => {
+              const next = event.target.value as Locale;
+              window.localStorage.setItem(LOCALE_COOKIE, next);
+              void activateLocale(next);
+            }}
+          >
+            {locales.map((value) => (
+              <option key={value} value={value}>
+                {value}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
+    </section>
+  );
+}
+`],
+  ["i18n/surface/lingui/tanstack-start/src/components/i18n-provider.tsx.hbs", `"use client";
+
+import { useEffect, type ReactNode } from "react";
+import { I18nProvider as LinguiI18nProvider } from "@lingui/react";
+
+import { LOCALE_COOKIE } from "@{{projectName}}/i18n/config";
+import { i18n, initializeLocale } from "@{{projectName}}/i18n/runtime";
+
+/**
+ * Surface glue: activates the negotiated locale (stored choice → browser
+ * preference → source locale) and provides the shared \`i18n\` instance to the
+ * \`@lingui/react\` macros. Wrap the app root with it once; \`<Trans>\` and the
+ * \`t\` macro read this provider.
+ */
+export function I18nProvider({ children }: { children: ReactNode }) {
+  useEffect(() => {
+    const stored = window.localStorage.getItem(LOCALE_COOKIE);
+    void initializeLocale({
+      stored: stored ?? undefined,
+      acceptLanguage: typeof navigator === "undefined" ? undefined : navigator.languages.join(","),
+    }).then((locale) => {
+      document.documentElement.lang = locale;
+    });
+  }, []);
+
+  return <LinguiI18nProvider i18n={i18n}>{children}</LinguiI18nProvider>;
+}
+`],
+  ["i18n/surface/lingui/wxt-react/lib/i18n-demo.ts.hbs", `/**
+ * WXT i18n demo.
+ *
+ * The extension is scaffolded by \`wxt init\` at setup time and wired by the
+ * i18n post-step, so this module is framework-agnostic: explicit IDs instead
+ * of macros, and \`createFormatters\` for dates and numbers (D4). Import it from
+ * a popup, options page or content script entrypoint.
+ */
+import { isLocale, sourceLocale } from "@{{projectName}}/i18n/config";
+import { createFormatters } from "@{{projectName}}/i18n/format";
+import { setupI18n } from "@{{projectName}}/i18n/runtime";
+
+export interface ExtensionI18nDemo {
+  locale: string;
+  heading: string;
+  unread: string;
+  currency: string;
+  date: string;
+}
+
+export async function renderI18nDemo(locale?: string): Promise<ExtensionI18nDemo> {
+  const resolved = locale !== undefined && isLocale(locale) ? locale : sourceLocale;
+  const i18n = await setupI18n(resolved);
+  const format = createFormatters(resolved);
+
+  return {
+    locale: resolved,
+    heading: i18n._(/** i18n */ { id: "extension.heading", message: "Extension internationalization" }),
+    unread: i18n._(
+      /** i18n */ {
+        id: "extension.unread",
+        message: "{count, plural, one {# unread message} other {# unread messages}}",
+        values: { count: 3 },
+      },
+    ),
+    currency: format.currency(42.5, "EUR"),
+    date: format.date(new Date()),
+  };
+}
+`],
+  ["i18n/surface/lingui/wxt-solid/lib/i18n-demo.ts.hbs", `/**
+ * WXT i18n demo.
+ *
+ * The extension is scaffolded by \`wxt init\` at setup time and wired by the
+ * i18n post-step, so this module is framework-agnostic: explicit IDs instead
+ * of macros, and \`createFormatters\` for dates and numbers (D4). Import it from
+ * a popup, options page or content script entrypoint.
+ */
+import { isLocale, sourceLocale } from "@{{projectName}}/i18n/config";
+import { createFormatters } from "@{{projectName}}/i18n/format";
+import { setupI18n } from "@{{projectName}}/i18n/runtime";
+
+export interface ExtensionI18nDemo {
+  locale: string;
+  heading: string;
+  unread: string;
+  currency: string;
+  date: string;
+}
+
+export async function renderI18nDemo(locale?: string): Promise<ExtensionI18nDemo> {
+  const resolved = locale !== undefined && isLocale(locale) ? locale : sourceLocale;
+  const i18n = await setupI18n(resolved);
+  const format = createFormatters(resolved);
+
+  return {
+    locale: resolved,
+    heading: i18n._(/** i18n */ { id: "extension.heading", message: "Extension internationalization" }),
+    unread: i18n._(
+      /** i18n */ {
+        id: "extension.unread",
+        message: "{count, plural, one {# unread message} other {# unread messages}}",
+        values: { count: 3 },
+      },
+    ),
+    currency: format.currency(42.5, "EUR"),
+    date: format.date(new Date()),
+  };
+}
+`],
+  ["i18n/surface/lingui/wxt-vanilla/lib/i18n-demo.ts.hbs", `/**
+ * WXT i18n demo.
+ *
+ * The extension is scaffolded by \`wxt init\` at setup time and wired by the
+ * i18n post-step, so this module is framework-agnostic: explicit IDs instead
+ * of macros, and \`createFormatters\` for dates and numbers (D4). Import it from
+ * a popup, options page or content script entrypoint.
+ */
+import { isLocale, sourceLocale } from "@{{projectName}}/i18n/config";
+import { createFormatters } from "@{{projectName}}/i18n/format";
+import { setupI18n } from "@{{projectName}}/i18n/runtime";
+
+export interface ExtensionI18nDemo {
+  locale: string;
+  heading: string;
+  unread: string;
+  currency: string;
+  date: string;
+}
+
+export async function renderI18nDemo(locale?: string): Promise<ExtensionI18nDemo> {
+  const resolved = locale !== undefined && isLocale(locale) ? locale : sourceLocale;
+  const i18n = await setupI18n(resolved);
+  const format = createFormatters(resolved);
+
+  return {
+    locale: resolved,
+    heading: i18n._(/** i18n */ { id: "extension.heading", message: "Extension internationalization" }),
+    unread: i18n._(
+      /** i18n */ {
+        id: "extension.unread",
+        message: "{count, plural, one {# unread message} other {# unread messages}}",
+        values: { count: 3 },
+      },
+    ),
+    currency: format.currency(42.5, "EUR"),
+    date: format.date(new Date()),
+  };
+}
+`],
+  ["i18n/surface/lingui/wxt-vue/lib/i18n-demo.ts.hbs", `/**
+ * WXT i18n demo.
+ *
+ * The extension is scaffolded by \`wxt init\` at setup time and wired by the
+ * i18n post-step, so this module is framework-agnostic: explicit IDs instead
+ * of macros, and \`createFormatters\` for dates and numbers (D4). Import it from
+ * a popup, options page or content script entrypoint.
+ */
+import { isLocale, sourceLocale } from "@{{projectName}}/i18n/config";
+import { createFormatters } from "@{{projectName}}/i18n/format";
+import { setupI18n } from "@{{projectName}}/i18n/runtime";
+
+export interface ExtensionI18nDemo {
+  locale: string;
+  heading: string;
+  unread: string;
+  currency: string;
+  date: string;
+}
+
+export async function renderI18nDemo(locale?: string): Promise<ExtensionI18nDemo> {
+  const resolved = locale !== undefined && isLocale(locale) ? locale : sourceLocale;
+  const i18n = await setupI18n(resolved);
+  const format = createFormatters(resolved);
+
+  return {
+    locale: resolved,
+    heading: i18n._(/** i18n */ { id: "extension.heading", message: "Extension internationalization" }),
+    unread: i18n._(
+      /** i18n */ {
+        id: "extension.unread",
+        message: "{count, plural, one {# unread message} other {# unread messages}}",
+        values: { count: 3 },
+      },
+    ),
+    currency: format.currency(42.5, "EUR"),
+    date: format.date(new Date()),
+  };
+}
+`],
+  ["i18n/surface/paraglide/astro/src/components/I18nDemo.astro.hbs", `---
+import { createFormatters, isLocale } from "@{{projectName}}/i18n";
+
+import * as m from "../paraglide/messages.js";
+import { getLocale, locales, setLocale } from "../paraglide/runtime.js";
+
+/**
+ * i18n demo: translated heading, interpolation, plural, currency, date and a
+ * locale switcher. Date and currency always come from the shared
+ * \`createFormatters\` bundle, never from the i18n library.
+ */
+const locale = getLocale();
+const formatters = createFormatters(locale);
+---
+
+<section class="rounded-lg border border-neutral-700 p-4">
+  <h2 class="mb-2 font-medium text-white">{m.i18n_demo_heading()}</h2>
+  <p class="text-sm text-neutral-400">{m.i18n_demo_interpolation({ name: "Better T Stack" })}</p>
+  <p class="text-sm text-neutral-400">{m.i18n_demo_plural({ count: 3 })}</p>
+  <dl class="mt-3 grid gap-1 text-sm">
+    <div class="flex gap-2">
+      <dt class="text-neutral-400">{m.i18n_demo_currency_label()}</dt>
+      <dd class="text-white">{formatters.currency(19.99, "EUR")}</dd>
+    </div>
+    <div class="flex gap-2">
+      <dt class="text-neutral-400">{m.i18n_demo_date_label()}</dt>
+      <dd class="text-white">{formatters.date(new Date("2024-05-01T00:00:00Z"))}</dd>
+    </div>
+  </dl>
+  <label class="mt-3 flex items-center gap-2 text-sm">
+    <span class="text-neutral-400">{formatters.displayName(locale)}</span>
+    <select id="i18n-demo-locale" class="rounded border border-neutral-700 bg-transparent px-2 py-1 text-white">
+      {locales.map((available) => (
+        <option value={available} selected={available === locale}>
+          {formatters.displayName(available) ?? available}
+        </option>
+      ))}
+    </select>
+  </label>
+</section>
+
+<script>
+  import { isLocale } from "@{{projectName}}/i18n";
+
+  import { setLocale } from "../paraglide/runtime.js";
+
+  const select = document.querySelector<HTMLSelectElement>("#i18n-demo-locale");
+  select?.addEventListener("change", () => {
+    if (select && isLocale(select.value)) void setLocale(select.value);
+  });
+</script>
+`],
+  ["i18n/surface/paraglide/electrobun-host/src/bun/i18n-demo.ts.hbs", `import { createFormatters, negotiateLocale } from "@{{projectName}}/i18n";
+import { m } from "@{{projectName}}/i18n/runtime";
+import type { Locale } from "@{{projectName}}/i18n/runtime";
+
+/**
+ * i18n demo for the Electrobun host (the Bun main process). The host has no
+ * request, so the locale is negotiated from \`LC_ALL\`/\`LANG\` and can be
+ * overridden by the webview through the host bridge.
+ *
+ * Date and currency always come from the shared \`createFormatters\` bundle.
+ */
+export function hostLocale(): Locale {
+  return negotiateLocale({ system: process.env.LC_ALL ?? process.env.LANG });
+}
+
+export interface I18nDemoPayload {
+  readonly locale: Locale;
+  readonly heading: string;
+  readonly interpolation: string;
+  readonly plural: string;
+  readonly currency: string;
+  readonly date: string;
+}
+
+export function renderI18nDemo(locale: Locale = hostLocale()): I18nDemoPayload {
+  const formatters = createFormatters(locale);
+
+  return {
+    locale,
+    heading: m.i18n_demo_heading({}, { locale }),
+    interpolation: m.i18n_demo_interpolation({ name: "Better T Stack" }, { locale }),
+    plural: m.i18n_demo_plural({ count: 3 }, { locale }),
+    currency: formatters.currency(19.99, "EUR"),
+    date: formatters.date(new Date("2024-05-01T00:00:00Z")),
+  };
+}
+`],
+  ["i18n/surface/paraglide/native/components/i18n-demo.tsx.hbs", `import { getLocale, locales, m, setLocale } from "@{{projectName}}/i18n/runtime";
+import { useFormat } from "@/hooks/use-format";
+import { Pressable, StyleSheet, Text, View } from "react-native";
+
+/**
+ * i18n demo: translated heading, interpolation, plural, currency, date and a
+ * locale switcher. Date and currency always come from the shared
+ * \`createFormatters\` bundle, never from the i18n library.
+ *
+ * Hosts that own their storage persist the locale through
+ * \`overwriteGetLocale\`/\`overwriteSetLocale\` from \`@{{projectName}}/i18n/runtime\`
+ * so \`setLocale\` writes to the template's storage.
+ */
+export function I18nDemo() {
+  const locale = getLocale();
+  const formatters = useFormat();
+
+  return (
+    <View style={styles.card}>
+      <Text style={styles.heading}>{m.i18n_demo_heading()}</Text>
+      <Text style={styles.body}>{m.i18n_demo_interpolation({ name: "Better T Stack" })}</Text>
+      <Text style={styles.body}>{m.i18n_demo_plural({ count: 3 })}</Text>
+      <View style={styles.row}>
+        <Text style={styles.label}>{m.i18n_demo_currency_label()}</Text>
+        <Text style={styles.value}>{formatters.currency(19.99, "EUR")}</Text>
+      </View>
+      <View style={styles.row}>
+        <Text style={styles.label}>{m.i18n_demo_date_label()}</Text>
+        <Text style={styles.value}>{formatters.date(new Date("2024-05-01T00:00:00Z"))}</Text>
+      </View>
+      <View style={styles.locales}>
+        {locales.map((available) => (
+          <Pressable
+            key={available}
+            onPress={() => void setLocale(available)}
+            style={[styles.localeButton, available === locale && styles.localeButtonActive]}
+          >
+            <Text style={styles.localeLabel}>{formatters.displayName(available) ?? available}</Text>
+          </Pressable>
+        ))}
+      </View>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  card: {
+    borderWidth: 1,
+    borderColor: "#52525b",
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    gap: 4,
+  },
+  heading: {
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  body: {
+    fontSize: 14,
+    opacity: 0.8,
+  },
+  row: {
+    marginTop: 8,
+    flexDirection: "row",
+    gap: 8,
+  },
+  label: {
+    fontSize: 13,
+    opacity: 0.6,
+  },
+  value: {
+    fontSize: 13,
+  },
+  locales: {
+    marginTop: 12,
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  localeButton: {
+    borderWidth: 1,
+    borderColor: "#52525b",
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+  },
+  localeButtonActive: {
+    borderColor: "#10b981",
+  },
+  localeLabel: {
+    fontSize: 13,
+  },
+});
+`],
+  ["i18n/surface/paraglide/native/hooks/use-format.ts.hbs", `import { createFormatters, type Formatters } from "@{{projectName}}/i18n";
+import { getLocale } from "@{{projectName}}/i18n/runtime";
+
+/**
+ * Per-surface formatter glue (design D4). Formatters are memoized per locale
+ * by the shared package; switching locales reloads the document.
+ */
+export function useFormat(): Formatters {
+  return createFormatters(getLocale());
+}
+`],
+  ["i18n/surface/paraglide/next/src/components/i18n-demo.tsx.hbs", `"use client";
+
+import { isLocale } from "@{{projectName}}/i18n";
+
+import { useFormat } from "../hooks/use-format";
+
+import * as m from "../paraglide/messages.js";
+import { getLocale, locales, setLocale } from "../paraglide/runtime.js";
+
+/**
+ * i18n demo: translated heading, interpolation, plural, currency, date and a
+ * locale switcher. Date and currency always come from the shared
+ * \`createFormatters\` bundle, never from the i18n library.
+ */
+export function I18nDemo() {
+  const locale = getLocale();
+  const formatters = useFormat();
+
+  return (
+    <section className="rounded-lg border p-4">
+      <h2 className="mb-2 font-medium">{m.i18n_demo_heading()}</h2>
+      <p className="text-sm text-muted-foreground">
+        {m.i18n_demo_interpolation({ name: "Better T Stack" })}
+      </p>
+      <p className="text-sm text-muted-foreground">{m.i18n_demo_plural({ count: 3 })}</p>
+      <dl className="mt-3 grid gap-1 text-sm">
+        <div className="flex gap-2">
+          <dt className="text-muted-foreground">{m.i18n_demo_currency_label()}</dt>
+          <dd>{formatters.currency(19.99, "EUR")}</dd>
+        </div>
+        <div className="flex gap-2">
+          <dt className="text-muted-foreground">{m.i18n_demo_date_label()}</dt>
+          <dd>{formatters.date(new Date("2024-05-01T00:00:00Z"))}</dd>
+        </div>
+      </dl>
+      <label className="mt-3 flex items-center gap-2 text-sm">
+        <span className="text-muted-foreground">{formatters.displayName(locale)}</span>
+        <select
+          className="rounded border bg-transparent px-2 py-1"
+          value={locale}
+          onChange={(event) => {
+            if (isLocale(event.target.value)) void setLocale(event.target.value);
+          }}
+        >
+          {locales.map((available) => (
+            <option key={available} value={available}>
+              {formatters.displayName(available) ?? available}
+            </option>
+          ))}
+        </select>
+      </label>
+    </section>
+  );
+}
+`],
+  ["i18n/surface/paraglide/next/src/hooks/use-format.ts.hbs", `import { createFormatters, type Formatters } from "@{{projectName}}/i18n";
+
+import { getLocale } from "../paraglide/runtime.js";
+
+/**
+ * Per-surface formatter glue (design D4). Formatters are memoized per locale
+ * by the shared package; switching locales reloads the document.
+ */
+export function useFormat(): Formatters {
+  return createFormatters(getLocale());
+}
+`],
+  ["i18n/surface/paraglide/nuxt/app/components/I18nDemo.vue.hbs", `<script setup lang="ts">
+import { isLocale } from "@{{projectName}}/i18n";
+
+import * as m from "../paraglide/messages.js";
+import { getLocale, locales, setLocale } from "../paraglide/runtime.js";
+
+/**
+ * i18n demo: translated heading, interpolation, plural, currency, date and a
+ * locale switcher. Date and currency always come from the shared
+ * \`createFormatters\` bundle, never from the i18n library.
+ */
+const locale = getLocale();
+const formatters = useFormat();
+
+function onLocaleChange(event: Event) {
+  const target = event.currentTarget;
+  if (target instanceof HTMLSelectElement && isLocale(target.value)) {
+    void setLocale(target.value);
+  }
+}
+</script>
+
+<template>
+  <UCard>
+    <template #header>
+      <div class="font-medium">\\{{ m.i18n_demo_heading() }}</div>
+    </template>
+    <p class="text-sm text-muted">\\{{ m.i18n_demo_interpolation({ name: "Better T Stack" }) }}</p>
+    <p class="mt-1 text-sm text-muted">\\{{ m.i18n_demo_plural({ count: 3 }) }}</p>
+    <dl class="mt-3 grid gap-1 text-sm">
+      <div class="flex gap-2">
+        <dt class="text-muted">\\{{ m.i18n_demo_currency_label() }}</dt>
+        <dd>\\{{ formatters.currency(19.99, "EUR") }}</dd>
+      </div>
+      <div class="flex gap-2">
+        <dt class="text-muted">\\{{ m.i18n_demo_date_label() }}</dt>
+        <dd>\\{{ formatters.date(new Date("2024-05-01T00:00:00Z")) }}</dd>
+      </div>
+    </dl>
+    <label class="mt-3 flex items-center gap-2 text-sm">
+      <span class="text-muted">\\{{ formatters.displayName(locale) }}</span>
+      <select
+        class="rounded border bg-transparent px-2 py-1"
+        :value="locale"
+        @change="onLocaleChange"
+      >
+        <option v-for="available in locales" :key="available" :value="available">
+          \\{{ formatters.displayName(available) ?? available }}
+        </option>
+      </select>
+    </label>
+  </UCard>
+</template>
+`],
+  ["i18n/surface/paraglide/nuxt/app/composables/useFormat.ts.hbs", `import { createFormatters, type Formatters } from "@{{projectName}}/i18n";
+
+import { getLocale } from "../paraglide/runtime.js";
+
+/**
+ * Per-surface formatter glue (design D4). Formatters are memoized per locale
+ * by the shared package; switching locales reloads the document.
+ */
+export function useFormat(): Formatters {
+  return createFormatters(getLocale());
+}
+`],
+  ["i18n/surface/paraglide/react-router/src/components/i18n-demo.tsx.hbs", `import { isLocale } from "@{{projectName}}/i18n";
+
+import { useFormat } from "../hooks/use-format";
+
+import * as m from "../paraglide/messages.js";
+import { getLocale, locales, setLocale } from "../paraglide/runtime.js";
+
+/**
+ * i18n demo: translated heading, interpolation, plural, currency, date and a
+ * locale switcher. Date and currency always come from the shared
+ * \`createFormatters\` bundle, never from the i18n library.
+ */
+export function I18nDemo() {
+  const locale = getLocale();
+  const formatters = useFormat();
+
+  return (
+    <section className="rounded-lg border p-4">
+      <h2 className="mb-2 font-medium">{m.i18n_demo_heading()}</h2>
+      <p className="text-sm text-muted-foreground">
+        {m.i18n_demo_interpolation({ name: "Better T Stack" })}
+      </p>
+      <p className="text-sm text-muted-foreground">{m.i18n_demo_plural({ count: 3 })}</p>
+      <dl className="mt-3 grid gap-1 text-sm">
+        <div className="flex gap-2">
+          <dt className="text-muted-foreground">{m.i18n_demo_currency_label()}</dt>
+          <dd>{formatters.currency(19.99, "EUR")}</dd>
+        </div>
+        <div className="flex gap-2">
+          <dt className="text-muted-foreground">{m.i18n_demo_date_label()}</dt>
+          <dd>{formatters.date(new Date("2024-05-01T00:00:00Z"))}</dd>
+        </div>
+      </dl>
+      <label className="mt-3 flex items-center gap-2 text-sm">
+        <span className="text-muted-foreground">{formatters.displayName(locale)}</span>
+        <select
+          className="rounded border bg-transparent px-2 py-1"
+          value={locale}
+          onChange={(event) => {
+            if (isLocale(event.target.value)) void setLocale(event.target.value);
+          }}
+        >
+          {locales.map((available) => (
+            <option key={available} value={available}>
+              {formatters.displayName(available) ?? available}
+            </option>
+          ))}
+        </select>
+      </label>
+    </section>
+  );
+}
+`],
+  ["i18n/surface/paraglide/react-router/src/hooks/use-format.ts.hbs", `import { createFormatters, type Formatters } from "@{{projectName}}/i18n";
+
+import { getLocale } from "../paraglide/runtime.js";
+
+/**
+ * Per-surface formatter glue (design D4). Formatters are memoized per locale
+ * by the shared package; switching locales reloads the document.
+ */
+export function useFormat(): Formatters {
+  return createFormatters(getLocale());
+}
+`],
+  ["i18n/surface/paraglide/server/src/utils/i18n-demo.ts.hbs", `import { createFormatters, getRequestLocale } from "@{{projectName}}/i18n";
+import { m } from "@{{projectName}}/i18n/runtime";
+import type { Locale } from "@{{projectName}}/i18n/runtime";
+
+export interface I18nDemoPayload {
+  readonly locale: Locale;
+  readonly heading: string;
+  readonly interpolation: string;
+  readonly plural: string;
+  readonly currency: string;
+  readonly date: string;
+}
+
+/**
+ * i18n demo for the server surface. The locale comes from the request-scoped
+ * storage the server middleware fills (\`getRequestLocale\`); date and currency
+ * always come from the shared \`createFormatters\` bundle.
+ *
+ * Mount it with \`app.get("/i18n-demo", (c) => c.json(renderI18nDemo()))\` or the
+ * equivalent for the selected backend.
+ */
+export function renderI18nDemo(locale: Locale = getRequestLocale()): I18nDemoPayload {
+  const formatters = createFormatters(locale);
+
+  return {
+    locale,
+    heading: m.i18n_demo_heading({}, { locale }),
+    interpolation: m.i18n_demo_interpolation({ name: "Better T Stack" }, { locale }),
+    plural: m.i18n_demo_plural({ count: 3 }, { locale }),
+    currency: formatters.currency(19.99, "EUR"),
+    date: formatters.date(new Date("2024-05-01T00:00:00Z")),
+  };
+}
+`],
+  ["i18n/surface/paraglide/solid/src/components/i18n-demo.tsx.hbs", `import { isLocale } from "@{{projectName}}/i18n";
+
+import { useFormat } from "~/hooks/use-format";
+import * as m from "~/paraglide/messages.js";
+import { getLocale, locales, setLocale } from "~/paraglide/runtime.js";
+
+/**
+ * i18n demo: translated heading, interpolation, plural, currency, date and a
+ * locale switcher. Date and currency always come from the shared
+ * \`createFormatters\` bundle, never from the i18n library.
+ */
+export function I18nDemo() {
+  const locale = getLocale();
+  const formatters = useFormat();
+
+  return (
+    <section class="rounded-lg border p-4">
+      <h2 class="mb-2 font-medium">{m.i18n_demo_heading()}</h2>
+      <p class="text-sm text-muted-foreground">
+        {m.i18n_demo_interpolation({ name: "Better T Stack" })}
+      </p>
+      <p class="text-sm text-muted-foreground">{m.i18n_demo_plural({ count: 3 })}</p>
+      <dl class="mt-3 grid gap-1 text-sm">
+        <div class="flex gap-2">
+          <dt class="text-muted-foreground">{m.i18n_demo_currency_label()}</dt>
+          <dd>{formatters().currency(19.99, "EUR")}</dd>
+        </div>
+        <div class="flex gap-2">
+          <dt class="text-muted-foreground">{m.i18n_demo_date_label()}</dt>
+          <dd>{formatters().date(new Date("2024-05-01T00:00:00Z"))}</dd>
+        </div>
+      </dl>
+      <label class="mt-3 flex items-center gap-2 text-sm">
+        <span class="text-muted-foreground">{formatters().displayName(locale)}</span>
+        <select
+          class="rounded border bg-transparent px-2 py-1"
+          value={locale}
+          onChange={(event) => {
+            if (isLocale(event.target.value)) void setLocale(event.target.value);
+          }}
+        >
+          {locales.map((available) => (
+            <option key={available} value={available}>
+              {formatters().displayName(available) ?? available}
+            </option>
+          ))}
+        </select>
+      </label>
+    </section>
+  );
+}
+`],
+  ["i18n/surface/paraglide/solid/src/hooks/use-format.ts.hbs", `import { createFormatters, type Formatters } from "@{{projectName}}/i18n";
+import { createMemo, type Accessor } from "solid-js";
+
+import { getLocale } from "~/paraglide/runtime.js";
+
+/**
+ * Per-surface formatter glue (design D4): a memoized formatter bundle for the
+ * current locale. Switching locales reloads the document.
+ */
+export function useFormat(): Accessor<Formatters> {
+  return createMemo(() => createFormatters(getLocale()));
+}
+`],
+  ["i18n/surface/paraglide/svelte/src/lib/components/i18n-demo.svelte.hbs", `<script lang="ts">
+	import { isLocale } from "@{{projectName}}/i18n";
+	import { useFormat } from "#lib/use-format.svelte.ts";
+
+	import * as m from "../../paraglide/messages.js";
+	import { getLocale, locales, setLocale } from "../../paraglide/runtime.js";
+
+	/**
+	 * i18n demo: translated heading, interpolation, plural, currency, date and a
+	 * locale switcher. Date and currency always come from the shared
+	 * \`createFormatters\` bundle, never from the i18n library.
+	 */
+	const locale = getLocale();
+	const format = useFormat();
+
+	function onLocaleChange(event: Event) {
+		const target = event.currentTarget;
+		if (target instanceof HTMLSelectElement && isLocale(target.value)) {
+			void setLocale(target.value);
+		}
+	}
+</script>
+
+<section class="rounded-lg border p-4">
+	<h2 class="mb-2 font-medium">{m.i18n_demo_heading()}</h2>
+	<p class="text-muted-foreground text-sm">{m.i18n_demo_interpolation({ name: "Better T Stack" })}</p>
+	<p class="text-muted-foreground text-sm">{m.i18n_demo_plural({ count: 3 })}</p>
+	<dl class="mt-3 grid gap-1 text-sm">
+		<div class="flex gap-2">
+			<dt class="text-muted-foreground">{m.i18n_demo_currency_label()}</dt>
+			<dd>{format.current.currency(19.99, "EUR")}</dd>
+		</div>
+		<div class="flex gap-2">
+			<dt class="text-muted-foreground">{m.i18n_demo_date_label()}</dt>
+			<dd>{format.current.date(new Date("2024-05-01T00:00:00Z"))}</dd>
+		</div>
+	</dl>
+	<label class="mt-3 flex items-center gap-2 text-sm">
+		<span class="text-muted-foreground">{format.current.displayName(locale)}</span>
+		<select class="rounded border bg-transparent px-2 py-1" value={locale} onchange={onLocaleChange}>
+			{#each locales as available (available)}
+				<option value={available}>{format.current.displayName(available) ?? available}</option>
+			{/each}
+		</select>
+	</label>
+</section>
+`],
+  ["i18n/surface/paraglide/svelte/src/lib/use-format.svelte.ts.hbs", `import { createFormatters, type Formatters } from "@{{projectName}}/i18n";
+
+import { getLocale } from "../paraglide/runtime.js";
+
+/**
+ * Per-surface formatter glue (design D4): a \`$derived\` formatter bundle for
+ * the current locale. Read it as \`useFormat().current\`.
+ */
+export function useFormat(): { readonly current: Formatters } {
+  const formatters = $derived(createFormatters(getLocale()));
+
+  return {
+    get current() {
+      return formatters;
+    },
+  };
+}
+`],
+  ["i18n/surface/paraglide/tanstack-router/src/components/i18n-demo.tsx.hbs", `import { isLocale } from "@{{projectName}}/i18n";
+
+import { useFormat } from "../hooks/use-format";
+
+import * as m from "../paraglide/messages.js";
+import { getLocale, locales, setLocale } from "../paraglide/runtime.js";
+
+/**
+ * i18n demo: translated heading, interpolation, plural, currency, date and a
+ * locale switcher. Date and currency always come from the shared
+ * \`createFormatters\` bundle, never from the i18n library.
+ */
+export function I18nDemo() {
+  const locale = getLocale();
+  const formatters = useFormat();
+
+  return (
+    <section className="rounded-lg border p-4">
+      <h2 className="mb-2 font-medium">{m.i18n_demo_heading()}</h2>
+      <p className="text-sm text-muted-foreground">
+        {m.i18n_demo_interpolation({ name: "Better T Stack" })}
+      </p>
+      <p className="text-sm text-muted-foreground">{m.i18n_demo_plural({ count: 3 })}</p>
+      <dl className="mt-3 grid gap-1 text-sm">
+        <div className="flex gap-2">
+          <dt className="text-muted-foreground">{m.i18n_demo_currency_label()}</dt>
+          <dd>{formatters.currency(19.99, "EUR")}</dd>
+        </div>
+        <div className="flex gap-2">
+          <dt className="text-muted-foreground">{m.i18n_demo_date_label()}</dt>
+          <dd>{formatters.date(new Date("2024-05-01T00:00:00Z"))}</dd>
+        </div>
+      </dl>
+      <label className="mt-3 flex items-center gap-2 text-sm">
+        <span className="text-muted-foreground">{formatters.displayName(locale)}</span>
+        <select
+          className="rounded border bg-transparent px-2 py-1"
+          value={locale}
+          onChange={(event) => {
+            if (isLocale(event.target.value)) void setLocale(event.target.value);
+          }}
+        >
+          {locales.map((available) => (
+            <option key={available} value={available}>
+              {formatters.displayName(available) ?? available}
+            </option>
+          ))}
+        </select>
+      </label>
+    </section>
+  );
+}
+`],
+  ["i18n/surface/paraglide/tanstack-router/src/hooks/use-format.ts.hbs", `import { createFormatters, type Formatters } from "@{{projectName}}/i18n";
+
+import { getLocale } from "../paraglide/runtime.js";
+
+/**
+ * Per-surface formatter glue (design D4). Formatters are memoized per locale
+ * by the shared package; switching locales reloads the document.
+ */
+export function useFormat(): Formatters {
+  return createFormatters(getLocale());
+}
+`],
+  ["i18n/surface/paraglide/tanstack-start/src/components/i18n-demo.tsx.hbs", `import { isLocale } from "@{{projectName}}/i18n";
+
+import { useFormat } from "../hooks/use-format";
+
+import * as m from "../paraglide/messages.js";
+import { getLocale, locales, setLocale } from "../paraglide/runtime.js";
+
+/**
+ * i18n demo: translated heading, interpolation, plural, currency, date and a
+ * locale switcher. Date and currency always come from the shared
+ * \`createFormatters\` bundle, never from the i18n library.
+ */
+export function I18nDemo() {
+  const locale = getLocale();
+  const formatters = useFormat();
+
+  return (
+    <section className="rounded-lg border p-4">
+      <h2 className="mb-2 font-medium">{m.i18n_demo_heading()}</h2>
+      <p className="text-sm text-muted-foreground">
+        {m.i18n_demo_interpolation({ name: "Better T Stack" })}
+      </p>
+      <p className="text-sm text-muted-foreground">{m.i18n_demo_plural({ count: 3 })}</p>
+      <dl className="mt-3 grid gap-1 text-sm">
+        <div className="flex gap-2">
+          <dt className="text-muted-foreground">{m.i18n_demo_currency_label()}</dt>
+          <dd>{formatters.currency(19.99, "EUR")}</dd>
+        </div>
+        <div className="flex gap-2">
+          <dt className="text-muted-foreground">{m.i18n_demo_date_label()}</dt>
+          <dd>{formatters.date(new Date("2024-05-01T00:00:00Z"))}</dd>
+        </div>
+      </dl>
+      <label className="mt-3 flex items-center gap-2 text-sm">
+        <span className="text-muted-foreground">{formatters.displayName(locale)}</span>
+        <select
+          className="rounded border bg-transparent px-2 py-1"
+          value={locale}
+          onChange={(event) => {
+            if (isLocale(event.target.value)) void setLocale(event.target.value);
+          }}
+        >
+          {locales.map((available) => (
+            <option key={available} value={available}>
+              {formatters.displayName(available) ?? available}
+            </option>
+          ))}
+        </select>
+      </label>
+    </section>
+  );
+}
+`],
+  ["i18n/surface/paraglide/tanstack-start/src/hooks/use-format.ts.hbs", `import { createFormatters, type Formatters } from "@{{projectName}}/i18n";
+
+import { getLocale } from "../paraglide/runtime.js";
+
+/**
+ * Per-surface formatter glue (design D4). Formatters are memoized per locale
+ * by the shared package; switching locales reloads the document.
+ */
+export function useFormat(): Formatters {
+  return createFormatters(getLocale());
+}
+`],
+  ["i18n/surface/wuchale/astro/src/locales/_gitignore", `*
+`],
+  ["i18n/surface/wuchale/astro/src/pages/i18n-demo.astro.hbs", `---
+import Layout from "../layouts/Layout.astro";
+
+import {
+  createFormatters,
+  LOCALE_COOKIE,
+  locales,
+  negotiateLocale,
+  type Locale,
+} from "@{{projectName}}/i18n";
+import { loadLocale, plural } from "@{{projectName}}/i18n/runtime";
+
+const requested = Astro.url.searchParams.get("locale") ?? undefined;
+const locale: Locale = negotiateLocale({
+  cookie: Astro.cookies.get(LOCALE_COOKIE)?.value,
+  header: Astro.request.headers.get("x-app-locale") ?? undefined,
+  acceptLanguage: Astro.request.headers.get("accept-language") ?? undefined,
+  stored: requested !== undefined && locales.some((value) => value === requested) ? requested : undefined,
+});
+const formatters = createFormatters(locale);
+const itemCount = 3;
+---
+
+<Layout title="i18n demo">
+  <section class="container mx-auto max-w-2xl px-4 py-6">
+    <h1 class="text-2xl font-semibold text-white">Welcome</h1>
+    <p>Hello {formatters.displayName(locale) ?? locale}!</p>
+    <p>{plural(itemCount, ["# item", "# items"])}</p>
+    <p>{formatters.currency(1299.5, "EUR")}</p>
+    <p>{formatters.date(new Date("2026-10-14T12:00:00Z"))}</p>
+    <div class="flex gap-2">
+      {locales.map((next) => (
+        <a href={\`\${Astro.url.pathname}?locale=\${next}\`} data-locale={next}>
+          {next}
+        </a>
+      ))}
+    </div>
+  </section>
+</Layout>
+
+<script>
+  import { sourceLocale } from "@{{projectName}}/i18n";
+  import { loadLocale } from "@{{projectName}}/i18n/runtime";
+
+  const requested = new URLSearchParams(window.location.search).get("locale");
+  if (requested !== null) {
+    document.cookie = \`locale=\${requested}; path=/\`;
+  }
+  void loadLocale(requested ?? sourceLocale);
+</script>
+`],
+  ["i18n/surface/wuchale/electrobun-host/src/bun/i18n.ts.hbs", `/**
+ * Electrobun (Bun host) glue: the desktop main process keeps the locale,
+ * negotiates it from \`LANG\`/\`LC_ALL\` and exposes the shared formatters.
+ */
+
+import { createFormatters, negotiateLocale, type Locale } from "@{{projectName}}/i18n";
+
+let currentLocale: Locale = negotiateLocale({
+  system: process.env.LC_ALL ?? process.env.LANG,
+});
+
+export function setDesktopLocale(locale: Locale): Locale {
+  currentLocale = locale;
+  return currentLocale;
+}
+
+export function getDesktopLocale(): Locale {
+  return currentLocale;
+}
+
+export function createDesktopDemo() {
+  const formatters = createFormatters(currentLocale);
+  return {
+    locale: currentLocale,
+    heading: "Welcome",
+    greeting: \`Hello \${formatters.displayName(currentLocale) ?? currentLocale}!\`,
+    price: formatters.currency(1299.5, "EUR"),
+    date: formatters.date(new Date("2026-10-14T12:00:00Z")),
+  };
+}
+`],
+  ["i18n/surface/wuchale/electrobun-host/src/locales/_gitignore", `*
+`],
+  ["i18n/surface/wuchale/email/src/i18n.ts.hbs", `/**
+ * Email i18n glue (partial: wuchale's React Email render path is unverified by
+ * the compatibility matrix). Templates take the recipient's locale, use the
+ * shared \`Intl\` formatters and rely on the \`email\` adapter for extracted
+ * strings.
+ */
+
+import { createFormatters, type Locale } from "@{{projectName}}/i18n";
+
+export interface EmailI18n {
+  readonly locale: Locale;
+  readonly formatters: ReturnType<typeof createFormatters>;
+}
+
+export function createEmailI18n(locale: Locale): EmailI18n {
+  return { locale, formatters: createFormatters(locale) };
+}
+`],
+  ["i18n/surface/wuchale/email/src/locales/_gitignore", `*
+`],
+  ["i18n/surface/wuchale/next/src/app/i18n-demo/page.tsx.hbs", `"use client";
+
+import { useEffect, useState } from "react";
+
+import {
+  createFormatters,
+  LOCALE_COOKIE,
+  locales,
+  negotiateLocale,
+  type Locale,
+} from "@{{projectName}}/i18n";
+import { loadLocale, plural } from "@{{projectName}}/i18n/runtime";
+
+function initialLocale(): Locale {
+  if (typeof window === "undefined") return negotiateLocale();
+  // @wc-ignore
+  const stored = window.localStorage.getItem(LOCALE_COOKIE) ?? undefined;
+  return negotiateLocale({ stored, system: window.navigator.language });
+}
+
+export default function I18nDemoPage() {
+  const [locale, setLocale] = useState<Locale>(initialLocale);
+
+  useEffect(() => {
+    // @wc-ignore
+    window.localStorage.setItem(LOCALE_COOKIE, locale);
+    void loadLocale(locale);
+  }, [locale]);
+
+  const { currency, date, displayName } = createFormatters(locale);
+  const itemCount = 3;
+
+  return (
+    <section className="mx-auto flex max-w-2xl flex-col gap-3 p-6">
+      <h1 className="text-2xl font-semibold">Welcome</h1>
+      <p>Hello {displayName(locale) ?? locale}!</p>
+      <p>{plural(itemCount, ["# item", "# items"])}</p>
+      <p>{currency(1299.5, "EUR")}</p>
+      <p>{date(new Date("2026-10-14T12:00:00Z"))}</p>
+      <div className="flex gap-2">
+        {locales.map((next) => (
+          <button key={next} type="button" onClick={() => setLocale(next)}>
+            {next}
+          </button>
+        ))}
+      </div>
+    </section>
+  );
+}
+`],
+  ["i18n/surface/wuchale/next/src/locales/_gitignore", `*
+`],
+  ["i18n/surface/wuchale/opentui-core/src/i18n-demo.ts.hbs", `/**
+ * OpenTUI glue: locale-aware demo lines rendered by the TUI, using the shared
+ * \`Intl\` formatters and the wuchale \`plural()\` pattern.
+ */
+
+import { createFormatters, negotiateLocale, type Locale } from "@{{projectName}}/i18n";
+import { plural } from "@{{projectName}}/i18n/runtime";
+
+export function createTuiDemoLines(
+  locale: Locale = negotiateLocale({ system: process.env.LC_ALL ?? process.env.LANG }),
+): string[] {
+  const formatters = createFormatters(locale);
+  const itemCount = 3;
+  return [
+    "Welcome",
+    \`Hello \${formatters.displayName(locale) ?? locale}!\`,
+    plural(itemCount, ["# item", "# items"]),
+    formatters.currency(1299.5, "EUR"),
+    formatters.date(new Date("2026-10-14T12:00:00Z")),
+  ];
+}
+`],
+  ["i18n/surface/wuchale/opentui-core/src/locales/_gitignore", `*
+`],
+  ["i18n/surface/wuchale/opentui-react/src/i18n-demo.ts.hbs", `/**
+ * OpenTUI + React glue: a hook that tracks the locale and returns the demo
+ * lines. Unverified with the OpenTUI reconciler (partial support).
+ */
+
+import { useEffect, useState } from "react";
+
+import { createFormatters, negotiateLocale, type Locale } from "@{{projectName}}/i18n";
+import { loadLocale, plural } from "@{{projectName}}/i18n/runtime";
+
+export interface TuiI18nDemo {
+  readonly locale: Locale;
+  setLocale: (next: Locale) => void;
+  readonly lines: string[];
+}
+
+export function useTuiI18n(locale: Locale = negotiateLocale({ system: process.env.LC_ALL ?? process.env.LANG })): TuiI18nDemo {
+  const [current, setLocale] = useState<Locale>(locale);
+
+  useEffect(() => {
+    void loadLocale(current);
+  }, [current]);
+
+  const formatters = createFormatters(current);
+  const itemCount = 3;
+  return {
+    locale: current,
+    setLocale,
+    lines: [
+      "Welcome",
+      \`Hello \${formatters.displayName(current) ?? current}!\`,
+      plural(itemCount, ["# item", "# items"]),
+      formatters.currency(1299.5, "EUR"),
+      formatters.date(new Date("2026-10-14T12:00:00Z")),
+    ],
+  };
+}
+`],
+  ["i18n/surface/wuchale/opentui-react/src/locales/_gitignore", `*
+`],
+  ["i18n/surface/wuchale/opentui-solid/src/i18n-demo.ts.hbs", `/**
+ * OpenTUI + Solid glue: a signal-based locale store and the demo lines.
+ * Unverified with the OpenTUI reconciler (partial support).
+ */
+
+import { createEffect, createSignal, type Accessor, type Setter } from "solid-js";
+
+import { createFormatters, negotiateLocale, type Locale } from "@{{projectName}}/i18n";
+import { loadLocale, plural } from "@{{projectName}}/i18n/runtime";
+
+export interface TuiI18nDemo {
+  readonly locale: Accessor<Locale>;
+  readonly setLocale: Setter<Locale>;
+  readonly lines: Accessor<string[]>;
+}
+
+export function createTuiI18n(locale: Locale = negotiateLocale({ system: process.env.LC_ALL ?? process.env.LANG })): TuiI18nDemo {
+  const [current, setLocale] = createSignal<Locale>(locale);
+
+  createEffect(
+    () => current(),
+    (value) => {
+      void loadLocale(value);
+    },
+  );
+
+  const lines = (): string[] => {
+    const value = current();
+    const formatters = createFormatters(value);
+    const itemCount = 3;
+    return [
+      "Welcome",
+      \`Hello \${formatters.displayName(value) ?? value}!\`,
+      plural(itemCount, ["# item", "# items"]),
+      formatters.currency(1299.5, "EUR"),
+      formatters.date(new Date("2026-10-14T12:00:00Z")),
+    ];
+  };
+
+  return { locale: current, setLocale, lines };
+}
+`],
+  ["i18n/surface/wuchale/opentui-solid/src/locales/_gitignore", `*
+`],
+  ["i18n/surface/wuchale/react-router/src/locales/_gitignore", `*
+`],
+  ["i18n/surface/wuchale/react-router/src/routes/i18n-demo.tsx.hbs", `import { useEffect, useState } from "react";
+
+import {
+  createFormatters,
+  LOCALE_COOKIE,
+  locales,
+  negotiateLocale,
+  type Locale,
+} from "@{{projectName}}/i18n";
+import { loadLocale, plural } from "@{{projectName}}/i18n/runtime";
+
+function initialLocale(): Locale {
+  if (typeof window === "undefined") return negotiateLocale();
+  // @wc-ignore
+  const stored = window.localStorage.getItem(LOCALE_COOKIE) ?? undefined;
+  return negotiateLocale({ stored, system: window.navigator.language });
+}
+
+export default function I18nDemoRoute() {
+  const [locale, setLocale] = useState<Locale>(initialLocale);
+
+  useEffect(() => {
+    // @wc-ignore
+    window.localStorage.setItem(LOCALE_COOKIE, locale);
+    void loadLocale(locale);
+  }, [locale]);
+
+  const { currency, date, displayName } = createFormatters(locale);
+  const itemCount = 3;
+
+  return (
+    <section className="mx-auto flex max-w-2xl flex-col gap-3 p-6">
+      <h1 className="text-2xl font-semibold">Welcome</h1>
+      <p>Hello {displayName(locale) ?? locale}!</p>
+      <p>{plural(itemCount, ["# item", "# items"])}</p>
+      <p>{currency(1299.5, "EUR")}</p>
+      <p>{date(new Date("2026-10-14T12:00:00Z"))}</p>
+      <div className="flex gap-2">
+        {locales.map((next) => (
+          <button key={next} type="button" onClick={() => setLocale(next)}>
+            {next}
+          </button>
+        ))}
+      </div>
+    </section>
+  );
+}
+`],
+  ["i18n/surface/wuchale/server/src/i18n-demo.ts.hbs", `/**
+ * Server-side wuchale glue.
+ *
+ * Strings inside function scope are extracted by the \`server\` (vanilla)
+ * adapter on \`i18n:compile\`; request-scoped locale comes from the shared
+ * \`runWithLocale\` storage. This module exposes a locale-aware payload for
+ * server routes and background jobs.
+ */
+
+import { createFormatters, negotiateLocale, type Locale } from "@{{projectName}}/i18n";
+import { runWithLocale } from "@{{projectName}}/i18n/server";
+
+export interface I18nDemoPayload {
+  readonly locale: Locale;
+  readonly heading: string;
+  readonly greeting: string;
+  readonly price: string;
+  readonly date: string;
+}
+
+export function createI18nDemoPayload(locale: Locale = negotiateLocale()): I18nDemoPayload {
+  const formatters = createFormatters(locale);
+  return runWithLocale(locale, () => ({
+    locale,
+    heading: "Welcome",
+    greeting: \`Hello \${formatters.displayName(locale) ?? locale}!\`,
+    price: formatters.currency(1299.5, "EUR"),
+    date: formatters.date(new Date("2026-10-14T12:00:00Z")),
+  }));
+}
+`],
+  ["i18n/surface/wuchale/server/src/locales/_gitignore", `*
+`],
+  ["i18n/surface/wuchale/solid/src/locales/_gitignore", `*
+`],
+  ["i18n/surface/wuchale/solid/src/routes/i18n-demo.tsx.hbs", `import { createEffect, createSignal, For } from "solid-js";
+
+import {
+  createFormatters,
+  LOCALE_COOKIE,
+  locales,
+  negotiateLocale,
+  type Locale,
+} from "@{{projectName}}/i18n";
+import { loadLocale, plural } from "@{{projectName}}/i18n/runtime";
+
+function initialLocale(): Locale {
+  if (typeof window === "undefined") return negotiateLocale();
+  // @wc-ignore
+  const stored = window.localStorage.getItem(LOCALE_COOKIE) ?? undefined;
+  return negotiateLocale({ stored, system: window.navigator.language });
+}
+
+export default function I18nDemo() {
+  const [locale, setLocale] = createSignal<Locale>(initialLocale());
+
+  createEffect(
+    () => locale(),
+    (current) => {
+      // @wc-ignore
+      window.localStorage.setItem(LOCALE_COOKIE, current);
+      void loadLocale(current);
+    },
+  );
+
+  const formatters = () => createFormatters(locale());
+  const itemCount = 3;
+
+  return (
+    <section class="mx-auto flex max-w-2xl flex-col gap-3 p-6">
+      <h1 class="text-2xl font-semibold">Welcome</h1>
+      <p>Hello {formatters().displayName(locale()) ?? locale()}!</p>
+      <p>{plural(itemCount, ["# item", "# items"])}</p>
+      <p>{formatters().currency(1299.5, "EUR")}</p>
+      <p>{formatters().date(new Date("2026-10-14T12:00:00Z"))}</p>
+      <div class="flex gap-2">
+        <For each={locales}>
+          {(next) => (
+            <button type="button" onClick={() => setLocale(next)}>
+              {next}
+            </button>
+          )}
+        </For>
+      </div>
+    </section>
+  );
+}
+`],
+  ["i18n/surface/wuchale/svelte/src/locales/_gitignore", `*
+`],
+  ["i18n/surface/wuchale/svelte/src/routes/i18n-demo/+page.svelte.hbs", `<script lang="ts">
+  import {
+    createFormatters,
+    LOCALE_COOKIE,
+    locales,
+    negotiateLocale,
+    type Locale,
+  } from "@{{projectName}}/i18n";
+  import { loadLocale, plural } from "@{{projectName}}/i18n/runtime";
+
+  function initialLocale(): Locale {
+    if (typeof localStorage === "undefined") return negotiateLocale();
+    // @wc-ignore
+    const stored = localStorage.getItem(LOCALE_COOKIE) ?? undefined;
+    return negotiateLocale({ stored, system: navigator.language });
+  }
+
+  let locale: Locale = $state(initialLocale());
+  const formatters = $derived(createFormatters(locale));
+  const itemCount = 3;
+
+  $effect(() => {
+    // @wc-ignore
+    localStorage.setItem(LOCALE_COOKIE, locale);
+    void loadLocale(locale);
+  });
+</script>
+
+<section class="mx-auto flex max-w-2xl flex-col gap-3 p-6">
+  <h1 class="text-2xl font-semibold">Welcome</h1>
+  <p>Hello {formatters.displayName(locale) ?? locale}!</p>
+  <p>{plural(itemCount, ["# item", "# items"])}</p>
+  <p>{formatters.currency(1299.5, "EUR")}</p>
+  <p>{formatters.date(new Date("2026-10-14T12:00:00Z"))}</p>
+  <div class="flex gap-2">
+    {#each locales as next}
+      <button type="button" onclick={() => (locale = next)}>{next}</button>
+    {/each}
+  </div>
+</section>
+`],
+  ["i18n/surface/wuchale/tanstack-router/src/locales/_gitignore", `*
+`],
+  ["i18n/surface/wuchale/tanstack-router/src/routes/i18n-demo.tsx.hbs", `import { useEffect, useState } from "react";
+import { createFileRoute } from "@tanstack/react-router";
+
+import {
+  createFormatters,
+  LOCALE_COOKIE,
+  locales,
+  negotiateLocale,
+  type Locale,
+} from "@{{projectName}}/i18n";
+import { loadLocale, plural } from "@{{projectName}}/i18n/runtime";
+
+function initialLocale(): Locale {
+  if (typeof window === "undefined") return negotiateLocale();
+  // @wc-ignore
+  const stored = window.localStorage.getItem(LOCALE_COOKIE) ?? undefined;
+  return negotiateLocale({ stored, system: window.navigator.language });
+}
+
+function I18nDemo() {
+  const [locale, setLocale] = useState<Locale>(initialLocale);
+
+  useEffect(() => {
+    // @wc-ignore
+    window.localStorage.setItem(LOCALE_COOKIE, locale);
+    void loadLocale(locale);
+  }, [locale]);
+
+  const { currency, date, displayName } = createFormatters(locale);
+  const itemCount = 3;
+
+  return (
+    <section className="mx-auto flex max-w-2xl flex-col gap-3 p-6">
+      <h1 className="text-2xl font-semibold">Welcome</h1>
+      <p>Hello {displayName(locale) ?? locale}!</p>
+      <p>{plural(itemCount, ["# item", "# items"])}</p>
+      <p>{currency(1299.5, "EUR")}</p>
+      <p>{date(new Date("2026-10-14T12:00:00Z"))}</p>
+      <div className="flex gap-2">
+        {locales.map((next) => (
+          <button key={next} type="button" onClick={() => setLocale(next)}>
+            {next}
+          </button>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+export const Route = createFileRoute("/i18n-demo")({
+  component: I18nDemo,
+});
+`],
+  ["i18n/surface/wuchale/tanstack-start/src/locales/_gitignore", `*
+`],
+  ["i18n/surface/wuchale/tanstack-start/src/routes/i18n-demo.tsx.hbs", `import { useEffect, useState } from "react";
+import { createFileRoute } from "@tanstack/react-router";
+
+import {
+  createFormatters,
+  LOCALE_COOKIE,
+  locales,
+  negotiateLocale,
+  type Locale,
+} from "@{{projectName}}/i18n";
+import { loadLocale, plural } from "@{{projectName}}/i18n/runtime";
+
+function initialLocale(): Locale {
+  if (typeof window === "undefined") return negotiateLocale();
+  // @wc-ignore
+  const stored = window.localStorage.getItem(LOCALE_COOKIE) ?? undefined;
+  return negotiateLocale({ stored, system: window.navigator.language });
+}
+
+function I18nDemo() {
+  const [locale, setLocale] = useState<Locale>(initialLocale);
+
+  useEffect(() => {
+    // @wc-ignore
+    window.localStorage.setItem(LOCALE_COOKIE, locale);
+    void loadLocale(locale);
+  }, [locale]);
+
+  const { currency, date, displayName } = createFormatters(locale);
+  const itemCount = 3;
+
+  return (
+    <section className="mx-auto flex max-w-2xl flex-col gap-3 p-6">
+      <h1 className="text-2xl font-semibold">Welcome</h1>
+      <p>Hello {displayName(locale) ?? locale}!</p>
+      <p>{plural(itemCount, ["# item", "# items"])}</p>
+      <p>{currency(1299.5, "EUR")}</p>
+      <p>{date(new Date("2026-10-14T12:00:00Z"))}</p>
+      <div className="flex gap-2">
+        {locales.map((next) => (
+          <button key={next} type="button" onClick={() => setLocale(next)}>
+            {next}
+          </button>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+export const Route = createFileRoute("/i18n-demo")({
+  component: I18nDemo,
+});
+`],
+  ["i18n/surface/wuchale/wxt-react/src/i18n-demo.tsx.hbs", `/**
+ * WXT + React popup demo: translated heading, interpolation, plural, currency,
+ * date and a locale switcher.
+ */
+
+import { useEffect, useState } from "react";
+
+import {
+  createFormatters,
+  LOCALE_COOKIE,
+  locales,
+  negotiateLocale,
+  type Locale,
+} from "@{{projectName}}/i18n";
+import { loadLocale, plural } from "@{{projectName}}/i18n/runtime";
+
+function initialLocale(): Locale {
+  // @wc-ignore
+  const stored = localStorage.getItem(LOCALE_COOKIE) ?? undefined;
+  return negotiateLocale({ stored, system: navigator.language });
+}
+
+export function I18nPopup() {
+  const [locale, setLocale] = useState<Locale>(initialLocale);
+
+  useEffect(() => {
+    // @wc-ignore
+    localStorage.setItem(LOCALE_COOKIE, locale);
+    void loadLocale(locale);
+  }, [locale]);
+
+  const { currency, date, displayName } = createFormatters(locale);
+  const itemCount = 3;
+
+  return (
+    <section className="flex flex-col gap-3 p-4">
+      <h1 className="text-xl font-semibold">Welcome</h1>
+      <p>Hello {displayName(locale) ?? locale}!</p>
+      <p>{plural(itemCount, ["# item", "# items"])}</p>
+      <p>{currency(1299.5, "EUR")}</p>
+      <p>{date(new Date("2026-10-14T12:00:00Z"))}</p>
+      <div className="flex gap-2">
+        {locales.map((next) => (
+          <button key={next} type="button" onClick={() => setLocale(next)}>
+            {next}
+          </button>
+        ))}
+      </div>
+    </section>
+  );
+}
+`],
+  ["i18n/surface/wuchale/wxt-react/src/locales/_gitignore", `*
+`],
+  ["i18n/surface/wuchale/wxt-solid/src/i18n-demo.tsx.hbs", `/**
+ * WXT + Solid popup demo: translated heading, interpolation, plural, currency,
+ * date and a locale switcher.
+ */
+
+import { createEffect, createSignal, For } from "solid-js";
+
+import {
+  createFormatters,
+  LOCALE_COOKIE,
+  locales,
+  negotiateLocale,
+  type Locale,
+} from "@{{projectName}}/i18n";
+import { loadLocale, plural } from "@{{projectName}}/i18n/runtime";
+
+function initialLocale(): Locale {
+  // @wc-ignore
+  const stored = localStorage.getItem(LOCALE_COOKIE) ?? undefined;
+  return negotiateLocale({ stored, system: navigator.language });
+}
+
+export function I18nPopup() {
+  const [locale, setLocale] = createSignal<Locale>(initialLocale());
+
+  createEffect(
+    () => locale(),
+    (current) => {
+      // @wc-ignore
+      localStorage.setItem(LOCALE_COOKIE, current);
+      void loadLocale(current);
+    },
+  );
+
+  const formatters = () => createFormatters(locale());
+  const itemCount = 3;
+
+  return (
+    <section class="flex flex-col gap-3 p-4">
+      <h1 class="text-xl font-semibold">Welcome</h1>
+      <p>Hello {formatters().displayName(locale()) ?? locale()}!</p>
+      <p>{plural(itemCount, ["# item", "# items"])}</p>
+      <p>{formatters().currency(1299.5, "EUR")}</p>
+      <p>{formatters().date(new Date("2026-10-14T12:00:00Z"))}</p>
+      <div class="flex gap-2">
+        <For each={locales}>
+          {(next) => (
+            <button type="button" onClick={() => setLocale(next)}>
+              {next}
+            </button>
+          )}
+        </For>
+      </div>
+    </section>
+  );
+}
+`],
+  ["i18n/surface/wuchale/wxt-solid/src/locales/_gitignore", `*
+`],
+  ["i18n/surface/wuchale/wxt-svelte/src/i18n-demo.svelte.hbs", `<script lang="ts">
+  import {
+    createFormatters,
+    LOCALE_COOKIE,
+    locales,
+    negotiateLocale,
+    type Locale,
+  } from "@{{projectName}}/i18n";
+  import { loadLocale, plural } from "@{{projectName}}/i18n/runtime";
+
+  function initialLocale(): Locale {
+    // @wc-ignore
+    const stored = localStorage.getItem(LOCALE_COOKIE) ?? undefined;
+    return negotiateLocale({ stored, system: navigator.language });
+  }
+
+  let locale: Locale = $state(initialLocale());
+  const formatters = $derived(createFormatters(locale));
+  const itemCount = 3;
+
+  $effect(() => {
+    // @wc-ignore
+    localStorage.setItem(LOCALE_COOKIE, locale);
+    void loadLocale(locale);
+  });
+</script>
+
+<section class="flex flex-col gap-3 p-4">
+  <h1 class="text-xl font-semibold">Welcome</h1>
+  <p>Hello {formatters.displayName(locale) ?? locale}!</p>
+  <p>{plural(itemCount, ["# item", "# items"])}</p>
+  <p>{formatters.currency(1299.5, "EUR")}</p>
+  <p>{formatters.date(new Date("2026-10-14T12:00:00Z"))}</p>
+  <div class="flex gap-2">
+    {#each locales as next}
+      <button type="button" onclick={() => (locale = next)}>{next}</button>
+    {/each}
+  </div>
+</section>
+`],
+  ["i18n/surface/wuchale/wxt-svelte/src/locales/_gitignore", `*
+`],
+  ["i18n/surface/wuchale/wxt-vanilla/src/i18n-demo.ts.hbs", `/**
+ * WXT (vanilla) glue: locale-aware strings for extension UI and the
+ * \`@wxt-dev/i18n\` manifest integration. Locale selection is shared with the
+ * popup; \`storage.local\` persistence is wired by the \`wxt-i18n\` integration.
+ */
+
+import { createFormatters, LOCALE_COOKIE, negotiateLocale, type Locale } from "@{{projectName}}/i18n";
+import { loadLocale, plural } from "@{{projectName}}/i18n/runtime";
+
+export function initialExtensionLocale(): Locale {
+  // @wc-ignore
+  const stored = localStorage.getItem(LOCALE_COOKIE) ?? undefined;
+  return negotiateLocale({ stored, system: navigator.language });
+}
+
+export async function setExtensionLocale(locale: Locale): Promise<void> {
+  // @wc-ignore
+  localStorage.setItem(LOCALE_COOKIE, locale);
+  await loadLocale(locale);
+}
+
+export function createExtensionDemoLines(locale: Locale = initialExtensionLocale()): string[] {
+  const formatters = createFormatters(locale);
+  const itemCount = 3;
+  return [
+    "Welcome",
+    \`Hello \${formatters.displayName(locale) ?? locale}!\`,
+    plural(itemCount, ["# item", "# items"]),
+    formatters.currency(1299.5, "EUR"),
+    formatters.date(new Date("2026-10-14T12:00:00Z")),
+  ];
+}
+`],
+  ["i18n/surface/wuchale/wxt-vanilla/src/locales/_gitignore", `*
 `],
   ["packages/config/package.json.hbs", `{
   "name": "@{{projectName}}/config",
@@ -35992,4 +48581,4 @@ export default function Success() {
 `]
 ]);
 
-export const TEMPLATE_COUNT = 545;
+export const TEMPLATE_COUNT = 766;

@@ -1,0 +1,101 @@
+---
+name: i18n-translate
+description: Translate the pending i18n messages of this project through the generated `i18n:*` script contract. Use when asked to translate the app or fill missing locales, and when `i18n:check` fails with missing translations.
+---
+
+# i18n-translate
+
+Translate **only** through the generated scripts. Never edit catalog files by hand: `i18n:extract` owns extraction, `i18n:apply` validates every translation against the source, and `i18n:compile` produces what the app runtimes import. A batch that drops or renames a placeholder is rejected item by item and stays pending, so the catalogs can never be corrupted by a bad translation.
+
+## Loop
+
+1. **Extract** — refresh the source catalogs from the code:
+   `{{packageManager}} run i18n:extract`
+2. **Pending** — ask for at most 50 items per batch:
+   - every target locale: `{{packageManager}} run i18n:pending --all --limit 50`
+   - one locale: `{{packageManager}} run i18n:pending --locale <locale> --limit 50`
+
+   The output is the uniform contract:
+
+   ```json
+   {
+     "library": "{{i18n}}",
+     "sourceLocale": "en",
+     "items": [
+       {
+         "id": "…",
+         "locale": "fr",
+         "source": "…",
+         "context": null,
+         "comments": [],
+         "references": [],
+         "placeholders": [],
+         "status": "missing"
+       }
+     ]
+   }
+   ```
+
+3. **Translate** the batch. Read `packages/i18n/GLOSSARY.md` before the first batch, and use each item's `source`, `context`, `comments` and `references` — never translate an item you cannot see in context; leave it pending and report it instead.
+4. **Apply** — write the batch to a temporary JSON file and run `i18n:apply`:
+
+   ```json
+   {
+     "items": [
+       { "id": "<item id>", "locale": "<item locale>", "translation": "…" }
+     ]
+   }
+   ```
+
+   `{{packageManager}} run i18n:apply <file>`
+
+   An item whose placeholders or ICU arguments differ from the source is rejected with a reason; its catalog entry stays pending. Fix that item and apply again. The file must target target locales only — the source locale is edited in the source catalog, not through `i18n:apply`.
+5. **Compile and check** — `{{packageManager}} run i18n:compile`, then `{{packageManager}} run i18n:check`. During development `I18N_CHECK_ALLOW_MISSING=1` allows missing entries, but placeholder or ICU mismatches always fail.
+6. **Report** — list the locales touched, the number of applied translations, the rejected items with their exact reasons, and the items left untouched with the reason (ambiguous, needs a product decision, and so on).
+
+{{#if (eq packageManager "bun")}}
+Bun passes script flags through directly. With npm or pnpm, add `--` before the flags, e.g. `npm run i18n:pending -- --all --limit 50`.
+{{else}}
+With npm and pnpm, add `--` before the script flags, e.g. `{{packageManager}} run i18n:pending -- --all --limit 50`.
+{{/if}}
+
+## Translation rules
+
+- **Preserve every placeholder exactly.** A translation with a different argument set is rejected.
+  {{#if (eq i18n "i18next")}}
+  i18next placeholders are double-braced: `\{{name}}`, `\{{count}}`. Plural families use `_one` / `_other` id suffixes; translate each pending item as its own key.
+  {{else if (eq i18n "wuchale")}}
+  wuchale placeholders are positional: `{0}`, `{1}`. A plural item lists its forms in the pending `source`, separated by ` || `; provide one `translations` entry per form, in the order the item lists them (CLDR category order for the locale).
+  {{else}}
+  Placeholders are ICU arguments: `{name}`, `{count, plural, one {# …} other {# …}}`, `{gender, select, …}`. Keep `#`, the plural/select categories and the nesting exactly as in the source.
+  {{/if}}
+- **Keep markup.** HTML/JSX tags, `<Trans>` contents and template expressions around a message stay where they are; translate only the text.
+- Never translate message ids, keys, code identifiers, URLs, environment variable names or brand names.
+- Keep numbers, dates and currency as placeholders — formatting goes through `createFormatters` in `@<project>/i18n`, never through the library.
+- Prefer the glossary term when one exists. Keep the tone and length close to the source unless the locale demands otherwise.
+- Do not delete, merge or recreate catalog entries; `i18n:extract` prunes obsolete ones.
+
+## Library notes
+
+{{#if (eq i18n "lingui")}}
+- Lingui: catalogs are `packages/i18n/locales/<locale>/messages.po`. Message ids are hashes generated from the source text and the context — apply by the `id` from `i18n:pending`, never touch the `msgid`. `msgctxt` carries the context.
+{{else if (eq i18n "paraglide")}}
+- Paraglide: catalogs are `packages/i18n/messages/<locale>.json`; ids are authored snake_case names (`i18n_demo_heading`). Messages use the ICU subset (arguments, `plural`, `selectordinal` with `#`, `select`).
+{{else if (eq i18n "i18next")}}
+- i18next: catalogs are `packages/i18n/locales/<locale>/<namespace>.json`; ids are the natural-language source strings, with `_one` / `_other` suffixes for plurals. The source text is the key, so do not reword it while translating.
+{{else if (eq i18n "wuchale")}}
+- Wuchale: catalogs are per-adapter `.po` files in `packages/i18n/locales` (`<adapter>.<locale>.po`). Ids are the source text; placeholders are positional (`{0}`). Wuchale's built-in AI translation is disabled — translate here, through `i18n:apply`.
+{{/if}}
+
+## Command reference
+
+| Command | Purpose |
+| --- | --- |
+| `i18n:extract` | Extract messages into the source catalogs |
+| `i18n:pending --locale <l> \| --all [--limit N]` | Print pending items as JSON |
+| `i18n:apply <file>` | Validate and write a translation batch |
+| `i18n:compile` | Compile catalogs for the app runtimes |
+| `i18n:check` | Fail on missing or invalid entries (`I18N_CHECK_ALLOW_MISSING=1` allows missing) |
+| `i18n:export` | Write the normalized catalog (`dist/catalog.json`) for JS tooling |
+
+The JSON shapes above are defined in `packages/i18n/scripts/contract.ts` — read it if a shape is unclear.

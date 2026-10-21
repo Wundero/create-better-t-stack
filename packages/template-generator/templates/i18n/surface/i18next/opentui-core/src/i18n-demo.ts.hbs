@@ -1,0 +1,18 @@
+import { createFormatters, negotiateLocale } from "@{{projectName}}/i18n";
+import { createI18next } from "@{{projectName}}/i18n/runtime";
+import type { Locale } from "@{{projectName}}/i18n";
+
+/** Demo payload for the TUI host: the shared messages and formatters. */
+export function renderI18nDemo(locale: Locale = negotiateLocale({ system: process.env.LANG })) {
+  const t = createI18next(locale).getFixedT(locale);
+  const format = createFormatters(locale);
+  return {
+    locale,
+    heading: t("i18n demo"),
+    greeting: t("Hello, \{{name}}!", { name: "Ada" }),
+    plural: t("You have \{{count}} new message", { count: 2 }),
+    language: format.displayName(locale) ?? locale,
+    date: format.date(new Date("2026-10-14T12:00:00Z")),
+    currency: format.currency(42.5, "EUR"),
+  };
+}

@@ -1,0 +1,21 @@
+import { defineMiddleware } from "nitro";
+
+import { LOCALE_HEADER } from "@{{projectName}}/i18n/config";
+import { negotiateRequestLocale } from "@{{projectName}}/i18n/routing";
+import { runWithLocale } from "@{{projectName}}/i18n/server";
+
+/**
+ * Negotiates the request locale (D5) and runs the route handlers inside
+ * `runWithLocale` through h3 v2's middleware `next()`, so handlers read it
+ * back with `getRequestLocale()`. Auto-registered from `server/middleware/`.
+ */
+export default defineMiddleware((event, next) => {
+  const locale = negotiateRequestLocale({
+    url: event.req.url,
+    header: event.req.headers.get(LOCALE_HEADER),
+    cookieHeader: event.req.headers.get("cookie"),
+    acceptLanguage: event.req.headers.get("accept-language"),
+  });
+
+  return runWithLocale(locale, () => next());
+});

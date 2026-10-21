@@ -1,0 +1,39 @@
+import { LOCALE_COOKIE, LOCALE_HEADER, negotiateLocale } from "@{{projectName}}/i18n/config";
+import {
+  activateLocale,
+  i18n as sharedI18n,
+  setupI18n,
+} from "@{{projectName}}/i18n/runtime";
+
+/**
+ * Nuxt plugin: negotiates the locale through the shared contract and exposes an
+ * instance to the app. Server rendering gets a request-scoped instance so
+ * concurrent requests cannot clobber each other; the client activates the
+ * shared instance.
+ */
+export default defineNuxtPlugin(async (nuxtApp) => {
+  const event = nuxtApp.ssrContext?.event;
+  const headers = event?.node.req.headers;
+  const cookieHeader = headers?.cookie ?? "";
+  const cookie = cookieHeader
+    .split(";")
+    .map((entry) => entry.trim().split("="))
+    .find(([name]) => name === LOCALE_COOKIE)?.[1];
+
+  const locale = negotiateLocale({
+    header: typeof headers?.[LOCALE_HEADER] === "string" ? headers[LOCALE_HEADER] : undefined,
+    cookie: cookie === undefined ? undefined : decodeURIComponent(cookie),
+    acceptLanguage: typeof headers?.["accept-language"] === "string" ? headers["accept-language"] : undefined,
+    stored:
+      typeof window === "undefined" ? undefined : (window.localStorage.getItem(LOCALE_COOKIE) ?? undefined),
+    system: typeof navigator === "undefined" ? undefined : navigator.language,
+  });
+
+  if (event) {
+    nuxtApp.provide("i18n", await setupI18n(locale));
+    return;
+  }
+
+  await activateLocale(locale);
+  nuxtApp.provide("i18n", sharedI18n);
+});
