@@ -76,6 +76,7 @@ export const dependencyVersionMap = {
   lefthook: "^2.2.1",
   "lint-staged": "^17.6.0",
 
+  portless: "^0.15.6",
   tsx: "^4.23.13",
   "@types/node": "^26.4.1",
 

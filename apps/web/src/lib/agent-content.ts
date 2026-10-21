@@ -115,6 +115,7 @@ const stackCategoryLabels = {
   orm: "ORM",
   packageManager: "Package manager",
   payments: "Payments",
+  portless: "Portless mode",
   runtime: "Runtime",
   serverDeploy: "Server deployment",
   webDeploy: "Web deployment",
