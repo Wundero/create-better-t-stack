@@ -52,6 +52,7 @@ generated commands.
 | **Database Setup**       | • Turso (SQLite)<br>• Cloudflare D1 (SQLite)<br>• Neon (PostgreSQL)<br>• Supabase (PostgreSQL)<br>• Prisma Postgres<br>• MongoDB Atlas<br>• None (manual setup)                                                                                                                                                                                                                                                                           |
 | **Authentication**       | • Better Auth<br>• Clerk                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | **Styling**              | Tailwind CSS with a shared shadcn/ui package for React web apps                                                                                                                                                                                                                                                                                                                                                                           |
+| **Email**                | • React Email rendering (`react-email`) with a `packages/email` workspace<br>• Cloudflare Email Sending or AWS SES sending via Alchemy<br>• None                                                                                                                                                                                                                                                                                          |
 | **Addons**               | • PWA support<br>• Tauri (desktop applications)<br>• Electrobun (lightweight desktop shell)<br>• Starlight and Fumadocs (documentation sites)<br>• Biome, Oxlint, Ultracite, or Vite+ (linting and formatting)<br>• Lefthook, Husky (Git hooks)<br>• evlog (request logging for server/fullstack backends)<br>• MCP, Skills (agent tooling)<br>• OpenTUI, WXT (platform extensions)<br>• Turborepo, Nx, or Vite+ (monorepo orchestration) |
 | **Examples**             | • Todo app<br>• AI Chat interface (using Vercel AI SDK)                                                                                                                                                                                                                                                                                                                                                                                   |
 | **Developer Experience** | • Automatic Git initialization<br>• Package manager choice (npm, pnpm, bun)<br>• Automatic dependency installation                                                                                                                                                                                                                                                                                                                        |
@@ -82,6 +83,8 @@ Options:
   --db-setup <setup>              Database setup (turso, d1, neon, supabase, prisma-postgres, planetscale, mongodb-atlas, docker, none)
   --web-deploy <setup>            Web deployment (cloudflare, docker, vercel, none)
   --server-deploy <setup>         Server deployment (cloudflare, docker, vercel, none)
+  --email-renderer <renderer>     Email renderer (react-email, none)
+  --email-deploy <target>         Email deploy (cloudflare, ses, none)
   --backend <framework>           Backend framework (hono, express, fastify, elysia, convex, self, none)
   --runtime <runtime>             Runtime (bun, node, workers, none)
   --api <type>                    API type (trpc, orpc, none)
@@ -270,6 +273,7 @@ npx create-better-t-stack --frontend none --backend hono --api trpc --database n
 - **Tauri desktop app** requires TanStack Router, React Router, TanStack Start, Next.js, Nuxt, SvelteKit, or Astro
 - **Electrobun desktop app** requires TanStack Router, React Router, TanStack Start, Next.js, Nuxt, SvelteKit, or Astro. Desktop packaging uses static web assets, so SSR-first frontends need a static/export build before desktop builds will work.
 - **AI example** is not compatible with Solid or Astro. With Convex backend, it also excludes Nuxt and Svelte.
+- **Cloudflare email deploy**: `--email-deploy cloudflare` requires a Cloudflare Workers deployment (`--server-deploy cloudflare`, or `--backend self` with `--web-deploy cloudflare`). `--email-deploy ses` uses the AWS SDK at runtime; email rendering and sending are independent, so either option works without the other.
 
 ## Project Structure
 

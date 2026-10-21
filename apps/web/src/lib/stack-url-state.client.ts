@@ -35,6 +35,12 @@ export const stackParsers = {
   payments: parseAsStringEnum<StackState["payments"]>(getStackOptionIds("payments")).withDefault(
     DEFAULT_STACK.payments,
   ),
+  emailRenderer: parseAsStringEnum<StackState["emailRenderer"]>(
+    getStackOptionIds("emailRenderer"),
+  ).withDefault(DEFAULT_STACK.emailRenderer),
+  emailDeploy: parseAsStringEnum<StackState["emailDeploy"]>(
+    getStackOptionIds("emailDeploy"),
+  ).withDefault(DEFAULT_STACK.emailDeploy),
   packageManager: parseAsStringEnum<StackState["packageManager"]>(
     getStackOptionIds("packageManager"),
   ).withDefault(DEFAULT_STACK.packageManager),
@@ -77,6 +83,8 @@ function getStackFromQueryState(queryState: RawStackLists): StackState {
     dbSetup: queryState.dbSetup,
     auth: queryState.auth,
     payments: queryState.payments,
+    emailRenderer: queryState.emailRenderer,
+    emailDeploy: queryState.emailDeploy,
     packageManager: queryState.packageManager,
     addons: queryState.addons,
     examples: queryState.examples,

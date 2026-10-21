@@ -19,6 +19,8 @@ const coreStackFlags = new Set([
   "auth",
   "dbSetup",
   "payments",
+  "emailRenderer",
+  "emailDeploy",
   "api",
   "webDeploy",
   "serverDeploy",
