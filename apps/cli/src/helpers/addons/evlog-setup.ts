@@ -418,13 +418,32 @@ function addNuxtEvlogSetup(content: string, serviceName: string) {
 }
 
 function addSvelteViteEvlogSetup(content: string, serviceName: string) {
-  let nextContent = prependMissingImports(content, ['import evlog from "evlog/vite";']);
+  const nextContent = prependMissingImports(content, ['import evlog from "evlog/vite";']);
   if (nextContent.includes("evlog({")) return nextContent;
 
-  return nextContent.replace(
-    "sveltekit(),",
-    `sveltekit(),\n    evlog({ service: "${serviceName}" }),`,
-  );
+  const source = ts.createSourceFile("vite.config.ts", nextContent, ts.ScriptTarget.Latest);
+  let insertion: number | undefined;
+  function visit(node: ts.Node) {
+    if (insertion !== undefined) return;
+    if (
+      ts.isPropertyAssignment(node) &&
+      node.name.getText(source) === "plugins" &&
+      ts.isArrayLiteralExpression(node.initializer)
+    ) {
+      const kitPlugin = node.initializer.elements.find(
+        (element) =>
+          ts.isCallExpression(element) && element.expression.getText(source) === "sveltekit",
+      );
+      if (kitPlugin) {
+        insertion = kitPlugin.getEnd();
+        return;
+      }
+    }
+    ts.forEachChild(node, visit);
+  }
+  visit(source);
+  if (insertion === undefined) return nextContent;
+  return `${nextContent.slice(0, insertion)},\n    evlog({ service: ${JSON.stringify(serviceName)} })${nextContent.slice(insertion)}`;
 }
 
 function getSvelteEvlogHooksCall(fsDrain: boolean, axiom = false) {
@@ -434,14 +453,36 @@ function getSvelteEvlogHooksCall(fsDrain: boolean, axiom = false) {
     : "createEvlogHooks()";
 }
 
+const SVELTE_KIT_HANDLE_SERVER_ERROR_IMPORT =
+  'import type { HandleServerError } from "@sveltejs/kit/hooks";';
+
+// evlog's SvelteKit integration still declares the SvelteKit 2 handleError
+// signature (top-level `status`/`message`). SvelteKit 3 passes a discriminated
+// CaughtError instead, so translate it before delegating to evlog. This keeps
+// evlog's structured EvlogError responses and error logging intact without
+// casting the mismatch away.
+const SVELTE_KIT3_HANDLE_ERROR_ADAPTER = `export const handleError: HandleServerError = async (input) => {
+  const details =
+    input.kind === "unknown" ? { status: 500, message: "Internal Error" } : input.error;
+  return (
+    (await evlogHandleError({
+      error: input.error,
+      event: input.event,
+      status: details.status,
+      message: details.message,
+    })) ?? {}
+  );
+};`;
+
 function addSvelteHooksEvlogSetup(content: string, fsDrain: boolean, axiom: boolean) {
   let nextContent = prependMissingImports(content, [
     'import { createEvlogHooks } from "evlog/sveltekit";',
     ...(fsDrain ? ['import { createFsDrain } from "evlog/fs";'] : []),
     ...(axiom ? ['import { createAxiomDrain } from "evlog/axiom";'] : []),
+    SVELTE_KIT_HANDLE_SERVER_ERROR_IMPORT,
   ]);
   if (fsDrain) {
-    nextContent = addNamedImport(nextContent, "$app/environment", ["dev"]);
+    nextContent = addNamedImport(nextContent, "$app/env", ["dev"]);
   }
   const hooksCall = getSvelteEvlogHooksCall(fsDrain, axiom);
   if (fsDrain || axiom) {
@@ -450,7 +491,7 @@ function addSvelteHooksEvlogSetup(content: string, fsDrain: boolean, axiom: bool
 
   if (!nextContent.includes("export const handle") && !nextContent.includes("const authHandle")) {
     if (!nextContent.includes("createEvlogHooks(")) {
-      nextContent = `${nextContent.trimEnd()}\n\nexport const { handle, handleError } = ${hooksCall};\n`;
+      nextContent = `${nextContent.trimEnd()}\n\nconst { handle, handleError: evlogHandleError } = ${hooksCall};\n\nexport { handle };\n\n${SVELTE_KIT3_HANDLE_ERROR_ADAPTER}\n`;
     }
     return nextContent;
   }
@@ -458,10 +499,10 @@ function addSvelteHooksEvlogSetup(content: string, fsDrain: boolean, axiom: bool
   nextContent = prependMissingImports(nextContent, [
     'import { sequence } from "@sveltejs/kit/hooks";',
   ]);
-  if (!nextContent.includes("const { handle: evlogHandle, handleError }")) {
+  if (!nextContent.includes("const { handle: evlogHandle, handleError: evlogHandleError }")) {
     nextContent = nextContent.replace(
       /((?:import .+\n)+)/,
-      `$1\nconst { handle: evlogHandle, handleError } = ${hooksCall};\n\n`,
+      `$1\nconst { handle: evlogHandle, handleError: evlogHandleError } = ${hooksCall};\n\n`,
     );
   }
   nextContent = nextContent.replace(
@@ -471,7 +512,7 @@ function addSvelteHooksEvlogSetup(content: string, fsDrain: boolean, axiom: bool
   );
 
   if (!nextContent.includes("sequence(evlogHandle, authHandle)")) {
-    nextContent = `${nextContent.trimEnd()}\n\nexport const handle = sequence(evlogHandle as Handle, authHandle);\nexport { handleError };\n`;
+    nextContent = `${nextContent.trimEnd()}\n\nexport const handle = sequence(evlogHandle, authHandle);\n\n${SVELTE_KIT3_HANDLE_ERROR_ADAPTER}\n`;
   }
 
   return nextContent;
@@ -722,10 +763,7 @@ function addSvelteBetterAuthEvlogSetup(content: string, config: ProjectConfig) {
     return content;
   }
 
-  let nextContent = addNamedImport(content, "evlog/better-auth", [
-    "createAuthMiddleware",
-    "type BetterAuthInstance",
-  ]);
+  let nextContent = addNamedImport(content, "evlog/better-auth", ["createAuthMiddleware"]);
   if (!nextContent.includes('from "./services"')) {
     nextContent = prependMissingImports(nextContent, [getAuthImportLine(config, "./services")]);
   }
@@ -759,11 +797,11 @@ function addSvelteBetterAuthEvlogSetup(content: string, config: ProjectConfig) {
   const authOptions = '{ exclude: ["/api/auth/**"], maskEmail: true }';
   const authHandleSnippet =
     usesCreateAuthFactory(config) && config.webDeploy === "cloudflare"
-      ? `const evlogAuthHandle: Handle = async ({ event, resolve }) => {\n\tif (building) {\n\t\treturn resolve(event);\n\t}\n\n\tconst authEnv = event.platform?.env ?? ${environmentBinding};\n\tconst identifyUser = createAuthMiddleware((await createAuth(authEnv)) as BetterAuthInstance, ${authOptions});\n\tawait identifyUser(event.locals.log, event.request.headers, event.url.pathname);\n\treturn resolve(event);\n};\n\n`
-      : `const identifyUser = createAuthMiddleware(${authExpression} as BetterAuthInstance, ${authOptions});\n\nconst evlogAuthHandle: Handle = async ({ event, resolve }) => {\n\tawait identifyUser(event.locals.log, event.request.headers, event.url.pathname);\n\treturn resolve(event);\n};\n\n`;
+      ? `const evlogAuthHandle: Handle = async ({ event, resolve }) => {\n\tif (building) {\n\t\treturn resolve(event);\n\t}\n\n\tconst authEnv = ${environmentBinding};\n\tconst identifyUser = createAuthMiddleware(await createAuth(authEnv), ${authOptions});\n\tawait identifyUser(event.locals.log, event.request.headers, event.url.pathname);\n\treturn resolve(event);\n};\n\n`
+      : `const identifyUser = createAuthMiddleware(${authExpression}, ${authOptions});\n\nconst evlogAuthHandle: Handle = async ({ event, resolve }) => {\n\tawait identifyUser(event.locals.log, event.request.headers, event.url.pathname);\n\treturn resolve(event);\n};\n\n`;
 
   const evlogHandleDeclaration = nextContent.match(
-    /const \{ handle: evlogHandle, handleError \} = createEvlogHooks\([\s\S]*?\);\n\n/,
+    /const \{ handle: evlogHandle, handleError: evlogHandleError \} = createEvlogHooks\([\s\S]*?\);\n\n/,
   )?.[0];
   if (evlogHandleDeclaration) {
     nextContent = insertAfterOnce(
@@ -777,11 +815,11 @@ function addSvelteBetterAuthEvlogSetup(content: string, config: ProjectConfig) {
   return nextContent
     .replace(
       "sequence(evlogHandle as Handle, authHandle)",
-      "sequence(evlogHandle as Handle, evlogAuthHandle, authHandle)",
+      "sequence(evlogHandle, evlogAuthHandle, authHandle)",
     )
     .replace(
       "sequence(evlogHandle, authHandle)",
-      "sequence(evlogHandle as Handle, evlogAuthHandle, authHandle)",
+      "sequence(evlogHandle, evlogAuthHandle, authHandle)",
     );
 }
 
@@ -1155,9 +1193,14 @@ async function setupSvelteEvlog(config: ProjectConfig, serviceName: string) {
       `import { createEvlogHooks } from "evlog/sveltekit";
 ${fsDrain ? 'import { createFsDrain } from "evlog/fs";\n' : ""}
 ${axiom ? 'import { createAxiomDrain } from "evlog/axiom";\n' : ""}
-${fsDrain ? 'import { dev } from "$app/environment";\n' : ""}
+${fsDrain ? 'import { dev } from "$app/env";\n' : ""}
+${SVELTE_KIT_HANDLE_SERVER_ERROR_IMPORT}
 
-export const { handle, handleError } = ${getSvelteEvlogHooksCall(fsDrain, axiom)};
+const { handle, handleError: evlogHandleError } = ${getSvelteEvlogHooksCall(fsDrain, axiom)};
+
+export { handle };
+
+${SVELTE_KIT3_HANDLE_ERROR_ADAPTER}
 `,
     );
   }

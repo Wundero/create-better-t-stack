@@ -40,18 +40,18 @@ export function processInfraDeps(vfs: VirtualFileSystem, config: ProjectConfig):
   if (!vfs.exists(infraPath)) return;
 
   const { serverDeploy, webDeploy } = config;
-  if (webDeploy === "prisma" || webDeploy === "aws") {
-    addPackageDependency({
-      vfs,
-      packagePath: infraPath,
-      devDependencies: ["@alchemy.run/frontend-frameworks"],
-    });
-  }
   if (getPrismaWebsiteFramework(config)) {
     addPackageDependency({
       vfs,
       packagePath: infraPath,
-      devDependencies: ["@vercel/nft"],
+      devDependencies: ["@alchemy.run/frontend-frameworks", "@vercel/nft"],
+    });
+  }
+  if (webDeploy === "aws") {
+    addPackageDependency({
+      vfs,
+      packagePath: infraPath,
+      devDependencies: ["@alchemy.run/frontend-frameworks"],
     });
   }
   if (

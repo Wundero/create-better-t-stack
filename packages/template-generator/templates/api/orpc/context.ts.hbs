@@ -11,7 +11,7 @@ function toClerkContextAuth(auth: ClerkContextAuth): ClerkContextAuth {
 }
 {{/if}}
 
-{{#if (and (eq auth "clerk") (or (eq backend 'self') (eq backend 'hono') (eq backend 'elysia')))}}
+{{#if (and (eq auth "clerk") (or (eq backend 'self') (eq backend 'hono') (eq backend 'elysia') (eq backend 'nitro')))}}
 {{#if (usesRequestScopedCloudflareEnv backend webDeploy frontend)}}
 {{else}}
 import { createClerkClient } from "@clerk/backend";
@@ -425,6 +425,48 @@ export async function createContext(req: {{#if (eq auth "clerk")}}Parameters<typ
 	};
 {{else}}
 	void req;
+	return {
+{{#if (ne database "none")}}
+    db,
+{{/if}}
+	};
+{{/if}}
+}
+
+{{else if (eq backend 'nitro')}}
+{{#if (eq auth "better-auth")}}
+{{#if (or (eq runtime "workers") (eq serverDeploy "cloudflare"))}}
+import { createAuth } from "@{{projectName}}/auth";
+{{else}}
+import { auth } from "@{{projectName}}/auth";
+{{/if}}
+{{/if}}
+
+export type CreateContextOptions = {
+	request: Request;
+};
+
+export async function createContext({{#if (eq auth "none")}}_options{{else}}{ request }{{/if}}: CreateContextOptions): Promise<ApiContext> {
+{{#if (and (ne database "none") (or (eq runtime "workers") (eq serverDeploy "cloudflare")))}}
+  const db = await getDb({{#if (usesRequestScopedCloudflareEnv backend webDeploy frontend)}}env{{/if}});
+{{/if}}
+{{#if (eq auth "better-auth")}}
+	const session = await {{#if (or (eq runtime "workers") (eq serverDeploy "cloudflare"))}}(await createAuth({{#if (ne database "none")}}db{{/if}})){{else}}auth{{/if}}.api.getSession({ headers: request.headers });
+	return {
+{{#if (ne database "none")}}
+    db,
+{{/if}}
+		session,
+	};
+{{else if (eq auth "clerk")}}
+	const clerkAuth = await authenticateClerkRequest(request);
+	return {
+{{#if (ne database "none")}}
+    db,
+{{/if}}
+		auth: clerkAuth,
+	};
+{{else}}
 	return {
 {{#if (ne database "none")}}
     db,
