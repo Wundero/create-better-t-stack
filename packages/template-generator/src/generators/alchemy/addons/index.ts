@@ -6,8 +6,11 @@ export {
   addonBindings,
   addonEnv,
   addonInfraDeps,
+  addonUsesServerHost,
   hasAddonRenderers,
+  writeAddonHostBindings,
   writeAddonImports,
   writeAddonResources,
+  writeAddonServerPrelude,
   writeAddonStackResources,
 } from "./registry";

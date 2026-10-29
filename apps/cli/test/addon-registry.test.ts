@@ -8,9 +8,12 @@ import {
   addonBindings,
   addonEnv,
   addonInfraDeps,
+  addonUsesServerHost,
   hasAddonRenderers,
+  writeAddonHostBindings,
   writeAddonImports,
   writeAddonResources,
+  writeAddonServerPrelude,
 } from "../../../packages/template-generator/src/generators/alchemy/addons";
 import { createAlchemyDeploymentPlan } from "../../../packages/template-generator/src/generators/alchemy/plan";
 import { createAlchemyWriter } from "../../../packages/template-generator/src/generators/alchemy/writer";
@@ -89,6 +92,45 @@ describe("Alchemy addon registry", () => {
     ] as const) {
       expect(ADDON_RENDERERS[addon]).toBeDefined();
     }
+  });
+
+  it("registers a renderer for every AWS provider addon", () => {
+    for (const addon of [
+      "aws-lambda-microvm",
+      "aws-s3",
+      "aws-bedrock",
+      "aws-sns",
+      "aws-sqs",
+      "aws-kinesis",
+      "aws-eventbridge",
+      "aws-scheduler",
+      "aws-cloudfront",
+      "aws-elasticache",
+    ] as const) {
+      expect(ADDON_RENDERERS[addon]).toBeDefined();
+    }
+  });
+
+  it("writes AWS addon resources and host bindings only for AWS servers", () => {
+    const plan = createAlchemyDeploymentPlan({
+      ...baseConfig,
+      webDeploy: "none",
+      serverDeploy: "aws",
+      runtime: "lambda",
+      addons: ["aws-s3", "aws-bedrock"],
+    });
+    const resources = createAlchemyWriter();
+    writeAddonImports(resources, plan);
+    writeAddonResources(resources, plan);
+    const host = createAlchemyWriter();
+    writeAddonServerPrelude(host, plan);
+    writeAddonHostBindings(host, plan);
+
+    expect(resources.toString()).toContain('AWS.S3.Bucket("s3-bucket"');
+    expect(host.toString()).toContain("const { bucket: s3Bucket } = yield* awsS3;");
+    expect(host.toString()).toContain('yield* serverHost.bind("aws-bedrock"');
+    expect(addonUsesServerHost(plan)).toBe(true);
+    expect(addonUsesServerHost(planFor(["cloudflare-r2"]))).toBe(false);
   });
 
   it("activates no renderers when the provider target is unavailable", () => {
