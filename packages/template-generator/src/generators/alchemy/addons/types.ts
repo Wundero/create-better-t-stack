@@ -9,6 +9,8 @@ export type AddonRenderContext = {
 export interface AddonRenderer {
   imports?: (plan: AlchemyDeploymentPlan) => string[];
   resources?: (writer: AlchemyWriter, plan: AlchemyDeploymentPlan) => void;
+  // Runs inside the stack Effect after the server and web resources resolve.
+  stackResources?: (writer: AlchemyWriter, plan: AlchemyDeploymentPlan) => boolean | void;
   bindings?: (plan: AlchemyDeploymentPlan) => string[];
   env?: (plan: AlchemyDeploymentPlan) => string[];
   infraDeps?: (plan: AlchemyDeploymentPlan) => string[];

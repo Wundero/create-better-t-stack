@@ -36,6 +36,7 @@ type AddonCase = {
   addon: AddonId;
   declarations: string[];
   binding: string;
+  env?: string[];
   appDeps?: string[];
 };
 
@@ -69,7 +70,10 @@ const ADDON_CASES: AddonCase[] = [
   },
   {
     addon: "cloudflare-queues",
-    declarations: ['Cloudflare.Queues.Queue("job-queue"'],
+    declarations: [
+      'Cloudflare.Queues.Queue("job-queue"',
+      'Cloudflare.Queues.Consumer("job-queue-consumer"',
+    ],
     binding: "JOB_QUEUE: jobQueue,",
   },
   {
@@ -102,8 +106,9 @@ const ADDON_CASES: AddonCase[] = [
   },
   {
     addon: "cloudflare-stream",
-    declarations: [],
+    declarations: ['Cloudflare.Stream.LiveInput("stream-live-input"'],
     binding: "STREAM: Cloudflare.Stream.Stream(),",
+    env: ["STREAM_LIVE_INPUT_ID: streamLiveInput.liveInputId,"],
   },
   {
     addon: "cloudflare-realtime-kit",
@@ -126,6 +131,20 @@ describe("Cloudflare provider addons", () => {
       }
       expect(infra).toContain(testCase.binding);
       expect(infra.match(/import \* as Cloudflare from "alchemy\/Cloudflare";/g)).toHaveLength(1);
+
+      for (const entry of testCase.env ?? []) {
+        expect(infra).toContain(entry);
+      }
+
+      if (testCase.addon === "cloudflare-queues") {
+        const serverWorkerDeclaration = infra.indexOf("const serverWorker = yield* server;");
+        const consumerDeclaration = infra.indexOf(
+          'Cloudflare.Queues.Consumer("job-queue-consumer"',
+        );
+        expect(serverWorkerDeclaration).toBeGreaterThan(-1);
+        expect(consumerDeclaration).toBeGreaterThan(serverWorkerDeclaration);
+        expect(infra).toContain("scriptName: serverWorker.workerName,");
+      }
 
       if (testCase.appDeps) {
         const serverPackage = JSON.parse(files.get("apps/server/package.json") ?? "{}") as {
@@ -186,8 +205,31 @@ describe("Cloudflare provider addons", () => {
       expect(infra).toContain(binding);
     }
     expect(infra).toContain('Cloudflare.AI.Search("ai-search"');
+    expect(infra).toContain('Cloudflare.Queues.Consumer("job-queue-consumer"');
+    expect(infra).toContain('Cloudflare.Stream.LiveInput("stream-live-input"');
+    expect(infra).toContain("STREAM_LIVE_INPUT_ID: streamLiveInput.liveInputId,");
     expect(infra.match(/import \* as Cloudflare from "alchemy\/Cloudflare";/g)).toHaveLength(1);
     expect(serverPackage.dependencies?.["workers-ai-provider"]).toBeDefined();
+  });
+
+  it("keeps queues producer-only when the Cloudflare worker is the self-hosted web app", async () => {
+    const files = await generate({
+      projectName: "cf-self-queues",
+      frontend: ["next"],
+      backend: "self",
+      runtime: "none",
+      database: "postgres",
+      orm: "prisma",
+      dbSetup: "neon",
+      webDeploy: "cloudflare",
+      serverDeploy: "none",
+      addons: ["cloudflare-queues"],
+    });
+    const infra = files.get("packages/infra/alchemy.run.ts") ?? "";
+
+    expect(infra).toContain('Cloudflare.Queues.Queue("job-queue"');
+    expect(infra).toContain("JOB_QUEUE: jobQueue,");
+    expect(infra).not.toContain("Cloudflare.Queues.Consumer");
   });
 
   it("ignores Cloudflare addons when no Cloudflare target is active", async () => {

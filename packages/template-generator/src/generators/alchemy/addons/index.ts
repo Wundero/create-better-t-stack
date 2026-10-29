@@ -9,4 +9,5 @@ export {
   hasAddonRenderers,
   writeAddonImports,
   writeAddonResources,
+  writeAddonStackResources,
 } from "./registry";
