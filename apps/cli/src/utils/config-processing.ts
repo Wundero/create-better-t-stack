@@ -70,6 +70,14 @@ export function processFlags(options: CLIInput, projectName?: string) {
     config.payments = options.payments as Payments;
   }
 
+  if (options.i18n !== undefined) {
+    config.i18n = options.i18n;
+  }
+
+  if (options.i18nOptions !== undefined) {
+    config.i18nOptions = options.i18nOptions;
+  }
+
   if (options.git !== undefined) {
     config.git = options.git;
   }

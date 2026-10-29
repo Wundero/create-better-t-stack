@@ -114,6 +114,10 @@ function getAddonDisplay(addon: Addons): AddonDisplay {
       label = "Axiom";
       hint = "Managed production observability through evlog and Alchemy";
       break;
+    case "turnstile":
+      label = "Cloudflare Turnstile";
+      hint = "CAPTCHA on Better Auth sign-up and sign-in (Cloudflare + Alchemy)";
+      break;
     default:
       label = addon;
       hint = `Add ${addon}`;
@@ -128,6 +132,7 @@ const ADDON_GROUPS = {
   Documentation: ["starlight", "fumadocs"],
   "Platform Extensions": ["pwa", "tauri", "electrobun", "opentui", "wxt"],
   Observability: ["evlog", "axiom"],
+  Security: ["turnstile"],
   "AI & Agent Tools": ["skills", "mcp"],
 };
 
@@ -231,7 +236,9 @@ export async function getAddonsToAdd(config: AddonProjectConfig) {
   const frontendArray = config.frontend || [];
 
   const compatibleAddons = getCompatibleAddons(
-    AddonsSchema.options.filter((addon) => addon !== "none" && addon !== "axiom"),
+    AddonsSchema.options.filter(
+      (addon) => addon !== "none" && addon !== "axiom" && addon !== "turnstile",
+    ),
     frontendArray,
     config.addons,
     config.auth,

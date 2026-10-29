@@ -1,14 +1,19 @@
 import {
+  I18N_LIBRARY_META,
+  getI18nIntegrations,
   getLocalD1Owner,
   isAlchemyDeployTarget,
   usesAlchemyManagedDatabase,
   usesTursoDevServer,
+  validateI18nCompatibility,
   type ProjectConfig,
 } from "@better-t-stack/types";
 
 import type { VirtualFileSystem } from "../core/virtual-fs";
 import { getDbScriptSupport } from "../utils/db-scripts";
 import { isDatabaseConsumedByDocker } from "../utils/docker-database";
+import { hasI18n } from "../utils/i18n";
+import { sharedRegistrableParent } from "./i18n/routing";
 
 function getDesktopStaticBuildNote(frontend: ProjectConfig["frontend"]): string {
   const staticBuildFrontends = new Map([
@@ -250,7 +255,7 @@ ${packageManagerRunCmd} dev
 \`\`\`
 
 ${generateRunningInstructions(frontend, backend, webPort, hasNative, isConvex)}
-${generateReactUiSection(hasReactWeb, projectName)}
+${generateReactUiSection(hasReactWeb, projectName)}${generateI18nSection(options, packageManagerRunCmd)}
 ## Environment Configuration
 
 Each app owns its environment schema in \`.env.schema\`. Varlock generates \`src/env.ts\` during installation; run \`${packageManagerRunCmd} env:generate\` after changing a schema. Commit schemas, and keep secrets in ignored env files or your deployment platform.
@@ -403,6 +408,83 @@ If you want to add app-specific blocks instead of shared primitives, run the sha
 `;
 }
 
+function describeI18nRouting(config: ProjectConfig): string {
+  const routing = config.i18nOptions?.routing;
+
+  if (routing?.strategy === "prefix") {
+    const prefixDefault = routing.prefixDefaultLocale
+      ? " The source locale is prefixed as well."
+      : "";
+    return `Locale routing: **prefix**. The locale is the first URL segment (\`/fr/...\`), resolved through the shared \`localizeHref\` helper.${prefixDefault}`;
+  }
+
+  if (routing?.strategy === "domain") {
+    const entries = Object.entries(routing.domains ?? {});
+    const domains = entries.map(([locale, host]) => `\`${locale}\` → \`${host}\``).join(", ");
+    const parent = sharedRegistrableParent(entries.map(([, host]) => host));
+    const session = parent
+      ? `Better Auth shares one session across the domains through \`advanced.crossSubDomainCookies\` (\`${parent}\`).`
+      : "Each domain keeps its own Better Auth session; users sign in separately per domain.";
+    return `Locale routing: **domain**. Each locale maps to its own host${domains ? ` (${domains})` : ""}. ${session} Register the OAuth callback URL for every domain (\`https://<host>/api/auth/callback/<provider>\`). For local preview, append \`?locale=fr\` on \`localhost\` (or use \`<locale>.<app>.localhost\` with portless).`;
+  }
+
+  return "Locale routing: **cookie**. The locale is negotiated from the `x-app-locale` header, the `locale` cookie, `Accept-Language`, then the stored or system locale.";
+}
+
+function generateI18nSection(config: ProjectConfig, packageManagerRunCmd: string): string {
+  const library = config.i18n;
+  if (!library || library === "none") return "";
+
+  const meta = I18N_LIBRARY_META[library];
+  const locales = config.i18nOptions?.locales ?? ["en", "es", "fr"];
+  const sourceLocale = config.i18nOptions?.sourceLocale ?? "en";
+  const localeList = locales.map((locale) => `\`${locale}\``).join(", ");
+  const translateSkill = config.i18nOptions?.translateSkill ?? true;
+  const compatibility = validateI18nCompatibility(library, config);
+  const partialNotes = compatibility.isCompatible ? compatibility.warnings : [];
+  const integrations = getI18nIntegrations(config, library);
+
+  const sections = [
+    "## Internationalization",
+    "",
+    `This project uses **${meta.label}** (${meta.keyStyle} keys, ${meta.catalogFormat} catalogs). Configured locales: ${localeList}; the source locale is \`${sourceLocale}\`.`,
+    "",
+    describeI18nRouting(config),
+    "",
+    "All surfaces share one locale package in `packages/i18n`: `config.ts` (locales and negotiation), `format.ts` (`createFormatters(locale)`), and `server.ts` (request-scoped locale). Dates, numbers, currency, relative time and lists always go through `createFormatters`, never through library formatting.",
+    "",
+    "### Translation workflow",
+    "",
+    `- \`${packageManagerRunCmd} i18n:extract\`: extract messages into the source catalogs`,
+    `- \`${packageManagerRunCmd} i18n:pending --locale <locale> | --all [--limit N]\`: list pending messages as JSON`,
+    `- \`${packageManagerRunCmd} i18n:apply <file>\`: validate placeholders and ICU arguments, then write translations`,
+    `- \`${packageManagerRunCmd} i18n:compile\`: compile catalogs for the app runtimes (also runs before \`dev\` and \`build\`)`,
+    `- \`${packageManagerRunCmd} i18n:check\`: fail on missing or invalid entries; \`I18N_CHECK_ALLOW_MISSING=1\` relaxes it during development`,
+    `- \`${packageManagerRunCmd} i18n:export\`: write the normalized catalog (\`dist/catalog.json\`) for JS tooling`,
+    "",
+  ];
+
+  if (translateSkill) {
+    sections.push(
+      "Translations are agent-driven: pass `i18n:pending` output to the `i18n-translate` skill in `.agents/skills/`, which translates in batches through `i18n:apply` and `i18n:check`.",
+      "",
+    );
+  }
+
+  if (integrations.length > 0) {
+    sections.push(
+      `Also sets up: ${integrations.map((integration) => integration.label).join(", ")}.`,
+      "",
+    );
+  }
+
+  if (partialNotes.length > 0) {
+    sections.push("Partial support notes:", ...partialNotes.map((note) => `- ${note}`), "");
+  }
+
+  return `\n${sections.join("\n")}`;
+}
+
 function generateProjectStructure(config: ProjectConfig): string {
   const { projectName, frontend, backend, addons, api, auth, database, orm } = config;
   const isConvex = backend === "convex";
@@ -454,8 +536,12 @@ function generateProjectStructure(config: ProjectConfig): string {
     structure.push(`│   └── server/      # Backend API (${desc})`);
   }
 
-  if (isConvex || backend !== "none" || hasReactWeb) {
+  if (isConvex || backend !== "none" || hasReactWeb || hasI18n(config)) {
     structure.push("├── packages/");
+
+    if (hasI18n(config)) {
+      structure.push("│   ├── i18n/        # Shared locale configuration and Intl formatters");
+    }
 
     if (hasReactWeb) {
       structure.push("│   ├── ui/          # Shared shadcn/ui components and styles");
@@ -599,6 +685,7 @@ function generateFeaturesList(
     nx: "- **Nx** - Smart monorepo task orchestration and caching",
     "vite-plus":
       "- **Vite+** - Unified Vite toolchain, workspace task runner, linting, and formatting",
+    turnstile: "- **Cloudflare Turnstile** - CAPTCHA on Better Auth sign-in/sign-up",
   } satisfies Record<string, string>;
 
   for (const addon of addons) {
@@ -816,6 +903,12 @@ function generateScriptsList(
     scripts += `\n- \`${packageManagerRunCmd} db:local\`: Start the local SQLite database`;
   }
 
+  if (hasI18n(config)) {
+    scripts += `\n- \`${packageManagerRunCmd} i18n:extract\`: Extract translation messages
+- \`${packageManagerRunCmd} i18n:compile\`: Compile translation catalogs (also runs before dev/build)
+- \`${packageManagerRunCmd} i18n:check\`: Fail on missing or invalid translations`;
+  }
+
   if (addons.includes("vite-plus")) {
     const hasVitePlusNativeHooks = !addons.includes("husky") && !addons.includes("lefthook");
 
@@ -896,6 +989,7 @@ function generateDeploymentCommands(
   const hasCloudflare = webDeploy === "cloudflare" || serverDeploy === "cloudflare";
   const hasPrismaCompute = webDeploy === "prisma" || serverDeploy === "prisma";
   const hasAxiom = addons.includes("axiom");
+  const hasTurnstile = addons.includes("turnstile");
   const hasAlchemyCompute = hasCloudflare || hasPrismaCompute;
   const hasAlchemy = hasAlchemyCompute || hasAxiom;
   const hasDocker = webDeploy === "docker" || serverDeploy === "docker";
@@ -965,6 +1059,13 @@ function generateDeploymentCommands(
           "For a deployed Docker image, pass `AXIOM_API_KEY`, `AXIOM_DATASET`, and `AXIOM_EDGE_URL` through the target platform's secret manager. Local observed development runs through Alchemy with the credentials injected in memory.",
         );
       }
+    }
+
+    if (hasTurnstile) {
+      lines.push(
+        "",
+        "Alchemy creates a Cloudflare Turnstile widget and injects its public sitekey and secret into the deployed apps. Set `TURNSTILE_DOMAINS` in `.env` to a comma-separated list of the production hostname(s) before deploying; it defaults to `localhost,127.0.0.1` and development uses Cloudflare's always-pass test keys automatically.",
+      );
     }
 
     const hasWeb = hasWebFrontend(frontend);

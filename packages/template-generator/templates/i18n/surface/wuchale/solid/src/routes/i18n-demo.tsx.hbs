@@ -1,0 +1,52 @@
+import { createEffect, createSignal, For } from "solid-js";
+
+import {
+  createFormatters,
+  LOCALE_COOKIE,
+  locales,
+  negotiateLocale,
+  type Locale,
+} from "@{{projectName}}/i18n";
+import { loadLocale, plural } from "@{{projectName}}/i18n/runtime";
+
+function initialLocale(): Locale {
+  if (typeof window === "undefined") return negotiateLocale();
+  // @wc-ignore
+  const stored = window.localStorage.getItem(LOCALE_COOKIE) ?? undefined;
+  return negotiateLocale({ stored, system: window.navigator.language });
+}
+
+export default function I18nDemo() {
+  const [locale, setLocale] = createSignal<Locale>(initialLocale());
+
+  createEffect(
+    () => locale(),
+    (current) => {
+      // @wc-ignore
+      window.localStorage.setItem(LOCALE_COOKIE, current);
+      void loadLocale(current);
+    },
+  );
+
+  const formatters = () => createFormatters(locale());
+  const itemCount = 3;
+
+  return (
+    <section class="mx-auto flex max-w-2xl flex-col gap-3 p-6">
+      <h1 class="text-2xl font-semibold">Welcome</h1>
+      <p>Hello {formatters().displayName(locale()) ?? locale()}!</p>
+      <p>{plural(itemCount, ["# item", "# items"])}</p>
+      <p>{formatters().currency(1299.5, "EUR")}</p>
+      <p>{formatters().date(new Date("2026-10-14T12:00:00Z"))}</p>
+      <div class="flex gap-2">
+        <For each={locales}>
+          {(next) => (
+            <button type="button" onClick={() => setLocale(next)}>
+              {next}
+            </button>
+          )}
+        </For>
+      </div>
+    </section>
+  );
+}

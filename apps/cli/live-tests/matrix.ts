@@ -145,6 +145,7 @@ export function* configurations(filter: Selection = {}): Generator<ProjectConfig
                           auth,
                           api,
                           payments,
+                          i18n: "none",
                           webDeploy,
                           serverDeploy,
                           packageManager: "bun",
