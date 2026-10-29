@@ -47,6 +47,8 @@ export const dependencyVersionMap = {
   "@types/ws": "^8.18.1",
   ws: "^8.21.3",
 
+  "@aws-sdk/client-rds-data": "^3.1140.0",
+
   mysql2: "^3.24.3",
 
   "@prisma/client": "^7.10.0",
@@ -171,6 +173,7 @@ export const dependencyVersionMap = {
   "@vercel/nft": "^1.11.0",
   alchemy: "2.0.0-beta.84",
   "@alchemy.run/axiom": "2.0.0-beta.84",
+  "@alchemy.run/aws": "2.0.0-beta.84",
   "@alchemy.run/cloudflare": "2.0.0-beta.84",
   "@alchemy.run/neon": "2.0.0-beta.84",
   "@alchemy.run/planetscale": "2.0.0-beta.84",

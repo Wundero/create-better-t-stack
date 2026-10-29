@@ -1,5 +1,6 @@
 import {
   getBackendDisabledOptions,
+  SERVER_BACKENDS,
   supportsRuntimeBackend,
   supportsRuntimeDatabase,
   supportsDatabaseSetupRuntime,
@@ -79,6 +80,20 @@ const getPrismaDesktopConflict = (
   addons: StackState["addons"],
   frontend: StackState["webFrontend"],
 ) => getDesktopDeployConflict("prisma", addons, frontend);
+
+const AWS_WEB_FRONTENDS = [
+  "tanstack-router",
+  "react-router",
+  "tanstack-start",
+  "next",
+  "nuxt",
+  "svelte",
+  "solid",
+  "astro",
+] as const;
+
+const supportsAwsWebDeploy = (frontends: StackState["webFrontend"]) =>
+  frontends.some((frontend) => AWS_WEB_FRONTENDS.some((value) => value === frontend));
 
 function getAddonIssue(stack: StackState, addon: StackState["addons"][number]) {
   const result = validateAddonCompatibility(
@@ -197,6 +212,24 @@ export const analyzeStackCompatibility = (stack: StackState): CompatibilityResul
     changes.push({
       category: "runtime",
       message: "Server deploy set to 'Cloudflare' (required for Workers)",
+    });
+  }
+
+  if (
+    nextStack.runtime === "lambda" &&
+    !supportsRuntimeBackend(nextStack.runtime, getStackBackend(nextStack.backend))
+  ) {
+    nextStack.backend = "hono";
+    changed = true;
+    changes.push({ category: "runtime", message: "Backend set to 'Hono' (required for Lambda)" });
+  }
+
+  if (nextStack.runtime === "lambda" && nextStack.serverDeploy !== "aws") {
+    nextStack.serverDeploy = "aws";
+    changed = true;
+    changes.push({
+      category: "runtime",
+      message: "Server deploy set to 'AWS' (required for Lambda)",
     });
   }
 
@@ -368,6 +401,32 @@ export const analyzeStackCompatibility = (stack: StackState): CompatibilityResul
         });
       }
     }
+    if (nextStack.dbSetup === "aurora") {
+      const hasAwsTarget = isSelfHostedFullstackBackend(nextStack.backend)
+        ? nextStack.webDeploy === "aws"
+        : nextStack.serverDeploy === "aws";
+      if (!hasAwsTarget) {
+        nextStack.dbSetup = "none";
+        changed = true;
+        changes.push({
+          category: "dbSetup",
+          message: "DB Setup set to 'None' (Aurora requires AWS deployment)",
+        });
+      } else if (
+        !supportsDatabaseSetupRuntime(
+          "aurora",
+          nextStack.runtime,
+          getStackBackend(nextStack.backend),
+        )
+      ) {
+        nextStack.dbSetup = "none";
+        changed = true;
+        changes.push({
+          category: "dbSetup",
+          message: "DB Setup set to 'None' (Aurora is not compatible with Lambda or Workers)",
+        });
+      }
+    }
   }
 
   if (nextStack.backend !== "convex" && nextStack.backend !== "none") {
@@ -514,6 +573,15 @@ export const analyzeStackCompatibility = (stack: StackState): CompatibilityResul
     }
   }
 
+  if (nextStack.webDeploy === "aws" && !supportsAwsWebDeploy(nextStack.webFrontend)) {
+    nextStack.webDeploy = "none";
+    changed = true;
+    changes.push({
+      category: "webDeploy",
+      message: "Web deploy set to 'None' (AWS requires a supported web frontend)",
+    });
+  }
+
   const cloudflareNextIssue = getCloudflareNextIssue(nextStack);
   if (cloudflareNextIssue) {
     nextStack.webDeploy = "none";
@@ -534,6 +602,18 @@ export const analyzeStackCompatibility = (stack: StackState): CompatibilityResul
       changes.push({
         category: "serverDeploy",
         message: "Server deploy set to 'None' (Cloudflare requires Workers + Hono or Nitro)",
+      });
+    }
+  }
+
+  if (nextStack.serverDeploy === "aws") {
+    const backend = getStackBackend(nextStack.backend);
+    if (backend !== "none" && !SERVER_BACKENDS.includes(backend)) {
+      nextStack.serverDeploy = "none";
+      changed = true;
+      changes.push({
+        category: "serverDeploy",
+        message: "Server deploy set to 'None' (AWS requires Hono, Express, Fastify, or Elysia)",
       });
     }
   }
@@ -663,6 +743,12 @@ export const getDisabledReason = (
     ) {
       return "Workers requires Hono or Nitro backend";
     }
+    if (
+      optionId === "lambda" &&
+      !supportsRuntimeBackend(optionId, getStackBackend(currentStack.backend))
+    ) {
+      return "Lambda requires Hono backend";
+    }
     if (optionId === "none") {
       if (!supportsRuntimeBackend(optionId, getStackBackend(currentStack.backend))) {
         return "Runtime 'None' only for Convex or fullstack backends";
@@ -711,6 +797,14 @@ export const getDisabledReason = (
       const names = getDatabaseSetupDatabases(optionId).join(" or ");
       return `${TECH_OPTIONS.dbSetup.find((option) => option.id === optionId)?.name ?? optionId} requires ${names || "a compatible database"}`;
     }
+    if (optionId === "aurora") {
+      const hasAwsTarget = isSelfHostedFullstackBackend(currentStack.backend)
+        ? currentStack.webDeploy === "aws"
+        : currentStack.serverDeploy === "aws";
+      if (!hasAwsTarget) {
+        return "Aurora requires AWS deployment";
+      }
+    }
     if (
       !supportsDatabaseSetupRuntime(
         optionId,
@@ -718,9 +812,13 @@ export const getDisabledReason = (
         getStackBackend(currentStack.backend),
       )
     ) {
-      return optionId === "d1"
-        ? "D1 requires Cloudflare Workers runtime or a self fullstack backend"
-        : "Docker is incompatible with Workers";
+      if (optionId === "d1") {
+        return "D1 requires Cloudflare Workers runtime or a self fullstack backend";
+      }
+      if (optionId === "aurora") {
+        return "Aurora requires the Bun or Node.js runtime";
+      }
+      return "Docker is incompatible with Workers";
     }
   }
 
@@ -825,6 +923,9 @@ export const getDisabledReason = (
         return `Prisma cannot deploy the static output required by ${prismaDesktopConflict.selectedDesktopAddons.join(" and ")} on ${prismaDesktopConflict.affectedFrontend}`;
       }
     }
+    if (optionId === "aws" && !supportsAwsWebDeploy(currentStack.webFrontend)) {
+      return "AWS requires TanStack Router, Next.js, Nuxt, Astro, React Router, TanStack Start, Solid, or Svelte";
+    }
     if (optionId === "cloudflare") {
       const issue = getCloudflareNextIssue({ ...currentStack, webDeploy: "cloudflare" });
       if (issue) return issue;
@@ -859,6 +960,15 @@ export const getDisabledReason = (
     if (optionId === "prisma" && !supportsServerDeployRuntime(optionId, currentStack.runtime)) {
       return "Prisma server deployment requires the Bun or Node runtime";
     }
+    if (optionId === "aws" && !supportsServerDeployRuntime(optionId, currentStack.runtime)) {
+      return "AWS server deployment requires the Bun, Node.js, or Lambda runtime";
+    }
+    if (optionId === "aws") {
+      const backend = getStackBackend(currentStack.backend);
+      if (backend !== "none" && !SERVER_BACKENDS.includes(backend)) {
+        return "AWS server deployment requires Hono, Express, Fastify, or Elysia backend";
+      }
+    }
     if (optionId !== "none") {
       if (
         getBackendDisabledOptions(getStackBackend(currentStack.backend)).some(
@@ -868,8 +978,11 @@ export const getDisabledReason = (
         return "Server deployment not needed for this backend";
       }
     }
-    if (optionId === "none" && currentStack.runtime === "workers") {
-      return "Workers requires server deployment";
+    if (
+      optionId === "none" &&
+      (currentStack.runtime === "workers" || currentStack.runtime === "lambda")
+    ) {
+      return `${currentStack.runtime === "workers" ? "Workers" : "Lambda"} requires server deployment`;
     }
   }
 

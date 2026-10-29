@@ -1,4 +1,4 @@
-import type { ProjectConfig } from "@better-t-stack/types";
+import { isAlchemyDeployTarget, type ProjectConfig } from "@better-t-stack/types";
 
 import type { VirtualFileSystem } from "../core/virtual-fs";
 import { processAlchemyRun } from "../generators/alchemy/render";
@@ -17,8 +17,8 @@ export async function processDeployTemplates(
   const isBackendSelf = config.backend === "self";
 
   if (
-    ["cloudflare", "prisma"].includes(config.webDeploy) ||
-    ["cloudflare", "prisma"].includes(config.serverDeploy) ||
+    isAlchemyDeployTarget(config.webDeploy) ||
+    isAlchemyDeployTarget(config.serverDeploy) ||
     config.addons.includes("axiom")
   ) {
     processTemplatesFromPrefix(vfs, templates, "packages/infra", "packages/infra", config);
@@ -94,6 +94,7 @@ export async function processDeployTemplates(
     config.serverDeploy !== "cloudflare" &&
     config.serverDeploy !== "prisma" &&
     config.serverDeploy !== "vercel" &&
+    config.serverDeploy !== "aws" &&
     !isBackendSelf
   ) {
     processTemplatesFromPrefix(
@@ -103,5 +104,14 @@ export async function processDeployTemplates(
       "apps/server",
       config,
     );
+  }
+
+  if (config.serverDeploy === "aws" && !isBackendSelf) {
+    if (config.runtime === "lambda") {
+      processTemplatesFromPrefix(vfs, templates, "deploy/aws/lambda", "apps/server/src", config);
+    } else {
+      processTemplatesFromPrefix(vfs, templates, "deploy/aws/server", "apps/server", config);
+      processTemplatesFromPrefix(vfs, templates, "deploy/aws/root", "", config);
+    }
   }
 }

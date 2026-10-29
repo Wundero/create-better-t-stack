@@ -1,0 +1,105 @@
+import { fileURLToPath } from "node:url";
+
+import { ExecuteStatementCommand, RDSDataClient, type SqlParameter } from "@aws-sdk/client-rds-data";
+import { readMigrationFiles } from "drizzle-orm/migrator";
+
+const resourceArn = process.env.DATABASE_CLUSTER_ARN;
+const secretArn = process.env.DATABASE_SECRET_ARN;
+const database = process.env.DATABASE_NAME ?? "app";
+const region = process.env.AWS_REGION ?? "us-east-1";
+
+if (!resourceArn || !secretArn) {
+	throw new Error(
+		"DATABASE_CLUSTER_ARN and DATABASE_SECRET_ARN are required to run Aurora migrations",
+	);
+}
+
+const client = new RDSDataClient({ region });
+
+function param(name: string, value: SqlParameter["value"]): SqlParameter {
+	return { name, value };
+}
+
+async function run(sql: string, parameters?: SqlParameter[]) {
+	await client.send(
+		new ExecuteStatementCommand({
+			resourceArn,
+			secretArn,
+			database,
+			sql,
+			parameters,
+			includeResultMetadata: false,
+		}),
+	);
+}
+
+async function select(sql: string): Promise<string[]> {
+	const response = await client.send(
+		new ExecuteStatementCommand({
+			resourceArn,
+			secretArn,
+			database,
+			sql,
+			includeResultMetadata: true,
+		}),
+	);
+	return (response.records ?? [])
+		.map((row) => row[0]?.stringValue)
+		.filter((value): value is string => typeof value === "string");
+}
+
+const migrationsFolder = fileURLToPath(new URL("./migrations", import.meta.url));
+const migrations = readMigrationFiles({ migrationsFolder });
+
+{{#if (eq database "mysql")}}
+const ledgerTable = "__drizzle_migrations";
+
+await run(
+	`CREATE TABLE IF NOT EXISTS ${ledgerTable} (id SERIAL PRIMARY KEY, hash TEXT NOT NULL, created_at BIGINT, name TEXT, applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)`,
+);
+
+const applied = new Set(await select(`SELECT name FROM ${ledgerTable}`));
+
+for (const migration of migrations) {
+	if (applied.has(migration.name)) continue;
+
+	for (const statement of migration.sql) {
+		await run(statement);
+	}
+
+	await run(`insert into ${ledgerTable} (hash, created_at, name) values (:1, :2, :3)`, [
+		param("1", { stringValue: migration.hash }),
+		param("2", { longValue: migration.folderMillis }),
+		param("3", { stringValue: migration.name }),
+	]);
+}
+{{else}}
+const ledgerSchema = "drizzle";
+const ledgerTable = "__drizzle_migrations";
+
+await run(`CREATE SCHEMA IF NOT EXISTS "${ledgerSchema}"`);
+await run(
+	`CREATE TABLE IF NOT EXISTS "${ledgerSchema}"."${ledgerTable}" (id SERIAL PRIMARY KEY, hash TEXT NOT NULL, created_at BIGINT, name TEXT, applied_at TIMESTAMP WITH TIME ZONE DEFAULT now())`,
+);
+
+const applied = new Set(await select(`SELECT name FROM "${ledgerSchema}"."${ledgerTable}"`));
+
+for (const migration of migrations) {
+	if (applied.has(migration.name)) continue;
+
+	for (const statement of migration.sql) {
+		await run(statement);
+	}
+
+	await run(
+		`insert into "${ledgerSchema}"."${ledgerTable}" (hash, created_at, name) values (:1, :2, :3)`,
+		[
+			param("1", { stringValue: migration.hash }),
+			param("2", { longValue: migration.folderMillis }),
+			param("3", { stringValue: migration.name }),
+		],
+	);
+}
+{{/if}}
+
+client.destroy();
