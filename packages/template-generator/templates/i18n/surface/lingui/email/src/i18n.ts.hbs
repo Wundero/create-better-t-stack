@@ -1,0 +1,23 @@
+/**
+ * Email i18n glue for the lingui surface.
+ *
+ * The recipient's locale comes from the Better Auth callback
+ * (`packages/auth/src/email.tsx`), which resolves it as `user.locale` →
+ * request locale → source locale. Templates receive it as a `locale` prop and
+ * load the matching compiled catalog on a fresh instance, so parallel renders
+ * never share catalog state.
+ */
+import { isLocale, sourceLocale } from "@{{projectName}}/i18n/config";
+import type { Locale } from "@{{projectName}}/i18n/config";
+import { setupI18n } from "@{{projectName}}/i18n/runtime";
+import type { I18n } from "@{{projectName}}/i18n/runtime";
+
+/** Normalizes a recipient locale; unknown tags fall back to the source locale. */
+export function resolveEmailLocale(locale?: string | null): Locale {
+  return locale !== undefined && locale !== null && isLocale(locale) ? locale : sourceLocale;
+}
+
+/** A fresh request-scoped instance for one email render. */
+export async function createEmailI18n(locale?: string | null): Promise<I18n> {
+  return setupI18n(resolveEmailLocale(locale));
+}

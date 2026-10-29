@@ -1,0 +1,71 @@
+/**
+ * Turnstile language support.
+ *
+ * Cloudflare Turnstile ships its own widget translations. The widget's
+ * `language` option is bound to the locale negotiated by `@{{projectName}}/i18n/config`;
+ * a locale without a Turnstile translation falls back to `"auto"`, which lets
+ * Turnstile use the visitor's browser language.
+ *
+ * Reference: https://developers.cloudflare.com/turnstile/reference/supported-languages/
+ */
+
+/** Turnstile language codes: the documented 2-letter forms, `zh-tw` and `tlh`. */
+export const TURNSTILE_LANGUAGES: ReadonlySet<string> = new Set([
+  "ar",
+  "bg",
+  "cs",
+  "da",
+  "de",
+  "el",
+  "en",
+  "es",
+  "fa",
+  "fi",
+  "fr",
+  "he",
+  "hi",
+  "hr",
+  "hu",
+  "id",
+  "it",
+  "ja",
+  "ko",
+  "lt",
+  "ms",
+  "nb",
+  "nl",
+  "pl",
+  "pt",
+  "ro",
+  "ru",
+  "sk",
+  "sl",
+  "sr",
+  "sv",
+  "th",
+  "tl",
+  "tlh",
+  "tr",
+  "uk",
+  "vi",
+  "zh",
+  "zh-tw",
+]);
+
+/**
+ * Turnstile `language` value for a BCP-47 locale. An exact match wins
+ * (`zh-tw`, `en`), then a region-only truncation (`en-us` → `en`,
+ * `zh-cn` → `zh`). Script variants are never truncated (`zh-hant` is not
+ * Simplified Chinese), so unsupported locales fall back to `"auto"`.
+ */
+export function getTurnstileLanguage(locale: string): string {
+  const normalized = locale.trim().toLowerCase();
+  if (TURNSTILE_LANGUAGES.has(normalized)) return normalized;
+
+  const [language, ...subtags] = normalized.split("-");
+  const regionOnly = subtags.length === 1 && /^([a-z]{2}|[0-9]{3})$/.test(subtags[0] ?? "");
+  if (regionOnly && language !== undefined && TURNSTILE_LANGUAGES.has(language)) {
+    return language;
+  }
+  return "auto";
+}

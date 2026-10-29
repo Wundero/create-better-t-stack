@@ -3,11 +3,12 @@
  * Deduplicates dependencies across packages using pnpm/bun catalogs
  */
 
-import type { ProjectConfig } from "@better-t-stack/types";
+import type { PackageManager } from "@better-t-stack/types";
 import yaml from "yaml";
 
 import type { JsonValue } from "../core/json-types";
 import type { VirtualFileSystem } from "../core/virtual-fs";
+import { CATALOG_PACKAGE_PATHS } from "../generators/workspace-paths";
 
 type PackageJson = {
   name?: string;
@@ -32,32 +33,35 @@ type PackageInfo = {
   devDependencies: Record<string, string>;
 };
 
-const PACKAGE_PATHS = [
-  ".",
-  "apps/server",
-  "apps/web",
-  "apps/native",
-  "apps/desktop",
-  "apps/fumadocs",
-  "apps/docs",
-  "packages/api",
-  "packages/db",
-  "packages/auth",
-  "packages/backend",
-  "packages/config",
-  "packages/infra",
-  "packages/ui",
-];
+type PnpmWorkspaceYaml = {
+  catalog?: Record<string, string>;
+};
+
+type NotNpmPackageManager = Exclude<PackageManager, "npm">;
+
+export interface CatalogConfig {
+  packageManager: PackageManager;
+  projectName: string;
+}
 
 /**
  * Process dependency catalogs for pnpm/bun
  */
-export function processCatalogs(vfs: VirtualFileSystem, config: ProjectConfig): void {
+export function processCatalogs(
+  vfs: VirtualFileSystem,
+  config: CatalogConfig,
+  extraPackageDirs: readonly string[] = [],
+): void {
   if (config.packageManager === "npm") return;
 
+  // Bun catalogs live in the root package.json; without one, rewriting refs to
+  // `catalog:` would create dangling references.
+  if (config.packageManager === "bun" && !vfs.exists("package.json")) return;
+
+  const packagePaths = [...new Set<string>([...CATALOG_PACKAGE_PATHS, ...extraPackageDirs])];
   const packagesInfo: PackageInfo[] = [];
 
-  for (const pkgPath of PACKAGE_PATHS) {
+  for (const pkgPath of packagePaths) {
     const jsonPath = pkgPath === "." ? "package.json" : `${pkgPath}/package.json`;
     const pkgJson = vfs.readJson<PackageJson>(jsonPath);
 
@@ -70,22 +74,55 @@ export function processCatalogs(vfs: VirtualFileSystem, config: ProjectConfig): 
     }
   }
 
-  const catalog = findDuplicateDependencies(packagesInfo, config.projectName);
+  const existingCatalog = readExistingCatalog(vfs, config.packageManager);
+  const catalog = findDuplicateDependencies(packagesInfo, config.projectName, existingCatalog);
+  const mergedCatalog: DependencyCatalog = { ...existingCatalog, ...catalog };
 
-  if (Object.keys(catalog).length === 0) return;
+  if (Object.keys(mergedCatalog).length === 0) return;
 
   if (config.packageManager === "bun") {
-    setupBunCatalogs(vfs, catalog);
+    setupBunCatalogs(vfs, mergedCatalog);
   } else if (config.packageManager === "pnpm") {
-    setupPnpmCatalogs(vfs, catalog);
+    setupPnpmCatalogs(vfs, mergedCatalog);
   }
 
-  updatePackageJsonsWithCatalogs(vfs, packagesInfo, catalog);
+  updatePackageJsonsWithCatalogs(vfs, packagesInfo, mergedCatalog);
+}
+
+function readExistingCatalog(
+  vfs: VirtualFileSystem,
+  packageManager: NotNpmPackageManager,
+): DependencyCatalog {
+  switch (packageManager) {
+    case "pnpm":
+      return readPnpmCatalog(vfs);
+    case "bun":
+      return readBunCatalog(vfs);
+  }
+}
+
+function readPnpmCatalog(vfs: VirtualFileSystem): DependencyCatalog {
+  const content = vfs.readFile("pnpm-workspace.yaml");
+  if (!content) return {};
+
+  const workspaceYaml: PnpmWorkspaceYaml = yaml.parse(content);
+  return workspaceYaml.catalog ?? {};
+}
+
+function readBunCatalog(vfs: VirtualFileSystem): DependencyCatalog {
+  const pkgJson = vfs.readJson<PackageJson>("package.json");
+  if (!pkgJson) return {};
+
+  const workspaces = pkgJson.workspaces;
+  if (!workspaces || Array.isArray(workspaces)) return {};
+
+  return workspaces.catalog ?? {};
 }
 
 function findDuplicateDependencies(
   packagesInfo: PackageInfo[],
   projectName: string,
+  existingCatalog: Record<string, string>,
 ): DependencyCatalog {
   const depCount = new Map<string, CatalogEntry>();
   const projectScope = `@${projectName}/`;
@@ -96,14 +133,20 @@ function findDuplicateDependencies(
     for (const [depName, version] of Object.entries(allDeps)) {
       if (depName.startsWith(projectScope)) continue;
       if (version.startsWith("workspace:")) continue;
+      // Named catalog refs (`catalog:foo`) resolve through their own catalog,
+      // so they must never be folded into the default catalog.
+      if (version.startsWith("catalog:") && version !== "catalog:") continue;
+
+      const resolvedVersion = version === "catalog:" ? existingCatalog[depName] : version;
+      if (resolvedVersion === undefined) continue;
 
       const existing = depCount.get(depName);
       if (existing) {
-        existing.versions.add(version);
+        existing.versions.add(resolvedVersion);
         existing.packages.push(pkg.path);
       } else {
         depCount.set(depName, {
-          versions: new Set([version]),
+          versions: new Set([resolvedVersion]),
           packages: [pkg.path],
         });
       }
@@ -185,28 +228,32 @@ function updatePackageJsonsWithCatalogs(
     const pkgJson = vfs.readJson<PackageJson>(jsonPath);
     if (!pkgJson) continue;
 
-    let updated = false;
+    const dependenciesUpdated = pkgJson.dependencies
+      ? setMatchingCatalogReferences(pkgJson.dependencies, catalog)
+      : false;
+    const devDependenciesUpdated = pkgJson.devDependencies
+      ? setMatchingCatalogReferences(pkgJson.devDependencies, catalog)
+      : false;
 
-    if (pkgJson.dependencies) {
-      for (const depName of Object.keys(pkgJson.dependencies)) {
-        if (catalog[depName]) {
-          (pkgJson.dependencies as Record<string, string>)[depName] = "catalog:";
-          updated = true;
-        }
-      }
-    }
-
-    if (pkgJson.devDependencies) {
-      for (const depName of Object.keys(pkgJson.devDependencies)) {
-        if (catalog[depName]) {
-          (pkgJson.devDependencies as Record<string, string>)[depName] = "catalog:";
-          updated = true;
-        }
-      }
-    }
-
-    if (updated) {
+    if (dependenciesUpdated || devDependenciesUpdated) {
       vfs.writeJson(jsonPath, pkgJson);
     }
   }
+}
+
+function setMatchingCatalogReferences(
+  dependencies: Record<string, string>,
+  catalog: Record<string, string>,
+): boolean {
+  let updated = false;
+
+  for (const [depName, version] of Object.entries(dependencies)) {
+    if (version === "catalog:") continue;
+    if (catalog[depName] !== version) continue;
+
+    dependencies[depName] = "catalog:";
+    updated = true;
+  }
+
+  return updated;
 }

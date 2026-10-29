@@ -4,6 +4,12 @@ import { createTRPCClient, httpBatchLink } from '@trpc/client';
 import { createTRPCContext } from '@trpc/tanstack-react-query';
 import type { AppRouter } from "@{{projectName}}/api/routers/index";
 import { toast } from 'sonner';
+{{#if (and i18n (ne i18n "none") (ne auth "better-auth"))}}
+import { localeFetch } from "@{{projectName}}/i18n/client";
+{{/if}}
+{{#if (and i18n (ne i18n "none") (eq auth "better-auth"))}}
+import { localeInit } from "@{{projectName}}/i18n/client";
+{{/if}}
 {{#unless (eq backend "self")}}
 
 {{> getServerUrl}}
@@ -56,6 +62,9 @@ export function makeTRPCClient() {
 				url: `${process.env.NEXT_PUBLIC_SERVER_URL!.replace(/\/$/, "")}/trpc`,
 {{/if}}
 {{/if}}
+{{#if (and i18n (ne i18n "none") (ne auth "better-auth"))}}
+			fetch: localeFetch,
+{{/if}}
 {{#if (eq auth "clerk")}}
 				headers: async () => {
 					if (typeof window !== "undefined") {
@@ -71,12 +80,21 @@ export function makeTRPCClient() {
 				},
 {{/if}}
 {{#if (eq auth "better-auth")}}
+{{#if (and i18n (ne i18n "none"))}}
+				fetch(url, options) {
+					return fetch(url, localeInit({
+						...options,
+						credentials: "include",
+					}));
+				},
+{{else}}
 				fetch(url, options) {
 					return fetch(url, {
 						...options,
 						credentials: "include",
 					});
 				},
+{{/if}}
 {{/if}}
 			}),
 		],
@@ -97,6 +115,12 @@ import { createTRPCClient, httpBatchLink } from "@trpc/client";
 import { createTRPCOptionsProxy } from "@trpc/tanstack-react-query";
 import { toast } from "sonner";
 import { ENV } from "../env{{#if (eq webDeploy "cloudflare")}}.public{{/if}}";
+{{#if (and i18n (ne i18n "none") (ne auth "better-auth"))}}
+import { localeFetch } from "@{{projectName}}/i18n/client";
+{{/if}}
+{{#if (and i18n (ne i18n "none") (eq auth "better-auth"))}}
+import { localeInit } from "@{{projectName}}/i18n/client";
+{{/if}}
 {{#if (eq auth "clerk")}}
 import { getClerkAuthToken } from "@/utils/clerk-auth";
 {{/if}}
@@ -126,6 +150,9 @@ export const trpcClient = createTRPCClient<AppRouter>({
 {{else}}
 			url: `${ENV.VITE_SERVER_URL.replace(/\/$/, "")}/trpc`,
 {{/if}}
+{{#if (and i18n (ne i18n "none") (ne auth "better-auth"))}}
+			fetch: localeFetch,
+{{/if}}
 {{#if (eq auth "clerk")}}
 			headers: async () => {
 				const token = await getClerkAuthToken();
@@ -133,12 +160,21 @@ export const trpcClient = createTRPCClient<AppRouter>({
 			},
 {{/if}}
 {{#if (eq auth "better-auth")}}
+{{#if (and i18n (ne i18n "none"))}}
+			fetch(url, options) {
+				return fetch(url, localeInit({
+					...options,
+					credentials: "include",
+				}));
+			},
+{{else}}
 			fetch(url, options) {
 				return fetch(url, {
 					...options,
 					credentials: "include",
 				});
 			},
+{{/if}}
 {{/if}}
 		}),
 	],

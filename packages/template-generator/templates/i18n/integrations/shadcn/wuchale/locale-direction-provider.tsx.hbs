@@ -1,0 +1,45 @@
+"use client";
+
+import { useEffect, useState, type ReactNode } from "react";
+
+import {
+  LOCALE_COOKIE,
+  negotiateLocale,
+  sourceLocale,
+  type Locale,
+} from "@{{projectName}}/i18n/config";
+import { getLocaleDirection } from "@{{projectName}}/i18n/integrations/shadcn-direction";
+import { DirectionProvider } from "@{{projectName}}/ui/components/direction";
+
+function storedLocale(): Locale {
+  if (typeof window === "undefined") return sourceLocale;
+  const stored = window.localStorage.getItem(LOCALE_COOKIE) ?? undefined;
+  return negotiateLocale({ stored, system: window.navigator.language });
+}
+
+/**
+ * shadcn direction derived from the active locale: `getLocaleDirection`
+ * applies `getTextDirection` per locale and keeps an explicit `shadcn.rtl`
+ * winning for the source locale. wuchale keeps the committed locale in its
+ * runtime, so this reads the persisted locale and follows the `storage` event;
+ * other tabs also refresh through it. Also keeps `<html dir>` in sync.
+ */
+export function LocaleDirectionProvider({ children }: { children: ReactNode }) {
+  const [locale, setLocale] = useState<Locale>(storedLocale);
+
+  useEffect(() => {
+    const onStorage = (event: StorageEvent) => {
+      if (event.key === LOCALE_COOKIE || event.key === null) setLocale(storedLocale());
+    };
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, []);
+
+  const direction = getLocaleDirection(locale);
+
+  useEffect(() => {
+    document.documentElement.dir = direction;
+  }, [direction]);
+
+  return <DirectionProvider direction={direction}>{children}</DirectionProvider>;
+}

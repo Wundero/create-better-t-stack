@@ -1,0 +1,53 @@
+<script setup lang="ts">
+import { isLocale } from "@{{projectName}}/i18n";
+
+import * as m from "../paraglide/messages.js";
+import { getLocale, locales, setLocale } from "../paraglide/runtime.js";
+
+/**
+ * i18n demo: translated heading, interpolation, plural, currency, date and a
+ * locale switcher. Date and currency always come from the shared
+ * `createFormatters` bundle, never from the i18n library.
+ */
+const locale = getLocale();
+const formatters = useFormat();
+
+function onLocaleChange(event: Event) {
+  const target = event.currentTarget;
+  if (target instanceof HTMLSelectElement && isLocale(target.value)) {
+    void setLocale(target.value);
+  }
+}
+</script>
+
+<template>
+  <UCard>
+    <template #header>
+      <div class="font-medium">\{{ m.i18n_demo_heading() }}</div>
+    </template>
+    <p class="text-sm text-muted">\{{ m.i18n_demo_interpolation({ name: "Better T Stack" }) }}</p>
+    <p class="mt-1 text-sm text-muted">\{{ m.i18n_demo_plural({ count: 3 }) }}</p>
+    <dl class="mt-3 grid gap-1 text-sm">
+      <div class="flex gap-2">
+        <dt class="text-muted">\{{ m.i18n_demo_currency_label() }}</dt>
+        <dd>\{{ formatters.currency(19.99, "EUR") }}</dd>
+      </div>
+      <div class="flex gap-2">
+        <dt class="text-muted">\{{ m.i18n_demo_date_label() }}</dt>
+        <dd>\{{ formatters.date(new Date("2024-05-01T00:00:00Z")) }}</dd>
+      </div>
+    </dl>
+    <label class="mt-3 flex items-center gap-2 text-sm">
+      <span class="text-muted">\{{ formatters.displayName(locale) }}</span>
+      <select
+        class="rounded border bg-transparent px-2 py-1"
+        :value="locale"
+        @change="onLocaleChange"
+      >
+        <option v-for="available in locales" :key="available" :value="available">
+          \{{ formatters.displayName(available) ?? available }}
+        </option>
+      </select>
+    </label>
+  </UCard>
+</template>

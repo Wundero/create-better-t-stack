@@ -1,5 +1,11 @@
-import { cloudflareServerEnvEntries, prismaServerEnvEntries } from "./env";
-import type { AlchemyDeploymentPlan } from "./plan";
+import { addonUsesServerHost, writeAddonHostBindings, writeAddonServerPrelude } from "./addons";
+import {
+  awsServerEnvEntries,
+  cloudflareServerEnvEntries,
+  neonServerEnvEntries,
+  prismaServerEnvEntries,
+} from "./env";
+import type { AlchemyDeploymentPlan, AlchemyServerCompute } from "./plan";
 import { writeLines, writeObject, type AlchemyWriter } from "./writer";
 
 function writeCloudflareServer(writer: AlchemyWriter, plan: AlchemyDeploymentPlan): void {
@@ -160,8 +166,175 @@ function writePrismaServer(writer: AlchemyWriter, plan: AlchemyDeploymentPlan): 
   writer.writeLine("}));");
 }
 
+function writeNeonServer(writer: AlchemyWriter, plan: AlchemyDeploymentPlan): void {
+  writer.writeLine("export const server = Effect.gen(function* () {");
+  writer.indent(() => {
+    if (plan.hasAxiomServerRuntime) {
+      writer.writeLine("const resolvedObservabilityEnv = yield* observabilityEnv;");
+    }
+    writer.writeLine("const branch = yield* neonBranch;");
+    writeAddonServerPrelude(writer, plan);
+    writeObject(
+      writer,
+      'return yield* Neon.Function("server", {',
+      () => {
+        writer.writeLine("branch,");
+        writer.writeLine('main: "../../apps/server/src/index.ts",');
+        writeObject(
+          writer,
+          "env: {",
+          () => {
+            writeLines(writer, neonServerEnvEntries(plan));
+          },
+          "},",
+        );
+      },
+      "});",
+    );
+  });
+  writer.writeLine("});");
+}
+
+function writeAwsServerEnv(writer: AlchemyWriter, plan: AlchemyDeploymentPlan): void {
+  writeObject(
+    writer,
+    "env: {",
+    () => {
+      if (plan.hasAlchemyManagedDatabase) writer.writeLine("...resolvedDatabaseEnv,");
+      writeLines(writer, awsServerEnvEntries(plan));
+    },
+    "},",
+  );
+}
+
+function writeAwsServerPrelude(writer: AlchemyWriter, plan: AlchemyDeploymentPlan): void {
+  if (plan.hasAwsNetwork) writer.writeLine("const { network } = yield* awsNetwork;");
+  if (plan.hasAlchemyManagedDatabase) {
+    writer.writeLine("const resolvedDatabaseEnv = yield* databaseEnv;");
+  }
+  if (plan.hasAxiomServerRuntime) {
+    writer.writeLine("const resolvedObservabilityEnv = yield* observabilityEnv;");
+  }
+  writeAddonServerPrelude(writer, plan);
+}
+
+function writeAwsFargateServer(writer: AlchemyWriter, plan: AlchemyDeploymentPlan): void {
+  const bindsAddons = addonUsesServerHost(plan);
+  writer.writeLine("export const server = Effect.gen(function* () {");
+  writer.indent(() => {
+    writeAwsServerPrelude(writer, plan);
+    writer.writeLine('const cluster = yield* AWS.ECS.Cluster("cluster", {});');
+    writer.blankLine();
+    writeObject(
+      writer,
+      bindsAddons
+        ? 'const serverHost = yield* AWS.ECS.Service("server", {'
+        : 'return yield* AWS.ECS.Service("server", {',
+      () => {
+        writer.writeLine("cluster,");
+        writer.writeLine('context: "../..",');
+        writer.writeLine('dockerfile: "apps/server/Dockerfile",');
+        writer.writeLine("port: 3000,");
+        writer.writeLine("desiredCount: 1,");
+        writer.writeLine("loadBalancer: true,");
+        if (plan.hasAwsNetwork) {
+          writer.writeLine("vpcId: network.vpcId,");
+          writer.writeLine("subnets: network.privateSubnetIds,");
+          writer.writeLine("assignPublicIp: false,");
+        } else {
+          writer.writeLine("assignPublicIp: true,");
+        }
+        writeAwsServerEnv(writer, plan);
+      },
+      "});",
+    );
+    if (bindsAddons) {
+      writeAddonHostBindings(writer, plan);
+      writer.writeLine("return serverHost;");
+    }
+  });
+  writer.writeLine("});");
+}
+
+function writeAwsLambdaFunction(
+  writer: AlchemyWriter,
+  plan: AlchemyDeploymentPlan,
+  declaration: string,
+): void {
+  writeObject(
+    writer,
+    `${declaration}AWS.Lambda.Function("server", {`,
+    () => {
+      writer.writeLine('main: "../../apps/server/src/lambda.ts",');
+      writer.writeLine('handler: "handler",');
+      writer.writeLine("functionUrl: true,");
+      writer.writeLine('runtime: "nodejs24.x",');
+      writer.writeLine("memorySize: 1024,");
+      writer.writeLine("timeout: Duration.seconds(30),");
+      writeAwsServerEnv(writer, plan);
+      if (plan.hasAwsNetwork) {
+        writeObject(
+          writer,
+          "vpc: {",
+          () => {
+            writer.writeLine("subnetIds: network.privateSubnetIds,");
+            writer.writeLine("securityGroupIds: [network.databaseSecurityGroup.groupId],");
+          },
+          "},",
+        );
+      }
+    },
+    "});",
+  );
+}
+
+function writeAwsLambdaServer(writer: AlchemyWriter, plan: AlchemyDeploymentPlan): void {
+  const bindsAddons = addonUsesServerHost(plan);
+  const needsEffect =
+    plan.hasAwsNetwork ||
+    plan.hasAlchemyManagedDatabase ||
+    plan.hasAxiomServerRuntime ||
+    bindsAddons;
+
+  if (!needsEffect) {
+    writeAwsLambdaFunction(writer, plan, "export const server = ");
+    return;
+  }
+
+  writer.writeLine("export const server = Effect.gen(function* () {");
+  writer.indent(() => {
+    writeAwsServerPrelude(writer, plan);
+    if (bindsAddons) {
+      writeAwsLambdaFunction(writer, plan, "const serverHost = yield* ");
+      writeAddonHostBindings(writer, plan);
+      writer.writeLine("return serverHost;");
+    } else {
+      writeAwsLambdaFunction(writer, plan, "return yield* ");
+    }
+  });
+  writer.writeLine("});");
+}
+
+function writeAwsServer(
+  writer: AlchemyWriter,
+  plan: AlchemyDeploymentPlan,
+  compute: AlchemyServerCompute,
+): void {
+  if (compute === "lambda") writeAwsLambdaServer(writer, plan);
+  else writeAwsFargateServer(writer, plan);
+}
+
 export function writeServerResource(writer: AlchemyWriter, plan: AlchemyDeploymentPlan): void {
-  if (plan.server.target === "none") return;
-  if (plan.server.target === "cloudflare") writeCloudflareServer(writer, plan);
+  const server = plan.server;
+  if (server.target === "none") return;
+  if (server.target === "aws") {
+    writeAwsServer(writer, plan, server.compute);
+    return;
+  }
+  if (server.target === "neon") {
+    writeNeonServer(writer, plan);
+    return;
+  }
+  if (server.target === "cloudflare") writeCloudflareServer(writer, plan);
   else writePrismaServer(writer, plan);
 }

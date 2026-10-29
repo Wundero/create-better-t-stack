@@ -1,0 +1,56 @@
+import type { ComputedRef, Ref } from "vue";
+
+const PRO_PLAN_CODE = "pro";
+const ACTIVE_STATUSES = ["active", "trialing"];
+
+export interface PaymentState {
+  isActive: boolean;
+  planLabel: string;
+}
+
+export function usePayment(): {
+  state: ComputedRef<PaymentState>;
+  isLoading: Ref<boolean>;
+  checkout: () => Promise<void>;
+  portal: () => Promise<void>;
+} {
+  const { $authClient } = useNuxtApp();
+{{#if (eq backend "self")}}
+  const serverUrl = "";
+{{else}}
+  const serverUrl = useRuntimeConfig().public.serverUrl;
+{{/if}}
+  const isActive = ref(false);
+  const isLoading = ref(true);
+
+  onMounted(async () => {
+    const { data, error } = await $authClient.subscription.get();
+    isActive.value = !error && ACTIVE_STATUSES.includes(data?.status ?? "");
+    isLoading.value = false;
+  });
+
+  const checkout = async () => {
+    const response = await fetch(`${serverUrl.replace(/\/$/, "")}/api/payments/commet/checkout`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ planCode: PRO_PLAN_CODE }),
+    });
+    if (response.status === 204 || !response.ok) return;
+    const data = (await response.json()) as { url?: string };
+    if (!data.url) return;
+    window.location.href = data.url;
+  };
+
+  const portal = async () => {
+    const { data, error } = await $authClient.customer.portal();
+    if (error || !data?.url) return;
+    window.location.href = data.url;
+  };
+
+  const state = computed<PaymentState>(() => ({
+    isActive: isActive.value,
+    planLabel: isActive.value ? "Pro" : "Free",
+  }));
+
+  return { state, isLoading, checkout, portal };
+}

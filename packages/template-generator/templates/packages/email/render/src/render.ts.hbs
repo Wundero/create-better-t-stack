@@ -1,0 +1,36 @@
+import { render, toPlainText } from "react-email";
+import type { ReactElement } from "react";
+
+import { ResetPasswordEmail } from "./templates/reset-password";
+import { VerifyEmail } from "./templates/verify-email";
+import { WelcomeEmail } from "./templates/welcome";
+
+export { render, toPlainText };
+
+export type RenderedEmail = {
+  html: string;
+  text: string;
+};
+
+export async function renderEmail(element: ReactElement): Promise<RenderedEmail> {
+  const html = await render(element);
+  const text = await render(element, { plainText: true });
+  return { html, text };
+}
+
+export function renderHtml(element: ReactElement): Promise<string> {
+  return render(element);
+}
+
+export function renderText(element: ReactElement): Promise<string> {
+  return render(element, { plainText: true });
+}
+
+export const emailTemplates = [
+  { id: "welcome", name: "Welcome", component: WelcomeEmail },
+  { id: "verify-email", name: "Verify email", component: VerifyEmail },
+  { id: "reset-password", name: "Reset password", component: ResetPasswordEmail },
+] as const;
+
+export type EmailTemplate = (typeof emailTemplates)[number];
+export type EmailTemplateId = EmailTemplate["id"];

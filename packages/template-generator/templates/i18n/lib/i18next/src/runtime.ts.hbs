@@ -1,0 +1,83 @@
+/**
+ * i18next runtime for the generated project.
+ *
+ * Natural-language keys with separators disabled: `t("Hello, {{name}}!")`
+ * looks up the exact sentence, and plural suffixes resolve from `count`
+ * (`..._one`, `..._other`). Framework glue lives next to each surface and
+ * registers its adapter (`react-i18next`, `i18next-vue`, the shipped Svelte
+ * store, the shipped Solid primitive) on the instances exported here.
+ */
+
+import i18next from "i18next";
+import type { i18n as I18nInstance, InitOptions } from "i18next";
+{{#if i18nOptions.locales}}
+{{#each i18nOptions.locales}}
+import catalog{{@index}} from "../locales/{{this}}/common.json";
+{{/each}}
+{{else}}
+import catalog0 from "../locales/en/common.json";
+import catalog1 from "../locales/es/common.json";
+import catalog2 from "../locales/fr/common.json";
+{{/if}}
+
+import { isLocale, locales, negotiateLocale, sourceLocale } from "./config";
+import type { Locale } from "./config";
+
+export const resources = {
+{{#if i18nOptions.locales}}
+{{#each i18nOptions.locales}}
+  "{{this}}": { common: catalog{{@index}} },
+{{/each}}
+{{else}}
+  en: { common: catalog0 },
+  es: { common: catalog1 },
+  fr: { common: catalog2 },
+{{/if}}
+};
+
+function instanceOptions(locale: Locale): InitOptions {
+  return {
+    resources,
+    lng: locale,
+    fallbackLng: sourceLocale,
+    supportedLngs: [...locales],
+    defaultNS: "common",
+    keySeparator: false,
+    nsSeparator: false,
+    initAsync: false,
+    interpolation: { escapeValue: false },
+  };
+}
+
+/**
+ * A fresh instance for one request or one server render. Static resources make
+ * initialization synchronous, so the returned instance is immediately usable.
+ */
+export function createI18next(locale: Locale = negotiateLocale()): I18nInstance {
+  const instance = i18next.createInstance();
+  void instance.init(instanceOptions(locale));
+  return instance;
+}
+
+/**
+ * The shared client instance. Framework adapters register on this instance, so
+ * every component in the app sees the same translations and language changes.
+ */
+export function initI18next(locale: Locale = negotiateLocale()): I18nInstance {
+  if (!i18next.isInitialized) {
+    void i18next.init(instanceOptions(locale));
+  }
+  return i18next;
+}
+
+export function setLocale(locale: Locale): Promise<unknown> {
+  initI18next();
+  return i18next.changeLanguage(locale);
+}
+
+export function currentLocale(): Locale {
+  const language = i18next.resolvedLanguage ?? i18next.language;
+  return language && isLocale(language) ? language : sourceLocale;
+}
+
+export { i18next };

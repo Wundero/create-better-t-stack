@@ -23,17 +23,28 @@ export type ManagedDatabasePlan =
   | {
       kind: "prisma-postgres";
       orm: "drizzle" | "prisma";
+    }
+  | {
+      kind: "aurora";
+      orm: "drizzle" | "prisma";
+      engine: "aurora-postgresql" | "aurora-mysql";
     };
 
 export type AlchemyWebPlan =
   | { target: "none" }
   | {
-      target: "cloudflare" | "prisma";
+      target: "cloudflare" | "prisma" | "aws";
       framework: DeployedWebFramework;
       topology: "self" | "split";
     };
 
-export type AlchemyServerPlan = { target: "none" } | { target: "cloudflare" | "prisma" };
+export type AlchemyServerCompute = "fargate" | "lambda";
+
+export type AlchemyServerPlan =
+  | { target: "none" }
+  | { target: "cloudflare" | "prisma" }
+  | { target: "aws"; compute: AlchemyServerCompute }
+  | { target: "neon" };
 
 export type AlchemyDeploymentPlan = {
   config: ProjectConfig;
@@ -42,12 +53,22 @@ export type AlchemyDeploymentPlan = {
   server: AlchemyServerPlan;
   hasCloudflare: boolean;
   hasPrismaDeploy: boolean;
+  hasAws: boolean;
+  hasNeonServer: boolean;
+  hasAwsNetwork: boolean;
+  hasAwsSolidWeb: boolean;
   hasAlchemyManagedDatabase: boolean;
   hasD1Resource: boolean;
   hasAxiom: boolean;
   hasAxiomServerRuntime: boolean;
   hasAxiomWebRuntime: boolean;
   hasAxiomVercelRuntime: boolean;
+  hasEmail: boolean;
+  emailCloudflare: boolean;
+  emailSes: boolean;
+  hasTurnstile: boolean;
+  hasTurnstileServerRuntime: boolean;
+  hasTurnstileWebRuntime: boolean;
   needsStandaloneServerDev: boolean;
   needsStandaloneWebDev: boolean;
 };
@@ -105,15 +126,33 @@ function createManagedDatabasePlan(config: ProjectConfig): ManagedDatabasePlan {
     return { kind: "planetscale-mysql", orm: config.orm };
   }
 
+  if (config.dbSetup === "aurora") {
+    if (config.database !== "postgres" && config.database !== "mysql") {
+      throw new Error(`Aurora requires postgres or mysql, received: ${config.database}`);
+    }
+
+    return {
+      kind: "aurora",
+      orm: config.orm,
+      engine: config.database === "mysql" ? "aurora-mysql" : "aurora-postgresql",
+    };
+  }
+
   throw new Error(
     `Unsupported Alchemy managed database combination: ${config.dbSetup}/${config.database}`,
   );
 }
 
 export function createAlchemyDeploymentPlan(config: ProjectConfig): AlchemyDeploymentPlan {
+  const managedDatabase = createManagedDatabasePlan(config);
   const hasCloudflare = config.webDeploy === "cloudflare" || config.serverDeploy === "cloudflare";
   const hasPrismaDeploy = config.webDeploy === "prisma" || config.serverDeploy === "prisma";
+  const hasAws =
+    config.webDeploy === "aws" ||
+    config.serverDeploy === "aws" ||
+    managedDatabase.kind === "aurora";
   const hasAlchemyManagedDatabase = usesAlchemyManagedDatabase(config);
+  const hasAwsNetwork = managedDatabase.kind === "aurora";
   const hasAxiom = config.addons.includes("axiom");
   const hasAxiomServerRuntime = hasAxiom && AXIOM_SERVER_BACKENDS.includes(config.backend);
   const hasAxiomWebRuntime =
@@ -121,6 +160,12 @@ export function createAlchemyDeploymentPlan(config: ProjectConfig): AlchemyDeplo
   const hasAxiomVercelRuntime =
     (hasAxiomWebRuntime && config.webDeploy === "vercel") ||
     (hasAxiomServerRuntime && config.serverDeploy === "vercel");
+  const emailCloudflare = config.emailDeploy === "cloudflare";
+  const emailSes = config.emailDeploy === "ses";
+  const hasTurnstile = config.addons.includes("turnstile");
+  const hasTurnstileServerRuntime =
+    hasTurnstile && (config.backend === "self" || config.serverDeploy === "cloudflare");
+  const hasTurnstileWebRuntime = hasTurnstile && config.webDeploy === "cloudflare";
 
   const web: AlchemyWebPlan = isAlchemyDeployTarget(config.webDeploy)
     ? {
@@ -130,17 +175,26 @@ export function createAlchemyDeploymentPlan(config: ProjectConfig): AlchemyDeplo
       }
     : { target: "none" };
 
+  const hasAwsSolidWeb = web.target === "aws" && web.framework === "solid";
+
   const server: AlchemyServerPlan = isAlchemyDeployTarget(config.serverDeploy)
-    ? { target: config.serverDeploy }
+    ? config.serverDeploy === "aws"
+      ? { target: "aws", compute: config.runtime === "lambda" ? "lambda" : "fargate" }
+      : { target: config.serverDeploy }
     : { target: "none" };
+  const hasNeonServer = server.target === "neon";
 
   return {
     config,
-    managedDatabase: createManagedDatabasePlan(config),
+    managedDatabase,
     web,
     server,
     hasCloudflare,
     hasPrismaDeploy,
+    hasAws,
+    hasNeonServer,
+    hasAwsNetwork,
+    hasAwsSolidWeb,
     hasAlchemyManagedDatabase,
     hasD1Resource:
       config.dbSetup === "d1" &&
@@ -150,6 +204,12 @@ export function createAlchemyDeploymentPlan(config: ProjectConfig): AlchemyDeplo
     hasAxiomServerRuntime,
     hasAxiomWebRuntime,
     hasAxiomVercelRuntime,
+    hasEmail: emailCloudflare || emailSes,
+    emailCloudflare,
+    emailSes,
+    hasTurnstile,
+    hasTurnstileServerRuntime,
+    hasTurnstileWebRuntime,
     needsStandaloneServerDev: hasAxiomServerRuntime && server.target === "none",
     needsStandaloneWebDev: hasAxiomWebRuntime && web.target === "none",
   };
@@ -158,6 +218,7 @@ export function createAlchemyDeploymentPlan(config: ProjectConfig): AlchemyDeplo
 // Alchemy ships each provider in its own @alchemy.run package
 export const ALCHEMY_PROVIDER_PACKAGES = {
   Axiom: "@alchemy.run/axiom",
+  AWS: "@alchemy.run/aws",
   Neon: "@alchemy.run/neon",
   Planetscale: "@alchemy.run/planetscale",
   Prisma: "@alchemy.run/prisma",
@@ -170,7 +231,8 @@ export function getAlchemyProviders(plan: AlchemyDeploymentPlan): AlchemyProvide
   const { kind } = plan.managedDatabase;
   const providers: AlchemyProvider[] = [];
   if (plan.hasAxiom) providers.push("Axiom");
-  if (kind === "neon") providers.push("Neon");
+  if (plan.hasAws || plan.emailSes) providers.push("AWS");
+  if (kind === "neon" || plan.hasNeonServer) providers.push("Neon");
   if (kind === "planetscale-postgres" || kind === "planetscale-mysql") {
     providers.push("Planetscale");
   }
@@ -198,6 +260,27 @@ export function getPrismaWebsiteFramework(config: ProjectConfig): string | undef
         return;
       case "tanstack-start":
         return "TanStackStart";
+      case "tanstack-router":
+        return "Vite";
+    }
+  }
+}
+
+export function getAwsWebsiteFramework(config: ProjectConfig): string | undefined {
+  for (const frontend of config.frontend) {
+    switch (frontend) {
+      case "next":
+        return "Nextjs";
+      case "nuxt":
+        return "Nuxt";
+      case "astro":
+        return "Astro";
+      case "svelte":
+        return "SvelteKit";
+      case "tanstack-start":
+        return "TanStackStart";
+      case "react-router":
+        return "ReactRouter";
       case "tanstack-router":
         return "Vite";
     }

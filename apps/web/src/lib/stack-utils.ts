@@ -1,5 +1,8 @@
+import { getStackCommandBase } from "@/lib/cli-commands";
 import { DEFAULT_STACK, isStackDefault, type StackState, TECH_OPTIONS } from "@/lib/constant";
+import { DEFAULT_SHADCN_BASE, DEFAULT_SHADCN_PRESET, getShadcnConfig } from "@/lib/shadcn-config";
 import { SITE_URL } from "@/lib/site";
+import { flattenI18nOptions } from "@/lib/stack-i18n";
 import { stackUrlKeys } from "@/lib/stack-url-keys";
 
 import { getStackBackend, getStackFrontends, isSelfHostedFullstackBackend } from "./stack-model";
@@ -17,11 +20,15 @@ const CATEGORY_ORDER: Array<keyof typeof TECH_OPTIONS> = [
   "serverDeploy",
   "auth",
   "payments",
+  "emailRenderer",
+  "emailDeploy",
   "packageManager",
   "addons",
+  "i18n",
   "examples",
   "git",
   "install",
+  "portless",
 ];
 
 const desktopAddonNames = {
@@ -60,7 +67,7 @@ export function getSelectedTechs(stack: StackState): SelectedTech[] {
   const selected: SelectedTech[] = [];
   for (const category of CATEGORY_ORDER) {
     const options = TECH_OPTIONS[category];
-    const value = stack[category as keyof StackState];
+    const value = stack[category];
     if (!options || value === undefined) continue;
 
     const ids = Array.isArray(value) ? value : [value];
@@ -84,7 +91,7 @@ export function getSelectedTechs(stack: StackState): SelectedTech[] {
 export function generateStackSummary(stack: StackState) {
   const selectedTechs = CATEGORY_ORDER.flatMap((category) => {
     const options = TECH_OPTIONS[category];
-    const selectedValue = stack[category as keyof StackState];
+    const selectedValue = stack[category];
 
     if (!options) return [];
 
@@ -138,15 +145,7 @@ export function getDesktopBuildNote(stack: Pick<StackState, "addons" | "backend"
 }
 
 export function generateStackCommand(stack: StackState) {
-  const packageManagerCommands = {
-    npm: "npx create-better-t-stack@latest",
-    pnpm: "pnpm create better-t-stack@latest",
-    default: "bun create better-t-stack@latest",
-  };
-
-  const base =
-    packageManagerCommands[stack.packageManager as keyof typeof packageManagerCommands] ||
-    packageManagerCommands.default;
+  const base = getStackCommandBase(stack.packageManager);
   const projectName = quoteShellArgument(stack.projectName || "my-better-t-app");
 
   const isStackDefaultExceptProjectName = Object.entries(DEFAULT_STACK).every(
@@ -166,6 +165,8 @@ export function generateStackCommand(stack: StackState) {
     `--api ${stack.api}`,
     `--auth ${stack.auth}`,
     `--payments ${stack.payments}`,
+    `--email-renderer ${stack.emailRenderer}`,
+    `--email-deploy ${stack.emailDeploy}`,
     `--database ${stack.database}`,
     `--orm ${stack.orm}`,
     `--db-setup ${stack.dbSetup}`,
@@ -187,8 +188,47 @@ export function generateStackCommand(stack: StackState) {
     `--examples ${stack.examples.join(" ") || "none"}`,
   ];
 
+  const shadcn = getShadcnConfig(stack);
+  if (shadcn) {
+    flags.push(`--shadcn-preset ${shadcn.preset ?? DEFAULT_SHADCN_PRESET}`);
+    if (shadcn.base && shadcn.base !== DEFAULT_SHADCN_BASE) {
+      flags.push(`--shadcn-base ${shadcn.base}`);
+    }
+    if (shadcn.rtl) {
+      flags.push("--shadcn-rtl");
+    }
+    if (shadcn.pointer) {
+      flags.push("--shadcn-pointer");
+    }
+  }
+
+  if (stack.i18n !== "none") {
+    flags.push(`--i18n ${stack.i18n}`);
+    const options = stack.i18nOptions;
+    if (options) {
+      flags.push(`--i18n-locales ${options.locales.join(",")}`);
+      if (options.sourceLocale !== options.locales[0]) {
+        flags.push(`--i18n-source-locale ${options.sourceLocale}`);
+      }
+      const strategy = options.routing?.strategy ?? "cookie";
+      flags.push(`--i18n-routing ${strategy}`);
+      if (strategy === "domain" && options.routing?.domains) {
+        for (const [locale, host] of Object.entries(options.routing.domains)) {
+          flags.push(`--i18n-domain ${locale}=${host}`);
+        }
+      }
+      if (options.translateSkill === false) {
+        flags.push("--no-i18n-skill");
+      }
+    }
+  }
+
   if (stack.yolo === "true") {
     flags.push("--yolo");
+  }
+
+  if (stack.portless === "true") {
+    flags.push("--portless");
   }
 
   return `${base} ${projectName} ${flags.join(" ")}`;
@@ -204,10 +244,16 @@ export function generateStackUrlFromState(stack: StackState, baseUrl?: string) {
   return `${origin}/new${searchString ? `?${searchString}` : ""}`;
 }
 
+type UrlSerializableValue = string | string[] | boolean | number | null;
+type UrlSerializable = Partial<Record<keyof typeof stackUrlKeys, UrlSerializableValue>>;
+
 function serializeStackToSearchString(stack: StackState) {
   const stackParams = new URLSearchParams();
+  const { i18nOptions, ...stem } = stack;
+  const serializable: UrlSerializable =
+    stack.i18n === "none" ? stem : { ...stem, ...flattenI18nOptions(i18nOptions) };
   Object.entries(stackUrlKeys).forEach(([stackKey, urlKey]) => {
-    const value = stack[stackKey as keyof StackState];
+    const value = serializable[stackKey as keyof typeof stackUrlKeys];
     if (value !== undefined) {
       stackParams.set(urlKey as string, Array.isArray(value) ? value.join(",") : String(value));
     }

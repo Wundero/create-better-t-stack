@@ -1,0 +1,32 @@
+export type EmailAddress = string | string[];
+
+export type EmailMessage = {
+  from: string;
+  to: EmailAddress;
+  subject: string;
+  html?: string;
+  text?: string;
+  cc?: EmailAddress;
+  bcc?: EmailAddress;
+  replyTo?: string;
+};
+
+export type CloudflareEmailBinding = {
+  send(message: EmailMessage): Promise<unknown>;
+};
+
+export type CloudflareEmailEnv = {
+  EMAIL: CloudflareEmailBinding;
+};
+
+export type CloudflareEmailSender = {
+  send(message: EmailMessage): Promise<void>;
+};
+
+export function createCloudflareEmailSender(env: CloudflareEmailEnv): CloudflareEmailSender {
+  return {
+    async send(message: EmailMessage): Promise<void> {
+      await env.EMAIL.send(message);
+    },
+  };
+}

@@ -1,0 +1,36 @@
+import { createFormatters, negotiateLocale } from "@{{projectName}}/i18n";
+import { m } from "@{{projectName}}/i18n/runtime";
+import type { Locale } from "@{{projectName}}/i18n/runtime";
+
+/**
+ * i18n demo for the Electrobun host (the Bun main process). The host has no
+ * request, so the locale is negotiated from `LC_ALL`/`LANG` and can be
+ * overridden by the webview through the host bridge.
+ *
+ * Date and currency always come from the shared `createFormatters` bundle.
+ */
+export function hostLocale(): Locale {
+  return negotiateLocale({ system: process.env.LC_ALL ?? process.env.LANG });
+}
+
+export interface I18nDemoPayload {
+  readonly locale: Locale;
+  readonly heading: string;
+  readonly interpolation: string;
+  readonly plural: string;
+  readonly currency: string;
+  readonly date: string;
+}
+
+export function renderI18nDemo(locale: Locale = hostLocale()): I18nDemoPayload {
+  const formatters = createFormatters(locale);
+
+  return {
+    locale,
+    heading: m.i18n_demo_heading({}, { locale }),
+    interpolation: m.i18n_demo_interpolation({ name: "Better T Stack" }, { locale }),
+    plural: m.i18n_demo_plural({ count: 3 }, { locale }),
+    currency: formatters.currency(19.99, "EUR"),
+    date: formatters.date(new Date("2024-05-01T00:00:00Z")),
+  };
+}

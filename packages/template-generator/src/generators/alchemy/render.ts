@@ -1,7 +1,10 @@
 import type { ProjectConfig } from "@better-t-stack/types";
 
 import type { VirtualFileSystem } from "../../core/virtual-fs";
+import { writeAddonImports, writeAddonResources, writeAddonStackResources } from "./addons";
+import { writeAwsNetworkResources } from "./aws";
 import { writeDatabaseResources } from "./database";
+import { writeEmailResources } from "./email";
 import { writeObservabilityResources } from "./observability";
 import {
   ALCHEMY_PROVIDER_PACKAGES,
@@ -10,10 +13,12 @@ import {
   type AlchemyDeploymentPlan,
 } from "./plan";
 import { writeServerResource } from "./server";
+import { writeTurnstileResources } from "./turnstile";
 import { writeExportedWebResource, writeStackWebResource } from "./web";
 import { createAlchemyWriter, writeObject, type AlchemyWriter } from "./writer";
 
 function databaseProvidersUseCommand(plan: AlchemyDeploymentPlan): boolean {
+  if (plan.managedDatabase.kind === "aurora") return true;
   return (
     (plan.server.target === "cloudflare" && plan.config.backend === "nitro") ||
     plan.managedDatabase.kind === "prisma-postgres" ||
@@ -24,6 +29,7 @@ function databaseProvidersUseCommand(plan: AlchemyDeploymentPlan): boolean {
 function usesCommand(plan: AlchemyDeploymentPlan): boolean {
   return (
     databaseProvidersUseCommand(plan) ||
+    plan.hasAwsSolidWeb ||
     plan.needsStandaloneServerDev ||
     plan.needsStandaloneWebDev ||
     plan.hasAxiomVercelRuntime
@@ -33,9 +39,11 @@ function usesCommand(plan: AlchemyDeploymentPlan): boolean {
 function usesOutput(plan: AlchemyDeploymentPlan): boolean {
   const database = plan.managedDatabase;
   return (
+    plan.hasAwsSolidWeb ||
     (plan.server.target === "cloudflare" && plan.config.backend === "nitro") ||
     database.kind === "neon" ||
     database.kind === "prisma-postgres" ||
+    database.kind === "aurora" ||
     (database.kind === "planetscale-mysql" && database.orm === "prisma")
   );
 }
@@ -45,6 +53,7 @@ function usesRedacted(plan: AlchemyDeploymentPlan): boolean {
   return (
     plan.web.target === "prisma" ||
     database.kind === "neon" ||
+    database.kind === "aurora" ||
     (database.kind === "planetscale-mysql" && database.orm === "prisma")
   );
 }
@@ -52,8 +61,14 @@ function usesRedacted(plan: AlchemyDeploymentPlan): boolean {
 function providerLayers(plan: AlchemyDeploymentPlan): string[] {
   const layers: string[] = [];
   if (plan.hasCloudflare) layers.push("Cloudflare.providers()");
+  if (plan.hasAws && !plan.hasAwsNetwork) layers.push("AWS.providers()");
+  if (plan.hasNeonServer && plan.managedDatabase.kind !== "neon") layers.push("Neon.providers()");
   if (plan.hasAlchemyManagedDatabase || plan.hasPrismaDeploy) layers.push("databaseProviders");
   if (plan.hasAxiom) layers.push("Axiom.providers()");
+  if (plan.emailSes && !plan.hasAws) layers.push("AWS.providers()");
+  if (plan.hasAwsSolidWeb && !databaseProvidersUseCommand(plan)) {
+    layers.push("Command.providers()");
+  }
   if (
     (plan.needsStandaloneServerDev || plan.needsStandaloneWebDev || plan.hasAxiomVercelRuntime) &&
     !databaseProvidersUseCommand(plan)
@@ -69,8 +84,16 @@ function usesLayer(plan: AlchemyDeploymentPlan): boolean {
 
 function writeImports(writer: AlchemyWriter, plan: AlchemyDeploymentPlan): void {
   writer.writeLine('import * as Alchemy from "alchemy";');
+  if (plan.managedDatabase.kind === "aurora") {
+    writer.writeLine('import { randomBytes } from "node:crypto";');
+  }
   if (usesCommand(plan)) writer.writeLine('import * as Command from "alchemy/Command";');
   if (usesOutput(plan)) writer.writeLine('import * as Output from "alchemy/Output";');
+  if (plan.server.target === "aws" && plan.server.compute === "lambda") {
+    writer.writeLine('import * as Duration from "effect/Duration";');
+  } else if (plan.hasAwsSolidWeb) {
+    writer.writeLine('import * as Duration from "effect/Duration";');
+  }
   for (const provider of getAlchemyProviders(plan)) {
     writer.writeLine(`import * as ${provider} from "${ALCHEMY_PROVIDER_PACKAGES[provider]}";`);
   }
@@ -78,6 +101,7 @@ function writeImports(writer: AlchemyWriter, plan: AlchemyDeploymentPlan): void 
   writer.writeLine('import * as Effect from "effect/Effect";');
   if (usesLayer(plan)) writer.writeLine('import * as Layer from "effect/Layer";');
   if (usesRedacted(plan)) writer.writeLine('import * as Redacted from "effect/Redacted";');
+  writeAddonImports(writer, plan);
   writer.writeLine('import "varlock/auto-load";');
 }
 
@@ -93,7 +117,13 @@ function writeStackOptions(writer: AlchemyWriter, plan: AlchemyDeploymentPlan): 
         writer.writeLine(`providers: Layer.mergeAll(${layers.join(", ")}),`);
       }
       writer.writeLine(
-        plan.hasCloudflare ? "state: Cloudflare.state()," : "state: Alchemy.localState(),",
+        plan.hasAws
+          ? "state: AWS.state(),"
+          : plan.hasCloudflare
+            ? "state: Cloudflare.state(),"
+            : plan.emailSes
+              ? "state: AWS.state(),"
+              : "state: Alchemy.localState(),",
       );
     },
     "},",
@@ -161,10 +191,17 @@ function writeStack(writer: AlchemyWriter, plan: AlchemyDeploymentPlan): void {
       if (plan.hasAxiom) {
         writer.writeLine("const observabilityResources = yield* observability;");
       }
+      if (plan.emailSes) {
+        writer.writeLine("yield* emailResources;");
+      }
+      if (plan.hasTurnstile) {
+        writer.writeLine("const turnstileResources = yield* turnstileWidget;");
+      }
       if (plan.server.target !== "none") {
         writer.writeLine("const serverWorker = yield* server;");
       }
       writeStackWebResource(writer, plan);
+      if (writeAddonStackResources(writer, plan)) writer.blankLine();
       writeStandaloneDevResources(writer, plan);
       writeVercelEnvSync(writer, plan);
       writer.blankLine();
@@ -174,9 +211,15 @@ function writeStack(writer: AlchemyWriter, plan: AlchemyDeploymentPlan): void {
         () => {
           if (plan.web.target !== "none") writer.writeLine("web: webWorker.url,");
           else if (plan.needsStandaloneWebDev) writer.writeLine("web: webDev.url,");
-          if (plan.server.target !== "none") writer.writeLine("server: serverWorker.url,");
-          else if (plan.needsStandaloneServerDev) writer.writeLine("server: serverDev.url,");
+          if (plan.server.target !== "none") {
+            writer.writeLine(
+              plan.server.target === "aws" && plan.server.compute === "lambda"
+                ? "server: serverWorker.functionUrl,"
+                : "server: serverWorker.url,",
+            );
+          } else if (plan.needsStandaloneServerDev) writer.writeLine("server: serverDev.url,");
           if (plan.hasAxiom) writer.writeLine("axiomDataset: observabilityResources.dataset.name,");
+          if (plan.hasTurnstile) writer.writeLine("turnstileWidget: turnstileResources.sitekey,");
         },
         "};",
       );
@@ -193,12 +236,24 @@ export function generateAlchemyRun(config: ProjectConfig): string {
   writeImports(writer, plan);
   writer.blankLine();
   writer.blankLine();
+  writeAwsNetworkResources(writer, plan);
+  if (plan.hasAwsNetwork) writer.blankLine();
   writeDatabaseResources(writer, plan);
-  if (plan.hasAlchemyManagedDatabase || plan.hasPrismaDeploy || plan.hasD1Resource) {
+  if (
+    plan.hasAlchemyManagedDatabase ||
+    plan.hasPrismaDeploy ||
+    plan.hasD1Resource ||
+    plan.hasNeonServer
+  ) {
     writer.blankLine();
   }
   writeObservabilityResources(writer, plan);
   if (plan.hasAxiom) writer.blankLine();
+  writeEmailResources(writer, plan);
+  if (plan.hasEmail) writer.blankLine();
+  writeTurnstileResources(writer, plan);
+  if (plan.hasTurnstile) writer.blankLine();
+  if (writeAddonResources(writer, plan)) writer.blankLine();
   writeServerResource(writer, plan);
   if (plan.server.target !== "none") writer.blankLine();
   writeExportedWebResource(writer, plan);

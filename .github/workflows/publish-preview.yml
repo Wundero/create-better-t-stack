@@ -1,0 +1,79 @@
+name: Publish preview
+
+# Publishes the CLI to npm as `@wundero/bts` from `next` only.
+# OIDC trusted publishing with provenance — no NPM_TOKEN secret exists.
+# `latest` intentionally tracks the newest `next` preview:
+#   @wundero/bts@latest == @wundero/bts@<base>-preview-<YYYYMMDD>-<shortSha>
+
+on:
+  push:
+    branches: [next]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publish-preview
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Publish @wundero/bts preview
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: package.json
+          check-latest: true
+          registry-url: https://registry.npmjs.org
+          package-manager-cache: false
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: package.json
+
+      - name: Install Dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Build CLI
+        run: bun run build:cli
+
+      - name: Stage preview package
+        id: stage
+        run: bun run scripts/preview-publish.ts --out "$RUNNER_TEMP/preview-package"
+
+      - name: Publish preview to npm
+        id: publish
+        working-directory: ${{ runner.temp }}/preview-package
+        run: |
+          VERSION="${{ steps.stage.outputs.version }}"
+          if npm view "@wundero/bts@$VERSION" version >/dev/null 2>&1; then
+            echo "published=false" >> "$GITHUB_OUTPUT"
+            echo "@wundero/bts@$VERSION already exists; skipping publish." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          npm publish --provenance --access public --tag latest
+          echo "published=true" >> "$GITHUB_OUTPUT"
+
+      - name: Preview publish summary
+        run: |
+          VERSION="${{ steps.stage.outputs.version }}"
+          echo "## Preview publish" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Package: [\`@wundero/bts@$VERSION\`](https://www.npmjs.com/package/@wundero/bts/v/$VERSION)" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Dist-tag: \`latest\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Provenance: OIDC trusted publisher (npm CLI with \`--provenance\`)" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Commit: \`${{ github.sha }}\`" >> "$GITHUB_STEP_SUMMARY"

@@ -1,0 +1,32 @@
+import { authClient } from "./auth-client";
+
+const PRO_ITEM_PRICE_ID = "pro-USD-Monthly";
+const ACTIVE_STATUSES = ["active", "in_trial", "non_renewing"];
+
+export interface PaymentState {
+  isActive: boolean;
+  planLabel: string;
+}
+
+export async function getPaymentState(): Promise<PaymentState> {
+  const { data, error } = await authClient.subscription.list();
+  const isActive =
+    !error && (data ?? []).some((subscription) => ACTIVE_STATUSES.includes(subscription.status));
+  return { isActive, planLabel: isActive ? "Pro" : "Free" };
+}
+
+export async function checkout(): Promise<void> {
+  const { data, error } = await authClient.subscription.create({
+    itemPriceId: PRO_ITEM_PRICE_ID,
+    successUrl: "/success",
+    cancelUrl: "/dashboard",
+  });
+  if (error || !data?.url) return;
+  window.location.href = data.url;
+}
+
+export async function portal(): Promise<void> {
+  const { data, error } = await authClient.subscription.portal({ returnUrl: "/dashboard" });
+  if (error || !data?.url) return;
+  window.location.href = data.url;
+}

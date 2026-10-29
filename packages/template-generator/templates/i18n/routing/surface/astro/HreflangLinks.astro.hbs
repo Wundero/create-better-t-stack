@@ -1,0 +1,9 @@
+---
+import { hreflangLinks } from "@{{projectName}}/i18n/routing";
+
+const links = hreflangLinks(Astro.url.pathname, Astro.url.origin);
+---
+
+{links.map(({ hreflang, href }) => (
+  <link rel="alternate" hreflang={hreflang} href={href} />
+))}

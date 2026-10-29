@@ -1,14 +1,22 @@
+import { SHADCN_BASE_VALUES } from "@better-t-stack/types";
 import {
   createLoader,
   createSerializer,
   parseAsArrayOf as parseAsArrayOfServer,
+  parseAsBoolean as parseAsBooleanServer,
   parseAsStringEnum as parseAsStringEnumServer,
   parseAsString as parseAsStringServer,
   type UrlKeys,
 } from "nuqs/server";
 
-import { DEFAULT_STACK, type StackState, getStackOptionIds } from "@/lib/constant";
+import {
+  DEFAULT_I18N_OPTIONS,
+  DEFAULT_STACK,
+  type StackState,
+  getStackOptionIds,
+} from "@/lib/constant";
 import { resolveStackCompatibility } from "@/lib/stack-compatibility";
+import { composeI18nOptions, I18N_ROUTING_STRATEGIES } from "@/lib/stack-i18n";
 import { stackUrlKeys } from "@/lib/stack-url-keys";
 
 import { sanitizeStackState } from "./sanitize-stack-addons";
@@ -43,6 +51,21 @@ const serverStackParsers = {
   payments: parseAsStringEnumServer<StackState["payments"]>(
     getStackOptionIds("payments"),
   ).withDefault(DEFAULT_STACK.payments),
+  emailRenderer: parseAsStringEnumServer<StackState["emailRenderer"]>(
+    getStackOptionIds("emailRenderer"),
+  ).withDefault(DEFAULT_STACK.emailRenderer),
+  emailDeploy: parseAsStringEnumServer<StackState["emailDeploy"]>(
+    getStackOptionIds("emailDeploy"),
+  ).withDefault(DEFAULT_STACK.emailDeploy),
+  i18n: parseAsStringEnumServer<StackState["i18n"]>(getStackOptionIds("i18n")).withDefault(
+    DEFAULT_STACK.i18n,
+  ),
+  locales: parseAsArrayOfServer(parseAsStringServer).withDefault(DEFAULT_I18N_OPTIONS.locales),
+  sourceLocale: parseAsStringServer.withDefault(DEFAULT_I18N_OPTIONS.sourceLocale),
+  routing: parseAsStringEnumServer([...I18N_ROUTING_STRATEGIES]).withDefault(
+    DEFAULT_I18N_OPTIONS.routing.strategy,
+  ),
+  domains: parseAsStringServer.withDefault(""),
   packageManager: parseAsStringEnumServer<StackState["packageManager"]>(
     getStackOptionIds("packageManager"),
   ).withDefault(DEFAULT_STACK.packageManager),
@@ -51,6 +74,9 @@ const serverStackParsers = {
   git: parseAsStringEnumServer<StackState["git"]>(["true", "false"]).withDefault(DEFAULT_STACK.git),
   install: parseAsStringEnumServer<StackState["install"]>(["true", "false"]).withDefault(
     DEFAULT_STACK.install,
+  ),
+  portless: parseAsStringEnumServer<StackState["portless"]>(["true", "false"]).withDefault(
+    DEFAULT_STACK.portless,
   ),
   webDeploy: parseAsStringEnumServer<StackState["webDeploy"]>(
     getStackOptionIds("webDeploy"),
@@ -61,6 +87,12 @@ const serverStackParsers = {
   yolo: parseAsStringEnumServer<StackState["yolo"]>(["true", "false"]).withDefault(
     DEFAULT_STACK.yolo,
   ),
+  shadcnPreset: parseAsStringServer.withDefault(DEFAULT_STACK.shadcnPreset),
+  shadcnBase: parseAsStringEnumServer<StackState["shadcnBase"]>([
+    ...SHADCN_BASE_VALUES,
+  ]).withDefault(DEFAULT_STACK.shadcnBase),
+  shadcnRtl: parseAsBooleanServer.withDefault(DEFAULT_STACK.shadcnRtl),
+  shadcnPointer: parseAsBooleanServer.withDefault(DEFAULT_STACK.shadcnPointer),
 };
 
 const rawLoadStackParams = createLoader(serverStackParsers, {
@@ -74,7 +106,18 @@ export const serializeStackParams = createSerializer(serverStackParsers, {
 export async function loadStackParams(
   searchParams: Parameters<typeof rawLoadStackParams>[0],
 ): Promise<StackState> {
-  const stackState = await rawLoadStackParams(searchParams);
+  const { locales, sourceLocale, routing, domains, ...stackFields } =
+    await rawLoadStackParams(searchParams);
+  const stackState = {
+    ...stackFields,
+    i18nOptions: composeI18nOptions({
+      i18n: stackFields.i18n,
+      locales,
+      sourceLocale,
+      routing,
+      domains,
+    }),
+  };
   return resolveStackCompatibility(sanitizeStackState(stackState)).stack;
 }
 

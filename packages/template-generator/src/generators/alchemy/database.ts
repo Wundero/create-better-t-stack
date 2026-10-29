@@ -2,25 +2,57 @@ import { assertNever, type AlchemyDeploymentPlan, type ManagedDatabasePlan } fro
 import { writeLines, writeObject, type AlchemyWriter } from "./writer";
 
 function writesDatabaseMigrations(database: ManagedDatabasePlan): boolean {
+  if (database.kind === "aurora") return true;
   return (
     database.kind === "prisma-postgres" || (database.kind !== "none" && database.orm === "prisma")
   );
 }
 
+function usesDataApi(plan: AlchemyDeploymentPlan): boolean {
+  return (
+    plan.managedDatabase.kind === "aurora" &&
+    (plan.config.runtime === "workers" ||
+      (plan.config.backend === "self" && plan.config.webDeploy === "cloudflare"))
+  );
+}
+
 function writeNeon(
   writer: AlchemyWriter,
+  plan: AlchemyDeploymentPlan,
   database: Extract<ManagedDatabasePlan, { kind: "neon" }>,
 ) {
   writeObject(
     writer,
     'const database = yield* Neon.Project("database", {',
     () => {
-      if (database.orm === "drizzle") {
+      if (database.orm === "drizzle" && !plan.hasNeonServer) {
         writer.writeLine('migrations: "../../packages/db/src/migrations",');
       }
     },
     "});",
   );
+  if (plan.hasNeonServer) {
+    writeObject(
+      writer,
+      'const branch = yield* Neon.Branch("database-branch", {',
+      () => {
+        writer.writeLine("project: database,");
+        if (database.orm === "drizzle") {
+          writer.writeLine('migrations: "../../packages/db/src/migrations",');
+        }
+      },
+      "});",
+    );
+    writer.writeLine(
+      "const runtimeUrl = branch.pooledConnectionUri.pipe(Output.map(Redacted.make));",
+    );
+    if (database.orm === "prisma") {
+      writer.writeLine(
+        "const migrationUrl = branch.connectionUri.pipe(Output.map(Redacted.make));",
+      );
+    }
+    return;
+  }
   writer.writeLine(
     "const runtimeUrl = database.pooledConnectionUri.pipe(Output.map(Redacted.make));",
   );
@@ -164,11 +196,148 @@ function writePrismaPostgres(writer: AlchemyWriter): void {
   writer.writeLine("const migrationUrl = runtimeUrl;");
 }
 
+function writeAurora(
+  writer: AlchemyWriter,
+  database: Extract<ManagedDatabasePlan, { kind: "aurora" }>,
+) {
+  const isMySql = database.engine === "aurora-mysql";
+  const protocol = isMySql ? "mysql" : "postgresql";
+  const port = isMySql ? 3306 : 5432;
+  const suffix = isMySql ? "?sslaccept=strict" : "";
+
+  writer.writeLine("const { network } = yield* awsNetwork;");
+  writer.writeLine('const password = Redacted.make(randomBytes(24).toString("base64url"));');
+  writeObject(
+    writer,
+    'const databaseSecret = yield* AWS.SecretsManager.Secret("database-secret", {',
+    () => {
+      writer.writeLine("secretString: Redacted.make(");
+      writer.indent(() => {
+        writer.writeLine(
+          'JSON.stringify({ username: "app", password: Redacted.value(password) }),',
+        );
+      });
+      writer.writeLine("),");
+    },
+    "});",
+  );
+  writeObject(
+    writer,
+    'const subnetGroup = yield* AWS.RDS.DBSubnetGroup("database-subnets", {',
+    () => {
+      writer.writeLine("subnetIds: network.privateSubnetIds,");
+    },
+    "});",
+  );
+  writeObject(
+    writer,
+    'const cluster = yield* AWS.RDS.DBCluster("database", {',
+    () => {
+      writer.writeLine(`engine: "${database.engine}",`);
+      writer.writeLine('engineMode: "provisioned",');
+      writer.writeLine('databaseName: "app",');
+      writer.writeLine('masterUsername: "app",');
+      writer.writeLine("masterUserPassword: password,");
+      writer.writeLine("manageMasterUserPassword: false,");
+      writer.writeLine("enableHttpEndpoint: true,");
+      writer.writeLine("dbSubnetGroupName: subnetGroup.dbSubnetGroupName,");
+      writer.writeLine("vpcSecurityGroupIds: [network.databaseSecurityGroup.groupId],");
+      writeObject(
+        writer,
+        "serverlessV2ScalingConfiguration: {",
+        () => {
+          writer.writeLine("MinCapacity: 0.5,");
+          writer.writeLine("MaxCapacity: 4,");
+        },
+        "},",
+      );
+    },
+    "});",
+  );
+  writeObject(
+    writer,
+    'const writer = yield* AWS.RDS.DBInstance("database-writer", {',
+    () => {
+      writer.writeLine(`engine: "${database.engine}",`);
+      writer.writeLine('dbInstanceClass: "db.serverless",');
+      writer.writeLine("dbClusterIdentifier: cluster.dbClusterIdentifier,");
+      writer.writeLine("publiclyAccessible: false,");
+      writer.writeLine("dbSubnetGroupName: subnetGroup.dbSubnetGroupName,");
+      writer.writeLine("vpcSecurityGroupIds: [network.databaseSecurityGroup.groupId],");
+    },
+    "});",
+  );
+  writer.writeLine(
+    "const runtimeUrl = Output.all(cluster.endpoint, Output.asOutput(password)).pipe(",
+  );
+  writer.indent(() => {
+    writer.writeLine("Output.map(([endpoint, secret]) =>");
+    writer.indent(() => {
+      writer.writeLine("Redacted.make(");
+      writer.indent(() => {
+        writer.writeLine(
+          `\`${protocol}://app:\${encodeURIComponent(Redacted.value(secret))}@\${endpoint}:${port}/app${suffix}\`,`,
+        );
+      });
+      writer.writeLine("),");
+    });
+    writer.writeLine("),");
+  });
+  writer.writeLine(");");
+}
+
+function writeAuroraMigrationCommand(
+  writer: AlchemyWriter,
+  plan: AlchemyDeploymentPlan,
+  database: Extract<ManagedDatabasePlan, { kind: "aurora" }>,
+): void {
+  writer.blankLine();
+  writeObject(
+    writer,
+    'yield* Command.Exec("database-migrations", {',
+    () => {
+      writer.writeLine(`command: "${plan.config.packageManager} run db:migrate:aurora",`);
+      writer.writeLine('cwd: "../../packages/db",');
+      writeObject(
+        writer,
+        "env: {",
+        () => {
+          writer.writeLine("DATABASE_CLUSTER_ARN: cluster.dbClusterArn,");
+          writer.writeLine("DATABASE_SECRET_ARN: databaseSecret.secretArn,");
+          writer.writeLine('DATABASE_NAME: "app",');
+          writer.writeLine('AWS_REGION: process.env.AWS_REGION ?? "us-east-1",');
+        },
+        "},",
+      );
+      writeObject(
+        writer,
+        "memo: {",
+        () => {
+          writer.writeLine("include: [");
+          writer.indent(() => {
+            writer.writeLine(
+              database.orm === "prisma" ? '"prisma/migrations/**",' : '"src/migrations/**",',
+            );
+          });
+          writer.writeLine("],");
+        },
+        "},",
+      );
+    },
+    "});",
+  );
+}
+
 function writeMigrationCommand(
   writer: AlchemyWriter,
   plan: AlchemyDeploymentPlan,
   database: Exclude<ManagedDatabasePlan, { kind: "none" }>,
 ): void {
+  if (database.kind === "aurora") {
+    writeAuroraMigrationCommand(writer, plan, database);
+    return;
+  }
+
   if (!writesDatabaseMigrations(database)) return;
 
   writer.blankLine();
@@ -210,7 +379,7 @@ function writeManagedDatabase(writer: AlchemyWriter, plan: AlchemyDeploymentPlan
   writer.indent(() => {
     switch (database.kind) {
       case "neon":
-        writeNeon(writer, database);
+        writeNeon(writer, plan, database);
         break;
       case "planetscale-postgres":
         writePlanetScalePostgres(writer, database);
@@ -221,6 +390,9 @@ function writeManagedDatabase(writer: AlchemyWriter, plan: AlchemyDeploymentPlan
       case "prisma-postgres":
         writePrismaPostgres(writer);
         break;
+      case "aurora":
+        writeAurora(writer, database);
+        break;
       default:
         assertNever(database);
     }
@@ -229,7 +401,20 @@ function writeManagedDatabase(writer: AlchemyWriter, plan: AlchemyDeploymentPlan
     writer.blankLine();
     writer.writeLine("return {");
     writer.indent(() => {
-      if (database.kind === "planetscale-mysql" && database.orm === "drizzle") {
+      if (usesDataApi(plan)) {
+        writeObject(
+          writer,
+          "runtimeEnv: {",
+          () => {
+            writeLines(writer, [
+              "DATABASE_CLUSTER_ARN: cluster.dbClusterArn,",
+              "DATABASE_SECRET_ARN: databaseSecret.secretArn,",
+              'DATABASE_NAME: "app",',
+            ]);
+          },
+          "},",
+        );
+      } else if (database.kind === "planetscale-mysql" && database.orm === "drizzle") {
         writeObject(
           writer,
           "runtimeEnv: {",
@@ -245,6 +430,7 @@ function writeManagedDatabase(writer: AlchemyWriter, plan: AlchemyDeploymentPlan
       } else {
         writer.writeLine("runtimeEnv: { DATABASE_URL: runtimeUrl },");
       }
+      if (database.kind === "neon" && plan.hasNeonServer) writer.writeLine("branch,");
     });
     writer.writeLine("};");
   });
@@ -258,7 +444,13 @@ function writeManagedDatabase(writer: AlchemyWriter, plan: AlchemyDeploymentPlan
     writer,
     "export const databaseBindings = {",
     () => {
-      if (database.kind === "planetscale-mysql" && database.orm === "drizzle") {
+      if (usesDataApi(plan)) {
+        writeLines(writer, [
+          "DATABASE_CLUSTER_ARN: databaseEnv.pipe(Effect.map(({ DATABASE_CLUSTER_ARN }) => DATABASE_CLUSTER_ARN)),",
+          "DATABASE_SECRET_ARN: databaseEnv.pipe(Effect.map(({ DATABASE_SECRET_ARN }) => DATABASE_SECRET_ARN)),",
+          "DATABASE_NAME: databaseEnv.pipe(Effect.map(({ DATABASE_NAME }) => DATABASE_NAME)),",
+        ]);
+      } else if (database.kind === "planetscale-mysql" && database.orm === "drizzle") {
         writeLines(writer, [
           "DATABASE_HOST: databaseEnv.pipe(Effect.map(({ DATABASE_HOST }) => DATABASE_HOST)),",
           "DATABASE_USERNAME: databaseEnv.pipe(Effect.map(({ DATABASE_USERNAME }) => DATABASE_USERNAME)),",
@@ -279,13 +471,31 @@ function writeManagedDatabase(writer: AlchemyWriter, plan: AlchemyDeploymentPlan
     if (database.kind === "neon") writer.writeLine("Neon.providers(),");
     else if (database.kind === "planetscale-postgres" || database.kind === "planetscale-mysql") {
       writer.writeLine("Planetscale.providers(),");
-    } else writer.writeLine("Prisma.providers(),");
+    } else if (database.kind === "aurora") writer.writeLine("AWS.providers(),");
+    else writer.writeLine("Prisma.providers(),");
 
     if (plan.hasPrismaDeploy && database.kind !== "prisma-postgres") {
       writer.writeLine("Prisma.providers(),");
     }
   });
   writer.writeLine(");");
+  if (database.kind === "neon" && plan.hasNeonServer) {
+    writer.blankLine();
+    writer.writeLine(
+      "export const neonBranch = managedDatabase.pipe(Effect.map(({ branch }) => branch));",
+    );
+  }
+}
+
+function writeNeonServerHost(writer: AlchemyWriter, plan: AlchemyDeploymentPlan): void {
+  if (!plan.hasNeonServer || plan.managedDatabase.kind === "neon") return;
+
+  writer.writeLine("export const neonBranch = Effect.gen(function* () {");
+  writer.indent(() => {
+    writer.writeLine('const project = yield* Neon.Project("server-project");');
+    writer.writeLine('return yield* Neon.Branch("server-branch", { project });');
+  });
+  writer.writeLine("});");
 }
 
 function writeExternalDatabaseEnv(writer: AlchemyWriter, plan: AlchemyDeploymentPlan): void {
@@ -350,6 +560,7 @@ export function writeDatabaseResources(writer: AlchemyWriter, plan: AlchemyDeplo
   }
 
   writeManagedDatabase(writer, plan);
+  writeNeonServerHost(writer, plan);
   writeExternalDatabaseEnv(writer, plan);
   if (plan.hasAlchemyManagedDatabase || plan.hasPrismaDeploy) writer.blankLine();
   writeD1(writer, plan);

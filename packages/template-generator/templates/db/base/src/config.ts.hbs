@@ -8,6 +8,10 @@ export type DatabaseConfig = {
   DATABASE_HOST: string;
   DATABASE_USERNAME: string;
   DATABASE_PASSWORD: string;
+{{else if (and (eq dbSetup "aurora") (or (eq runtime "workers") (and (eq backend "self") (eq webDeploy "cloudflare"))))}}
+  DATABASE_CLUSTER_ARN: string;
+  DATABASE_SECRET_ARN: string;
+  DATABASE_NAME: string;
 {{else}}
   DATABASE_URL: string;
 {{#if (eq dbSetup "turso")}}

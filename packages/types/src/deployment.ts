@@ -1,8 +1,31 @@
 import type { DatabaseSetup, Frontend, ProjectConfig, ServerDeploy, WebDeploy } from "./types";
 
-export const ALCHEMY_DEPLOY_TARGETS = ["cloudflare", "prisma"] as const;
+export const ALCHEMY_WEB_DEPLOY_TARGETS = [
+  "cloudflare",
+  "prisma",
+  "aws",
+  "hetzner",
+] as const satisfies readonly WebDeploy[];
 
-export const ALCHEMY_DATABASE_SETUPS = ["neon", "planetscale", "prisma-postgres"] as const;
+export const ALCHEMY_SERVER_DEPLOY_TARGETS = [
+  "cloudflare",
+  "prisma",
+  "aws",
+  "hetzner",
+  "fly",
+  "railway",
+  "neon",
+] as const satisfies readonly ServerDeploy[];
+
+// Targets the generator's Alchemy emitter models today; new targets stay no-ops until it learns them.
+export const ALCHEMY_DEPLOY_TARGETS = ["cloudflare", "prisma", "aws", "neon"] as const;
+
+export const ALCHEMY_DATABASE_SETUPS = [
+  "neon",
+  "planetscale",
+  "prisma-postgres",
+  "aurora",
+] as const;
 
 export type LocalD1Owner = "wrangler" | "alchemy-provider" | "none";
 
@@ -22,6 +45,18 @@ export function isAlchemyDeployTarget(
   return ALCHEMY_DEPLOY_TARGETS.some((value) => value === target);
 }
 
+export function isAlchemyWebDeployTarget(
+  target: WebDeploy | ServerDeploy | undefined,
+): target is (typeof ALCHEMY_WEB_DEPLOY_TARGETS)[number] {
+  return ALCHEMY_WEB_DEPLOY_TARGETS.some((value) => value === target);
+}
+
+export function isAlchemyServerDeployTarget(
+  target: WebDeploy | ServerDeploy | undefined,
+): target is (typeof ALCHEMY_SERVER_DEPLOY_TARGETS)[number] {
+  return ALCHEMY_SERVER_DEPLOY_TARGETS.some((value) => value === target);
+}
+
 export function isAlchemyDatabaseSetup(
   setup: DatabaseSetup | undefined,
 ): setup is (typeof ALCHEMY_DATABASE_SETUPS)[number] {
@@ -37,8 +72,8 @@ export function supportsAlchemyManagedDatabase(config: AlchemyDatabaseConfig): b
   if (!isAlchemyDatabaseSetup(config.dbSetup)) return false;
 
   return config.backend === "self"
-    ? isAlchemyDeployTarget(config.webDeploy)
-    : isAlchemyDeployTarget(config.serverDeploy);
+    ? isAlchemyWebDeployTarget(config.webDeploy)
+    : isAlchemyServerDeployTarget(config.serverDeploy);
 }
 
 export function usesAlchemyManagedDatabase(config: AlchemyDatabaseConfig): boolean {

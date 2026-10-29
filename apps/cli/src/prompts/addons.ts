@@ -8,6 +8,7 @@ import {
   type ProjectConfig,
   type Runtime,
 } from "../types";
+import { isProviderAddon, PROVIDER_ADDON_META } from "../types";
 import {
   OBSERVABILITY_ADDONS,
   TASK_RUNNER_ADDONS,
@@ -70,6 +71,10 @@ function getAddonDisplay(addon: Addons): AddonDisplay {
       label = "Oxlint";
       hint = "Oxlint + Oxfmt (linting & formatting)";
       break;
+    case "eslint":
+      label = "ESLint + Prettier";
+      hint = "ESLint + Prettier (oxlint, Vite+, or Biome preferred)";
+      break;
     case "ultracite":
       label = "Ultracite";
       hint = "Zero-config preset for Biome or Oxlint with AI integration";
@@ -114,7 +119,15 @@ function getAddonDisplay(addon: Addons): AddonDisplay {
       label = "Axiom";
       hint = "Managed production observability through evlog and Alchemy";
       break;
+    case "turnstile":
+      label = "Cloudflare Turnstile";
+      hint = "CAPTCHA on Better Auth sign-up and sign-in (Cloudflare + Alchemy)";
+      break;
     default:
+      if (isProviderAddon(addon)) {
+        const { label: providerLabel, hint: providerHint } = PROVIDER_ADDON_META[addon];
+        return { label: providerLabel, hint: providerHint };
+      }
       label = addon;
       hint = `Add ${addon}`;
   }
@@ -124,12 +137,15 @@ function getAddonDisplay(addon: Addons): AddonDisplay {
 
 const ADDON_GROUPS = {
   "Monorepo & Tasks": ["turborepo", "nx", "vite-plus"],
-  "Code Quality": ["biome", "oxlint", "ultracite", "husky", "lefthook"],
+  "Code Quality": ["biome", "oxlint", "eslint", "ultracite", "husky", "lefthook"],
   Documentation: ["starlight", "fumadocs"],
   "Platform Extensions": ["pwa", "tauri", "electrobun", "opentui", "wxt"],
   Observability: ["evlog", "axiom"],
+  Security: ["turnstile"],
   "AI & Agent Tools": ["skills", "mcp"],
 };
+
+const ESLINT_VITE_PLUS_EXCLUSIVE = ["eslint", "vite-plus"] as const satisfies readonly Addons[];
 
 function createGroupedOptions(): Record<string, AddonOption[]> {
   return Object.fromEntries(Object.keys(ADDON_GROUPS).map((group) => [group, [] as AddonOption[]]));
@@ -166,6 +182,10 @@ function validateAddonSelection(selected: Addons[] | undefined) {
     return "Choose Turborepo, Nx, or Vite+ as your task runner, not more than one.";
   }
 
+  if (selected?.includes("eslint") && selected.includes("vite-plus")) {
+    return "Choose ESLint + Prettier or Vite+, not both. Vite+ already provides linting and formatting.";
+  }
+
   const selectedObservabilityAddons =
     selected?.filter((addon) => OBSERVABILITY_ADDONS.includes(addon)) ?? [];
   if (selectedObservabilityAddons.length > 1) {
@@ -183,7 +203,9 @@ export async function getAddonsChoice(
 ) {
   if (addons !== undefined) return addons;
 
-  const allAddons = AddonsSchema.options.filter((addon) => addon !== "none");
+  const allAddons = AddonsSchema.options.filter(
+    (addon) => addon !== "none" && !isProviderAddon(addon),
+  );
   const groupedOptions = createGroupedOptions();
 
   const frontendsArray = frontends || [];
@@ -216,7 +238,7 @@ export async function getAddonsChoice(
     options: groupedOptions,
     initialValues: initialValues,
     required: false,
-    exclusive: [TASK_RUNNER_ADDONS, OBSERVABILITY_ADDONS],
+    exclusive: [TASK_RUNNER_ADDONS, OBSERVABILITY_ADDONS, ESLINT_VITE_PLUS_EXCLUSIVE],
     validate: validateAddonSelection,
   });
 
@@ -231,7 +253,10 @@ export async function getAddonsToAdd(config: AddonProjectConfig) {
   const frontendArray = config.frontend || [];
 
   const compatibleAddons = getCompatibleAddons(
-    AddonsSchema.options.filter((addon) => addon !== "none" && addon !== "axiom"),
+    AddonsSchema.options.filter(
+      (addon) =>
+        addon !== "none" && addon !== "axiom" && addon !== "turnstile" && !isProviderAddon(addon),
+    ),
     frontendArray,
     config.addons,
     config.auth,
@@ -255,7 +280,7 @@ export async function getAddonsToAdd(config: AddonProjectConfig) {
     message: "Select addons to add",
     options: groupedOptions,
     required: false,
-    exclusive: [TASK_RUNNER_ADDONS, OBSERVABILITY_ADDONS],
+    exclusive: [TASK_RUNNER_ADDONS, OBSERVABILITY_ADDONS, ESLINT_VITE_PLUS_EXCLUSIVE],
     validate: validateAddonSelection,
   });
 

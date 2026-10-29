@@ -155,7 +155,7 @@ function RouteComponent() {
         </header>
         <main className="min-h-0 flex-1">
               {(!messages || messages.length === 0) && !isLoading ? (
-                <Empty className="mx-auto h-full max-w-3xl px-4">
+                <Empty className="mx-auto h-full max-w-3xl">
                   <EmptyHeader>
                     <EmptyMedia variant="icon">
                       <MessageCircleDashedIcon />
@@ -171,7 +171,7 @@ function RouteComponent() {
                   <MessageScrollerViewport>
                     <MessageScrollerContent
                       aria-busy={isBusy}
-                      className="mx-auto w-full max-w-3xl px-4 py-6"
+                      className="mx-auto w-full max-w-3xl"
                     >
                       {messages.map((message) => {
                         const isUser = message.role === "user";
@@ -209,8 +209,8 @@ function RouteComponent() {
                           <Message align="start">
                             <MessageBody>
                               <Bubble variant="secondary">
-                                <BubbleContent className="flex items-center gap-2">
-                                  <Loader2 className="size-3.5 animate-spin" />
+                                <BubbleContent className="flex items-center">
+                                  <Loader2 className="mr-2 size-3.5 animate-spin" />
                                   <span className="shimmer">Thinking...</span>
                                 </BubbleContent>
                               </Bubble>
@@ -241,7 +241,7 @@ function RouteComponent() {
                     autoFocus
                     disabled={isBusy}
                   />
-                  <InputGroupAddon align="block-end" className="pt-1">
+                  <InputGroupAddon align="block-end">
                     <InputGroupButton
                       type="submit"
                       variant="default"
@@ -382,7 +382,7 @@ function RouteComponent() {
         </header>
         <main className="min-h-0 flex-1">
               {messages.length === 0 && !isSending ? (
-                <Empty className="mx-auto h-full max-w-3xl px-4">
+                <Empty className="mx-auto h-full max-w-3xl">
                   <EmptyHeader>
                     <EmptyMedia variant="icon">
                       <MessageCircleDashedIcon />
@@ -398,7 +398,7 @@ function RouteComponent() {
                   <MessageScrollerViewport>
                     <MessageScrollerContent
                       aria-busy={isSending}
-                      className="mx-auto w-full max-w-3xl px-4 py-6"
+                      className="mx-auto w-full max-w-3xl"
                     >
                       {messages.map((message) => {
                         const isUser = message.role === "user";
@@ -443,8 +443,8 @@ function RouteComponent() {
                           <Message align="start">
                             <MessageBody>
                               <Bubble variant="secondary">
-                                <BubbleContent className="flex items-center gap-2">
-                                  <Loader2 className="size-3.5 animate-spin" />
+                                <BubbleContent className="flex items-center">
+                                  <Loader2 className="mr-2 size-3.5 animate-spin" />
                                   <span className="shimmer">Thinking...</span>
                                 </BubbleContent>
                               </Bubble>
@@ -475,7 +475,7 @@ function RouteComponent() {
                     autoFocus
                     disabled={isSending}
                   />
-                  <InputGroupAddon align="block-end" className="pt-1">
+                  <InputGroupAddon align="block-end">
                     <InputGroupButton
                       type="submit"
                       variant="default"

@@ -1,3 +1,8 @@
+import {
+  getPaymentProvider,
+  isPaymentProvider,
+  type PaymentProviderId,
+} from "@better-t-stack/types";
 import { box, log } from "@clack/prompts";
 import pc from "picocolors";
 
@@ -15,6 +20,7 @@ import type {
 } from "../../types";
 import {
   getLocalD1Owner,
+  I18N_LIBRARY_META,
   isAlchemyDeployTarget,
   usesAlchemyManagedDatabase,
   usesTursoDevServer,
@@ -26,6 +32,12 @@ import {
   formatPostInstallSpecialSponsorsSection,
 } from "../../utils/sponsors";
 import { cliLog } from "../../utils/terminal-output";
+
+function getEslintPreferenceNote(): string {
+  return `${pc.yellow(
+    "NOTE:",
+  )} ESLint + Prettier is included for compatibility. oxlint, Vite+, or Biome are preferred for new projects.`;
+}
 
 function getDesktopStaticBuildNote(frontend: Frontend[]): string {
   const staticBuildFrontends = new Map<Frontend, string>([
@@ -66,6 +78,7 @@ export async function displayPostInstallInstructions(
     webDeploy,
     serverDeploy,
     dbSetupOptions,
+    portless,
   } = config;
 
   const isConvex = backend === "convex";
@@ -82,6 +95,7 @@ export async function displayPostInstallInstructions(
     addons?.includes("biome") ||
     addons?.includes("lefthook") ||
     addons?.includes("oxlint") ||
+    addons?.includes("eslint") ||
     hasVitePlus;
 
   const databaseInstructions =
@@ -109,6 +123,7 @@ export async function displayPostInstallInstructions(
     ? getVitePlusNativeHooksInstructions(runCmd)
     : "";
   const lintingInstructions = hasGitHooksOrLinting ? getLintingInstructions(runCmd) : "";
+  const eslintPreferenceNote = addons?.includes("eslint") ? getEslintPreferenceNote() : "";
   const nativeInstructions =
     (frontend?.includes("native-bare") ||
       frontend?.includes("native-uniwind") ||
@@ -131,6 +146,8 @@ export async function displayPostInstallInstructions(
     config.auth,
     frontend || [],
     addons || [],
+    dbSetup,
+    runtime,
   );
 
   const hasWeb = frontend?.some((f) => (webFrontends as readonly string[]).includes(f));
@@ -149,10 +166,11 @@ export async function displayPostInstallInstructions(
     isConvex && config.auth === "better-auth"
       ? getBetterAuthConvexInstructions(hasWeb ?? false, webPort, packageManager, runCmd)
       : "";
-  const polarInstructions =
-    config.payments === "polar" && config.auth === "better-auth"
-      ? getPolarInstructions(backend, packageManager)
+  const paymentsInstructions =
+    config.auth === "better-auth" && isPaymentProvider(config.payments)
+      ? getPaymentsInstructions(config.payments, backend, packageManager, runCmd)
       : "";
+  const i18nInstructions = getI18nInstructions(runCmd, config);
 
   const bunWebNativeWarning =
     packageManager === "bun" && hasNative && hasWeb ? getBunWebNativeWarning() : "";
@@ -268,6 +286,16 @@ export async function displayPostInstallInstructions(
     }
   }
 
+  const portlessInstructions =
+    portless === true
+      ? getPortlessInstructions(
+          config.projectName,
+          hasWeb === true,
+          hasStandaloneBackend && !isConvex && !isBackendSelf,
+        )
+      : "";
+
+  if (portlessInstructions) output += `\n${portlessInstructions.trim()}\n`;
   if (nativeInstructions) output += `\n${nativeInstructions.trim()}\n`;
   if (databaseInstructions) output += `\n${databaseInstructions.trim()}\n`;
   if (tauriInstructions) output += `\n${tauriInstructions.trim()}\n`;
@@ -280,11 +308,13 @@ export async function displayPostInstallInstructions(
   if (starlightInstructions) output += `\n${starlightInstructions.trim()}\n`;
   if (clerkInstructions) output += `\n${clerkInstructions.trim()}\n`;
   if (betterAuthConvexInstructions) output += `\n${betterAuthConvexInstructions.trim()}\n`;
-  if (polarInstructions) output += `\n${polarInstructions.trim()}\n`;
+  if (paymentsInstructions) output += `\n${paymentsInstructions.trim()}\n`;
+  if (i18nInstructions) output += `\n${i18nInstructions.trim()}\n`;
   // Deploy steps come last so env sync happens after auth/payment keys exist
   if (alchemyDeployInstructions) output += `\n${alchemyDeployInstructions.trim()}\n`;
 
   if (noOrmWarning) output += `\n${noOrmWarning.trim()}\n`;
+  if (eslintPreferenceNote) output += `\n${eslintPreferenceNote.trim()}\n`;
   if (bunWebNativeWarning) output += `\n${bunWebNativeWarning.trim()}\n`;
 
   const sponsorsResult = await fetchSponsorsQuietly();
@@ -544,12 +574,76 @@ function getPwaInstructions() {
   )} Verify PWA behavior with a production build on HTTPS or localhost.\n   Offline navigation shows a precached fallback page.\n   Server-rendered pages require a connection.`;
 }
 
+function sanitizePortlessName(projectName: string): string {
+  const sanitized = projectName
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+
+  return sanitized.length > 0 ? sanitized : "app";
+}
+
+function getPortlessInstructions(projectName: string, hasWeb: boolean, hasServer: boolean) {
+  const slug = sanitizePortlessName(projectName);
+  const urls: Array<{ label: string; url: string }> = [];
+
+  if (hasWeb) {
+    urls.push({ label: "Web", url: `https://${slug}.localhost` });
+  }
+
+  if (hasServer) {
+    urls.push({ label: "API", url: `https://api.${slug}.localhost` });
+  }
+
+  const lines = [
+    pc.bold("Portless dev mode (experimental):"),
+    `${pc.cyan("•")} Requires Node.js 24 or newer`,
+    `${pc.cyan("•")} Install the CLI: ${pc.white("npm i -g portless")} ${pc.dim(
+      "(or use the project devDependency)",
+    )}`,
+    `${pc.cyan("•")} Trust the local CA once: ${pc.white("portless trust")}`,
+  ];
+
+  if (urls.length > 0) {
+    const labelWidth = Math.max(...urls.map(({ label }) => label.length));
+    lines.push(
+      ...urls.map(({ label, url }) => `${pc.dim(label.padEnd(labelWidth))}  ${pc.cyan(url)}`),
+    );
+  }
+
+  return lines.join("\n");
+}
+
 function getStarlightInstructions(runCmd: string) {
   return `\n${pc.bold("Documentation with Starlight:")}\n${pc.cyan(
     "•",
   )} Start docs site: ${`cd apps/docs && ${runCmd} dev`}\n${pc.cyan(
     "•",
   )} Build docs site: ${`cd apps/docs && ${runCmd} build`}`;
+}
+
+function getI18nInstructions(runCmd: string, config: ProjectConfig) {
+  const library = config.i18n;
+  if (library === undefined || library === "none") return "";
+
+  const lines = [`${pc.bold(`${I18N_LIBRARY_META[library].label} i18n:`)}`];
+
+  const locales = config.i18nOptions?.locales;
+  if (locales && locales.length > 0) {
+    lines.push(`${pc.cyan("•")} Locales: ${locales.join(", ")}`);
+  }
+
+  lines.push(
+    `${pc.cyan("•")} Extract messages: ${runCmd} i18n:extract`,
+    `${pc.cyan("•")} Compile catalogs: ${runCmd} i18n:compile`,
+    `${pc.cyan("•")} Check missing translations: ${runCmd} i18n:check`,
+  );
+
+  if (config.i18nOptions?.translateSkill ?? true) {
+    lines.push(`${pc.cyan("•")} Translate with the i18n-translate agent skill`);
+  }
+
+  return lines.join("\n");
 }
 
 function getNoOrmWarning() {
@@ -683,6 +777,40 @@ function getBetterAuthConvexInstructions(
   );
 }
 
+function getPaymentsInstructions(
+  payments: PaymentProviderId,
+  backend: Backend,
+  packageManager: string,
+  runCmd: string,
+) {
+  if (payments === "polar") {
+    return getPolarInstructions(backend, packageManager);
+  }
+
+  const provider = getPaymentProvider(payments);
+  const envPath = backend === "self" ? "apps/web/.env" : "apps/server/.env";
+  const lines: string[] = [`${pc.bold(`${provider.label} Setup:`)}`];
+
+  if (provider.env.length > 0) {
+    lines.push(`${pc.cyan("•")} Set the following env vars in ${pc.white(envPath)}:`);
+    lines.push(
+      provider.env
+        .map(({ key, comment }) => `${pc.white(`   ${key}`)}${pc.dim(` — ${comment}`)}`)
+        .join("\n"),
+    );
+  }
+
+  if (provider.requiresMigration) {
+    lines.push(
+      `${pc.cyan("•")} Generate the auth schema with ${pc.white(
+        `${runCmd} auth:generate`,
+      )}, then apply the migration with your ORM`,
+    );
+  }
+
+  return lines.join("\n");
+}
+
 function getPolarInstructions(backend: Backend, packageManager: string) {
   if (backend === "convex") {
     const cmd = packageManager === "npm" ? "npx" : packageManager;
@@ -702,6 +830,13 @@ function getPolarInstructions(backend: Backend, packageManager: string) {
   return `${pc.bold("Polar Payments Setup:")}\n${pc.cyan("•")} Get access token & product ID from ${pc.underline("https://sandbox.polar.sh/")}\n${pc.cyan("•")} Set POLAR_ACCESS_TOKEN in ${envPath}`;
 }
 
+function getAlchemyTargetLabel(deploy: WebDeploy | ServerDeploy) {
+  if (deploy === "cloudflare") return "Cloudflare";
+  if (deploy === "aws") return "AWS";
+  if (deploy === "neon") return "Neon";
+  return "Prisma";
+}
+
 function getAlchemyDeployInstructions(
   runCmd: string,
   webDeploy: WebDeploy,
@@ -710,19 +845,22 @@ function getAlchemyDeployInstructions(
   auth: ProjectConfig["auth"],
   frontend: Frontend[],
   addons: ProjectConfig["addons"],
+  dbSetup: DatabaseSetup,
+  runtime: Runtime,
 ) {
   const instructions: string[] = [];
   const isBackendSelf = backend === "self";
   const hasAlchemyWeb = isAlchemyDeployTarget(webDeploy);
   const hasAlchemyServer = isAlchemyDeployTarget(serverDeploy);
   const hasAxiom = addons.includes("axiom");
+  const hasAwsTarget = webDeploy === "aws" || serverDeploy === "aws";
   const alchemyExec = runCmd === "npm run" ? "npx" : runCmd === "pnpm run" ? "pnpm exec" : "bunx";
 
   if (hasAlchemyWeb || hasAlchemyServer || hasAxiom) {
     const targetParts = [
-      ...(hasAlchemyWeb ? [`web on ${webDeploy === "cloudflare" ? "Cloudflare" : "Prisma"}`] : []),
+      ...(hasAlchemyWeb ? [`web on ${getAlchemyTargetLabel(webDeploy)}`] : []),
       ...(hasAlchemyServer && !isBackendSelf
-        ? [`server on ${serverDeploy === "cloudflare" ? "Cloudflare" : "Prisma"}`]
+        ? [`server on ${getAlchemyTargetLabel(serverDeploy)}`]
         : []),
       ...(hasAxiom ? ["Axiom observability"] : []),
     ];
@@ -762,6 +900,24 @@ function getAlchemyDeployInstructions(
     instructions.push(
       `${pc.bold(`Deploy with Alchemy (${targetParts.join(" + ")}):`)}\n${pc.cyan("•")} Configure provider accounts: ${`cd packages/infra && ${alchemyExec} alchemy profile edit`}\n${hasAxiom && (webDeploy === "vercel" || serverDeploy === "vercel") ? `${pc.cyan("•")} For Axiom, deploy from packages/infra with alchemy deploy --stage preview or --stage production. Link Vercel first: ${`${runCmd} deploy:setup`}\n` : ""}${pc.cyan("•")} Dev: ${`${runCmd} dev`}\n${pc.cyan("•")} Deploy: ${`${runCmd} ${deployScript}`}\n${originSteps.join("\n")}${originSteps.length > 0 ? "\n" : ""}${pc.cyan("•")} Destroy: ${`${runCmd} destroy`}`,
     );
+
+    if (hasAwsTarget) {
+      instructions.push(
+        `${pc.bold("AWS setup:")}\n${pc.cyan("•")} Configure AWS credentials: ${`cd packages/infra && ${alchemyExec} alchemy profile edit --add AWS`}\n${pc.cyan("•")} The first deploy prompts for an AWS region`,
+      );
+    }
+
+    if (runtime === "lambda") {
+      instructions.push(
+        `${pc.bold("AWS Lambda:")}\n${pc.cyan("•")} The first deploy returns the function URL${hasWeb && !isBackendSelf ? `; set CORS_ORIGIN in apps/server/.env to the deployed web origin, then deploy again` : ""}`,
+      );
+    }
+
+    if (dbSetup === "aurora") {
+      instructions.push(
+        `${pc.bold("AWS Aurora:")}\n${pc.yellow("NOTE:")} Aurora is not reachable from the deploy host, so migrations are not applied automatically. Run ${`${runCmd} db:migrate:deploy`} from a host with VPC access`,
+      );
+    }
   }
 
   if (webDeploy === "docker" || serverDeploy === "docker") {
