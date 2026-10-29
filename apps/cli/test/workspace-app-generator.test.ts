@@ -47,7 +47,7 @@ function existingProjectFiles(): Map<string, string> {
           "env:generate": SERVER_ENV_COMMAND,
           postinstall: SERVER_ENV_COMMAND,
         },
-        devDependencies: { varlock: "1.18.0" },
+        devDependencies: { varlock: "1.23.0" },
       }),
     ],
   ]);
@@ -222,7 +222,7 @@ describe("planWorkspaceApp", () => {
           JSON.stringify({
             name: "acme",
             scripts: originalScripts,
-            devDependencies: { typescript: "^6.0.3", varlock: "1.18.0" },
+            devDependencies: { typescript: "^6.0.3", varlock: "1.23.0" },
             workspaces: { packages: ["apps/*", "packages/*"], catalog: {} },
           }),
         ],
@@ -289,7 +289,7 @@ describe("planWorkspaceApp", () => {
             devDependencies: { typescript: "^6.0.3" },
             workspaces: {
               packages: ["apps/*", "packages/*"],
-              catalog: { varlock: "1.18.0" },
+              catalog: { varlock: "1.23.0" },
             },
           }),
         ],
@@ -339,7 +339,7 @@ describe("planWorkspaceApp", () => {
           JSON.stringify({
             name: "acme",
             scripts: rootScripts,
-            devDependencies: { typescript: "^6.0.3", varlock: "1.18.0" },
+            devDependencies: { typescript: "^6.0.3", varlock: "1.23.0" },
             workspaces: { packages: ["apps/*", "packages/*"], catalog: {} },
           }),
         ],

@@ -5,6 +5,7 @@ import { createORPCClient } from "@orpc/client";
 import { RPCLink } from "@orpc/client/fetch";
 import { createTanstackQueryUtils } from "@orpc/tanstack-query";
 import { QueryCache, QueryClient } from "@tanstack/svelte-query";
+import { browser } from "$app/env";
 import type { AppRouterClient } from "@{{projectName}}/api/routers/index";
 {{#if (and i18n (ne i18n "none") (ne auth "better-auth"))}}
 import { localeFetch } from "@{{projectName}}/i18n/client";
@@ -13,13 +14,16 @@ import { localeFetch } from "@{{projectName}}/i18n/client";
 import { localeInit } from "@{{projectName}}/i18n/client";
 {{/if}}
 
-export const queryClient = new QueryClient({
-	queryCache: new QueryCache({
-		onError: (error) => {
-			console.error(`Error: ${error.message}`);
-		},
-	}),
-});
+export function createQueryClient() {
+	return new QueryClient({
+		queryCache: new QueryCache({
+			onError: (error) => {
+				console.error(`Error: ${error.message}`);
+			},
+		}),
+		defaultOptions: { queries: { enabled: browser } },
+	});
+}
 
 {{#unless (eq backend "self")}}
 {{> getServerUrl}}

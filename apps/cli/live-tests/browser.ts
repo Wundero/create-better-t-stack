@@ -135,15 +135,18 @@ export async function verifyBrowser(
   });
   try {
     await authorizeDeployment(context.request, deployment);
+    let homeStatus: number | undefined;
     if (stage === "alchemy") {
-      let homeStatus: number | undefined;
       const urls = new Set([deployment.server, webUrl].flatMap((url) => (url ? [url] : [])));
       for (const url of urls) {
         await expect
           .poll(
             async () => {
-              const response = await page.goto(url, { timeout: 10_000 });
-              const status = response?.status();
+              // A failed navigation must not end the poll: the deployment may not be up yet.
+              const status = await page
+                .goto(url, { timeout: 10_000 })
+                .then((response) => response?.status())
+                .catch(() => undefined);
               activationStatuses.push({ url, status });
               if (url === webUrl) homeStatus = status;
               return status;
@@ -152,14 +155,15 @@ export async function verifyBrowser(
           )
           .toBe(200);
       }
-      expect(homeStatus, "Deployed home page").toBe(200);
     } else {
       if ([config.webDeploy, config.serverDeploy].includes("cloudflare")) {
         await waitForDeployment(context.request, webUrl);
       }
-      const home = await page.goto(webUrl);
-      expect(home?.status(), "Deployed home page").toBe(200);
+      homeStatus = (await page.goto(webUrl))?.status();
     }
+    expect(homeStatus, "Deployed home page").toBe(200);
+    if (config.addons.includes("pwa"))
+      await page.waitForFunction(() => navigator.serviceWorker.controller !== null);
     if (config.api !== "none")
       await expect(
         page.getByText(config.frontend.includes("nuxt") ? "Connected (OK)" : "Connected", {
