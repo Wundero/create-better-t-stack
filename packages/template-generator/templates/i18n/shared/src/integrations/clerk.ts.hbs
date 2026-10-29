@@ -1,0 +1,129 @@
+/**
+ * Clerk localization metadata.
+ *
+ * `@clerk/localizations` ships one translation object per locale. Clerk marks
+ * localization experimental and does not localize the hosted Account Portal,
+ * which stays in English. Configuring a locale without a built-in Clerk
+ * translation falls back to English and produces a generator warning.
+ *
+ * The lazy per-locale loader lives in `./clerk-client`, which is emitted only
+ * for projects using Clerk.
+ */
+
+/** `@clerk/localizations` export names, keyed by canonical BCP-47 tag. */
+export const clerkLocalizationExportNames: Readonly<Record<string, string>> = {
+  "ar-SA": "arSA",
+  "be-BY": "beBY",
+  "bg-BG": "bgBG",
+  "bn-IN": "bnIN",
+  "ca-ES": "caES",
+  "cs-CZ": "csCZ",
+  "da-DK": "daDK",
+  "de-DE": "deDE",
+  "el-GR": "elGR",
+  "en-GB": "enGB",
+  "en-US": "enUS",
+  "en-XA": "enXA",
+  "es-CR": "esCR",
+  "es-ES": "esES",
+  "es-MX": "esMX",
+  "es-UY": "esUY",
+  "fa-IR": "faIR",
+  "fi-FI": "fiFI",
+  "fr-FR": "frFR",
+  "he-IL": "heIL",
+  "hi-IN": "hiIN",
+  "hr-HR": "hrHR",
+  "hu-HU": "huHU",
+  "id-ID": "idID",
+  "is-IS": "isIS",
+  "it-IT": "itIT",
+  "ja-JP": "jaJP",
+  "kk-KZ": "kkKZ",
+  "ko-KR": "koKR",
+  "mn-MN": "mnMN",
+  "ms-MY": "msMY",
+  "nb-NO": "nbNO",
+  "nl-BE": "nlBE",
+  "nl-NL": "nlNL",
+  "pl-PL": "plPL",
+  "pt-BR": "ptBR",
+  "pt-PT": "ptPT",
+  "ro-RO": "roRO",
+  "ru-RU": "ruRU",
+  "sk-SK": "skSK",
+  "sr-RS": "srRS",
+  "sv-SE": "svSE",
+  "ta-IN": "taIN",
+  "te-IN": "teIN",
+  "th-TH": "thTH",
+  "tr-TR": "trTR",
+  "uk-UA": "ukUA",
+  "vi-VN": "viVN",
+  "zh-CN": "zhCN",
+  "zh-TW": "zhTW",
+};
+
+/**
+ * Export name for a BCP-47 tag. Clerk only ships region-qualified locale
+ * bundles, so bare language tags expand to their primary region
+ * (`fr` → `frFR`, `es` → `esES`, `en` → `enUS`).
+ */
+export function clerkLocalizationExportName(tag: string): string | undefined {
+  const canonical = tag.trim();
+  const exact = clerkLocalizationExportNames[canonical];
+  if (exact !== undefined) return exact;
+  const [language = ""] = canonical.split("-");
+  const primary = PRIMARY_REGION_LOCALES[language.toLowerCase()];
+  return primary === undefined ? undefined : clerkLocalizationExportNames[primary];
+}
+
+const PRIMARY_REGION_LOCALES: Readonly<Record<string, string>> = {
+  ar: "ar-SA",
+  be: "be-BY",
+  bg: "bg-BG",
+  bn: "bn-IN",
+  ca: "ca-ES",
+  cs: "cs-CZ",
+  da: "da-DK",
+  de: "de-DE",
+  el: "el-GR",
+  en: "en-US",
+  es: "es-ES",
+  fa: "fa-IR",
+  fi: "fi-FI",
+  fr: "fr-FR",
+  he: "he-IL",
+  hi: "hi-IN",
+  hr: "hr-HR",
+  hu: "hu-HU",
+  id: "id-ID",
+  is: "is-IS",
+  it: "it-IT",
+  ja: "ja-JP",
+  kk: "kk-KZ",
+  ko: "ko-KR",
+  mn: "mn-MN",
+  ms: "ms-MY",
+  nb: "nb-NO",
+  nl: "nl-NL",
+  no: "nb-NO",
+  pl: "pl-PL",
+  pt: "pt-PT",
+  ro: "ro-RO",
+  ru: "ru-RU",
+  sk: "sk-SK",
+  sr: "sr-RS",
+  sv: "sv-SE",
+  ta: "ta-IN",
+  te: "te-IN",
+  th: "th-TH",
+  tr: "tr-TR",
+  uk: "uk-UA",
+  ua: "uk-UA",
+  vi: "vi-VN",
+  zh: "zh-CN",
+};
+
+export const CLERK_LOCALIZATION_NOTE =
+  "Clerk localization is experimental and the hosted Account Portal stays in English.";

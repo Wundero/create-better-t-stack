@@ -1,0 +1,20 @@
+/**
+ * Request-scoped locale for server runtimes (Bun, Node, and workers with
+ * `nodejs_compat`). Server middleware negotiates the locale, then wraps the
+ * request in `runWithLocale`; render code reads it back synchronously.
+ */
+
+import { AsyncLocalStorage } from "node:async_hooks";
+
+import { sourceLocale } from "./config";
+import type { Locale } from "./config";
+
+const localeStorage = new AsyncLocalStorage<Locale>();
+
+export function runWithLocale<T>(locale: Locale, callback: () => T): T {
+  return localeStorage.run(locale, callback);
+}
+
+export function getRequestLocale(): Locale {
+  return localeStorage.getStore() ?? sourceLocale;
+}

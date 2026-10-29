@@ -2,7 +2,13 @@ import { startTransition, useCallback, useEffect, useMemo, useRef, useState } fr
 import { toast } from "sonner";
 
 import { type BuilderCopySource, stackSnapshot, track } from "@/lib/analytics";
-import { DEFAULT_STACK, PRESET_TEMPLATES, type StackState, TECH_OPTIONS } from "@/lib/constant";
+import {
+  DEFAULT_I18N_OPTIONS,
+  DEFAULT_STACK,
+  PRESET_TEMPLATES,
+  type StackState,
+  TECH_OPTIONS,
+} from "@/lib/constant";
 import { sanitizeAddons, sanitizeExamples } from "@/lib/sanitize-stack-addons";
 import { applyStackUpdate, resolveStackCompatibility } from "@/lib/stack-compatibility";
 import { StackStateSchema, StackUpdateSchema } from "@/lib/stack-schema";
@@ -42,6 +48,10 @@ export function getSelectedTechRemovalUpdate(
   category: TechCategory,
   techId: string,
 ): Partial<StackState> {
+  if (category === "i18n") {
+    return { i18n: "none", i18nOptions: undefined };
+  }
+
   const effectiveStack = resolveStackCompatibility(stack).stack;
   const categoryKey = category;
   const value = effectiveStack[categoryKey];
@@ -90,6 +100,11 @@ export function getTechSelectionUpdate(
     return {
       examples: sanitizeExamples(toggleMulti(effectiveStack.examples, choice.examples[0])).sort(),
     };
+  if (choice.i18n) {
+    return choice.i18n === "none"
+      ? { i18n: "none", i18nOptions: undefined }
+      : { i18n: choice.i18n, i18nOptions: effectiveStack.i18nOptions ?? DEFAULT_I18N_OPTIONS };
+  }
   if (currentValue !== techId) return choice;
   if (choice.git) return { git: choice.git === "true" ? "false" : "true" };
   if (choice.install) return { install: choice.install === "true" ? "false" : "true" };

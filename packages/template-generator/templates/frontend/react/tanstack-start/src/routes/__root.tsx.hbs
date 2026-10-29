@@ -14,6 +14,9 @@ import {
 import { TanStackRouterDevtools } from "@tanstack/react-router-devtools";
 import Header from "../components/header";
 import appCss from "../index.css?url";
+{{#if (eq payments "autumn")}}
+import { AutumnProvider } from "autumn-js/react";
+{{/if}}
 {{#if (eq backend "convex")}}
 import type { QueryClient } from "@tanstack/react-query";
 import type { ConvexQueryClient } from "@convex-dev/react-query";
@@ -238,6 +241,9 @@ function RootDocument() {
         <HeadContent />
       </head>
       <body>
+{{#if (eq payments "autumn")}}
+        <AutumnProvider useBetterAuth={true}>
+{{/if}}
         <div className="grid h-svh grid-rows-[auto_1fr]">
           <Header />
           <Outlet />
@@ -248,6 +254,9 @@ function RootDocument() {
         <ReactQueryDevtools position="bottom" buttonPosition="bottom-right" />
         {{/unless}}
         <Scripts />
+{{#if (eq payments "autumn")}}
+        </AutumnProvider>
+{{/if}}
       </body>
     </html>
   );
