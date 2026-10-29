@@ -1,0 +1,32 @@
+import { authClient } from "./auth-client";
+
+export interface PaymentState {
+  isActive: boolean;
+  planLabel: string;
+}
+
+export async function getPaymentState(): Promise<PaymentState> {
+  const { data, error } = await authClient.subscription.list();
+  const isActive =
+    !error &&
+    (data?.some(
+      (subscription) => subscription.status === "active" || subscription.status === "trialing",
+    ) ?? false);
+  return { isActive, planLabel: isActive ? "Pro" : "Free" };
+}
+
+export async function checkout(): Promise<void> {
+  const { error } = await authClient.subscription.upgrade({
+    plan: "pro",
+    successUrl: "/success",
+    cancelUrl: "/dashboard",
+  });
+  if (error) return;
+}
+
+export async function portal(): Promise<void> {
+  const { error } = await authClient.subscription.billingPortal({
+    returnUrl: "/dashboard",
+  });
+  if (error) return;
+}
