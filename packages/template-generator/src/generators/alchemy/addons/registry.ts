@@ -101,6 +101,20 @@ export function writeAddonResources(writer: AlchemyWriter, plan: AlchemyDeployme
   return wroteResources;
 }
 
+export function writeAddonStackResources(
+  writer: AlchemyWriter,
+  plan: AlchemyDeploymentPlan,
+): boolean {
+  let wroteResources = false;
+  for (const renderer of registeredRenderers(plan)) {
+    if (!renderer.stackResources) continue;
+    const lengthBefore = writer.getLength();
+    const result = renderer.stackResources(writer, plan);
+    if (result === true || writer.getLength() > lengthBefore) wroteResources = true;
+  }
+  return wroteResources;
+}
+
 export function addonBindings(plan: AlchemyDeploymentPlan): string[] {
   return registeredRenderers(plan).flatMap((renderer) => renderer.bindings?.(plan) ?? []);
 }

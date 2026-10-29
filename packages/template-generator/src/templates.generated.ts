@@ -317,8 +317,25 @@ export function sendEvent(event: string) {
 `],
   ["addons/cloudflare-queues/apps/server/src/cloudflare/queue.ts", `import { ENV } from "../env.server";
 
+type QueueMessage = {
+  body: unknown;
+  ack(): void;
+  retry(): void;
+};
+
+type QueueBatch = {
+  messages: QueueMessage[];
+};
+
 export function enqueueJob(job: string) {
   return ENV.JOB_QUEUE.send(job);
+}
+
+export async function handleQueue(batch: QueueBatch): Promise<void> {
+  for (const message of batch.messages) {
+    console.log("Processing job", message.body);
+    message.ack();
+  }
 }
 `],
   ["addons/cloudflare-r2/apps/server/src/cloudflare/r2.ts", `import { ENV } from "../env.server";
@@ -344,6 +361,7 @@ export function getAppSandbox(id = "default") {
   ["addons/cloudflare-stream/apps/server/src/cloudflare/stream.ts", `import { ENV } from "../env.server";
 
 export const stream = ENV.STREAM;
+export const liveInputId = ENV.STREAM_LIVE_INPUT_ID;
 `],
   ["addons/cloudflare-workers-ai/apps/server/src/cloudflare/workers-ai.ts", `import { generateText } from "ai";
 import { createWorkersAI } from "workers-ai-provider";
@@ -15447,6 +15465,9 @@ import { auth } from "@{{projectName}}/auth";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { logger } from "hono/logger";
+{{#if (and (eq runtime "workers") (includes addons "cloudflare-queues"))}}
+import { handleQueue } from "./cloudflare/queue";
+{{/if}}
 {{#if (and (includes examples "ai") (or (eq runtime "bun") (eq runtime "node")))}}
 import { createUIMessageStreamResponse, streamText, toUIMessageStream, convertToModelMessages, wrapLanguageModel } from "ai";
 import { google } from "@ai-sdk/google";
@@ -15644,7 +15665,9 @@ if (!process.env.VERCEL) {
 {{#if (eq runtime "bun")}}
 export default app;
 {{/if}}
-{{#if (eq runtime "workers")}}
+{{#if (and (eq runtime "workers") (includes addons "cloudflare-queues"))}}
+export default { fetch: app.fetch, queue: handleQueue };
+{{else if (eq runtime "workers")}}
 export default app;
 {{/if}}
 {{/if}}
