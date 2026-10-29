@@ -12,4 +12,5 @@ export {
   writeAddonImports,
   writeAddonResources,
   writeAddonServerPrelude,
+  writeAddonStackResources,
 } from "./registry";

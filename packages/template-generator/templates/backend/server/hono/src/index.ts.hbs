@@ -23,6 +23,9 @@ import { auth } from "@{{projectName}}/auth";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { logger } from "hono/logger";
+{{#if (and (eq runtime "workers") (includes addons "cloudflare-queues"))}}
+import { handleQueue } from "./cloudflare/queue";
+{{/if}}
 {{#if (and (includes examples "ai") (or (eq runtime "bun") (eq runtime "node")))}}
 import { createUIMessageStreamResponse, streamText, toUIMessageStream, convertToModelMessages, wrapLanguageModel } from "ai";
 import { google } from "@ai-sdk/google";
@@ -220,7 +223,9 @@ if (!process.env.VERCEL) {
 {{#if (eq runtime "bun")}}
 export default app;
 {{/if}}
-{{#if (eq runtime "workers")}}
+{{#if (and (eq runtime "workers") (includes addons "cloudflare-queues"))}}
+export default { fetch: app.fetch, queue: handleQueue };
+{{else if (eq runtime "workers")}}
 export default app;
 {{/if}}
 {{/if}}

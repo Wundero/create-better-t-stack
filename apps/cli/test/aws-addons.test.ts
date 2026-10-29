@@ -169,7 +169,7 @@ describe("AWS provider addons", () => {
       }
       expect(infra).toContain("const serverHost = yield* AWS.Lambda.Function(");
       expect(infra).toContain(`yield* serverHost.bind("${testCase.addon}"`);
-      expect(infra.match(/import \* as AWS from "alchemy\/AWS";/g)).toHaveLength(1);
+      expect(infra.match(/import \* as AWS from "@alchemy.run\/aws";/g)).toHaveLength(1);
       expect(files.has(testCase.exampleFile)).toBe(true);
 
       if (testCase.appDeps) {
@@ -216,7 +216,7 @@ describe("AWS provider addons", () => {
       expect(infra).toContain(`yield* serverHost.bind("${addon}"`);
     }
     expect(infra.match(/import \* as Output from "alchemy\/Output";/g)).toHaveLength(1);
-    expect(infra.match(/import \* as AWS from "alchemy\/AWS";/g)).toHaveLength(1);
+    expect(infra.match(/import \* as AWS from "@alchemy.run\/aws";/g)).toHaveLength(1);
     expect(infra.match(/const serverHost = yield\* AWS\.Lambda\.Function\(/g)).toHaveLength(1);
   });
 

@@ -46,7 +46,7 @@ describe("Neon Functions server deployment", () => {
     const files = await generate({});
     const infra = files.get("packages/infra/alchemy.run.ts") ?? "";
 
-    expect(infra).toContain('import * as Neon from "alchemy/Neon";');
+    expect(infra).toContain('import * as Neon from "@alchemy.run/neon";');
     expect(infra).toContain('Neon.Project("database"');
     expect(infra).toContain('Neon.Branch("database-branch"');
     expect(infra).toContain('migrations: "../../packages/db/src/migrations"');

@@ -1,11 +1,16 @@
 import type { ProjectConfig } from "@better-t-stack/types";
 
 import type { VirtualFileSystem } from "../../core/virtual-fs";
-import { writeAddonImports, writeAddonResources } from "./addons";
+import { writeAddonImports, writeAddonResources, writeAddonStackResources } from "./addons";
 import { writeAwsNetworkResources } from "./aws";
 import { writeDatabaseResources } from "./database";
 import { writeObservabilityResources } from "./observability";
-import { createAlchemyDeploymentPlan, type AlchemyDeploymentPlan } from "./plan";
+import {
+  ALCHEMY_PROVIDER_PACKAGES,
+  createAlchemyDeploymentPlan,
+  getAlchemyProviders,
+  type AlchemyDeploymentPlan,
+} from "./plan";
 import { writeServerResource } from "./server";
 import { writeExportedWebResource, writeStackWebResource } from "./web";
 import { createAlchemyWriter, writeObject, type AlchemyWriter } from "./writer";
@@ -79,27 +84,15 @@ function writeImports(writer: AlchemyWriter, plan: AlchemyDeploymentPlan): void 
   if (plan.managedDatabase.kind === "aurora") {
     writer.writeLine('import { randomBytes } from "node:crypto";');
   }
-  if (plan.hasAxiom) writer.writeLine('import * as Axiom from "alchemy/Axiom";');
   if (usesCommand(plan)) writer.writeLine('import * as Command from "alchemy/Command";');
-  if (plan.hasNeonServer || plan.managedDatabase.kind === "neon") {
-    writer.writeLine('import * as Neon from "alchemy/Neon";');
-  }
-  if (
-    plan.managedDatabase.kind === "planetscale-postgres" ||
-    plan.managedDatabase.kind === "planetscale-mysql"
-  ) {
-    writer.writeLine('import * as Planetscale from "alchemy/Planetscale";');
-  }
-  if (plan.hasPrismaDeploy || plan.managedDatabase.kind === "prisma-postgres") {
-    writer.writeLine('import * as Prisma from "alchemy/Prisma";');
-  }
   if (usesOutput(plan)) writer.writeLine('import * as Output from "alchemy/Output";');
-  if (plan.hasCloudflare) writer.writeLine('import * as Cloudflare from "alchemy/Cloudflare";');
-  if (plan.hasAws) writer.writeLine('import * as AWS from "alchemy/AWS";');
   if (plan.server.target === "aws" && plan.server.compute === "lambda") {
     writer.writeLine('import * as Duration from "effect/Duration";');
   } else if (plan.hasAwsSolidWeb) {
     writer.writeLine('import * as Duration from "effect/Duration";');
+  }
+  for (const provider of getAlchemyProviders(plan)) {
+    writer.writeLine(`import * as ${provider} from "${ALCHEMY_PROVIDER_PACKAGES[provider]}";`);
   }
   writer.writeLine('import * as Config from "effect/Config";');
   writer.writeLine('import * as Effect from "effect/Effect";');
@@ -197,6 +190,7 @@ function writeStack(writer: AlchemyWriter, plan: AlchemyDeploymentPlan): void {
         writer.writeLine("const serverWorker = yield* server;");
       }
       writeStackWebResource(writer, plan);
+      if (writeAddonStackResources(writer, plan)) writer.blankLine();
       writeStandaloneDevResources(writer, plan);
       writeVercelEnvSync(writer, plan);
       writer.blankLine();
