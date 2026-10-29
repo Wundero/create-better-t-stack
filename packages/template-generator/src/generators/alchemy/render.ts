@@ -60,6 +60,7 @@ function providerLayers(plan: AlchemyDeploymentPlan): string[] {
   const layers: string[] = [];
   if (plan.hasCloudflare) layers.push("Cloudflare.providers()");
   if (plan.hasAws && !plan.hasAwsNetwork) layers.push("AWS.providers()");
+  if (plan.hasNeonServer && plan.managedDatabase.kind !== "neon") layers.push("Neon.providers()");
   if (plan.hasAlchemyManagedDatabase || plan.hasPrismaDeploy) layers.push("databaseProviders");
   if (plan.hasAxiom) layers.push("Axiom.providers()");
   if (plan.hasAwsSolidWeb && !databaseProvidersUseCommand(plan)) {
@@ -226,7 +227,12 @@ export function generateAlchemyRun(config: ProjectConfig): string {
   writeAwsNetworkResources(writer, plan);
   if (plan.hasAwsNetwork) writer.blankLine();
   writeDatabaseResources(writer, plan);
-  if (plan.hasAlchemyManagedDatabase || plan.hasPrismaDeploy || plan.hasD1Resource) {
+  if (
+    plan.hasAlchemyManagedDatabase ||
+    plan.hasPrismaDeploy ||
+    plan.hasD1Resource ||
+    plan.hasNeonServer
+  ) {
     writer.blankLine();
   }
   writeObservabilityResources(writer, plan);

@@ -43,7 +43,8 @@ export type AlchemyServerCompute = "fargate" | "lambda";
 export type AlchemyServerPlan =
   | { target: "none" }
   | { target: "cloudflare" | "prisma" }
-  | { target: "aws"; compute: AlchemyServerCompute };
+  | { target: "aws"; compute: AlchemyServerCompute }
+  | { target: "neon" };
 
 export type AlchemyDeploymentPlan = {
   config: ProjectConfig;
@@ -53,6 +54,7 @@ export type AlchemyDeploymentPlan = {
   hasCloudflare: boolean;
   hasPrismaDeploy: boolean;
   hasAws: boolean;
+  hasNeonServer: boolean;
   hasAwsNetwork: boolean;
   hasAwsSolidWeb: boolean;
   hasAlchemyManagedDatabase: boolean;
@@ -168,6 +170,7 @@ export function createAlchemyDeploymentPlan(config: ProjectConfig): AlchemyDeplo
       ? { target: "aws", compute: config.runtime === "lambda" ? "lambda" : "fargate" }
       : { target: config.serverDeploy }
     : { target: "none" };
+  const hasNeonServer = server.target === "neon";
 
   return {
     config,
@@ -177,6 +180,7 @@ export function createAlchemyDeploymentPlan(config: ProjectConfig): AlchemyDeplo
     hasCloudflare,
     hasPrismaDeploy,
     hasAws,
+    hasNeonServer,
     hasAwsNetwork,
     hasAwsSolidWeb,
     hasAlchemyManagedDatabase,
@@ -210,7 +214,7 @@ export function getAlchemyProviders(plan: AlchemyDeploymentPlan): AlchemyProvide
   const providers: AlchemyProvider[] = [];
   if (plan.hasAxiom) providers.push("Axiom");
   if (plan.hasAws) providers.push("AWS");
-  if (kind === "neon") providers.push("Neon");
+  if (kind === "neon" || plan.hasNeonServer) providers.push("Neon");
   if (kind === "planetscale-postgres" || kind === "planetscale-mysql") {
     providers.push("Planetscale");
   }

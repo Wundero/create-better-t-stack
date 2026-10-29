@@ -121,6 +121,55 @@ export function prismaServerEnvEntries(plan: AlchemyDeploymentPlan): string[] {
   return entries;
 }
 
+function neonDatabaseEntries(plan: AlchemyDeploymentPlan): string[] {
+  const database = plan.managedDatabase;
+  if (database.kind === "planetscale-mysql" && database.orm === "drizzle") {
+    return databaseBindingEntries(plan);
+  }
+  // Neon injects DATABASE_URL for same-branch databases; Functions reject overriding it.
+  return [];
+}
+
+export function neonServerEnvEntries(plan: AlchemyDeploymentPlan): string[] {
+  const { api, auth, backend, dbSetup, payments } = plan.config;
+  const entries = [...neonDatabaseEntries(plan), ...addonRuntimeEntries(plan)];
+
+  entries.push('CORS_ORIGIN: Config.String("CORS_ORIGIN"),');
+
+  if (auth === "better-auth") {
+    entries.push(
+      'BETTER_AUTH_SECRET: Config.Redacted("BETTER_AUTH_SECRET"),',
+      'BETTER_AUTH_URL: Config.String("BETTER_AUTH_URL"),',
+    );
+  }
+  if (auth === "clerk") {
+    entries.push('CLERK_SECRET_KEY: Config.Redacted("CLERK_SECRET_KEY"),');
+    if (
+      ["express", "fastify"].includes(backend) ||
+      (api !== "none" && ["hono", "elysia"].includes(backend))
+    ) {
+      entries.push('CLERK_PUBLISHABLE_KEY: Config.String("CLERK_PUBLISHABLE_KEY"),');
+    }
+  }
+  if (hasExample(plan, "ai")) {
+    entries.push('GOOGLE_GENERATIVE_AI_API_KEY: Config.Redacted("GOOGLE_GENERATIVE_AI_API_KEY"),');
+  }
+  if (payments === "polar") {
+    entries.push(
+      'POLAR_ACCESS_TOKEN: Config.Redacted("POLAR_ACCESS_TOKEN"),',
+      'POLAR_SUCCESS_URL: Config.String("POLAR_SUCCESS_URL"),',
+    );
+  }
+  if (dbSetup === "turso") {
+    entries.push('DATABASE_AUTH_TOKEN: Config.Redacted("DATABASE_AUTH_TOKEN"),');
+  }
+  if (plan.hasAxiomServerRuntime) {
+    entries.push("...resolvedObservabilityEnv,");
+  }
+
+  return entries;
+}
+
 export function selfCloudflareWebEnvEntries(
   plan: AlchemyDeploymentPlan,
   framework: DeployedWebFramework,
