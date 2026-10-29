@@ -3,27 +3,41 @@ import { parse, stringify } from "yaml";
 
 import type { VirtualFileSystem } from "../core/virtual-fs";
 import { addonAppDeps, addonInfraDeps } from "../generators/alchemy/addons";
-import { createAlchemyDeploymentPlan, getPrismaWebsiteFramework } from "../generators/alchemy/plan";
+import {
+  ALCHEMY_PROVIDER_PACKAGES,
+  createAlchemyDeploymentPlan,
+  getAlchemyProviders,
+  getPrismaWebsiteFramework,
+} from "../generators/alchemy/plan";
 import {
   addPackageDependency,
   dependencyVersionMap,
   type AvailableDependencies,
 } from "../utils/add-deps";
 
-// `@effect/platform-node`/`-bun` declare `@effect/platform-node-shared` with a caret on a
-// prerelease, and alchemy floats several `@effect/*` deps. Those ranges resolve to the newest
-// rc while the direct deps stay pinned, so alchemy loads a mixed rc set and crashes at startup.
-const ALCHEMY_FLOATED_EFFECT_PACKAGES = [
+// Alchemy declares its Effect dependencies as caret ranges (several are optional peers) and
+// floats others through its own dependencies. A fresh install therefore hoists the newest
+// matching release, e.g. `effect@4.1.0`, while the direct deps stay pinned to the version
+// Alchemy was built against. Alchemy then loads a mixed Effect set and crashes while importing
+// its platform peer (`Alchemy could not load the required peer dependency`). Pin every Effect
+// package the generated infra can pull in, so one coherent version is installed everywhere.
+const ALCHEMY_EFFECT_PACKAGES = [
+  "effect",
+  "@effect/platform-node",
+  "@effect/platform-bun",
   "@effect/platform-node-shared",
   "@effect/sql-d1",
+  "@effect/sql-libsql",
+  "@effect/sql-mysql2",
+  "@effect/sql-pg",
   "@effect/sql-sqlite-do",
   "@effect/vitest",
 ];
 
 function alignAlchemyEffectPackages(vfs: VirtualFileSystem, config: ProjectConfig): void {
-  const effectVersion = dependencyVersionMap["@effect/platform-node"];
+  const effectVersion = dependencyVersionMap.effect;
   const overrides = Object.fromEntries(
-    ALCHEMY_FLOATED_EFFECT_PACKAGES.map((name) => [name, effectVersion]),
+    ALCHEMY_EFFECT_PACKAGES.map((name) => [name, effectVersion]),
   );
 
   if (config.packageManager === "pnpm") {
@@ -98,6 +112,9 @@ export function processInfraDeps(vfs: VirtualFileSystem, config: ProjectConfig):
         "@effect/platform-node",
         "@effect/platform-bun",
         "varlock",
+        ...getAlchemyProviders(createAlchemyDeploymentPlan(config)).map(
+          (provider) => ALCHEMY_PROVIDER_PACKAGES[provider],
+        ),
       ],
     });
     alignAlchemyEffectPackages(vfs, config);

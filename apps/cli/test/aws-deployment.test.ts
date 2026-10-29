@@ -49,7 +49,7 @@ describe("AWS Alchemy deployment", () => {
     });
     const infra = files.get("packages/infra/alchemy.run.ts") ?? "";
 
-    expect(infra).toContain('import * as AWS from "alchemy/AWS"');
+    expect(infra).toContain('import * as AWS from "@alchemy.run/aws"');
     expect(infra).toContain("AWS.providers()");
     expect(infra).toContain("state: AWS.state()");
     expect(infra).toContain('AWS.Website.Astro("web"');

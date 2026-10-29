@@ -6,6 +6,7 @@
 import {
   getLocalD1Owner,
   isAlchemyDeployTarget,
+  usesTursoDevServer,
   webFrontends,
   type ProjectConfig,
 } from "@better-t-stack/types";
@@ -174,7 +175,7 @@ function updateRootPackageJson(vfs: VirtualFileSystem, config: ProjectConfig): v
     }
   }
 
-  if (database === "sqlite" && dbSetup !== "d1") {
+  if (usesTursoDevServer(config)) {
     scripts["db:local"] = pmConfig.filter(dbPackageName, "db:local");
   }
 
@@ -599,7 +600,7 @@ function updateDbPackageJson(vfs: VirtualFileSystem, config: ProjectConfig): voi
   const { isD1Alchemy } = dbSupport;
 
   if (database !== "none") {
-    if (database === "sqlite" && dbSetup !== "d1") {
+    if (usesTursoDevServer(config)) {
       scripts["db:local"] = "turso dev --db-file local.db";
     }
 
