@@ -1,0 +1,11 @@
+// OpenTUI (core) glue for i18next: the shared instance plus a
+// `translate` helper for the terminal UI.
+import { initI18next } from "@{{projectName}}/i18n/runtime";
+import type { TOptions } from "i18next";
+
+const i18next = initI18next();
+
+export const translate = (id: string, options?: TOptions): string =>
+  i18next.t(id, options);
+
+export { i18next, setLocale } from "@{{projectName}}/i18n/runtime";

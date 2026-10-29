@@ -1,0 +1,22 @@
+import { useEffect, type ReactNode } from "react";
+import { I18nProvider as LinguiI18nProvider } from "@lingui/react";
+
+import { i18n, initializeLocale } from "@{{projectName}}/i18n/runtime";
+
+/**
+ * Surface glue: activates the negotiated locale and provides the shared `i18n`
+ * instance to the `@lingui/react` macros. Wrap the app root with it once.
+ *
+ * The system locale comes from the runtime `Intl` implementation; L7's
+ * `expo-localization` integration plugs the device locale into the same
+ * negotiation contract.
+ */
+export function I18nProvider({ children }: { children: ReactNode }) {
+  useEffect(() => {
+    void initializeLocale({
+      system: Intl.DateTimeFormat().resolvedOptions().locale,
+    });
+  }, []);
+
+  return <LinguiI18nProvider i18n={i18n}>{children}</LinguiI18nProvider>;
+}

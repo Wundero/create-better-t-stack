@@ -14,6 +14,10 @@ export type StackState = Pick<
   | "dbSetup"
   | "auth"
   | "payments"
+  | "i18n"
+  | "i18nOptions"
+  | "emailRenderer"
+  | "emailDeploy"
   | "packageManager"
   | "addons"
   | "examples"
@@ -30,7 +34,8 @@ export type StackState = Pick<
   yolo: "true" | "false";
 };
 
-export type TechCategory = Exclude<keyof StackState, "projectName" | "yolo">;
+// `i18nOptions` is a nested value object, not a selectable tech option.
+export type TechCategory = Exclude<keyof StackState, "projectName" | "yolo" | "i18nOptions">;
 type StackOptionIds = {
   [K in TechCategory]: Extract<StackState[K] extends (infer Id)[] ? Id : StackState[K], string>;
 };

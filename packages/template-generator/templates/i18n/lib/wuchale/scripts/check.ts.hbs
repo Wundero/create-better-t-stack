@@ -1,0 +1,64 @@
+/**
+ * `i18n:check` — fail on missing or invalid catalog entries. Set
+ * `I18N_CHECK_ALLOW_MISSING=1` to allow untranslated messages during
+ * development; structurally invalid entries always fail.
+ */
+
+import { sourceLocale } from "../src/config";
+import { isUntranslated } from "./po";
+import {
+  pluralCategories,
+  readCatalogs,
+  resolvePackageRoot,
+  validatePlaceholders,
+} from "./catalog";
+
+interface CheckError {
+  id: string;
+  locale: string;
+  kind: "missing" | "invalid";
+  error: string;
+}
+
+const allowMissing = process.env.I18N_CHECK_ALLOW_MISSING === "1";
+const packageRoot = resolvePackageRoot(import.meta.url);
+const catalogs = await readCatalogs(packageRoot);
+const errors: CheckError[] = [];
+
+for (const read of catalogs) {
+  if (read.source.locale === sourceLocale) continue;
+  for (const item of read.catalog.items) {
+    if (item.id.length === 0 && item.pluralId === null) continue;
+    const id = item.id;
+
+    if (isUntranslated(item.translations)) {
+      if (!allowMissing) {
+        errors.push({ id, locale: read.source.locale, kind: "missing", error: "untranslated" });
+      }
+      continue;
+    }
+
+    const placeholderError = validatePlaceholders(item, item.translations);
+    if (placeholderError !== null) {
+      errors.push({ id, locale: read.source.locale, kind: "invalid", error: placeholderError });
+      continue;
+    }
+
+    if (item.pluralId !== null) {
+      const expectedForms = pluralCategories(read.source.locale).length;
+      if (item.translations.length !== expectedForms) {
+        errors.push({
+          id,
+          locale: read.source.locale,
+          kind: "invalid",
+          error: `expected ${expectedForms} plural forms, found ${item.translations.length}`,
+        });
+      }
+    }
+  }
+}
+
+console.log(
+  JSON.stringify({ library: "wuchale", ok: errors.length === 0, errors }, null, 2),
+);
+process.exit(errors.length > 0 ? 1 : 0);

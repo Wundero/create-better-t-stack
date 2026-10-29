@@ -1,8 +1,8 @@
 "use client";
 
-import { useTheme } from "next-themes";
 import Image from "next/image";
 
+import { hasLightVariant, isRenderableIconPath, lightVariantSrc } from "@/lib/tech-icon-src";
 import { cn } from "@/lib/utils";
 
 interface TechBadgeProps {
@@ -40,6 +40,8 @@ const getBadgeColors = (category: string): string => {
     case "git":
     case "webDeploy":
     case "serverDeploy":
+    case "emailRenderer":
+    case "emailDeploy":
     case "install":
       return "border-gray-300 bg-gray-100 text-gray-700 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-400";
     default:
@@ -48,34 +50,41 @@ const getBadgeColors = (category: string): string => {
 };
 
 function TechIcon({ icon, name, className }: { icon: string; name: string; className?: string }) {
-  const { theme } = useTheme();
-
   if (!icon) return null;
 
-  if (!icon.startsWith("https://")) {
+  if (!isRenderableIconPath(icon)) {
     return <span className={cn("inline-flex items-center text-lg", className)}>{icon}</span>;
   }
 
-  let iconSrc = icon;
-  if (
-    theme === "light" &&
-    (icon.includes("drizzle") ||
-      icon.includes("prisma") ||
-      icon.includes("express") ||
-      icon.includes("clerk") ||
-      icon.includes("planetscale") ||
-      icon.includes("nx") ||
-      icon.includes("polar") ||
-      icon.includes("astro") ||
-      icon.includes("vercel"))
-  ) {
-    iconSrc = icon.replace(".svg", "-light.svg");
+  if (hasLightVariant(icon)) {
+    return (
+      <>
+        <Image
+          suppressHydrationWarning
+          src={icon}
+          alt={`${name} icon`}
+          width={20}
+          height={20}
+          className={cn("hidden dark:inline-block", className)}
+          unoptimized
+        />
+        <Image
+          suppressHydrationWarning
+          src={lightVariantSrc(icon)}
+          alt={`${name} icon`}
+          width={20}
+          height={20}
+          className={cn("inline-block dark:hidden", className)}
+          unoptimized
+        />
+      </>
+    );
   }
 
   return (
     <Image
       suppressHydrationWarning
-      src={iconSrc}
+      src={icon}
       alt={`${name} icon`}
       width={20}
       height={20}

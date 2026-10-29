@@ -1,0 +1,193 @@
+// wuchale configuration for @{{projectName}}/i18n (experimental).
+//
+// `i18n:extract` / `i18n:compile` run the `wuchale` CLI against this file.
+// Every adapter scopes its extraction to one app and stores its catalogs as
+// `locales/<adapter>.<locale>.po`. The `locales/.wuchale` directory and the
+// generated loader/proxy modules are build output.
+//
+// AI translation is intentionally disabled: there is no `ai` entry, so the CLI
+// never calls a translation provider. Translation runs through the uniform
+// agent contract: `i18n:pending` -> `i18n:apply` -> `i18n:check`.
+{{#if (or (includes frontend "next") (includes frontend "tanstack-start") (includes frontend "tanstack-router") (includes frontend "react-router") (includes frontend "solid") (eq emailRenderer "react-email") (and (includes addons "opentui") (eq addonOptions.opentui.template "react")) (and (includes addons "opentui") (eq addonOptions.opentui.template "solid")) (and (includes addons "wxt") (not addonOptions.wxt.template)) (and (includes addons "wxt") (eq addonOptions.wxt.template "react")) (and (includes addons "wxt") (eq addonOptions.wxt.template "solid")))}}
+import { adapter as jsx } from "@wuchale/jsx";
+{{/if}}
+{{#if (or (includes frontend "svelte") (and (includes addons "wxt") (eq addonOptions.wxt.template "svelte")))}}
+import { adapter as svelte } from "@wuchale/svelte";
+{{/if}}
+{{#if (includes frontend "astro")}}
+import { adapter as astro } from "@wuchale/astro";
+{{/if}}
+{{#if (or (eq backend "hono") (eq backend "express") (eq backend "fastify") (eq backend "elysia") (eq backend "nitro") (includes addons "electrobun") (and (includes addons "opentui") (not (eq addonOptions.opentui.template "react")) (not (eq addonOptions.opentui.template "solid"))) (and (includes addons "wxt") (eq addonOptions.wxt.template "vanilla")))}}
+import { adapter as vanilla } from "wuchale/adapter-vanilla";
+{{/if}}
+import { defineConfig, pofile } from "wuchale";
+
+export default defineConfig({
+  locales: [
+{{#if i18nOptions.locales}}
+{{#each i18nOptions.locales}}    "{{this}}",
+{{/each}}
+{{else}}
+    "en",
+    "es",
+    "fr",
+{{/if}}
+  ],
+  localesDir: "./locales",
+  adapters: {
+    // One adapter per app; each writes `locales/<key>.<locale>.po`.
+{{#if (or (includes frontend "next") (includes frontend "tanstack-start") (includes frontend "tanstack-router") (includes frontend "react-router"))}}
+    web: jsx({
+      loader: "react",
+      files: {
+        include: ["../../apps/web/src/**/*.{js,ts,jsx,tsx}"],
+        ignore: ["**/*.d.ts"],
+      },
+      localesDir: "../../apps/web/src/locales",
+      storage: pofile({ location: "locales/web.{locale}.po" }),
+    }),
+{{else if (includes frontend "svelte")}}
+    web: svelte({
+      loader: "sveltekit",
+      files: {
+        include: ["../../apps/web/src/**/*.svelte", "../../apps/web/src/**/*.svelte.{js,ts}"],
+        ignore: ["**/*.d.ts"],
+      },
+      localesDir: "../../apps/web/src/locales",
+      storage: pofile({ location: "locales/web.{locale}.po" }),
+    }),
+{{else if (includes frontend "solid")}}
+    web: jsx({
+      loader: "solidjs",
+      variant: "solidjs",
+      files: {
+        include: ["../../apps/web/src/**/*.{js,ts,jsx,tsx}"],
+        ignore: ["**/*.d.ts"],
+      },
+      localesDir: "../../apps/web/src/locales",
+      storage: pofile({ location: "locales/web.{locale}.po" }),
+    }),
+{{else if (includes frontend "astro")}}
+    web: astro({
+      files: {
+        include: ["../../apps/web/src/**/*.astro"],
+      },
+      localesDir: "../../apps/web/src/locales",
+      storage: pofile({ location: "locales/web.{locale}.po" }),
+    }),
+{{/if}}
+{{#if (or (eq backend "hono") (eq backend "express") (eq backend "fastify") (eq backend "elysia") (eq backend "nitro"))}}
+    server: vanilla({
+      loader: "server",
+      files: {
+        include: ["../../apps/server/src/**/*.{js,ts}"],
+        ignore: ["**/*.d.ts"],
+      },
+      localesDir: "../../apps/server/src/locales",
+      storage: pofile({ location: "locales/server.{locale}.po" }),
+    }),
+{{/if}}
+{{#if (eq emailRenderer "react-email")}}
+    email: jsx({
+      loader: "react",
+      files: {
+        include: ["../../packages/email/src/**/*.{ts,tsx}"],
+        ignore: ["**/*.d.ts"],
+      },
+      localesDir: "../../packages/email/src/locales",
+      storage: pofile({ location: "locales/email.{locale}.po" }),
+    }),
+{{/if}}
+{{#if (includes addons "electrobun")}}
+    desktop: vanilla({
+      loader: "server",
+      files: {
+        include: ["../../apps/desktop/src/**/*.{js,ts}"],
+        ignore: ["**/*.d.ts"],
+      },
+      localesDir: "../../apps/desktop/src/locales",
+      storage: pofile({ location: "locales/desktop.{locale}.po" }),
+    }),
+{{/if}}
+{{#if (includes addons "opentui")}}
+{{#if (eq addonOptions.opentui.template "react")}}
+    tui: jsx({
+      loader: "react",
+      files: {
+        include: ["../../apps/tui/src/**/*.{js,ts,jsx,tsx}"],
+        ignore: ["**/*.d.ts"],
+      },
+      localesDir: "../../apps/tui/src/locales",
+      storage: pofile({ location: "locales/tui.{locale}.po" }),
+    }),
+{{else if (eq addonOptions.opentui.template "solid")}}
+    tui: jsx({
+      loader: "solidjs",
+      variant: "solidjs",
+      files: {
+        include: ["../../apps/tui/src/**/*.{js,ts,jsx,tsx}"],
+        ignore: ["**/*.d.ts"],
+      },
+      localesDir: "../../apps/tui/src/locales",
+      storage: pofile({ location: "locales/tui.{locale}.po" }),
+    }),
+{{else}}
+    tui: vanilla({
+      loader: "server",
+      files: {
+        include: ["../../apps/tui/src/**/*.{js,ts}"],
+        ignore: ["**/*.d.ts"],
+      },
+      localesDir: "../../apps/tui/src/locales",
+      storage: pofile({ location: "locales/tui.{locale}.po" }),
+    }),
+{{/if}}
+{{/if}}
+{{#if (includes addons "wxt")}}
+{{#if (eq addonOptions.wxt.template "svelte")}}
+    extension: svelte({
+      loader: "svelte",
+      files: {
+        include: [
+          "../../apps/extension/entrypoints/**/*.svelte",
+          "../../apps/extension/components/**/*.svelte",
+          "../../apps/extension/src/**/*.svelte",
+        ],
+        ignore: ["**/*.d.ts"],
+      },
+      localesDir: "../../apps/extension/src/locales",
+      storage: pofile({ location: "locales/extension.{locale}.po" }),
+    }),
+{{else if (eq addonOptions.wxt.template "vanilla")}}
+    extension: vanilla({
+      loader: "vite",
+      files: {
+        include: [
+          "../../apps/extension/entrypoints/**/*.{js,ts}",
+          "../../apps/extension/components/**/*.{js,ts}",
+          "../../apps/extension/src/**/*.{js,ts}",
+        ],
+        ignore: ["**/*.d.ts"],
+      },
+      localesDir: "../../apps/extension/src/locales",
+      storage: pofile({ location: "locales/extension.{locale}.po" }),
+    }),
+{{else}}
+    extension: jsx({
+      loader: "{{#if (eq addonOptions.wxt.template "solid")}}solidjs{{else}}react{{/if}}",
+      variant: "{{#if (eq addonOptions.wxt.template "solid")}}solidjs{{else}}default{{/if}}",
+      files: {
+        include: [
+          "../../apps/extension/entrypoints/**/*.{js,ts,jsx,tsx}",
+          "../../apps/extension/components/**/*.{js,ts,jsx,tsx}",
+          "../../apps/extension/src/**/*.{js,ts,jsx,tsx}",
+        ],
+        ignore: ["**/*.d.ts"],
+      },
+      localesDir: "../../apps/extension/src/locales",
+      storage: pofile({ location: "locales/extension.{locale}.po" }),
+    }),
+{{/if}}
+{{/if}}
+  },
+});

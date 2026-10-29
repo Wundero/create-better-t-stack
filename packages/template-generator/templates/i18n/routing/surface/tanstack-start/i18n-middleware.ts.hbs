@@ -1,0 +1,23 @@
+import { createMiddleware } from "@tanstack/react-start";
+import { getRequest } from "@tanstack/react-start/server";
+
+import { LOCALE_HEADER } from "@{{projectName}}/i18n/config";
+import { negotiateRequestLocale } from "@{{projectName}}/i18n/routing";
+import { runWithLocale } from "@{{projectName}}/i18n/server";
+
+/**
+ * D5 negotiation for every Start request — server routes, SSR and server
+ * functions run inside `runWithLocale`. Registered in `src/start.ts`.
+ */
+export const i18nRequestMiddleware = createMiddleware().server(({ next }) => {
+  const request = getRequest();
+
+  const locale = negotiateRequestLocale({
+    url: request.url,
+    header: request.headers.get(LOCALE_HEADER),
+    cookieHeader: request.headers.get("cookie"),
+    acceptLanguage: request.headers.get("accept-language"),
+  });
+
+  return runWithLocale(locale, () => next());
+});

@@ -104,6 +104,44 @@ export const AuthSchema = z
 
 export const PaymentsSchema = z.enum(["polar", "none"]).describe("Payments provider");
 
+export const I18N_LIBRARY_VALUES = ["lingui", "paraglide", "i18next", "wuchale"] as const;
+
+export const I18N_VALUES = [...I18N_LIBRARY_VALUES, "none"] as const;
+
+export const I18nSchema = z.enum(I18N_VALUES).describe("Internationalization library");
+
+export const I18nRoutingStrategySchema = z
+  .enum(["cookie", "prefix", "domain"])
+  .describe("Locale routing strategy");
+
+export const I18nOptionsSchema = z
+  .strictObject({
+    sourceLocale: z
+      .string()
+      .default("en")
+      .describe("Canonical BCP-47 source locale; must be included in locales"),
+    locales: z
+      .array(z.string())
+      .default(["en", "es", "fr"])
+      .describe("Configured locales; must include the source locale"),
+    routing: z
+      .strictObject({
+        strategy: I18nRoutingStrategySchema.default("cookie"),
+        prefixDefaultLocale: z.boolean().default(false).describe("Prefix the source locale too"),
+        domains: z
+          .record(z.string(), z.string())
+          .optional()
+          .describe("Locale to host mapping; only for the domain strategy"),
+      })
+      .optional()
+      .describe("Locale routing configuration"),
+    translateSkill: z.boolean().default(true).describe("Generate the i18n-translate agent skill"),
+  })
+  .describe("Internationalization options");
+export const EmailRendererSchema = z.enum(["react-email", "none"]).describe("Email renderer");
+
+export const EmailDeploySchema = z.enum(["cloudflare", "ses", "none"]).describe("Email deploy");
+
 export const WebDeploySchema = z
   .enum(["cloudflare", "prisma", "docker", "vercel", "none"])
   .describe("Web deployment");
@@ -525,6 +563,10 @@ export const CreateInputSchema = z
     orm: ORMSchema.optional(),
     auth: AuthSchema.optional(),
     payments: PaymentsSchema.optional(),
+    i18n: I18nSchema.optional(),
+    i18nOptions: I18nOptionsSchema.optional(),
+    emailRenderer: EmailRendererSchema.optional(),
+    emailDeploy: EmailDeploySchema.optional(),
     frontend: z.array(FrontendSchema).optional(),
     addons: AddonsListSchema.optional(),
     examples: z.array(ExamplesSchema).optional(),
@@ -564,6 +606,10 @@ export const AddInputSchema = z
     addons: AddonsListSchema.optional(),
     package: WorkspacePackageNameSchema.optional(),
     addonOptions: AddonOptionsSchema.optional(),
+    i18n: I18nSchema.optional(),
+    i18nOptions: I18nOptionsSchema.optional(),
+    emailRenderer: EmailRendererSchema.optional(),
+    emailDeploy: EmailDeploySchema.optional(),
     webDeploy: WebDeploySchema.optional(),
     serverDeploy: ServerDeploySchema.optional(),
     projectDir: z.string().optional(),
@@ -593,6 +639,10 @@ export const ProjectConfigSchema = z.object({
   examples: z.array(ExamplesSchema),
   auth: AuthSchema,
   payments: PaymentsSchema,
+  i18n: I18nSchema.default("none"),
+  i18nOptions: I18nOptionsSchema.optional(),
+  emailRenderer: EmailRendererSchema,
+  emailDeploy: EmailDeploySchema,
   git: z.boolean(),
   packageManager: PackageManagerSchema,
   install: z.boolean(),
@@ -617,6 +667,10 @@ export const BetterTStackConfigSchema = z.object({
   examples: z.array(ExamplesSchema),
   auth: AuthSchema,
   payments: PaymentsSchema,
+  i18n: I18nSchema.default("none"),
+  i18nOptions: I18nOptionsSchema.optional(),
+  emailRenderer: EmailRendererSchema.optional(),
+  emailDeploy: EmailDeploySchema.optional(),
   packageManager: PackageManagerSchema,
   dbSetup: DatabaseSetupSchema,
   api: APISchema,
@@ -658,6 +712,9 @@ export const DATABASE_SETUP_VALUES = DatabaseSetupSchema.options;
 export const API_VALUES = APISchema.options;
 export const AUTH_VALUES = AuthSchema.options;
 export const PAYMENTS_VALUES = PaymentsSchema.options;
+export const I18N_ROUTING_STRATEGY_VALUES = I18nRoutingStrategySchema.options;
+export const EMAIL_RENDERER_VALUES = EmailRendererSchema.options;
+export const EMAIL_DEPLOY_VALUES = EmailDeploySchema.options;
 export const WEB_DEPLOY_VALUES = WebDeploySchema.options;
 export const SERVER_DEPLOY_VALUES = ServerDeploySchema.options;
 export const DIRECTORY_CONFLICT_VALUES = DirectoryConflictSchema.options;

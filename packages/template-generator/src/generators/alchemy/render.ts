@@ -2,6 +2,7 @@ import type { ProjectConfig } from "@better-t-stack/types";
 
 import type { VirtualFileSystem } from "../../core/virtual-fs";
 import { writeDatabaseResources } from "./database";
+import { writeEmailResources } from "./email";
 import { writeObservabilityResources } from "./observability";
 import {
   ALCHEMY_PROVIDER_PACKAGES,
@@ -54,6 +55,7 @@ function providerLayers(plan: AlchemyDeploymentPlan): string[] {
   if (plan.hasCloudflare) layers.push("Cloudflare.providers()");
   if (plan.hasAlchemyManagedDatabase || plan.hasPrismaDeploy) layers.push("databaseProviders");
   if (plan.hasAxiom) layers.push("Axiom.providers()");
+  if (plan.emailSes) layers.push("AWS.providers()");
   if (
     (plan.needsStandaloneServerDev || plan.needsStandaloneWebDev || plan.hasAxiomVercelRuntime) &&
     !databaseProvidersUseCommand(plan)
@@ -93,7 +95,11 @@ function writeStackOptions(writer: AlchemyWriter, plan: AlchemyDeploymentPlan): 
         writer.writeLine(`providers: Layer.mergeAll(${layers.join(", ")}),`);
       }
       writer.writeLine(
-        plan.hasCloudflare ? "state: Cloudflare.state()," : "state: Alchemy.localState(),",
+        plan.hasCloudflare
+          ? "state: Cloudflare.state(),"
+          : plan.emailSes
+            ? "state: AWS.state(),"
+            : "state: Alchemy.localState(),",
       );
     },
     "},",
@@ -161,6 +167,9 @@ function writeStack(writer: AlchemyWriter, plan: AlchemyDeploymentPlan): void {
       if (plan.hasAxiom) {
         writer.writeLine("const observabilityResources = yield* observability;");
       }
+      if (plan.emailSes) {
+        writer.writeLine("yield* emailResources;");
+      }
       if (plan.server.target !== "none") {
         writer.writeLine("const serverWorker = yield* server;");
       }
@@ -199,6 +208,8 @@ export function generateAlchemyRun(config: ProjectConfig): string {
   }
   writeObservabilityResources(writer, plan);
   if (plan.hasAxiom) writer.blankLine();
+  writeEmailResources(writer, plan);
+  if (plan.hasEmail) writer.blankLine();
   writeServerResource(writer, plan);
   if (plan.server.target !== "none") writer.blankLine();
   writeExportedWebResource(writer, plan);
