@@ -70,6 +70,10 @@ function getAddonDisplay(addon: Addons): AddonDisplay {
       label = "Oxlint";
       hint = "Oxlint + Oxfmt (linting & formatting)";
       break;
+    case "eslint":
+      label = "ESLint + Prettier";
+      hint = "ESLint + Prettier (oxlint, Vite+, or Biome preferred)";
+      break;
     case "ultracite":
       label = "Ultracite";
       hint = "Zero-config preset for Biome or Oxlint with AI integration";
@@ -124,12 +128,14 @@ function getAddonDisplay(addon: Addons): AddonDisplay {
 
 const ADDON_GROUPS = {
   "Monorepo & Tasks": ["turborepo", "nx", "vite-plus"],
-  "Code Quality": ["biome", "oxlint", "ultracite", "husky", "lefthook"],
+  "Code Quality": ["biome", "oxlint", "eslint", "ultracite", "husky", "lefthook"],
   Documentation: ["starlight", "fumadocs"],
   "Platform Extensions": ["pwa", "tauri", "electrobun", "opentui", "wxt"],
   Observability: ["evlog", "axiom"],
   "AI & Agent Tools": ["skills", "mcp"],
 };
+
+const ESLINT_VITE_PLUS_EXCLUSIVE = ["eslint", "vite-plus"] as const satisfies readonly Addons[];
 
 function createGroupedOptions(): Record<string, AddonOption[]> {
   return Object.fromEntries(Object.keys(ADDON_GROUPS).map((group) => [group, [] as AddonOption[]]));
@@ -164,6 +170,10 @@ function validateAddonSelection(selected: Addons[] | undefined) {
   const selectedTaskRunners = selected?.filter((addon) => TASK_RUNNER_ADDONS.includes(addon)) ?? [];
   if (selectedTaskRunners.length > 1) {
     return "Choose Turborepo, Nx, or Vite+ as your task runner, not more than one.";
+  }
+
+  if (selected?.includes("eslint") && selected.includes("vite-plus")) {
+    return "Choose ESLint + Prettier or Vite+, not both. Vite+ already provides linting and formatting.";
   }
 
   const selectedObservabilityAddons =
@@ -216,7 +226,7 @@ export async function getAddonsChoice(
     options: groupedOptions,
     initialValues: initialValues,
     required: false,
-    exclusive: [TASK_RUNNER_ADDONS, OBSERVABILITY_ADDONS],
+    exclusive: [TASK_RUNNER_ADDONS, OBSERVABILITY_ADDONS, ESLINT_VITE_PLUS_EXCLUSIVE],
     validate: validateAddonSelection,
   });
 
@@ -255,7 +265,7 @@ export async function getAddonsToAdd(config: AddonProjectConfig) {
     message: "Select addons to add",
     options: groupedOptions,
     required: false,
-    exclusive: [TASK_RUNNER_ADDONS, OBSERVABILITY_ADDONS],
+    exclusive: [TASK_RUNNER_ADDONS, OBSERVABILITY_ADDONS, ESLINT_VITE_PLUS_EXCLUSIVE],
     validate: validateAddonSelection,
   });
 

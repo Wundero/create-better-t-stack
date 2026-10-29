@@ -49,6 +49,7 @@ export const AddonsSchema = z
     "fumadocs",
     "ultracite",
     "oxlint",
+    "eslint",
     "opentui",
     "wxt",
     "skills",
@@ -72,6 +73,14 @@ const AddonsListSchema = z.array(AddonsSchema).superRefine((addons, ctx) => {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
       message: "`evlog` and `axiom` cannot be used together because Axiom includes evlog",
+    });
+  }
+
+  if (addons.includes("eslint") && addons.includes("vite-plus")) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message:
+        "`eslint` and `vite-plus` cannot be used together because Vite+ already provides linting and formatting",
     });
   }
 });
