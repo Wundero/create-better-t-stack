@@ -46,12 +46,9 @@ export const EMBEDDED_TEMPLATES: Map<string, string> = new Map([
 				"useExhaustiveDependencies": "info"
 			},
 			"nursery": {
-				"useSortedClasses": {
+				"useTailwindSortedClasses": {
 					"level": "warn",
-					"fix": "safe",
-					"options": {
-						"functions": ["clsx", "cva", "cn"]
-					}
+					"fix": "safe"
 				}
 			},
 			"style": {
@@ -1669,11 +1666,16 @@ export default defineNuxtPlugin(() => {
   };
 });
 `],
-  ["api/orpc/fullstack/nuxt/app/plugins/orpc.server.ts.hbs", `import type { AppRouterClient } from "@{{projectName}}/api/routers/index";
-import { createORPCClient } from "@orpc/client";
-import { RPCLink } from "@orpc/client/fetch";
+  ["api/orpc/fullstack/nuxt/app/plugins/orpc.server.ts.hbs", `import { createContext } from "@{{projectName}}/api/context";
+import { appRouter } from "@{{projectName}}/api/routers/index";
+import { createRouterClient } from "@orpc/server";
 import { createTanstackQueryUtils } from "@orpc/tanstack-query";
+{{#if (eq webDeploy "cloudflare")}}
+import type { CloudflareEnv } from "../../src/env.server";
+{{/if}}
 
+// During server rendering, call the router directly instead of over HTTP.
+// The context comes from the incoming request, so the user's session applies.
 export default defineNuxtPlugin(() => {
   const event = useRequestEvent();
 
@@ -1681,14 +1683,18 @@ export default defineNuxtPlugin(() => {
     throw new Error("Missing Nuxt request event");
   }
 
-  const rpcLink = new RPCLink({
-    url: new URL("/rpc", useRequestURL()).href,
-    fetch(request, init) {
-      return event.fetch(request, init);
-    },
-  });
+  // Composables must run during plugin setup, so read the request headers here.
+  const headers = useRequestHeaders();
 
-  const client: AppRouterClient = createORPCClient(rpcLink);
+  const client = createRouterClient(appRouter, {
+    context: () =>
+      createContext({
+        headers: new Headers(headers),
+        {{#if (eq webDeploy "cloudflare")}}
+        env: (event.context.cloudflare as { env: CloudflareEnv }).env,
+        {{/if}}
+      }),
+  });
   const orpc = createTanstackQueryUtils(client);
 
   return {
@@ -2372,7 +2378,7 @@ export default defineNuxtPlugin((nuxt) => {
   ["api/orpc/web/react/base/src/utils/orpc.ts.hbs", `import { createORPCClient } from "@orpc/client";
 import { RPCLink } from "@orpc/client/fetch";
 import { createTanstackQueryUtils } from "@orpc/tanstack-query";
-import { QueryCache, QueryClient } from "@tanstack/react-query";
+import { {{#if (includes frontend "next")}}environmentManager, {{/if}}QueryCache, QueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 {{#if (and (includes frontend "tanstack-start") (eq backend "self"))}}
 import { createRouterClient } from "@orpc/server";
@@ -2417,9 +2423,20 @@ export function createQueryClient() {
 	});
 }
 
-{{#unless (includes frontend "tanstack-start")}}
+{{#if (includes frontend "next")}}
+let browserQueryClient: QueryClient | undefined;
+
+export function getQueryClient() {
+	if (environmentManager.isServer()) {
+		return createQueryClient();
+	}
+
+	browserQueryClient ??= createQueryClient();
+	return browserQueryClient;
+}
+{{else if (not (includes frontend "tanstack-start"))}}
 export const queryClient = createQueryClient();
-{{/unless}}
+{{/if}}
 
 {{#unless (eq backend "self")}}
 {{> getServerUrl}}
@@ -2616,15 +2633,19 @@ import { createORPCClient } from "@orpc/client";
 import { RPCLink } from "@orpc/client/fetch";
 import { createTanstackQueryUtils } from "@orpc/tanstack-query";
 import { QueryCache, QueryClient } from "@tanstack/svelte-query";
+import { browser } from "$app/env";
 import type { AppRouterClient } from "@{{projectName}}/api/routers/index";
 
-export const queryClient = new QueryClient({
-	queryCache: new QueryCache({
-		onError: (error) => {
-			console.error(\`Error: \${error.message}\`);
-		},
-	}),
-});
+export function createQueryClient() {
+	return new QueryClient({
+		queryCache: new QueryCache({
+			onError: (error) => {
+				console.error(\`Error: \${error.message}\`);
+			},
+		}),
+		defaultOptions: { queries: { enabled: browser } },
+	});
+}
 
 {{#unless (eq backend "self")}}
 {{> getServerUrl}}
@@ -3271,9 +3292,9 @@ export type AppRouter = typeof appRouter;
 }
 `],
   ["api/trpc/web/react/base/src/utils/trpc.ts.hbs", `{{#if (includes frontend 'next')}}
-import { QueryCache, QueryClient } from '@tanstack/react-query';
+import { environmentManager, QueryCache, QueryClient } from '@tanstack/react-query';
 import { createTRPCClient, httpBatchLink } from '@trpc/client';
-import { createTRPCOptionsProxy } from '@trpc/tanstack-react-query';
+import { createTRPCContext } from '@trpc/tanstack-react-query';
 import type { AppRouter } from "@{{projectName}}/api/routers/index";
 import { toast } from 'sonner';
 {{#unless (eq backend "self")}}
@@ -3284,63 +3305,76 @@ import { toast } from 'sonner';
 import { getClerkAuthToken } from "@/utils/clerk-auth";
 {{/if}}
 
-export const queryClient = new QueryClient({
-	queryCache: new QueryCache({
-		onError: (error, query) => {
-			toast.error(error.message, {
-				action: {
-					label: "retry",
-					onClick: () => {
-						query.invalidate();
-					},
-				},
-			});
-		},
-	}),
-});
+export const { TRPCProvider, useTRPC, useTRPCClient } =
+	createTRPCContext<AppRouter>();
 
-const trpcClient = createTRPCClient<AppRouter>({
-	links: [
-		httpBatchLink({
+function makeQueryClient() {
+	return new QueryClient({
+		queryCache: new QueryCache({
+			onError: (error, query) => {
+				toast.error(error.message, {
+					action: {
+						label: "retry",
+						onClick: () => {
+							query.invalidate();
+						},
+					},
+				});
+			},
+		}),
+	});
+}
+
+let browserQueryClient: QueryClient | undefined;
+
+export function getQueryClient() {
+	if (environmentManager.isServer()) {
+		return makeQueryClient();
+	}
+
+	browserQueryClient ??= makeQueryClient();
+	return browserQueryClient;
+}
+
+export function makeTRPCClient() {
+	return createTRPCClient<AppRouter>({
+		links: [
+			httpBatchLink({
 {{#if (eq backend "self")}}
-			url: "/api/trpc",
+				url: "/api/trpc",
 {{else}}
 {{#if (and (eq webDeploy serverDeploy) (or (eq webDeploy "vercel") (eq webDeploy "docker")))}}
-			url: \`\${getServerUrl(process.env.NEXT_PUBLIC_SERVER_URL!)}/trpc\`,
+				url: \`\${getServerUrl(process.env.NEXT_PUBLIC_SERVER_URL!)}/trpc\`,
 {{else}}
-			url: \`\${process.env.NEXT_PUBLIC_SERVER_URL!.replace(/\\/$/, "")}/trpc\`,
+				url: \`\${process.env.NEXT_PUBLIC_SERVER_URL!.replace(/\\/$/, "")}/trpc\`,
 {{/if}}
 {{/if}}
 {{#if (eq auth "clerk")}}
-			headers: async () => {
-				if (typeof window !== "undefined") {
-					const token = await getClerkAuthToken();
+				headers: async () => {
+					if (typeof window !== "undefined") {
+						const token = await getClerkAuthToken();
+						return token ? { Authorization: \`Bearer \${token}\` } : {};
+					}
+
+					const { auth } = await import("@clerk/nextjs/server");
+					const clerkAuth = await auth();
+					const token = await clerkAuth.getToken();
+
 					return token ? { Authorization: \`Bearer \${token}\` } : {};
-				}
-
-				const { auth } = await import("@clerk/nextjs/server");
-				const clerkAuth = await auth();
-				const token = await clerkAuth.getToken();
-
-				return token ? { Authorization: \`Bearer \${token}\` } : {};
-			},
+				},
 {{/if}}
 {{#if (eq auth "better-auth")}}
-			fetch(url, options) {
-				return fetch(url, {
-					...options,
-					credentials: "include",
-				});
-			},
+				fetch(url, options) {
+					return fetch(url, {
+						...options,
+						credentials: "include",
+					});
+				},
 {{/if}}
-		}),
-	],
-})
-
-export const trpc = createTRPCOptionsProxy<AppRouter>({
-	client: trpcClient,
-	queryClient,
-});
+			}),
+		],
+	});
+}
 
 {{else if (includes frontend 'tanstack-start')}}
 import { createTRPCContext } from "@trpc/tanstack-react-query";
@@ -3467,12 +3501,30 @@ function createAuth(ctx: GenericCtx<DataModel>) {
   return betterAuth({
     {{#if (or (includes frontend "tanstack-router") (includes frontend "react-router"))}}
     baseURL: process.env.CONVEX_SITE_URL,
+    {{else if (or (includes frontend "native-bare") (includes frontend "native-uniwind") (includes frontend "native-unistyles"))}}
+    {{#unless (or (includes frontend "tanstack-start") (includes frontend "next"))}}
+    baseURL: process.env.CONVEX_SITE_URL,
+    {{/unless}}
     {{/if}}
     {{#if (or (includes frontend "tanstack-start") (includes frontend "next"))}}
+    {{#if (or (includes frontend "native-bare") (includes frontend "native-uniwind") (includes frontend "native-unistyles"))}}
+    baseURL: {
+      allowedHosts: [siteUrl, process.env.CONVEX_SITE_URL!],
+      fallback: siteUrl,
+    },
+    advanced: {
+      trustedProxyHeaders: true,
+    },
+    {{else}}
     baseURL: siteUrl,
     {{/if}}
+    {{/if}}
     {{#if (or (includes frontend "native-bare") (includes frontend "native-uniwind") (includes frontend "native-unistyles"))}}
+    {{#if (or (includes frontend "tanstack-start") (includes frontend "next") (includes frontend "tanstack-router") (includes frontend "react-router") (includes frontend "nuxt") (includes frontend "svelte") (includes frontend "solid"))}}
+    trustedOrigins: [siteUrl, nativeAppUrl, "exp://", "http://localhost:8081"],
+    {{else}}
     trustedOrigins: [siteUrl, nativeAppUrl, "exp://"],
+    {{/if}}
     {{else if (or (includes frontend "tanstack-router") (includes frontend "react-router") (includes frontend "nuxt") (includes frontend "svelte") (includes frontend "solid"))}}
     trustedOrigins: [siteUrl],
     {{else if (or (includes frontend "tanstack-start") (includes frontend "next"))}}
@@ -10712,7 +10764,7 @@ import { orpc } from "@/utils/orpc";
 {{/if}}
 {{#if (eq api "trpc")}}
 import { useQuery } from "@tanstack/react-query";
-import { trpc } from "@/utils/trpc";
+import { useTRPC } from "@/utils/trpc";
 {{/if}}
 
 export default function Dashboard({
@@ -10730,6 +10782,7 @@ export default function Dashboard({
 	const privateData = useQuery(orpc.privateData.queryOptions());
 	{{/if}}
 	{{#if (eq api "trpc")}}
+	const trpc = useTRPC();
 	const privateData = useQuery(trpc.privateData.queryOptions());
 	{{/if}}
 
@@ -14998,7 +15051,7 @@ import { orpc } from "@/utils/orpc";
 {{/if}}
 {{#if (eq api "trpc")}}
 import { useQuery } from "@tanstack/react-query";
-import { trpc } from "@/utils/trpc";
+import { useTRPC } from "@/utils/trpc";
 {{/if}}
 import { SignInButton, UserButton, useUser } from "@clerk/nextjs";
 
@@ -15019,6 +15072,7 @@ export default function Dashboard() {
   });
   {{/if}}
   {{#if (eq api "trpc")}}
+  const trpc = useTRPC();
   const privateData = useQuery({
     ...trpc.privateData.queryOptions(),
     enabled: user.isLoaded && !!user.user,
@@ -16691,10 +16745,10 @@ temp
   ],
 {{#if (and (includes frontend "solid") (ne packageManager "pnpm"))}}
   "overrides": {
-    "solid-js": "2.0.0-rc.14",
-    "@solidjs/signals": "2.0.0-rc.14",
-    "@solidjs/compiler": "2.0.0-rc.14",
-    "@solidjs/babel-plugin": "2.0.0-rc.14"
+    "solid-js": "2.0.0-rc.18",
+    "@solidjs/signals": "2.0.0-rc.18",
+    "@solidjs/compiler": "2.0.0-rc.18",
+    "@solidjs/babel-plugin": "2.0.0-rc.18"
   },
 {{/if}}
   "scripts": {}
@@ -18366,6 +18420,8 @@ ENV PUBLIC_SERVER_URL=\${PUBLIC_SERVER_URL}
 ARG PUBLIC_CONVEX_URL
 ENV PUBLIC_CONVEX_URL=\${PUBLIC_CONVEX_URL}
 {{/if}}
+# SvelteKit 3 reads ORIGIN when the app is built (vite.config.ts \`paths.origin\`), not at
+# runtime. Pass it as a build argument; setting it with \`docker run -e\` has no effect.
 ARG ORIGIN=http://localhost:3001
 ENV ORIGIN=\${ORIGIN}
 ENV NODE_ENV=production
@@ -25910,7 +25966,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { orpc } from "@/utils/orpc";
   {{/if}}
   {{#if (eq api "trpc")}}
-import { trpc } from "@/utils/trpc";
+import { useTRPC } from "@/utils/trpc";
   {{/if}}
 {{/if}}
 
@@ -25965,6 +26021,7 @@ export default function TodosPage() {
     );
     {{/if}}
     {{#if (eq api "trpc")}}
+    const trpc = useTRPC();
     const todos = useQuery(trpc.todo.getAll.queryOptions());
     const createMutation = useMutation(
       trpc.todo.create.mutationOptions({
@@ -27271,7 +27328,7 @@ export default function Todos() {
 
 	const isAdding = $derived(addMutation.isPending);
 	const canAdd = $derived(!isAdding && newTodoText.trim().length > 0);
-	const isLoadingTodos = $derived(todosQuery.isLoading);
+	const isLoadingTodos = $derived(todosQuery.isPending);
 	const todos = $derived(todosQuery.data ?? []);
 	const hasTodos = $derived(todos.length > 0);
 
@@ -31822,10 +31879,16 @@ export default defineNuxtConfig({
     localApiEndpoint: "/_nuxt_icon",
   },
   {{/if}}
-{{#if (or (and (eq auth "better-auth") (ne backend "convex")) (and (eq api "orpc") (ne backend "convex") (ne backend "none")))}}
   vite: {
     optimizeDeps: {
       include: [
+{{#if (eq packageManager "npm")}}
+        "@vue/devtools-core",
+        "@vue/devtools-kit",
+{{else}}
+        "nuxt > @nuxt/devtools > @vue/devtools-core",
+        "nuxt > @nuxt/devtools > @vue/devtools-kit",
+{{/if}}
 {{#if (and (eq auth "better-auth") (ne backend "convex"))}}
         "better-auth/vue",
         "zod",
@@ -31835,9 +31898,20 @@ export default defineNuxtConfig({
         "@orpc/client/fetch",
         "@orpc/tanstack-query",
         "@tanstack/vue-query",
+        "@tanstack/vue-query > @vue/devtools-api",
         "@tanstack/vue-query-devtools",
 {{/if}}
       ],
+    },
+  },
+{{#if (and (eq api "orpc") (ne backend "convex") (ne backend "none"))}}
+  hooks: {
+    "vite:extendConfig"(config, { isClient }) {
+      if (!isClient || !config.optimizeDeps) return;
+      // Vue Query uses devtools-api 6, whose CommonJS entry needs optimization.
+      config.optimizeDeps.exclude = config.optimizeDeps.exclude?.filter(
+        (dependency) => dependency !== "@vue/devtools-api",
+      );
     },
   },
 {{/if}}
@@ -31909,8 +31983,8 @@ export default defineNuxtConfig({
   },
   "dependencies": {
     "@nuxt/ui": "^4.11.0",
-    "nuxt": "^4.6.0",
-    "vue": "^3.5.43",
+    "nuxt": "^4.6.2",
+    "vue": "^3.5.44",
     "vue-router": "^5.3.1"
   },
   "devDependencies": {
@@ -31926,10 +32000,6 @@ export default defineNuxtConfig({
   ["frontend/nuxt/public/favicon.ico", `[Binary file]`],
   ["frontend/nuxt/public/robots.txt", `User-Agent: *
 Disallow:
-`],
-  ["frontend/nuxt/server/tsconfig.json", `{
-  "extends": "../.nuxt/tsconfig.server.json"
-}
 `],
   ["frontend/nuxt/tsconfig.json.hbs", `{
   // https://nuxt.com/docs/guide/concepts/typescript
@@ -32122,7 +32192,7 @@ import { useQuery } from "@tanstack/react-query";
 import { orpc } from "@/utils/orpc";
   {{/if}}
   {{#if (eq api "trpc")}}
-import { trpc } from "@/utils/trpc";
+import { useTRPC } from "@/utils/trpc";
   {{/if}}
 {{/if}}
 
@@ -32148,6 +32218,7 @@ export default function Home() {
   {{else if (eq api "orpc")}}
   const healthCheck = useQuery(orpc.healthCheck.queryOptions());
   {{else if (eq api "trpc")}}
+  const trpc = useTRPC();
   const healthCheck = useQuery(trpc.healthCheck.queryOptions());
   {{/if}}
 
@@ -32233,8 +32304,10 @@ export function ModeToggle() {
   ["frontend/react/next/src/components/providers.tsx.hbs", `"use client";
 
 {{#if (and (eq auth "clerk") (ne api "none"))}}
-import { useEffect } from "react";
+import { useEffect{{#if (eq api "trpc")}}, useState{{/if}} } from "react";
 import { setClerkAuthTokenGetter } from "@/utils/clerk-auth";
+{{else if (eq api "trpc")}}
+import { useState } from "react";
 {{/if}}
 {{#if (and (eq auth "clerk") (or (eq backend "convex") (ne api "none")))}}
 import { useAuth } from "@clerk/nextjs";
@@ -32258,10 +32331,10 @@ import { ENV } from "../env{{#if (eq webDeploy "cloudflare")}}.public{{/if}}";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 {{#if (eq api "orpc")}}
-import { queryClient } from "@/utils/orpc";
+import { getQueryClient } from "@/utils/orpc";
 {{/if}}
 {{#if (eq api "trpc")}}
-import { queryClient } from "@/utils/trpc";
+import { getQueryClient, makeTRPCClient, TRPCProvider } from "@/utils/trpc";
 {{/if}}
 {{/unless}}
 {{/if}}
@@ -32299,6 +32372,13 @@ export default function Providers({
   initialToken?: string | null;
 {{/if}}
 }) {
+{{#if (and (ne backend "convex") (ne api "none"))}}
+  const queryClient = getQueryClient();
+{{#if (eq api "trpc")}}
+  const [trpcClient] = useState(makeTRPCClient);
+{{/if}}
+
+{{/if}}
   return (
     <ThemeProvider
       attribute="class"
@@ -32332,7 +32412,9 @@ export default function Providers({
         {children}
         {{/if}}
         {{#if (eq api "trpc")}}
-        {children}
+        <TRPCProvider trpcClient={trpcClient} queryClient={queryClient}>
+          {children}
+        </TRPCProvider>
         {{/if}}
         <ReactQueryDevtools />
       </QueryClientProvider>
@@ -32517,6 +32599,7 @@ import { setClerkAuthTokenGetter } from "@/utils/clerk-auth";
 {{/if}}
 
 {{#if (eq backend "convex")}}
+import { useState } from "react";
 import { ConvexReactClient } from "convex/react";
 import { ENV } from "./env{{#if (eq webDeploy "cloudflare")}}.public{{/if}}";
   {{#if (eq auth "clerk")}}
@@ -32598,7 +32681,7 @@ export default function App() {
 {{else}}
 export default function App() {
 {{/if}}
-  const convex = new ConvexReactClient(ENV.VITE_CONVEX_URL);
+  const [convex] = useState(() => new ConvexReactClient(ENV.VITE_CONVEX_URL));
   {{#if (eq auth "clerk")}}
   return (
     <ClerkProvider loaderData={loaderData}>
@@ -34298,14 +34381,14 @@ dist
   },
   "dependencies": {
     "@solidjs/meta": "1.0.0-next.2",
-    "@solidjs/router": "2.0.0-next.38",
-    "@solidjs/web": "2.0.0-rc.14",
-    "solid-js": "2.0.0-rc.14"
+    "@solidjs/router": "2.0.0-next.42",
+    "@solidjs/web": "2.0.0-rc.18",
+    "solid-js": "2.0.0-rc.18"
   },
   "devDependencies": {
-    "@solidjs/vite-plugin": "3.0.0-next.49",
+    "@solidjs/vite-plugin": "3.0.0-next.51",
     "@tailwindcss/vite": "^4.3.3",
-    "filesystem-routing": "0.4.0",
+    "filesystem-routing": "0.4.1",
     "tailwindcss": "^4.3.3",
     "vite": "^8.2.2"{{#unless (eq webDeploy "cloudflare")}},
     "nitro": "3.0.260903-beta"{{/unless}}
@@ -34685,7 +34768,7 @@ vite.config.ts.timestamp-*
 		{{else}}
 		"@sveltejs/adapter-auto": "^8.0.0",
 		{{/if}}
-		"@sveltejs/kit": "^3.0.0",
+		"@sveltejs/kit": "^3.1.0",
 		"@sveltejs/vite-plugin-svelte": "^7.3.1",
 		"@tailwindcss/vite": "^4.3.3",
 		"svelte": "^5.57.1",
@@ -34794,10 +34877,11 @@ export {};
     import { QueryClientProvider } from '@tanstack/svelte-query';
     import { SvelteQueryDevtools } from '@tanstack/svelte-query-devtools'
 	import '../app.css';
-    import { queryClient } from '#lib/orpc.ts';
+    import { createQueryClient } from '#lib/orpc.ts';
     import Header from '../components/Header.svelte';
 
 	const { children } = $props();
+	const queryClient = createQueryClient();
 </script>
 
 <QueryClientProvider client={queryClient}>
@@ -34906,7 +34990,7 @@ const TITLE_TEXT = \`
 					class={\`h-2 w-2 rounded-full \${healthCheck.data ? "bg-green-500" : "bg-red-500"}\`}
 				></div>
 				<span class="text-muted-foreground text-sm">
-					{healthCheck.isLoading
+					{healthCheck.isPending
 						? "Checking..."
 						: healthCheck.data
 							? "Connected"
@@ -35097,7 +35181,7 @@ export default defineConfig({
     "@shadcn/react": "^0.3.1",
     "shadcn": "^4.21.0",
     "class-variance-authority": "^0.7.1",
-    "cn": "^0.2.5",
+    "cn": "^0.5.0",
     "lucide-react": "^1.41.0",
     "next-themes": "^0.4.6",
     "react": "^19.2.8",
@@ -37034,4 +37118,4 @@ export default function Success() {
 `]
 ]);
 
-export const TEMPLATE_COUNT = 550;
+export const TEMPLATE_COUNT = 549;
