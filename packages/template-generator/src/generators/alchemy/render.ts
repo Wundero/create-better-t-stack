@@ -1,7 +1,7 @@
 import type { ProjectConfig } from "@better-t-stack/types";
 
 import type { VirtualFileSystem } from "../../core/virtual-fs";
-import { writeAddonImports, writeAddonResources } from "./addons";
+import { writeAddonImports, writeAddonResources, writeAddonStackResources } from "./addons";
 import { writeAwsNetworkResources } from "./aws";
 import { writeDatabaseResources } from "./database";
 import { writeEmailResources } from "./email";
@@ -201,6 +201,7 @@ function writeStack(writer: AlchemyWriter, plan: AlchemyDeploymentPlan): void {
         writer.writeLine("const serverWorker = yield* server;");
       }
       writeStackWebResource(writer, plan);
+      if (writeAddonStackResources(writer, plan)) writer.blankLine();
       writeStandaloneDevResources(writer, plan);
       writeVercelEnvSync(writer, plan);
       writer.blankLine();
