@@ -36059,4 +36059,4 @@ export default function Success() {
 `]
 ]);
 
-export const TEMPLATE_COUNT = 544;
+export const TEMPLATE_COUNT = 543;
