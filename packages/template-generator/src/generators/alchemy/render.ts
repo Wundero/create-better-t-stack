@@ -6,7 +6,12 @@ import { writeAwsNetworkResources } from "./aws";
 import { writeDatabaseResources } from "./database";
 import { writeEmailResources } from "./email";
 import { writeObservabilityResources } from "./observability";
-import { createAlchemyDeploymentPlan, type AlchemyDeploymentPlan } from "./plan";
+import {
+  ALCHEMY_PROVIDER_PACKAGES,
+  createAlchemyDeploymentPlan,
+  getAlchemyProviders,
+  type AlchemyDeploymentPlan,
+} from "./plan";
 import { writeServerResource } from "./server";
 import { writeTurnstileResources } from "./turnstile";
 import { writeExportedWebResource, writeStackWebResource } from "./web";
@@ -82,31 +87,15 @@ function writeImports(writer: AlchemyWriter, plan: AlchemyDeploymentPlan): void 
   if (plan.managedDatabase.kind === "aurora") {
     writer.writeLine('import { randomBytes } from "node:crypto";');
   }
-  if (plan.hasAxiom) writer.writeLine('import * as Axiom from "alchemy/Axiom";');
-  if (plan.emailSes) {
-    writer.writeLine('import * as AWS from "alchemy/AWS";');
-    writer.writeLine('import * as SES from "alchemy/AWS/SES";');
-  }
   if (usesCommand(plan)) writer.writeLine('import * as Command from "alchemy/Command";');
-  if (plan.hasNeonServer || plan.managedDatabase.kind === "neon") {
-    writer.writeLine('import * as Neon from "alchemy/Neon";');
-  }
-  if (
-    plan.managedDatabase.kind === "planetscale-postgres" ||
-    plan.managedDatabase.kind === "planetscale-mysql"
-  ) {
-    writer.writeLine('import * as Planetscale from "alchemy/Planetscale";');
-  }
-  if (plan.hasPrismaDeploy || plan.managedDatabase.kind === "prisma-postgres") {
-    writer.writeLine('import * as Prisma from "alchemy/Prisma";');
-  }
   if (usesOutput(plan)) writer.writeLine('import * as Output from "alchemy/Output";');
-  if (plan.hasCloudflare) writer.writeLine('import * as Cloudflare from "alchemy/Cloudflare";');
-  if (plan.hasAws) writer.writeLine('import * as AWS from "alchemy/AWS";');
   if (plan.server.target === "aws" && plan.server.compute === "lambda") {
     writer.writeLine('import * as Duration from "effect/Duration";');
   } else if (plan.hasAwsSolidWeb) {
     writer.writeLine('import * as Duration from "effect/Duration";');
+  }
+  for (const provider of getAlchemyProviders(plan)) {
+    writer.writeLine(`import * as ${provider} from "${ALCHEMY_PROVIDER_PACKAGES[provider]}";`);
   }
   writer.writeLine('import * as Config from "effect/Config";');
   writer.writeLine('import * as Effect from "effect/Effect";');

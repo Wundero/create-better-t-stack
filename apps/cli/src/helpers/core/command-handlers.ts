@@ -503,6 +503,7 @@ async function createProjectHandlerInternal(
     if (created.interrupted) {
       warnings.push("One or more setup steps were cancelled.");
     }
+    warnings.push(...created.stepFailures);
     if (created.installError) {
       warnings.push(created.installError.message);
       await reportDiagnostic("cli_failed", {
