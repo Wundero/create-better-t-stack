@@ -130,7 +130,9 @@ describe("Cloudflare provider addons", () => {
         expect(infra).toContain(declaration);
       }
       expect(infra).toContain(testCase.binding);
-      expect(infra.match(/import \* as Cloudflare from "alchemy\/Cloudflare";/g)).toHaveLength(1);
+      expect(infra.match(/import \* as Cloudflare from "@alchemy.run\/cloudflare";/g)).toHaveLength(
+        1,
+      );
 
       for (const entry of testCase.env ?? []) {
         expect(infra).toContain(entry);
@@ -208,7 +210,9 @@ describe("Cloudflare provider addons", () => {
     expect(infra).toContain('Cloudflare.Queues.Consumer("job-queue-consumer"');
     expect(infra).toContain('Cloudflare.Stream.LiveInput("stream-live-input"');
     expect(infra).toContain("STREAM_LIVE_INPUT_ID: streamLiveInput.liveInputId,");
-    expect(infra.match(/import \* as Cloudflare from "alchemy\/Cloudflare";/g)).toHaveLength(1);
+    expect(infra.match(/import \* as Cloudflare from "@alchemy.run\/cloudflare";/g)).toHaveLength(
+      1,
+    );
     expect(serverPackage.dependencies?.["workers-ai-provider"]).toBeDefined();
   });
 
