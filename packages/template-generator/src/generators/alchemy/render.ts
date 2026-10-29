@@ -10,6 +10,7 @@ import {
   type AlchemyDeploymentPlan,
 } from "./plan";
 import { writeServerResource } from "./server";
+import { writeTurnstileResources } from "./turnstile";
 import { writeExportedWebResource, writeStackWebResource } from "./web";
 import { createAlchemyWriter, writeObject, type AlchemyWriter } from "./writer";
 
@@ -161,6 +162,9 @@ function writeStack(writer: AlchemyWriter, plan: AlchemyDeploymentPlan): void {
       if (plan.hasAxiom) {
         writer.writeLine("const observabilityResources = yield* observability;");
       }
+      if (plan.hasTurnstile) {
+        writer.writeLine("const turnstileResources = yield* turnstileWidget;");
+      }
       if (plan.server.target !== "none") {
         writer.writeLine("const serverWorker = yield* server;");
       }
@@ -177,6 +181,7 @@ function writeStack(writer: AlchemyWriter, plan: AlchemyDeploymentPlan): void {
           if (plan.server.target !== "none") writer.writeLine("server: serverWorker.url,");
           else if (plan.needsStandaloneServerDev) writer.writeLine("server: serverDev.url,");
           if (plan.hasAxiom) writer.writeLine("axiomDataset: observabilityResources.dataset.name,");
+          if (plan.hasTurnstile) writer.writeLine("turnstileWidget: turnstileResources.sitekey,");
         },
         "};",
       );
@@ -199,6 +204,8 @@ export function generateAlchemyRun(config: ProjectConfig): string {
   }
   writeObservabilityResources(writer, plan);
   if (plan.hasAxiom) writer.blankLine();
+  writeTurnstileResources(writer, plan);
+  if (plan.hasTurnstile) writer.blankLine();
   writeServerResource(writer, plan);
   if (plan.server.target !== "none") writer.blankLine();
   writeExportedWebResource(writer, plan);
