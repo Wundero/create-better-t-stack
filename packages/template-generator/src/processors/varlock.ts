@@ -99,8 +99,8 @@ function schema(keys: Set<string>, config: ProjectConfig, envFile: string, app: 
       config.frontend.includes("nuxt") && (key === "BETTER_AUTH_URL" || key === "CORS_ORIGIN");
     const isPublic =
       /^(VITE_|NEXT_PUBLIC_|NUXT_PUBLIC_|PUBLIC_|EXPO_PUBLIC_)/.test(key) ||
-      isAuthOrigin ||
-      key === "CLERK_PUBLISHABLE_KEY";
+      key === "CLERK_PUBLISHABLE_KEY" ||
+      isAuthOrigin;
     let type = "string(minLength=1)";
     if (key === "BETTER_AUTH_SECRET") type = "string(minLength=32)";
     else if ((key.endsWith("URL") && key !== "DATABASE_URL") || key === "CORS_ORIGIN") type = "url";

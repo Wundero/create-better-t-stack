@@ -20,12 +20,12 @@ export function writeEmailResources(writer: AlchemyWriter, plan: AlchemyDeployme
     writer.indent(() => {
       writeObject(
         writer,
-        'const emailIdentity = yield* SES.EmailIdentity("email-identity", {',
+        'const emailIdentity = yield* AWS.SES.EmailIdentity("email-identity", {',
         () => writer.writeLine('emailIdentity: Config.String("EMAIL_FROM"),'),
         "});",
       );
       writer.writeLine(
-        'const emailConfigurationSet = yield* SES.ConfigurationSet("email-configuration-set");',
+        'const emailConfigurationSet = yield* AWS.SES.ConfigurationSet("email-configuration-set");',
       );
       writer.writeLine("return { emailIdentity, emailConfigurationSet };");
     });
