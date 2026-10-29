@@ -1,4 +1,11 @@
-import { TASK_RUNNER_ADDONS, OBSERVABILITY_ADDONS, type Addons } from "@better-t-stack/types";
+import {
+  TASK_RUNNER_ADDONS,
+  OBSERVABILITY_ADDONS,
+  SHADCN_BASE_VALUES,
+  isValidPreset,
+  type Addons,
+  type ShadcnBase,
+} from "@better-t-stack/types";
 
 import { DEFAULT_STACK, type StackState, TECH_OPTIONS } from "./constant";
 
@@ -82,6 +89,18 @@ export function sanitizeNativeFrontends(nativeFrontend: readonly string[] | null
   );
 }
 
+function isShadcnBase(value: string | null | undefined): value is ShadcnBase {
+  return value !== null && value !== undefined && SHADCN_BASE_VALUES.some((base) => base === value);
+}
+
+function sanitizeShadcnPreset(preset: string | null | undefined) {
+  return preset !== null && preset !== undefined && isValidPreset(preset) ? preset : "";
+}
+
+function sanitizeShadcnBase(base: string | null | undefined) {
+  return isShadcnBase(base) ? base : DEFAULT_STACK.shadcnBase;
+}
+
 export type RawStackLists = Omit<
   StackState,
   "webFrontend" | "nativeFrontend" | "addons" | "examples"
@@ -95,6 +114,8 @@ export type RawStackLists = Omit<
 export function sanitizeStackState(stack: RawStackLists): StackState {
   return {
     ...stack,
+    shadcnPreset: sanitizeShadcnPreset(stack.shadcnPreset),
+    shadcnBase: sanitizeShadcnBase(stack.shadcnBase),
     webFrontend: sanitizeWebFrontends(stack.webFrontend),
     nativeFrontend: sanitizeNativeFrontends(stack.nativeFrontend),
     addons: sanitizeAddons(stack.addons),

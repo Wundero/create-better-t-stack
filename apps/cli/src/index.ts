@@ -49,6 +49,7 @@ import {
   RuntimeSchema,
   type ServerDeploy,
   ServerDeploySchema,
+  ShadcnBaseSchema,
   type Template,
   TemplateSchema,
   type WebDeploy,
@@ -88,6 +89,7 @@ export const SchemaNameSchema = z
     "template",
     "addonOptions",
     "dbSetupOptions",
+    "shadcnConfig",
     "createInput",
     "addInput",
     "projectConfig",
@@ -186,6 +188,14 @@ export const router = os.router({
           dbSetupOptions: DbSetupOptionsSchema.optional().describe(
             "Structured database setup options",
           ),
+          shadcnPreset: z
+            .string()
+            .min(2)
+            .optional()
+            .describe("shadcn theme preset code, named preset, or preset URL"),
+          shadcnBase: ShadcnBaseSchema.optional().describe("shadcn component base registry"),
+          shadcnRtl: z.boolean().optional().describe("Enable right-to-left shadcn styles"),
+          shadcnPointer: z.boolean().optional().describe("Enable shadcn pointer cursor styles"),
         }),
       ]),
     )
@@ -476,6 +486,7 @@ export async function createVirtual(
     relativePath: "./virtual",
     addonOptions: virtualOptions.addonOptions,
     dbSetupOptions: virtualOptions.dbSetupOptions,
+    shadcn: virtualOptions.shadcn,
     database: virtualOptions.database || "none",
     orm: virtualOptions.orm || "none",
     backend: virtualOptions.backend || "hono",
