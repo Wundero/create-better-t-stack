@@ -3700,6 +3700,10 @@ export function makeTRPCClient() {
 				},
 {{/if}}
 {{/if}}
+			}),
+		],
+	});
+}
 
 {{else if (includes frontend 'tanstack-start')}}
 import { createTRPCContext } from "@trpc/tanstack-react-query";
