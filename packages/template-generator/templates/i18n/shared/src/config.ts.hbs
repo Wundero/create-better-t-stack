@@ -1,0 +1,172 @@
+/**
+ * Locale configuration shared by every surface and every i18n library.
+ * Edit `locales` (or the `i18nOptions` in `bts.jsonc`) to change the supported
+ * locales, then restart the dev server.
+ */
+
+export const locales = [
+{{#if i18nOptions.locales}}
+{{#each i18nOptions.locales}}  "{{this}}",
+{{/each}}
+{{else}}
+  "en",
+  "es",
+  "fr",
+{{/if}}
+] as const;
+
+export const sourceLocale = {{#if i18nOptions.sourceLocale}}"{{i18nOptions.sourceLocale}}"{{else}}"en"{{/if}};
+
+export type RoutingStrategy = "cookie" | "prefix" | "domain";
+
+export const routingStrategy: RoutingStrategy = {{#if i18nOptions.routing.strategy}}"{{i18nOptions.routing.strategy}}"{{else}}"cookie"{{/if}};
+
+export const prefixDefaultLocale = {{#if i18nOptions.routing.prefixDefaultLocale}}true{{else}}false{{/if}};
+
+/** Locale → host map. Only populated for the `domain` routing strategy. */
+export const localeDomains: Readonly<Record<string, string>> = {
+{{#if i18nOptions.routing.domains}}
+{{#each i18nOptions.routing.domains}}  "{{@key}}": "{{this}}",
+{{/each}}
+{{/if}}
+};
+
+export const LOCALE_COOKIE = "locale";
+export const LOCALE_HEADER = "x-app-locale";
+
+export type Locale = (typeof locales)[number];
+
+export type TextDirection = "ltr" | "rtl";
+
+const RTL_LANGUAGE_CODES: ReadonlySet<string> = new Set([
+  "ar",
+  "arc",
+  "ckb",
+  "dv",
+  "fa",
+  "he",
+  "khw",
+  "ks",
+  "ku",
+  "mzn",
+  "nqo",
+  "ps",
+  "sd",
+  "ug",
+  "ur",
+  "yi",
+]);
+
+export function isLocale(value: string): value is Locale {
+  return locales.some((locale) => locale === value);
+}
+
+function languageSubtag(tag: string): string {
+  const [language = ""] = tag.toLowerCase().split("-");
+  return language;
+}
+
+/** `Intl.Locale#getTextInfo` is newer than some generated `lib` targets; read it structurally. */
+interface LocaleWithTextInfo {
+  getTextInfo?(): { readonly direction?: string };
+}
+
+function readTextDirection(locale: string): TextDirection | undefined {
+  try {
+    const direction = (new Intl.Locale(locale) as LocaleWithTextInfo).getTextInfo?.().direction;
+    return direction === "rtl" || direction === "ltr" ? direction : undefined;
+  } catch {
+    // Invalid tag or a runtime without getTextInfo: use the fallback table.
+    return undefined;
+  }
+}
+
+/**
+ * Text direction for a locale. Uses `Intl.Locale#getTextInfo` when the runtime
+ * provides it and falls back to the RTL language table otherwise (Hermes).
+ */
+export function getTextDirection(locale: string): TextDirection {
+  const direction = readTextDirection(locale);
+  if (direction) return direction;
+  return RTL_LANGUAGE_CODES.has(languageSubtag(locale)) ? "rtl" : "ltr";
+}
+
+export interface NegotiateLocaleInput {
+  /** Request path, used by `prefix` routing. */
+  readonly pathname?: string;
+  /** Request host, used by `domain` routing. */
+  readonly host?: string;
+  /** `x-app-locale` header value. */
+  readonly header?: string;
+  /** `locale` cookie value. */
+  readonly cookie?: string;
+  /** Raw `Accept-Language` header value. */
+  readonly acceptLanguage?: string;
+  /** Locale persisted by the current client (localStorage, storage.local …). */
+  readonly stored?: string;
+  /** Locale reported by the system or device (LANG/LC_ALL, expo-localization …). */
+  readonly system?: string;
+}
+
+/** BCP-47 lookup with truncation: `fr-CA` matches `fr`. */
+function matchLocale(tag: string | undefined): Locale | undefined {
+  if (!tag) return undefined;
+  const segments = tag.toLowerCase().split("-");
+  while (segments.length > 0) {
+    const candidate = segments.join("-");
+    const match = locales.find((locale) => locale.toLowerCase() === candidate);
+    if (match) return match;
+    segments.pop();
+  }
+  return undefined;
+}
+
+function parseAcceptLanguage(header: string | undefined): string[] {
+  if (!header) return [];
+  return header
+    .split(",")
+    .map((entry) => {
+      const [tag = "", ...parameters] = entry.trim().split(";");
+      const qualityParameter = parameters.find((parameter) => parameter.trim().startsWith("q="));
+      const quality = qualityParameter ? Number.parseFloat(qualityParameter.trim().slice(2)) : 1;
+      return { tag: tag.trim(), quality };
+    })
+    .filter((entry) => entry.tag.length > 0 && entry.tag !== "*" && entry.quality > 0)
+    .sort((first, second) => second.quality - first.quality)
+    .map((entry) => entry.tag);
+}
+
+function routingSourceLocale(input: NegotiateLocaleInput): string | undefined {
+  if (routingStrategy === "prefix" && input.pathname) {
+    const [firstSegment] = input.pathname.split("/").filter((segment) => segment.length > 0);
+    return firstSegment;
+  }
+  if (routingStrategy === "domain" && input.host) {
+    const host = input.host.toLowerCase();
+    for (const [locale, domain] of Object.entries(localeDomains)) {
+      if (domain.toLowerCase() === host) return locale;
+    }
+  }
+  return undefined;
+}
+
+/**
+ * One negotiation contract for every surface. Sources are checked in order:
+ * routing (prefix segment or host) → `x-app-locale` → cookie →
+ * `Accept-Language` → stored/system → the source locale.
+ */
+export function negotiateLocale(input: NegotiateLocaleInput = {}): Locale {
+  const candidates: (string | undefined)[] = [
+    routingSourceLocale(input),
+    input.header,
+    input.cookie,
+    ...parseAcceptLanguage(input.acceptLanguage),
+    input.stored,
+    input.system,
+  ];
+  for (const candidate of candidates) {
+    const match = matchLocale(candidate);
+    if (match) return match;
+  }
+  return sourceLocale;
+}

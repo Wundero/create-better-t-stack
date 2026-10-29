@@ -1,0 +1,66 @@
+import { describe, expect, test } from "bun:test";
+
+import { sourceLocale } from "../src/config";
+import { createFormatters } from "../src/format";
+
+const referenceDate = new Date(Date.UTC(2026, 0, 15, 12, 30, 0));
+const referenceMs = referenceDate.getTime();
+
+describe("createFormatters", () => {
+  test("memoizes one bundle per locale", () => {
+    expect(createFormatters(sourceLocale)).toBe(createFormatters(sourceLocale));
+  });
+
+  test("formats dates and times exactly like native Intl", () => {
+    const formatters = createFormatters(sourceLocale);
+
+    expect(formatters.date(referenceDate)).toBe(
+      new Intl.DateTimeFormat(sourceLocale, { dateStyle: "medium" }).format(referenceDate),
+    );
+    expect(formatters.time(referenceDate)).toBe(
+      new Intl.DateTimeFormat(sourceLocale, { timeStyle: "medium" }).format(referenceDate),
+    );
+    expect(formatters.dateTime(referenceDate)).toBe(
+      new Intl.DateTimeFormat(sourceLocale, {
+        dateStyle: "medium",
+        timeStyle: "medium",
+      }).format(referenceDate),
+    );
+  });
+
+  test("formats numbers, currency, percent and compact notation like native Intl", () => {
+    const formatters = createFormatters(sourceLocale);
+
+    expect(formatters.number(1234567.89)).toBe(new Intl.NumberFormat(sourceLocale).format(1234567.89));
+    expect(formatters.currency(42.5, "EUR")).toBe(
+      new Intl.NumberFormat(sourceLocale, { style: "currency", currency: "EUR" }).format(42.5),
+    );
+    expect(formatters.percent(0.25)).toBe(
+      new Intl.NumberFormat(sourceLocale, { style: "percent" }).format(0.25),
+    );
+    expect(formatters.compact(123456)).toBe(
+      new Intl.NumberFormat(sourceLocale, { notation: "compact" }).format(123456),
+    );
+    expect(formatters.plural(1)).toBe(
+      new Intl.PluralRules(sourceLocale).select(1),
+    );
+  });
+
+  test("formats relative time and relative dates like native Intl", () => {
+    const formatters = createFormatters(sourceLocale);
+
+    expect(formatters.relative(-2, "day")).toBe(
+      new Intl.RelativeTimeFormat(sourceLocale).format(-2, "day"),
+    );
+    expect(formatters.relativeFrom(referenceMs + 2 * 86_400_000, referenceMs)).toBe(
+      new Intl.RelativeTimeFormat(sourceLocale).format(2, "day"),
+    );
+  });
+
+  test("formats lists like native Intl", () => {
+    const formatters = createFormatters(sourceLocale);
+    const items = ["Ada", "Grace", "Linus"];
+
+    expect(formatters.list(items)).toBe(new Intl.ListFormat(sourceLocale).format(items));
+  });
+});

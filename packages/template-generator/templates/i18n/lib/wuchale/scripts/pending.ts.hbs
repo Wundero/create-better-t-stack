@@ -1,0 +1,41 @@
+/**
+ * `i18n:pending --locale <locale> | --all [--limit N]` — list untranslated
+ * items as the library-independent JSON contract consumed by the
+ * `i18n-translate` skill.
+ */
+
+import { locales, sourceLocale } from "../src/config";
+import {
+  collectPendingItems,
+  readCatalogs,
+  resolvePackageRoot,
+  type PendingReport,
+} from "./catalog";
+
+function argumentValue(name: string): string | undefined {
+  const index = process.argv.indexOf(name);
+  return index === -1 ? undefined : process.argv[index + 1];
+}
+
+const packageRoot = resolvePackageRoot(import.meta.url);
+const all = process.argv.includes("--all");
+const requestedLocale = argumentValue("--locale");
+const limitValue = argumentValue("--limit");
+const limit = limitValue === undefined ? undefined : Number.parseInt(limitValue, 10);
+
+if (!all && requestedLocale === undefined) {
+  console.error("Usage: bun run i18n:pending --locale <locale> | --all [--limit N]");
+  process.exit(1);
+}
+
+if (requestedLocale !== undefined && !locales.some((value) => value === requestedLocale)) {
+  console.error(`Unknown locale "${requestedLocale}". Configured locales: ${locales.join(", ")}.`);
+  process.exit(1);
+}
+
+const catalogs = await readCatalogs(packageRoot);
+const items = collectPendingItems(catalogs, sourceLocale, all ? null : (requestedLocale ?? null));
+const limited = limit === undefined || Number.isNaN(limit) ? items : items.slice(0, limit);
+
+const report: PendingReport = { library: "wuchale", sourceLocale, items: limited };
+console.log(JSON.stringify(report, null, 2));

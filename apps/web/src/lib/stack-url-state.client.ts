@@ -2,9 +2,15 @@
 import { parseAsArrayOf, parseAsString, parseAsStringEnum, useQueryStates } from "nuqs";
 import { useCallback, useMemo } from "react";
 
-import { DEFAULT_STACK, type StackState, getStackOptionIds } from "@/lib/constant";
+import {
+  DEFAULT_I18N_OPTIONS,
+  DEFAULT_STACK,
+  type StackState,
+  getStackOptionIds,
+} from "@/lib/constant";
 
 import { sanitizeStackState, type RawStackLists } from "./sanitize-stack-addons";
+import { composeI18nOptions, flattenI18nOptions, I18N_ROUTING_STRATEGIES } from "./stack-i18n";
 import { stackUrlKeys } from "./stack-url-keys";
 
 export const stackParsers = {
@@ -35,6 +41,15 @@ export const stackParsers = {
   payments: parseAsStringEnum<StackState["payments"]>(getStackOptionIds("payments")).withDefault(
     DEFAULT_STACK.payments,
   ),
+  i18n: parseAsStringEnum<StackState["i18n"]>(getStackOptionIds("i18n")).withDefault(
+    DEFAULT_STACK.i18n,
+  ),
+  locales: parseAsArrayOf(parseAsString).withDefault(DEFAULT_I18N_OPTIONS.locales),
+  sourceLocale: parseAsString.withDefault(DEFAULT_I18N_OPTIONS.sourceLocale),
+  routing: parseAsStringEnum([...I18N_ROUTING_STRATEGIES]).withDefault(
+    DEFAULT_I18N_OPTIONS.routing.strategy,
+  ),
+  domains: parseAsString.withDefault(""),
   packageManager: parseAsStringEnum<StackState["packageManager"]>(
     getStackOptionIds("packageManager"),
   ).withDefault(DEFAULT_STACK.packageManager),
@@ -64,7 +79,14 @@ export const stackQueryStatesOptions = {
   clearOnDefault: true,
 };
 
-function getStackFromQueryState(queryState: RawStackLists): StackState {
+type I18nQueryFields = {
+  locales: string[];
+  sourceLocale: string;
+  routing: string;
+  domains: string;
+};
+
+function getStackFromQueryState(queryState: RawStackLists & I18nQueryFields): StackState {
   return sanitizeStackState({
     projectName: queryState.projectName,
     webFrontend: queryState.webFrontend,
@@ -77,6 +99,14 @@ function getStackFromQueryState(queryState: RawStackLists): StackState {
     dbSetup: queryState.dbSetup,
     auth: queryState.auth,
     payments: queryState.payments,
+    i18n: queryState.i18n,
+    i18nOptions: composeI18nOptions({
+      i18n: queryState.i18n,
+      locales: queryState.locales,
+      sourceLocale: queryState.sourceLocale,
+      routing: queryState.routing,
+      domains: queryState.domains,
+    }),
     packageManager: queryState.packageManager,
     addons: queryState.addons,
     examples: queryState.examples,
@@ -86,6 +116,11 @@ function getStackFromQueryState(queryState: RawStackLists): StackState {
     serverDeploy: queryState.serverDeploy,
     yolo: queryState.yolo,
   });
+}
+
+function toQueryUpdate(stack: StackState) {
+  const { i18nOptions, ...stackFields } = stack;
+  return { ...stackFields, ...flattenI18nOptions(i18nOptions) };
 }
 
 export function useStackState() {
@@ -103,7 +138,7 @@ export function useStackState() {
         const newStack = updates instanceof Function ? updates(currentStack) : updates;
         const finalStack = sanitizeStackState({ ...currentStack, ...newStack });
 
-        return finalStack;
+        return toQueryUpdate(finalStack);
       });
     },
     [setQueryState],

@@ -1,0 +1,13 @@
+/**
+ * Locale-aware href for template links (D6). Import `localeHref` in headers,
+ * navs and layouts so every link carries the active locale prefix.
+ */
+import { isLocale, sourceLocale } from "@{{projectName}}/i18n/config";
+import { localizeHref } from "@{{projectName}}/i18n/routing";
+
+export function localeHref(href: string): string {
+  if (typeof window === "undefined") return localizeHref(href, sourceLocale);
+
+  const [first] = window.location.pathname.split("/").filter((segment) => segment.length > 0);
+  return localizeHref(href, first && isLocale(first) ? first : sourceLocale);
+}

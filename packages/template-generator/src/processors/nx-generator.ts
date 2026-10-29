@@ -13,6 +13,7 @@ import {
 import type { VirtualFileSystem } from "../core/virtual-fs";
 import { getDbScriptSupport, type DbScriptSupport } from "../utils/db-scripts";
 import { getStackGeneratedIgnorePatterns } from "../utils/generated-ignore-patterns";
+import { hasI18n, I18N_SCRIPT_NAMES } from "../utils/i18n";
 
 type NxTargetDefaults = {
   dependsOn?: string[];
@@ -76,6 +77,7 @@ export function generateNxConfig(config: ProjectConfig): NxConfig {
   if (isSqliteLocal) Object.assign(targetDefaults, getSqliteLocalTarget());
   if (hasLocalD1) Object.assign(targetDefaults, getLocalD1Target());
   if (hasAlchemy) Object.assign(targetDefaults, getDeployTargets());
+  if (hasI18n(config)) Object.assign(targetDefaults, getI18nTargets());
 
   return {
     $schema: "./node_modules/nx/schemas/nx-schema.json",
@@ -162,4 +164,12 @@ function getDeployTargets(): NxTargetMap {
     deploy: { cache: false },
     destroy: { cache: false },
   };
+}
+
+function getI18nTargets(): NxTargetMap {
+  const targets: NxTargetMap = {};
+  for (const script of I18N_SCRIPT_NAMES) {
+    targets[script] = { cache: false };
+  }
+  return targets;
 }

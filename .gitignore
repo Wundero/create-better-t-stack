@@ -48,3 +48,6 @@ templates-binary
 opensrc/
 .scratch-docker-smoke/
 .scratch-vercel-smoke/
+
+# Local agent run state
+.omo/

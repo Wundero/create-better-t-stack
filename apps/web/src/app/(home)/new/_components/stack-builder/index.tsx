@@ -1,5 +1,6 @@
 "use client";
 
+import type { I18nOptions } from "@better-t-stack/types";
 import {
   AlertTriangle,
   Check,
@@ -64,6 +65,10 @@ export function StackBuilder({ specialSponsors = [] }: StackBuilderProps) {
   const displayCommand = formatStackCommandForDisplay(command);
   const [commandExpanded, setCommandExpanded] = useState(false);
   const isCommandMultiline = displayCommand !== command;
+
+  const updateI18nOptions = (options: I18nOptions) => {
+    void setStack({ i18nOptions: options });
+  };
 
   const actionButtons = (
     <ActionButtons
@@ -353,6 +358,7 @@ export function StackBuilder({ specialSponsors = [] }: StackBuilderProps) {
                       stack={effectiveStack}
                       compatibilityNotes={compatibilityAnalysis.notes}
                       onSelect={handleTechSelect}
+                      onUpdateI18nOptions={updateI18nOptions}
                       showAllCategories
                     />
                   </main>
@@ -498,6 +504,7 @@ export function StackBuilder({ specialSponsors = [] }: StackBuilderProps) {
                     stack={effectiveStack}
                     compatibilityNotes={compatibilityAnalysis.notes}
                     onSelect={handleTechSelect}
+                    onUpdateI18nOptions={updateI18nOptions}
                     showAllCategories
                   />
                 </main>

@@ -1,0 +1,36 @@
+import { setI18n } from "@lingui/react/server";
+import { setupI18n as createI18n } from "@lingui/core";
+import { cookies, headers } from "next/headers";
+import type { ReactNode } from "react";
+
+import { LOCALE_COOKIE, LOCALE_HEADER, negotiateLocale } from "@{{projectName}}/i18n/config";
+import { loadCatalog } from "@{{projectName}}/i18n/runtime";
+
+import { I18nProvider } from "./i18n-provider";
+
+/**
+ * Server component placed at the app root. It negotiates the locale from the
+ * request (`x-app-locale` → `locale` cookie → `Accept-Language` → the source
+ * locale), loads that catalog, then hands the same messages to React Server
+ * Components (`setI18n`) and to the client provider. Rendering on the server in
+ * the negotiated locale keeps SSR HTML and hydration consistent; the
+ * `useEffect`-only path used to leave server output in the source locale (D4).
+ */
+export async function I18nServerProvider({ children }: { children: ReactNode }) {
+  const [cookieStore, headerStore] = await Promise.all([cookies(), headers()]);
+
+  const locale = negotiateLocale({
+    header: headerStore.get(LOCALE_HEADER) ?? undefined,
+    cookie: cookieStore.get(LOCALE_COOKIE)?.value,
+    acceptLanguage: headerStore.get("accept-language") ?? undefined,
+  });
+
+  const messages = await loadCatalog(locale);
+  setI18n(createI18n({ locale, messages: { [locale]: messages } }));
+
+  return (
+    <I18nProvider initialLocale={locale} initialMessages={messages}>
+      {children}
+    </I18nProvider>
+  );
+}
