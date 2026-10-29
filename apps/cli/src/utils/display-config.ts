@@ -156,6 +156,7 @@ export function getConfigSections(config: Partial<ProjectConfig>): ConfigDisplay
       ["Package manager", config.packageManager],
       ["Git", config.git],
       ["Install deps", config.install],
+      ["Portless", config.portless || undefined],
     ]),
   ].filter((value): value is ConfigDisplaySection => value !== undefined);
 }

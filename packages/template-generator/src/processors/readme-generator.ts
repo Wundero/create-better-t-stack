@@ -9,6 +9,7 @@ import {
 import type { VirtualFileSystem } from "../core/virtual-fs";
 import { getDbScriptSupport } from "../utils/db-scripts";
 import { isDatabaseConsumedByDocker } from "../utils/docker-database";
+import { getPortlessNames } from "./portless";
 
 function getDesktopStaticBuildNote(frontend: ProjectConfig["frontend"]): string {
   const staticBuildFrontends = new Map([
@@ -250,6 +251,7 @@ ${packageManagerRunCmd} dev
 \`\`\`
 
 ${generateRunningInstructions(frontend, backend, webPort, hasNative, isConvex)}
+${generatePortlessSection(options)}
 ${generateReactUiSection(hasReactWeb, projectName)}
 ## Environment Configuration
 
@@ -369,6 +371,34 @@ function generateRunningInstructions(
   }
 
   return instructions.join("\n");
+}
+
+function generatePortlessSection(config: ProjectConfig): string {
+  if (config.portless !== true) return "";
+
+  const { web, server } = getPortlessNames(config.projectName);
+  const lines = [
+    "## Portless Development",
+    "",
+    "This project uses Portless to serve the apps over trusted HTTPS `.localhost` domains instead of localhost ports.",
+    "",
+    "Trust the local certificate authority once (requires Node.js 24 or newer):",
+    "",
+    "```bash",
+    "portless trust",
+    "```",
+    "",
+  ];
+
+  if (hasWebFrontend(config.frontend)) {
+    lines.push(`- Web: https://${web}.localhost`);
+  }
+
+  if (config.backend !== "self" && config.backend !== "none") {
+    lines.push(`- API: https://${server}.localhost`);
+  }
+
+  return `\n${lines.join("\n")}\n`;
 }
 
 function generateReactUiSection(hasReactWeb: boolean, projectName: string): string {

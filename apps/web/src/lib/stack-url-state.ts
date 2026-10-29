@@ -52,6 +52,9 @@ const serverStackParsers = {
   install: parseAsStringEnumServer<StackState["install"]>(["true", "false"]).withDefault(
     DEFAULT_STACK.install,
   ),
+  portless: parseAsStringEnumServer<StackState["portless"]>(["true", "false"]).withDefault(
+    DEFAULT_STACK.portless,
+  ),
   webDeploy: parseAsStringEnumServer<StackState["webDeploy"]>(
     getStackOptionIds("webDeploy"),
   ).withDefault(DEFAULT_STACK.webDeploy),
