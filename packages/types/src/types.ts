@@ -13,6 +13,8 @@ import type {
   APISchema,
   AuthSchema,
   PaymentsSchema,
+  EmailRendererSchema,
+  EmailDeploySchema,
   WebDeploySchema,
   ServerDeploySchema,
   DirectoryConflictSchema,
@@ -41,6 +43,8 @@ export type DatabaseSetup = z.infer<typeof DatabaseSetupSchema>;
 export type API = z.infer<typeof APISchema>;
 export type Auth = z.infer<typeof AuthSchema>;
 export type Payments = z.infer<typeof PaymentsSchema>;
+export type EmailRenderer = z.infer<typeof EmailRendererSchema>;
+export type EmailDeploy = z.infer<typeof EmailDeploySchema>;
 export type WebDeploy = z.infer<typeof WebDeploySchema>;
 export type ServerDeploy = z.infer<typeof ServerDeploySchema>;
 export type DirectoryConflict = z.infer<typeof DirectoryConflictSchema>;

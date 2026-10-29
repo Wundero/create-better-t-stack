@@ -57,6 +57,7 @@ export function processPackageConfigs(vfs: VirtualFileSystem, config: ProjectCon
   processNpmScriptApprovals(vfs, config);
   updateConfigPackageJson(vfs, config);
   updateUiPackageJson(vfs, config);
+  updateEmailPackageJson(vfs, config);
   updateInfraPackageJson(vfs, config);
   updateDesktopPackageJson(vfs, config);
   updateVitePlusPackages(vfs, config);
@@ -669,6 +670,14 @@ function updateUiPackageJson(vfs: VirtualFileSystem, config: ProjectConfig): voi
 
   pkgJson.name = `@${config.projectName}/ui`;
   vfs.writeJson("packages/ui/package.json", pkgJson);
+}
+
+function updateEmailPackageJson(vfs: VirtualFileSystem, config: ProjectConfig): void {
+  const pkgJson = vfs.readJson<PackageJson>("packages/email/package.json");
+  if (!pkgJson) return;
+
+  pkgJson.name = `@${config.projectName}/email`;
+  vfs.writeJson("packages/email/package.json", pkgJson);
 }
 
 function updateInfraPackageJson(vfs: VirtualFileSystem, config: ProjectConfig): void {

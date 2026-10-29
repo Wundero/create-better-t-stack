@@ -147,6 +147,8 @@ export function* configurations(filter: Selection = {}): Generator<ProjectConfig
                           payments,
                           webDeploy,
                           serverDeploy,
+                          emailRenderer: "none",
+                          emailDeploy: "none",
                           packageManager: "bun",
                           addons: [],
                           examples: [],
