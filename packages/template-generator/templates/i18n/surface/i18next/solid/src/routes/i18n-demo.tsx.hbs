@@ -1,0 +1,41 @@
+import { locales } from "@{{projectName}}/i18n";
+import { For } from "solid-js";
+
+import { createI18n } from "~/lib/i18n";
+
+export default function I18nDemo() {
+  const { locale, translate, format, changeLocale } = createI18n();
+  const count = 2;
+
+  return (
+    <main class="container mx-auto max-w-2xl space-y-4 px-4 py-10">
+      <h1 class="text-2xl font-semibold">{translate("i18n demo")}</h1>
+      <p>{translate("Hello, \{{name}}!", { name: "Ada" })}</p>
+      <p>{translate("You have \{{count}} new message", { count })}</p>
+      <dl class="grid grid-cols-2 gap-2 text-sm">
+        <dt class="text-muted-foreground">{translate("Language")}</dt>
+        <dd>{format().displayName(locale()) ?? locale()}</dd>
+        <dt class="text-muted-foreground">
+          {translate("Current locale: \{{locale}}", { locale: locale() })}
+        </dt>
+        <dd>
+          {format().date(new Date("2026-10-14T12:00:00Z"))} ·{" "}
+          {format().currency(42.5, "EUR")}
+        </dd>
+      </dl>
+      <div class="flex flex-wrap gap-2">
+        <For each={[...locales]}>
+          {(option) => (
+            <button
+              type="button"
+              class="rounded-md border px-3 py-1 text-sm"
+              onClick={() => void changeLocale(option)}
+            >
+              {option}
+            </button>
+          )}
+        </For>
+      </div>
+    </main>
+  );
+}

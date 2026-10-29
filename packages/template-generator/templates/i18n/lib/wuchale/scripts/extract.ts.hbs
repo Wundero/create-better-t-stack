@@ -1,0 +1,11 @@
+/**
+ * `i18n:extract` — scan every wuchale adapter for messages and write them to
+ * the per-adapter `locales/<adapter>.<locale>.po` catalogs. The wuchale CLI
+ * also refreshes the loader/proxy modules in `locales/`. AI translation is
+ * disabled (no `ai` config), so this only extracts and merges.
+ */
+
+import { resolvePackageRoot, runWuchaleCli } from "./catalog";
+
+const packageRoot = resolvePackageRoot(import.meta.url);
+process.exit(runWuchaleCli(packageRoot, []));

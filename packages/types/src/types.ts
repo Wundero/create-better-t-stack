@@ -13,6 +13,8 @@ import type {
   APISchema,
   AuthSchema,
   PaymentsSchema,
+  I18nSchema,
+  I18nOptionsSchema,
   WebDeploySchema,
   ServerDeploySchema,
   DirectoryConflictSchema,
@@ -26,6 +28,8 @@ import type {
   ProjectConfigSchema,
   BetterTStackConfigSchema,
   InitResultSchema,
+  ShadcnBaseSchema,
+  ShadcnConfigSchema,
 } from "./schemas";
 
 // Inferred types from Zod schemas
@@ -41,6 +45,8 @@ export type DatabaseSetup = z.infer<typeof DatabaseSetupSchema>;
 export type API = z.infer<typeof APISchema>;
 export type Auth = z.infer<typeof AuthSchema>;
 export type Payments = z.infer<typeof PaymentsSchema>;
+export type I18n = z.infer<typeof I18nSchema>;
+export type I18nOptions = z.infer<typeof I18nOptionsSchema>;
 export type WebDeploy = z.infer<typeof WebDeploySchema>;
 export type ServerDeploy = z.infer<typeof ServerDeploySchema>;
 export type DirectoryConflict = z.infer<typeof DirectoryConflictSchema>;
@@ -48,6 +54,8 @@ export type Template = z.infer<typeof TemplateSchema>;
 export type AddonOptions = z.infer<typeof AddonOptionsSchema>;
 export type DbSetupOptions = z.infer<typeof DbSetupOptionsSchema>;
 export type ProjectName = z.infer<typeof ProjectNameSchema>;
+export type ShadcnBase = z.infer<typeof ShadcnBaseSchema>;
+export type ShadcnConfig = z.infer<typeof ShadcnConfigSchema>;
 
 export type CreateInput = z.infer<typeof CreateInputSchema>;
 export type AddInput = z.infer<typeof AddInputSchema>;

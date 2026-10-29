@@ -1,0 +1,10 @@
+/**
+ * `i18n:compile` — run the wuchale CLI to extract and compile the catalogs
+ * the app runtimes load. Runs before `dev` and `build` through the root scripts.
+ */
+
+import { resolvePackageRoot, runWuchaleCli } from "./catalog";
+
+const packageRoot = resolvePackageRoot(import.meta.url);
+
+process.exit(runWuchaleCli(packageRoot, []));

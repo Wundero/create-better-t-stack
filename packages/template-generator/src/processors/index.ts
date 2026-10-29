@@ -13,6 +13,7 @@ import { processEnvDeps } from "./env-deps";
 import { processEnvVariables } from "./env-vars";
 import { processExamplesDeps } from "./examples-deps";
 import { processFrontendDeps } from "./frontend-deps";
+import { processI18nDeps } from "./i18n-deps";
 import { processInfraDeps } from "./infra-deps";
 import { processNxConfig } from "./nx-generator";
 import { processPaymentsDeps } from "./payments-deps";
@@ -34,6 +35,7 @@ export function processDependencies(vfs: VirtualFileSystem, config: ProjectConfi
   processApiDeps(vfs, config);
   processAuthDeps(vfs, config);
   processPaymentsDeps(vfs, config);
+  processI18nDeps(vfs, config);
   processDeployDeps(vfs, config);
   processAddonsDeps(vfs, config);
   processExamplesDeps(vfs, config);
@@ -52,6 +54,7 @@ export {
   processEnvDeps,
   processExamplesDeps,
   processFrontendDeps,
+  processI18nDeps,
   processInfraDeps,
   processPaymentsDeps,
   processNxConfig,

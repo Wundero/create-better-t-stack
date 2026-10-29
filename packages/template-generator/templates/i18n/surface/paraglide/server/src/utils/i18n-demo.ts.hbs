@@ -1,0 +1,33 @@
+import { createFormatters, getRequestLocale } from "@{{projectName}}/i18n";
+import { m } from "@{{projectName}}/i18n/runtime";
+import type { Locale } from "@{{projectName}}/i18n/runtime";
+
+export interface I18nDemoPayload {
+  readonly locale: Locale;
+  readonly heading: string;
+  readonly interpolation: string;
+  readonly plural: string;
+  readonly currency: string;
+  readonly date: string;
+}
+
+/**
+ * i18n demo for the server surface. The locale comes from the request-scoped
+ * storage the server middleware fills (`getRequestLocale`); date and currency
+ * always come from the shared `createFormatters` bundle.
+ *
+ * Mount it with `app.get("/i18n-demo", (c) => c.json(renderI18nDemo()))` or the
+ * equivalent for the selected backend.
+ */
+export function renderI18nDemo(locale: Locale = getRequestLocale()): I18nDemoPayload {
+  const formatters = createFormatters(locale);
+
+  return {
+    locale,
+    heading: m.i18n_demo_heading({}, { locale }),
+    interpolation: m.i18n_demo_interpolation({ name: "Better T Stack" }, { locale }),
+    plural: m.i18n_demo_plural({ count: 3 }, { locale }),
+    currency: formatters.currency(19.99, "EUR"),
+    date: formatters.date(new Date("2024-05-01T00:00:00Z")),
+  };
+}

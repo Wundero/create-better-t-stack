@@ -1,0 +1,26 @@
+"use client";
+
+import { useEffect, type ReactNode } from "react";
+
+import type { Locale } from "@{{projectName}}/i18n/config";
+import { getLocaleDirection } from "@{{projectName}}/i18n/integrations/shadcn-direction";
+import { DirectionProvider } from "@{{projectName}}/ui/components/direction";
+import { getLocale } from "../paraglide/runtime.js";
+
+/**
+ * shadcn direction derived from the active locale: `getLocaleDirection`
+ * applies `getTextDirection` per locale and keeps an explicit `shadcn.rtl`
+ * winning for the source locale. Paraglide reloads the document on locale
+ * changes, so the direction is re-derived on every load. Also keeps
+ * `<html dir>` in sync.
+ */
+export function LocaleDirectionProvider({ children }: { children: ReactNode }) {
+  const locale = getLocale() as Locale;
+  const direction = getLocaleDirection(locale);
+
+  useEffect(() => {
+    document.documentElement.dir = direction;
+  }, [direction]);
+
+  return <DirectionProvider direction={direction}>{children}</DirectionProvider>;
+}

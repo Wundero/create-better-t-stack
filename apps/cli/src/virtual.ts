@@ -38,6 +38,8 @@ export type {
   API,
   Auth,
   Payments,
+  I18n,
+  I18nOptions,
   WebDeploy,
   ServerDeploy,
   ProjectConfig,
