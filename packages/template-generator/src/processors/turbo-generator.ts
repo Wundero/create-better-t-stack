@@ -12,6 +12,7 @@ import {
 
 import type { VirtualFileSystem } from "../core/virtual-fs";
 import { getDbScriptSupport, type DbScriptSupport } from "../utils/db-scripts";
+import { hasI18n, I18N_SCRIPT_NAMES } from "../utils/i18n";
 
 interface TurboTask {
   dependsOn?: string[];
@@ -64,6 +65,7 @@ export function generateTurboConfig(config: ProjectConfig): TurboConfig {
   if (isSqliteLocal) Object.assign(tasks, getSqliteLocalTask());
   if (hasLocalD1) Object.assign(tasks, getLocalD1Task());
   if (hasAlchemy) Object.assign(tasks, getDeployTasks());
+  if (hasI18n(config)) Object.assign(tasks, getI18nTasks());
 
   return {
     $schema: "https://turbo.build/schema.json",
@@ -237,4 +239,13 @@ function getDeployTasks(): TurboTasks {
       interactive: true,
     },
   };
+}
+
+function getI18nTasks(): TurboTasks {
+  const tasks: TurboTasks = {};
+  for (const script of I18N_SCRIPT_NAMES) {
+    // No declared inputs/outputs across libraries; caching would go stale.
+    tasks[script] = { cache: false };
+  }
+  return tasks;
 }

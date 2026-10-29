@@ -1,0 +1,30 @@
+/**
+ * Electrobun (Bun host) glue: the desktop main process keeps the locale,
+ * negotiates it from `LANG`/`LC_ALL` and exposes the shared formatters.
+ */
+
+import { createFormatters, negotiateLocale, type Locale } from "@{{projectName}}/i18n";
+
+let currentLocale: Locale = negotiateLocale({
+  system: process.env.LC_ALL ?? process.env.LANG,
+});
+
+export function setDesktopLocale(locale: Locale): Locale {
+  currentLocale = locale;
+  return currentLocale;
+}
+
+export function getDesktopLocale(): Locale {
+  return currentLocale;
+}
+
+export function createDesktopDemo() {
+  const formatters = createFormatters(currentLocale);
+  return {
+    locale: currentLocale,
+    heading: "Welcome",
+    greeting: `Hello ${formatters.displayName(currentLocale) ?? currentLocale}!`,
+    price: formatters.currency(1299.5, "EUR"),
+    date: formatters.date(new Date("2026-10-14T12:00:00Z")),
+  };
+}

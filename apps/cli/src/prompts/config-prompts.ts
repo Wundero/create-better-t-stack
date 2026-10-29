@@ -10,6 +10,8 @@ import type {
   DbSetupOptions,
   Examples,
   Frontend,
+  I18n,
+  I18nOptions,
   ORM,
   PackageManager,
   Payments,
@@ -29,6 +31,8 @@ import { getDBSetupChoice, getDbProvisioningChoice } from "./database-setup";
 import { getExamplesChoice } from "./examples";
 import { getFrontendChoice } from "./frontend";
 import { getGitChoice } from "./git";
+import { getI18nLibraryChoice, getI18nOptionsChoice } from "./i18n";
+import { buildI18nPromptContext } from "./i18n-options";
 import { getinstallChoice } from "./install";
 import { navigableGroup } from "./navigable-group";
 import { getORMChoice } from "./orm";
@@ -48,6 +52,8 @@ type PromptGroupResults = {
   auth: Auth;
   payments: Payments;
   addons: Addons[];
+  i18n: I18n;
+  i18nOptions: I18nOptions | undefined;
   examples: Examples[];
   dbSetup: DatabaseSetup;
   git: boolean;
@@ -79,6 +85,8 @@ export async function gatherConfig(
       orm: flags.orm ?? DEFAULT_CONFIG.orm,
       auth: flags.auth ?? DEFAULT_CONFIG.auth,
       payments: flags.payments ?? DEFAULT_CONFIG.payments,
+      i18n: flags.i18n ?? DEFAULT_CONFIG.i18n,
+      i18nOptions: flags.i18nOptions,
       addons: flags.addons ?? [...DEFAULT_CONFIG.addons],
       examples: flags.examples ?? [...DEFAULT_CONFIG.examples],
       git: flags.git ?? DEFAULT_CONFIG.git,
@@ -140,6 +148,15 @@ export async function gatherConfig(
           results.runtime,
           previousAnswer,
         ),
+      i18n: ({ results, previousAnswer }) =>
+        getI18nLibraryChoice(flags.i18n, buildI18nPromptContext(flags, results), previousAnswer),
+      i18nOptions: ({ results, previousAnswer }) =>
+        getI18nOptionsChoice(
+          results.i18n ?? flags.i18n ?? "none",
+          flags.i18nOptions,
+          buildI18nPromptContext(flags, results),
+          previousAnswer,
+        ),
       examples: ({ results, previousAnswer }) =>
         getExamplesChoice(
           flags.examples,
@@ -184,11 +201,16 @@ export async function gatherConfig(
       install: ({ previousAnswer }) => getinstallChoice(flags.install, previousAnswer),
     },
     {
-      preselected: options.skipCompatibilityChecks ? flags : undefined,
+      preselected: options.skipCompatibilityChecks
+        ? { ...flags, i18n: flags.i18n ?? "none" }
+        : undefined,
       sections: [
         { label: "App", prompts: ["frontend", "backend", "runtime", "api"] },
         { label: "Data", prompts: ["database", "orm", "dbSetup"] },
-        { label: "Product", prompts: ["auth", "payments", "addons", "examples"] },
+        {
+          label: "Product",
+          prompts: ["auth", "payments", "addons", "i18n", "i18nOptions", "examples"],
+        },
         {
           label: "Ship",
           prompts: ["webDeploy", "serverDeploy", "dbSetupMode", "git", "packageManager", "install"],
@@ -213,6 +235,8 @@ export async function gatherConfig(
     orm: result.orm,
     auth: result.auth,
     payments: result.payments,
+    i18n: result.i18n,
+    i18nOptions: result.i18nOptions,
     addons: result.addons,
     examples: result.examples,
     git: result.git,

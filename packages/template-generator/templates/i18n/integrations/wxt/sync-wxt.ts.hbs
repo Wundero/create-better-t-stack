@@ -1,0 +1,113 @@
+/**
+ * `i18n:sync-wxt` — writes `apps/extension/locales/<locale>.yml` from the
+ * reserved `extension.*` section of the normalized catalog
+ * (`packages/i18n/dist/catalog.json`, produced by `i18n:export`).
+ *
+ * `@wxt-dev/i18n` reads these YAML files for the runtime API and for the
+ * manifest `name`/`description` localization. The package's `i18n:sync-wxt`
+ * script runs `i18n:export` first, so the catalog is always fresh.
+ */
+
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { dirname, join, resolve } from "node:path";
+
+interface CatalogMessage {
+  readonly source: string;
+  readonly translations?: Readonly<Record<string, string>>;
+}
+
+interface Catalog {
+  readonly sourceLocale: string;
+  readonly locales: readonly string[];
+  readonly messages: Readonly<Record<string, CatalogMessage>>;
+}
+
+type YamlValue = string | { readonly [key: string]: YamlValue };
+
+const EXTENSION_PREFIX = "extension.";
+const packageRoot = resolve(import.meta.dir, "..");
+const catalogPath = join(packageRoot, "dist", "catalog.json");
+const localeDir = resolve(packageRoot, "../../apps/extension/locales");
+
+function readCatalog(): Catalog | undefined {
+  if (!existsSync(catalogPath)) {
+    console.warn(`i18n:sync-wxt: ${catalogPath} is missing. Run \`i18n:export\` first.`);
+    return undefined;
+  }
+  return JSON.parse(readFileSync(catalogPath, "utf8")) as Catalog;
+}
+
+/** `extension.popup.title` → `{ popup: { title: ... } }`. */
+function assignNested(root: Record<string, YamlValue>, key: string, value: string): void {
+  const segments = key.split(".");
+  let cursor: Record<string, YamlValue> = root;
+  for (const segment of segments.slice(0, -1)) {
+    const existing = cursor[segment];
+    if (typeof existing === "object" && existing !== null) {
+      cursor = existing as Record<string, YamlValue>;
+    } else {
+      const next: Record<string, YamlValue> = {};
+      cursor[segment] = next;
+      cursor = next;
+    }
+  }
+  const last = segments[segments.length - 1];
+  if (last !== undefined) cursor[last] = value;
+}
+
+function quoteKey(key: string): string {
+  return /^[A-Za-z0-9_.-]+$/.test(key) ? key : JSON.stringify(key);
+}
+
+function toYaml(value: YamlValue, indent = 0): string {
+  const padding = "  ".repeat(indent);
+  if (typeof value === "string") return `${padding}${JSON.stringify(value)}\n`;
+  return Object.entries(value)
+    .map(([key, child]) => {
+      if (typeof child === "string") return `${padding}${quoteKey(key)}: ${JSON.stringify(child)}\n`;
+      return `${padding}${quoteKey(key)}:\n${toYaml(child, indent + 1)}`;
+    })
+    .join("");
+}
+
+function extensionMessages(catalog: Catalog, locale: string): Record<string, YamlValue> {
+  const root: Record<string, YamlValue> = {};
+  for (const [id, message] of Object.entries(catalog.messages)) {
+    if (!id.startsWith(EXTENSION_PREFIX)) continue;
+    const value = message.translations?.[locale] ?? message.source;
+    assignNested(root, id.slice(EXTENSION_PREFIX.length), value);
+  }
+  return root;
+}
+
+function main(): void {
+  const catalog = readCatalog();
+  if (catalog === undefined) {
+    process.exitCode = 1;
+    return;
+  }
+
+  const reserved = Object.keys(catalog.messages).filter((id) => id.startsWith(EXTENSION_PREFIX));
+  if (reserved.length === 0) {
+    console.warn(
+      `i18n:sync-wxt: the catalog has no \`${EXTENSION_PREFIX}*\` messages; nothing to sync.`,
+    );
+    return;
+  }
+
+  if (!existsSync(dirname(localeDir))) {
+    console.warn(`i18n:sync-wxt: ${localeDir} does not exist; skipping the WXT app.`);
+    return;
+  }
+
+  mkdirSync(localeDir, { recursive: true });
+  for (const locale of catalog.locales) {
+    const messages = extensionMessages(catalog, locale);
+    writeFileSync(join(localeDir, `${locale}.yml`), toYaml(messages), "utf8");
+  }
+  console.log(
+    `i18n:sync-wxt: wrote ${catalog.locales.length} locale file(s) to apps/extension/locales.`,
+  );
+}
+
+main();

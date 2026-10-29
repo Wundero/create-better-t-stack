@@ -1,0 +1,12 @@
+import { getLocales } from "expo-localization";
+
+/**
+ * Device locale from `expo-localization`, fed into the shared negotiation
+ * contract as the `system` source. Hermes' `Intl` is incomplete, so the
+ * polyfills in `polyfills/intl.ts` back both this call and the shared
+ * formatters.
+ */
+export function getDeviceLocaleTag(): string | undefined {
+  const [primary] = getLocales();
+  return primary?.languageTag ?? undefined;
+}
