@@ -1,5 +1,6 @@
 import type { ProjectConfig } from "@better-t-stack/types";
 
+import { activeAddons, addonBindings, addonEnv } from "./addons";
 import type { AlchemyDeploymentPlan, DeployedWebFramework } from "./plan";
 
 function hasExample(
@@ -7,6 +8,11 @@ function hasExample(
   example: ProjectConfig["examples"][number],
 ): boolean {
   return plan.config.examples.includes(example);
+}
+
+function addonRuntimeEntries(plan: AlchemyDeploymentPlan): string[] {
+  if (activeAddons(plan).length === 0) return [];
+  return [...addonBindings(plan), ...addonEnv(plan)];
 }
 
 export function databaseBindingEntries(plan: AlchemyDeploymentPlan): string[] {
@@ -27,7 +33,7 @@ export function databaseBindingEntries(plan: AlchemyDeploymentPlan): string[] {
 
 function commonRuntimeEntries(plan: AlchemyDeploymentPlan, includeCorsOrigin = true): string[] {
   const { auth, dbSetup, payments } = plan.config;
-  const entries = [...databaseBindingEntries(plan)];
+  const entries = [...databaseBindingEntries(plan), ...addonRuntimeEntries(plan)];
 
   if (includeCorsOrigin) {
     entries.push('CORS_ORIGIN: Config.String("CORS_ORIGIN"),');
@@ -79,6 +85,7 @@ export function cloudflareServerEnvEntries(plan: AlchemyDeploymentPlan): string[
 export function prismaServerEnvEntries(plan: AlchemyDeploymentPlan): string[] {
   const { api, auth, backend, dbSetup, payments } = plan.config;
   const entries = ["...resolvedDatabaseEnv,", 'CORS_ORIGIN: Config.String("CORS_ORIGIN"),'];
+  entries.push(...addonRuntimeEntries(plan));
 
   if (auth === "better-auth") {
     entries.push(
@@ -260,6 +267,7 @@ export function prismaWebEnvEntries(
     }
   }
 
+  entries.push(...addonRuntimeEntries(plan));
   entries.push(...prismaPublicEnvEntries(plan, framework));
   return entries;
 }
@@ -289,6 +297,7 @@ function awsRuntimeEntries(plan: AlchemyDeploymentPlan, includeCorsOrigin: boole
   if (dbSetup === "turso") {
     entries.push("DATABASE_AUTH_TOKEN: process.env.DATABASE_AUTH_TOKEN!,");
   }
+  entries.push(...addonRuntimeEntries(plan));
 
   return entries;
 }
