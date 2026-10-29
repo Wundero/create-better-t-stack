@@ -49,6 +49,30 @@ function getDeploymentDisplay(deployment: ServerDeploy): DeploymentDisplay {
       hint: "Deploy to AWS with ECS Fargate or Lambda using Alchemy",
     };
   }
+  if (deployment === "hetzner") {
+    return {
+      label: "Hetzner",
+      hint: "Deploy to a Hetzner Cloud server using Alchemy",
+    };
+  }
+  if (deployment === "fly") {
+    return {
+      label: "Fly.io",
+      hint: "Deploy to Fly.io Machines using Alchemy",
+    };
+  }
+  if (deployment === "railway") {
+    return {
+      label: "Railway",
+      hint: "Deploy to Railway services using Alchemy",
+    };
+  }
+  if (deployment === "neon") {
+    return {
+      label: "Neon",
+      hint: "Deploy Neon Functions next to your database",
+    };
+  }
   return {
     label: deployment,
     hint: `Add ${deployment} deployment`,
@@ -81,7 +105,9 @@ export async function getServerDeploymentChoice(
     return "none";
   }
 
-  const options: DeploymentOption[] = (["prisma", "docker", "vercel", "aws", "none"] as const)
+  const options: DeploymentOption[] = (
+    ["prisma", "docker", "vercel", "aws", "hetzner", "fly", "railway", "neon", "none"] as const
+  )
     .filter((deploy) => supportsServerDeployRuntime(deploy, runtime))
     .map((deploy) => {
       const { label, hint } =
@@ -137,7 +163,16 @@ export async function getServerDeploymentToAdd(
   }
 
   if (runtime === "bun" || runtime === "node") {
-    for (const deploy of ["prisma", "docker", "vercel", "aws"] as const) {
+    for (const deploy of [
+      "prisma",
+      "docker",
+      "vercel",
+      "aws",
+      "hetzner",
+      "fly",
+      "railway",
+      "neon",
+    ] as const) {
       if (!supportsServerDeployRuntime(deploy, runtime)) continue;
       const { label, hint } = getDeploymentDisplay(deploy);
       options.push({

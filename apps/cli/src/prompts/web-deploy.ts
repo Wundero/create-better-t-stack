@@ -64,6 +64,12 @@ function getDeploymentDisplay(deployment: WebDeploy): DeploymentDisplay {
       hint: "Deploy to AWS with ECS Fargate or Lambda using Alchemy",
     };
   }
+  if (deployment === "hetzner") {
+    return {
+      label: "Hetzner",
+      hint: "Deploy to a Hetzner Cloud server using Alchemy",
+    };
+  }
   return {
     label: deployment,
     hint: `Add ${deployment} deployment`,
@@ -102,6 +108,7 @@ export async function getDeploymentChoice(
     ...(supportsCloudflare ? (["cloudflare"] as const) : []),
     ...(supportsPrismaCompute ? (["prisma"] as const) : []),
     ...(supportsAwsWebDeploy(frontend) ? (["aws"] as const) : []),
+    "hetzner",
     "docker",
     "vercel",
     "none",
@@ -142,6 +149,7 @@ export async function getDeploymentToAdd(frontend: Frontend[], existingDeploymen
     "cloudflare",
     ...(supportsPrismaCompute ? (["prisma"] as const) : []),
     ...(supportsAwsWebDeploy(frontend) ? (["aws"] as const) : []),
+    "hetzner",
     "docker",
     "vercel",
   ] as const;

@@ -116,6 +116,7 @@ const stackCategoryLabels = {
   packageManager: "Package manager",
   payments: "Payments",
   runtime: "Runtime",
+  serverCompute: "Server compute",
   serverDeploy: "Server deployment",
   webDeploy: "Web deployment",
   webFrontend: "Web frontend",
