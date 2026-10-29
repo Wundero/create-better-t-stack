@@ -19,11 +19,13 @@ import {
   bootAndValidateSolidRuntime,
   bootAndValidateStartAuthRuntime,
   bootAndValidateStartCsrf,
+  validateBiomeConfig,
   validatePwaBuildArtifacts,
   validateSolidBuildArtifacts,
   writeNuxtSsrAuthProbe,
   writeOrpcInferenceChecks,
   writeStartCsrfProbe,
+  writeSvelteHookTypeChecks,
   writeSyntheticBuildConfig,
 } from "./generated-builds/probes";
 import { getSelectedBuildSamples } from "./generated-builds/samples";
@@ -55,6 +57,7 @@ describe.skipIf(!shouldRunBuildSamples)("Generated project install/build samples
 
           const install = getPackageManagerCommand(sample.packageManager, "install");
           await runCommand(sample.name, projectDir, install.command, install.args);
+          await validateBiomeConfig(sample, projectDir);
           if (await fs.pathExists(path.join(projectDir, "packages/infra/alchemy.run.ts"))) {
             await runCommand(
               sample.name,
@@ -84,11 +87,13 @@ describe.skipIf(!shouldRunBuildSamples)("Generated project install/build samples
             ? undefined
             : await writeOrpcInferenceChecks(sample, projectDir);
           await writeNuxtSsrAuthProbe(sample, projectDir);
+          const restoreSvelteHookTypes = await writeSvelteHookTypeChecks(sample, projectDir);
           try {
             await runWorkspaceTypeChecks(sample.name, projectDir, sample.packageManager);
           } finally {
             // Build and boot the scaffold without the compile-only custom auth field.
             await restoreTypeFixtures?.();
+            await restoreSvelteHookTypes?.();
           }
           const build = getPackageManagerCommand(sample.packageManager, "build");
           await runCommand(sample.name, projectDir, build.command, build.args);
